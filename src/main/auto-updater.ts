@@ -15,6 +15,7 @@ export function initAutoUpdater(): void {
       repo: 'lklyne/telescope',
     },
     updateInterval: '10 minutes',
+    notifyUser: false,
   })
 
   autoUpdater.on('update-downloaded', (_event, _releaseNotes, releaseName) => {

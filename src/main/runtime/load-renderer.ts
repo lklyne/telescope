@@ -10,7 +10,7 @@ export function loadRenderer(view: { webContents: WebContents }, name: string): 
     view.webContents.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}/src/renderer/${name}/index.html`)
   } else {
     view.webContents.loadFile(
-      join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/${name}/index.html`),
+      join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/src/renderer/${name}/index.html`),
     )
   }
 }

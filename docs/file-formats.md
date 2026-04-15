@@ -1,0 +1,174 @@
+# File Formats
+
+Telescope uses open, human-readable, local-first file formats. All data lives
+on the user's machine as plain files. No proprietary formats, no server
+dependency.
+
+## Spaces (vault model)
+
+A **space** is a folder on disk containing .canvas files and assets. Similar
+to an Obsidian vault. The file system structure is the organizational model:
+
+```
+my-project/                      # a space
+  research.canvas                # a canvas
+  homepage-redesign.canvas
+  breakpoint-review.canvas
+  assets/                        # referenced files
+    screenshot.png
+```
+
+Canvases are auto-saved. The location is currently:
+`~/.config/Telescope/workspaces/default/`
+
+## .canvas (JSON Canvas v1.0)
+
+The primary data format. Follows the JSON Canvas specification:
+https://jsoncanvas.org/
+https://github.com/obsidianmd/jsoncanvas/blob/main/spec/1.0.md
+
+A .canvas file is JSON with two required arrays:
+
+```json
+{
+  "nodes": [...],
+  "edges": [...]
+}
+```
+
+### Nodes
+
+Every item on the canvas is a node with a position and size:
+
+```json
+{
+  "id": "abc123",
+  "type": "link",
+  "x": 100,
+  "y": 200,
+  "width": 1280,
+  "height": 800,
+  "url": "https://example.com"
+}
+```
+
+Node types (per JSON Canvas spec):
+
+| type | fields | description |
+|------|--------|-------------|
+| `text` | `text` | Markdown/plain text note |
+| `link` | `url` | Web page (rendered as live webview) |
+| `file` | `file`, `subpath?` | Reference to a local file |
+| `group` | `label?`, `background?` | Visual container for other nodes |
+
+### Telescope extensions
+
+The JSON Canvas spec is designed to be extensible — unknown fields are ignored
+by other tools. Telescope adds:
+
+**On link nodes:**
+- `presetIndex` — viewport preset (device catalog index)
+- `linked` — whether this frame is linked to others for sync
+- `label` — display name
+- `parentGroupId` — group membership
+- `metadata` — open-ended key-value store
+
+**On group nodes:**
+- `groupKind` — type of group (e.g., breakpoint set)
+- `layoutMode` — auto-layout algorithm
+- `entityIds` / `frameIds` — member references
+- `managedLayout` — whether the group controls child positions
+
+**On all nodes:**
+- `color` — preset color "1"-"6" or hex "#RRGGBB"
+
+### Edges
+
+Connections between two nodes:
+
+```json
+{
+  "id": "edge1",
+  "fromNode": "abc123",
+  "toNode": "def456",
+  "fromSide": "right",
+  "toSide": "left",
+  "color": "3",
+  "label": "navigates to"
+}
+```
+
+Telescope extensions: `edgeKind`, `edgeMetadata`.
+
+### App state (extension)
+
+Telescope stores viewport and UI state in an `appState` field:
+
+```json
+{
+  "nodes": [...],
+  "edges": [...],
+  "appState": {
+    "zoom": 0.5,
+    "pan": { "x": -200, "y": -100 },
+    "selectedEntityIds": ["abc123"],
+    "leftSidebarOpen": true,
+    "browserTabMode": "canvas"
+  }
+}
+```
+
+Other tools ignore this field per the spec's extensibility model.
+
+### Annotations (extension)
+
+Freehand drawings/annotations stored in an `annotations` array:
+
+```json
+{
+  "nodes": [...],
+  "edges": [...],
+  "annotations": [
+    {
+      "id": "ann1",
+      "canvasX": 100,
+      "canvasY": 200,
+      "width": 300,
+      "height": 150,
+      "strokes": [...],
+      "color": "#ff0000"
+    }
+  ]
+}
+```
+
+## workspace-meta.json
+
+Metadata about the canvas tabs within a space:
+
+```json
+{
+  "activeTabId": "tab_1",
+  "viewMode": "canvas",
+  "tabs": [
+    {
+      "id": "tab_1",
+      "name": "Research",
+      "updatedAt": "2025-01-15T10:30:00Z",
+      "expanded": true
+    }
+  ]
+}
+```
+
+## Type definitions
+
+See `src/shared/json-canvas-types.ts` for the full TypeScript types.
+See `src/shared/types.ts` for internal entity types.
+
+## Compatibility
+
+.canvas files created by Telescope should open in Obsidian and other tools
+that support JSON Canvas v1.0. Telescope-specific extensions are ignored by
+those tools. Conversely, .canvas files from other tools should open in
+Telescope (link nodes render as live webviews, text nodes as notes, etc.).

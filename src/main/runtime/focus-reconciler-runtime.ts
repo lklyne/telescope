@@ -1,0 +1,84 @@
+/**
+ * Runtime binding for FocusReconciler. Resolves a FocusTarget to the
+ * actual WebContents and calls focus() at most once per layout pass.
+ * Kept separate from focus-reconciler.ts so the pure expectedFocus()
+ * function stays unit-testable without Electron.
+ */
+
+import type { WebContents } from 'electron'
+import type { FocusTarget } from '../../shared/interaction-types'
+import { expectedFocus, focusKey, type FocusState } from './focus-reconciler'
+import { aboveView, bgView, toolbarView, leftSidebarView, win } from './view-refs'
+import { pages, interactionState, pendingFocus, setPendingFocus } from './runtime-context'
+import { selectedPageIndex, workspaceViewMode } from '../ui-state'
+
+function interactionModeKey(): FocusState['interactionMode'] {
+  switch (interactionState.kind) {
+    case 'idle': return 'idle'
+    case 'panning-canvas': return 'panning'
+    case 'marquee-select': return 'marquee'
+    case 'dragging-entities': return 'dragging-entities'
+    case 'resizing-entity': return 'resizing-entity'
+    case 'dragging-edge': return 'dragging-edge'
+    case 'editing-text': return 'editing-text'
+  }
+}
+
+function currentFocusState(): FocusState {
+  const idx = selectedPageIndex(pages.map((p) => p.id))
+  const selectedPage = idx != null ? pages[idx] : null
+  return {
+    interactionMode: interactionModeKey(),
+    editingTextEntityId: interactionState.kind === 'editing-text' ? interactionState.entityId : null,
+    selectedPageId: selectedPage?.id ?? null,
+    workspaceViewMode: workspaceViewMode(),
+    pendingFocus,
+  }
+}
+
+function resolve(target: FocusTarget): WebContents | null {
+  switch (target.kind) {
+    case 'bgView': return bgView?.webContents ?? null
+    case 'aboveView': return aboveView?.webContents ?? null
+    case 'toolbar': return toolbarView?.webContents ?? null
+    case 'sidebar': return leftSidebarView?.webContents ?? null
+    case 'page': {
+      const page = pages.find((p) => p.id === target.id)
+      return page?.pageView.webContents ?? null
+    }
+  }
+}
+
+function currentlyFocusedKey(): string | null {
+  if (bgView?.webContents.isFocused()) return 'bgView'
+  if (aboveView?.webContents.isFocused()) return 'aboveView'
+  if (toolbarView?.webContents.isFocused()) return 'toolbar'
+  if (leftSidebarView?.webContents.isFocused()) return 'sidebar'
+  for (const p of pages) {
+    if (p.pageView.webContents.isFocused()) return `page:${p.id}`
+  }
+  return null
+}
+
+/**
+ * Compare actual focus to expected. Call focus() at most once.
+ * Call this at the end of layoutAllViews(), after bounds/visibility
+ * mutations — otherwise focus may land on a 0-size view.
+ *
+ * Runs unconditionally on every layout pass (Phase 5d-v2: D4). All six
+ * former imperative focus() callers set `pendingFocus` + request a
+ * layout; this reconciler is the single site that actually calls
+ * webContents.focus() in the main process.
+ */
+export function reconcileFocus(): void {
+  if (!win || win.isDestroyed()) return
+  if (!win.isFocused()) return
+
+  const state = currentFocusState()
+  const expected = expectedFocus(state)
+  if (focusKey(expected) !== currentlyFocusedKey()) {
+    const target = resolve(expected)
+    if (target && !target.isDestroyed()) target.focus()
+  }
+  if (pendingFocus) setPendingFocus(null)
+}

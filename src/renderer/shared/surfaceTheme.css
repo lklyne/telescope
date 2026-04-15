@@ -1,0 +1,39 @@
+:root {
+  --surface-panel: var(--color-stone-100);
+  --surface-panel-border: var(--color-stone-200);
+  --surface-toolbar: var(--color-stone-300);
+  --surface-toolbar-foreground: var(--color-stone-800);
+  --surface-toolbar-border: var(--color-stone-400);
+  --surface-chrome-border: color-mix(in srgb, var(--surface-panel-border) 55%, var(--surface-toolbar-border) 45%);
+  --surface-interactive: color-mix(in srgb, var(--color-stone-200) 80%, transparent);
+  --surface-interactive-hover: color-mix(in srgb, var(--surface-interactive) 50%, transparent);
+  --surface-canvas: color-mix(in srgb, var(--color-stone-200) 60%, transparent);
+  --surface-canvas-grid: var(--color-stone-300);
+  --surface-popover: var(--color-stone-200);
+  --surface-popover-subtle: var(--color-stone-100);
+  --surface-popover-border: var(--color-stone-200);
+  --surface-input: var(--color-stone-50);
+  --surface-input-border: var(--color-stone-300);
+  --surface-device: var(--color-stone-300);
+  --surface-device-border: var(--color-stone-400);
+}
+
+.dark {
+  --surface-panel: var(--color-stone-800);
+  --surface-panel-border: var(--color-stone-700);
+  --surface-toolbar: var(--color-stone-700);
+  --surface-toolbar-foreground: var(--color-stone-200);
+  --surface-toolbar-border: var(--color-stone-600);
+  --surface-chrome-border: color-mix(in srgb, var(--surface-panel-border) 55%, var(--surface-toolbar-border) 45%);
+  --surface-interactive: color-mix(in srgb, var(--color-stone-700) 50%, transparent);
+  --surface-interactive-hover: color-mix(in srgb, var(--surface-interactive) 50%, transparent);
+  --surface-canvas: color-mix(in srgb, var(--color-stone-800) 60%, transparent);
+  --surface-canvas-grid: color-mix(in srgb, var(--color-stone-400) 32%, transparent);
+  --surface-popover: var(--color-stone-800);
+  --surface-popover-subtle: var(--color-stone-900);
+  --surface-popover-border: var(--color-stone-600);
+  --surface-input: color-mix(in srgb, var(--color-stone-900) 90%, transparent);
+  --surface-input-border: color-mix(in srgb, var(--color-stone-700) 80%, transparent);
+  --surface-device: var(--color-stone-800);
+  --surface-device-border: var(--color-stone-600);
+}

@@ -1,0 +1,390 @@
+import { spawn } from 'child_process'
+import { readFile, unlink } from 'fs/promises'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+import { callApp, sessionId, getClientName } from './app-client'
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+export const COMMAND_LABELS: Record<string, string> = {
+  snapshot: 'inspect_page',
+  click: 'click_target',
+  fill: 'type_text',
+  type: 'type_text',
+  select: 'select_option',
+  wait: 'wait_page',
+  scroll: 'scroll_page',
+  get: 'read_content',
+  'query-elements': 'find_target',
+  screenshot: 'take_screenshot',
+}
+
+const VALUE_FLAGS = new Set([
+  '--cdp', '--session', '--viewport', '--timeout', '--selector',
+  '--format', '--depth', '--wait', '--attr',
+  '--baseline', '--screenshot-format', '--screenshot-quality', '--screenshot-dir',
+  '--max-output', '--download-path', '--executable-path', '--extension',
+  '--headers', '--body', '--filter', '--profile', '--session-name',
+  '--device', '--color-scheme', '--idle-timeout',
+  '-s', '-d', '-p',
+])
+
+export const MUTATION_VERBS = new Set(['click', 'fill', 'type', 'select'])
+
+export const GLOBAL_AB_FLAGS = ['--content-boundaries', '--max-output', '100000']
+
+// ---------------------------------------------------------------------------
+// Parsing helpers
+// ---------------------------------------------------------------------------
+
+/** Split a command string into argv tokens, respecting quoted strings. */
+export function splitShellArgs(cmd: string): string[] {
+  const tokens: string[] = []
+  let current = ''
+  let inDouble = false
+  let inSingle = false
+  let escaped = false
+  for (const ch of cmd.trim()) {
+    if (escaped) { current += ch; escaped = false; continue }
+    if (ch === '\\' && !inSingle) { escaped = true; continue }
+    if (ch === '"' && !inSingle) { inDouble = !inDouble; continue }
+    if (ch === "'" && !inDouble) { inSingle = !inSingle; continue }
+    if (/\s/.test(ch) && !inDouble && !inSingle) {
+      if (current) { tokens.push(current); current = '' }
+      continue
+    }
+    current += ch
+  }
+  if (current) tokens.push(current)
+  return tokens
+}
+
+export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | null; ref: string | null } {
+  const argv = splitShellArgs(cmd)
+  let verb: string | null = null
+  let ref: string | null = null
+  let i = 0
+  while (i < argv.length) {
+    const arg = argv[i]
+    if (VALUE_FLAGS.has(arg)) { i += 2; continue }
+    if (arg.startsWith('-')) { i++; continue }
+    if (!verb) { verb = arg; i++; continue }
+    if (!ref && /^@e\d+$/.test(arg)) ref = arg
+    i++
+  }
+  return { argv, verb, ref }
+}
+
+// ---------------------------------------------------------------------------
+// CDP cache
+// ---------------------------------------------------------------------------
+
+const cdpUrlCache = new Map<string, { url: string; expires: number }>()
+const CDP_CACHE_TTL_MS = 60_000
+
+async function resolveCdpUrl(frameId: string): Promise<string> {
+  const cached = cdpUrlCache.get(frameId)
+  if (cached && cached.expires > Date.now()) return cached.url
+  const result = await callApp<{ webSocketDebuggerUrl: string }>(
+    `/frames/${frameId}/cdp-target`,
+  )
+  cdpUrlCache.set(frameId, { url: result.webSocketDebuggerUrl, expires: Date.now() + CDP_CACHE_TTL_MS })
+  return result.webSocketDebuggerUrl
+}
+
+export function invalidateCdpCache(frameIds: string[]): void {
+  for (const id of frameIds) cdpUrlCache.delete(id)
+}
+
+// ---------------------------------------------------------------------------
+// Frame lock
+// ---------------------------------------------------------------------------
+
+const frameLocks = new Map<string, Promise<void>>()
+
+function withFrameLock<T>(frameId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = frameLocks.get(frameId) ?? Promise.resolve()
+  const next = prev.then(fn, fn)
+  // Store the void chain so the next caller waits for this one
+  frameLocks.set(frameId, next.then(() => {}, () => {}))
+  return next
+}
+
+// ---------------------------------------------------------------------------
+// Agent-browser binary resolution
+// ---------------------------------------------------------------------------
+
+export function resolveAgentBrowserPath(): string {
+  if (process.env.AGENT_BROWSER_PATH) return process.env.AGENT_BROWSER_PATH
+  const pathDirs = (process.env.PATH ?? '').split(':')
+  for (const dir of pathDirs) {
+    try {
+      const candidate = join(dir, 'agent-browser')
+      readFileSync(candidate)
+      return candidate
+    } catch { continue }
+  }
+  return 'agent-browser'
+}
+
+// ---------------------------------------------------------------------------
+// Process spawning
+// ---------------------------------------------------------------------------
+
+export function spawnAsync(
+  cmd: string,
+  args: string[],
+  opts: { timeout: number; input?: string; maxBuffer?: number },
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, NO_COLOR: '1' },
+    })
+    const maxBuf = opts.maxBuffer ?? 10 * 1024 * 1024
+    const stdoutChunks: Buffer[] = []
+    const stderrChunks: Buffer[] = []
+    let stdoutLen = 0
+    let stderrLen = 0
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdoutLen += chunk.length
+      if (stdoutLen <= maxBuf) stdoutChunks.push(chunk)
+    })
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderrLen += chunk.length
+      if (stderrLen <= maxBuf) stderrChunks.push(chunk)
+    })
+
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL')
+      reject(new Error(`Command timed out after ${opts.timeout}ms`))
+    }, opts.timeout)
+
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      const stdout = Buffer.concat(stdoutChunks).toString('utf-8')
+      const stderr = Buffer.concat(stderrChunks).toString('utf-8')
+      if (code !== 0) {
+        reject(new Error(stderr || stdout || `Process exited with code ${code}`))
+      } else {
+        resolve({ stdout, stderr })
+      }
+    })
+    child.on('error', (err) => {
+      clearTimeout(timer)
+      reject(err)
+    })
+
+    if (opts.input != null) {
+      child.stdin.write(opts.input)
+      child.stdin.end()
+    } else {
+      child.stdin.end()
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Browse tool handler
+// ---------------------------------------------------------------------------
+
+export async function handleBrowse(args: Record<string, unknown>): Promise<{
+  content: Array<
+    | { type: 'text'; text: string }
+    | { type: 'image'; data: string; mimeType: string }
+  >
+}> {
+  // Resolve frame — default to selected frame
+  let frameId = args.frame_id as string | undefined
+  if (!frameId) {
+    const sel = await callApp<{ selectedEntityId?: string; selectedEntityIds?: string[] }>('/selection')
+    frameId = sel.selectedEntityId ?? sel.selectedEntityIds?.[0]
+    if (!frameId) throw new Error('No frame specified and nothing is selected.')
+  }
+
+  const rawCommand = (args.command as string).trim()
+  const isChained = rawCommand.includes(' && ')
+
+  // Parse first command for presence animation
+  const firstCmd = isChained ? rawCommand.split(/\s*&&\s*/)[0] : rawCommand
+  const { verb, ref } = parseCommandArgs(firstCmd)
+  const labelKey = verb ? COMMAND_LABELS[verb] ?? null : null
+
+  const clientName = getClientName()
+
+  return withFrameLock(frameId, async () => {
+    const cdpUrl = await resolveCdpUrl(frameId)
+    const abPath = resolveAgentBrowserPath()
+
+    // Fire presence intent (non-blocking)
+    if (labelKey) {
+      callApp('/session/presence/intent', {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionId,
+          clientName,
+          command: verb,
+          labelKey,
+          labelHint: verb === 'fill' || verb === 'type' ? 'editing control' : null,
+          targetRef: ref,
+          targetRefSource: ref ? 'agent-browser' : null,
+        }),
+      }).catch(() => {})
+    }
+
+    // Previously, each browse command sent eventType:'done' in a finally block,
+    // which immediately killed the cursor after every CLI call. This made the
+    // cursor flash briefly then disappear between calls while the LLM thinks.
+    // Now we let the server-side 10s expiry handle cleanup instead.
+    // If the cursor still feels too ephemeral, the next step is explicit
+    // lifecycle commands (like the old POC's `presence start` / `presence done`)
+    // that bracket a high-level task so the cursor persists with a 5-min TTL.
+
+    try {
+
+    if (isChained) {
+      // ---- Chained commands: use batch --json --bail ----
+      const parts = rawCommand.split(/\s*&&\s*/)
+      // Auto-scroll refs into view before mutations
+      const expanded: string[][] = []
+      for (const p of parts) {
+        const parsed = parseCommandArgs(p)
+        if (parsed.verb && MUTATION_VERBS.has(parsed.verb) && parsed.ref) {
+          expanded.push(['scrollintoview', parsed.ref])
+        }
+        expanded.push(splitShellArgs(p))
+      }
+      const batchInput = JSON.stringify(expanded)
+      const hasWait = parts.some(p => parseCommandArgs(p).verb === 'wait')
+      const timeoutMs = hasWait ? 60_000 : 30_000
+
+      const { stdout } = await spawnAsync(
+        abPath,
+        [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, 'batch', '--json', '--bail'],
+        { timeout: timeoutMs, input: batchInput },
+      )
+
+      // Parse batch JSON results
+      const results = JSON.parse(stdout) as Array<{
+        command: string[]
+        success: boolean
+        error: string | null
+        result: Record<string, unknown>
+      }>
+
+      const contentBlocks: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = []
+
+      for (const entry of results) {
+        if (!entry.success) {
+          contentBlocks.push({ type: 'text', text: `> ${entry.command.join(' ')}\nError: ${entry.error}` })
+          continue
+        }
+
+        const entryVerb = entry.command[0]
+
+        // Screenshot: return as image content
+        if (entryVerb === 'screenshot' && entry.result?.path) {
+          try {
+            const imgPath = entry.result.path as string
+            const data = await readFile(imgPath)
+            await unlink(imgPath).catch(() => {})
+            const isJpeg = imgPath.endsWith('.jpg') || imgPath.endsWith('.jpeg')
+            contentBlocks.push({
+              type: 'image',
+              data: data.toString('base64'),
+              mimeType: isJpeg ? 'image/jpeg' : 'image/png',
+            })
+          } catch {
+            contentBlocks.push({ type: 'text', text: `> ${entry.command.join(' ')}\n(screenshot file read failed)` })
+          }
+          continue
+        }
+
+        // Snapshot: use the snapshot text from structured result
+        if (entryVerb === 'snapshot' && typeof entry.result?.snapshot === 'string') {
+          contentBlocks.push({ type: 'text', text: entry.result.snapshot as string })
+          continue
+        }
+
+        // Other structured results: format key-value pairs
+        const resultStr = Object.entries(entry.result ?? {})
+          .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+          .join('\n')
+        if (resultStr) {
+          contentBlocks.push({ type: 'text', text: resultStr })
+        }
+      }
+
+      if (contentBlocks.length === 0) {
+        contentBlocks.push({ type: 'text', text: '(no output)' })
+      }
+      return { content: contentBlocks }
+    }
+
+    // ---- Single command ----
+    const { argv } = parseCommandArgs(rawCommand)
+    const timeoutMs = verb === 'wait' ? 60_000 : 30_000
+
+    // Auto-scroll ref into view before mutations
+    if (verb && MUTATION_VERBS.has(verb) && ref) {
+      await spawnAsync(
+        abPath,
+        [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, 'scrollintoview', ref],
+        { timeout: 5_000 },
+      ).catch(() => {}) // Best-effort — don't fail the click if scroll fails
+    }
+
+    // Use --json for screenshots to get structured path output
+    const useJson = verb === 'screenshot'
+    const extraFlags = useJson ? ['--json'] : []
+
+    const { stdout, stderr } = await spawnAsync(
+      abPath,
+      [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, ...extraFlags, ...argv],
+      { timeout: timeoutMs },
+    )
+
+    // Screenshot: return image content
+    if (verb === 'screenshot') {
+      try {
+        const parsed = JSON.parse(stdout)
+        const imgPath = (parsed.data?.path ?? parsed.path) as string | undefined
+        if (imgPath) {
+          const data = await readFile(imgPath)
+          await unlink(imgPath).catch(() => {})
+          const isJpeg = imgPath.endsWith('.jpg') || imgPath.endsWith('.jpeg')
+          return {
+            content: [{ type: 'image' as const, data: data.toString('base64'), mimeType: isJpeg ? 'image/jpeg' : 'image/png' }],
+          }
+        }
+      } catch {
+        // Fall through to text output
+      }
+    }
+
+    let output = (stdout + (stderr ? `\n${stderr}` : '')).trim()
+
+    // Auto-append URL after mutations
+    if (verb && MUTATION_VERBS.has(verb)) {
+      try {
+        const { stdout: urlOut } = await spawnAsync(
+          abPath,
+          [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, 'get', 'url'],
+          { timeout: 5_000 },
+        )
+        output += `\nurl: ${urlOut.trim()}`
+      } catch {
+        // Best-effort — ignore failures
+      }
+    }
+
+    return { content: [{ type: 'text' as const, text: output || '(no output)' }] }
+
+    } finally {
+      // no-op: let server-side expiry clean up the cursor
+    }
+  })
+}

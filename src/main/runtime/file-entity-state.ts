@@ -1,0 +1,174 @@
+/**
+ * File Entity State
+ *
+ * Manages the in-memory state of file entities on the canvas.
+ * File entities reference external files (images, attachments) —
+ * no Electron views, no browser runtime. They have position, size,
+ * a file path, and an optional subpath.
+ */
+
+import { randomUUID } from 'crypto'
+import type {
+  CanvasSceneFileEntity,
+  PersistedFileEntity,
+} from '../../shared/types'
+import { CUSTOM_SHELL_INSETS, shellInsetsForDevice } from '../../shared/device-catalog'
+import { markDirty } from './layout-dirty'
+import {
+  deviceIdFromMetadata,
+  deviceOrientationFromMetadata,
+  showDeviceFrameFromMetadata,
+} from './runtime-entities'
+
+export type FileObjectFit = 'contain' | 'cover' | 'fill'
+
+export interface FileEntity {
+  id: string
+  file: string
+  subpath?: string
+  canvasX: number
+  canvasY: number
+  width: number
+  height: number
+  parentGroupId?: string
+  objectFit?: FileObjectFit
+  presetIndex?: number
+  metadata?: Record<string, unknown>
+}
+
+export const DEFAULT_FILE_WIDTH = 300
+export const DEFAULT_FILE_HEIGHT = 300
+
+export const fileEntities: FileEntity[] = []
+
+export function createFileEntity(input: {
+  canvasX: number
+  canvasY: number
+  file: string
+  subpath?: string
+  width?: number
+  height?: number
+  id?: string
+  parentGroupId?: string
+  presetIndex?: number
+  metadata?: Record<string, unknown>
+  objectFit?: FileObjectFit
+}): FileEntity {
+  const entity: FileEntity = {
+    id: input.id ?? `file_${randomUUID()}`,
+    file: input.file,
+    subpath: input.subpath,
+    canvasX: input.canvasX,
+    canvasY: input.canvasY,
+    width: input.width ?? DEFAULT_FILE_WIDTH,
+    height: input.height ?? DEFAULT_FILE_HEIGHT,
+    parentGroupId: input.parentGroupId,
+    presetIndex: input.presetIndex,
+    metadata: input.metadata,
+    objectFit: input.objectFit,
+  }
+  fileEntities.push(entity)
+  markDirty('canvas', 'sidebar', 'floating-ui')
+  return entity
+}
+
+export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id'>>): FileEntity | null {
+  const entity = fileEntities.find((e) => e.id === id)
+  if (!entity) return null
+  if (patch.file !== undefined) entity.file = patch.file
+  if (patch.subpath !== undefined) entity.subpath = patch.subpath
+  if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
+  if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
+  if (patch.width !== undefined) entity.width = patch.width
+  if (patch.height !== undefined) entity.height = patch.height
+  if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
+  if (patch.objectFit !== undefined) entity.objectFit = patch.objectFit
+  if (patch.presetIndex !== undefined) entity.presetIndex = patch.presetIndex
+  if (patch.metadata !== undefined) entity.metadata = patch.metadata
+  markDirty('canvas', 'sidebar', 'floating-ui', 'devtools')
+  return entity
+}
+
+export function deleteFileEntity(id: string): boolean {
+  const idx = fileEntities.findIndex((e) => e.id === id)
+  if (idx === -1) return false
+  fileEntities.splice(idx, 1)
+  markDirty('canvas', 'sidebar', 'floating-ui')
+  return true
+}
+
+export function clearFileEntities(): void {
+  fileEntities.length = 0
+}
+
+export function buildFileEntitySceneEntity(
+  entity: FileEntity,
+  zoom: number,
+  pan: { x: number; y: number },
+  canvasOrigin: { x: number; y: number },
+): CanvasSceneFileEntity {
+  const contentScreenX = canvasOrigin.x + entity.canvasX * zoom + pan.x
+  const contentScreenY = canvasOrigin.y + entity.canvasY * zoom + pan.y
+  const contentScreenW = entity.width * zoom
+  const contentScreenH = entity.height * zoom
+
+  const deviceId = deviceIdFromMetadata(entity.metadata)
+  const orientation = deviceOrientationFromMetadata(entity.metadata)
+  const showShell = showDeviceFrameFromMetadata(entity.metadata)
+
+  // Compute shell-inflated outer bounds
+  let shellInsets: { top: number; right: number; bottom: number; left: number } | null = null
+  if (showShell) {
+    if (deviceId) {
+      shellInsets = shellInsetsForDevice(deviceId, orientation)
+    } else {
+      shellInsets = CUSTOM_SHELL_INSETS
+    }
+  }
+
+  const screenX = shellInsets ? contentScreenX - shellInsets.left * zoom : contentScreenX
+  const screenY = shellInsets ? contentScreenY - shellInsets.top * zoom : contentScreenY
+  const screenWidth = shellInsets ? contentScreenW + (shellInsets.left + shellInsets.right) * zoom : contentScreenW
+  const screenHeight = shellInsets ? contentScreenH + (shellInsets.top + shellInsets.bottom) * zoom : contentScreenH
+
+  return {
+    kind: 'file',
+    id: entity.id,
+    file: entity.file,
+    subpath: entity.subpath,
+    canvasX: entity.canvasX,
+    canvasY: entity.canvasY,
+    width: entity.width,
+    height: entity.height,
+    parentGroupId: entity.parentGroupId,
+    objectFit: entity.objectFit,
+    deviceId,
+    deviceOrientation: orientation,
+    showDeviceFrame: showShell,
+    screenX,
+    screenY,
+    screenWidth,
+    screenHeight,
+    contentScreenX: showShell ? contentScreenX : undefined,
+    contentScreenY: showShell ? contentScreenY : undefined,
+    contentScreenWidth: showShell ? contentScreenW : undefined,
+    contentScreenHeight: showShell ? contentScreenH : undefined,
+  }
+}
+
+export function persistFileEntity(entity: FileEntity): PersistedFileEntity {
+  return {
+    kind: 'file',
+    id: entity.id,
+    file: entity.file,
+    subpath: entity.subpath,
+    canvasX: entity.canvasX,
+    canvasY: entity.canvasY,
+    width: entity.width,
+    height: entity.height,
+    parentGroupId: entity.parentGroupId,
+    objectFit: entity.objectFit,
+    presetIndex: entity.presetIndex,
+    metadata: entity.metadata,
+  }
+}

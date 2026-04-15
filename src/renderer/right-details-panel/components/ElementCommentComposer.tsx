@@ -1,0 +1,32 @@
+import type { RefObject } from 'react'
+import { CommentInput } from '../../shared/CommentPrimitives'
+
+export function ElementCommentComposer({
+  active,
+  commentInputRef,
+  elementCommentText,
+  hasElementComment,
+  onChange,
+  onSubmit,
+}: {
+  active: boolean
+  commentInputRef: RefObject<HTMLTextAreaElement | null>
+  elementCommentText: string
+  hasElementComment: boolean
+  onChange: (value: string) => void
+  onSubmit: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-[8px] border border-[var(--surface-input-border)] bg-[var(--surface-input)] pl-3 pr-2 py-1.5">
+      <CommentInput
+        inputRef={commentInputRef}
+        value={elementCommentText}
+        onChange={onChange}
+        onSubmit={onSubmit}
+        placeholder={active ? 'Add a comment...' : 'Select an element to comment'}
+        disabled={!active}
+        buttonClassName="bg-[var(--surface-interactive)] text-zinc-500 hover:bg-[var(--surface-interactive)] hover:text-zinc-700 dark:text-zinc-300 dark:hover:bg-[var(--surface-interactive)] dark:hover:text-zinc-100"
+      />
+    </div>
+  )
+}

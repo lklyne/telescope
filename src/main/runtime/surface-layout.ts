@@ -1,0 +1,41 @@
+// Facade: re-exports layout, rendering, and view management functions.
+
+export {
+  bgView,
+  aboveView,
+
+  leftSidebarView,
+
+  toolbarView,
+  win,
+} from './view-refs'
+export { layoutCache } from './layout-cache'
+export {
+  pan,
+  zoom,
+} from './runtime-context'
+
+export { layoutAllViews } from './layout-engine'
+
+export {
+  getCanvasLayoutData,
+  getLeftSidebarData,
+} from './canvas-layout-data'
+
+export {
+  boundCanvasOrigin as canvasOrigin,
+  boundScreenBoundsForPage as screenBoundsForPage,
+  pageCanvasBounds,
+  pageOuterCanvasBounds,
+  pageContentSize,
+} from './runtime-geometry'
+
+export { snapToGrid } from '../../shared/gesture-utils'
+
+export { broadcastTheme, isDark } from './preferences'
+
+export {
+  requestLayout,
+  setPan,
+  setZoom,
+} from './viewport-control'

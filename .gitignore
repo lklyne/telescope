@@ -1,0 +1,18 @@
+node_modules/
+dist/
+out/
+build/*
+!build/icon.icns
+.vite/
+.context/
+.DS_Store
+.env
+package-lock.json
+bun.lock
+tests/agent/results/
+
+# scratch artifacts (dogfood runs, manual captures, regression snapshots, ad-hoc logs)
+tmp/
+tmp-page*.png
+dogfood-output/
+regression-screenshots/

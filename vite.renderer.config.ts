@@ -1,0 +1,29 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import { resolve } from 'path'
+
+// https://electron-forge.io/config/plugins/vite/
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  server: {
+    watch: {
+      usePolling: true,
+      interval: 1000,
+    },
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        toolbar: resolve(__dirname, 'src/renderer/toolbar/index.html'),
+        'chrome-header': resolve(__dirname, 'src/renderer/chrome-header/index.html'),
+        'canvas-bg': resolve(__dirname, 'src/renderer/canvas-bg/index.html'),
+        'above-view': resolve(__dirname, 'src/renderer/above-view/index.html'),
+        'agent-layer': resolve(__dirname, 'src/renderer/agent-layer/index.html'),
+        'left-sidebar': resolve(__dirname, 'src/renderer/left-sidebar/index.html'),
+        'devtools-resize-handle': resolve(__dirname, 'src/renderer/devtools-resize-handle/index.html'),
+        'right-details-panel': resolve(__dirname, 'src/renderer/right-details-panel/index.html'),
+      },
+    },
+  },
+})

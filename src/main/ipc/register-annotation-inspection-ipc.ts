@@ -1,0 +1,250 @@
+import { ipcMain } from 'electron'
+import type { Annotation, ComponentTreeNode, WorkspaceBounds } from '../../shared/types'
+import {
+  bgView,
+  aboveView,
+  layoutAllViews,
+  pageCanvasBounds,
+} from '../runtime/surface-layout'
+import {
+  findPageById,
+  findPageByPageView,
+  getComponentSourceLocationByNodeId,
+  handleFrameIpcResponse,
+  handleNodeDetailResponse,
+  pages,
+} from '../runtime/page-runtime'
+import { setPendingFocus } from '../runtime/runtime-context'
+import {
+  focusCanvasBounds,
+  getSelectedEntityIds,
+  openCommentsPanel,
+  openInspectPanel,
+  focusAnnotation,
+  selectPageById,
+  setHoveredInspectTarget,
+  setSelectedInspectTarget,
+} from '../runtime/ui-actions'
+import { setCommentOverlayActive } from '../runtime/window-shell'
+import { getAnnotationById } from '../workspace-annotations'
+
+type ComponentPropOverridePayload = {
+  frameId: string
+  componentId: string
+  propPath: string[]
+  value: unknown
+}
+
+type ComponentTokenOverridePayload = {
+  frameId: string
+  componentId?: string
+  token: string
+  value: string
+  selector?: string
+}
+
+function forwardOverrideToFrame(
+  frameId: string,
+  channel: 'override-props' | 'override-token',
+  payload: Record<string, unknown>,
+): void {
+  const page = pages.find((candidate) => candidate.id === frameId)
+  if (!page || page.pageView.webContents.isDestroyed()) return
+  page.pageView.webContents.send(channel, payload)
+}
+
+const POINT_FOCUS_SIZE = 100
+
+function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null {
+  const { anchor } = annotation
+  switch (anchor.type) {
+    case 'canvas':
+      return {
+        x: anchor.canvasX - POINT_FOCUS_SIZE / 2,
+        y: anchor.canvasY - POINT_FOCUS_SIZE / 2,
+        width: POINT_FOCUS_SIZE,
+        height: POINT_FOCUS_SIZE,
+      }
+    case 'region':
+      return anchor.canvasRect
+    case 'frame':
+    case 'element': {
+      const page = findPageById(anchor.frameId)
+      if (!page) return null
+      const fb = pageCanvasBounds(page)
+      return fb
+    }
+  }
+}
+
+export function registerAnnotationInspectionIpc(): void {
+  ipcMain.on(
+    'annotation-open-in-comments',
+    (_event, payload: { annotationId?: string } | undefined) => {
+      const annotationId =
+        typeof payload?.annotationId === 'string' && payload.annotationId.trim().length > 0
+          ? payload.annotationId
+          : undefined
+      openCommentsPanel(annotationId)
+    },
+  )
+
+  ipcMain.on(
+    'annotation-open-thread',
+    (_event, payload: { annotationId?: string } | undefined) => {
+      const annotationId =
+        typeof payload?.annotationId === 'string' && payload.annotationId.trim().length > 0
+          ? payload.annotationId
+          : null
+      if (!annotationId) return
+      const annotation = getAnnotationById(annotationId)
+      if (!annotation) return
+      if (annotation.anchor.type !== 'canvas' && annotation.anchor.type !== 'region') {
+        selectPageById(annotation.anchor.frameId)
+      }
+      const bounds = annotationCanvasBounds(annotation)
+      if (bounds) focusCanvasBounds(bounds)
+      focusAnnotation(annotationId)
+      setCommentOverlayActive(true)
+      setPendingFocus({ kind: 'aboveView' })
+      layoutAllViews()
+      if (aboveView && !aboveView.webContents.isDestroyed()) {
+        aboveView.webContents.send('annotation-thread-open', {
+          annotationId,
+        })
+      }
+    },
+  )
+
+  ipcMain.on('inspect-node-hover', (event, payload) => {
+    const page = findPageByPageView(event.sender)
+    if (!page) return
+    if (!payload || typeof payload !== 'object') {
+      setHoveredInspectTarget(null)
+      return
+    }
+    setHoveredInspectTarget({
+      ...payload,
+      frameId: page.id,
+    })
+  })
+
+  ipcMain.on('inspect-node-select', (event, payload) => {
+    const page = findPageByPageView(event.sender)
+    if (!page) return
+    if (!payload || typeof payload !== 'object') {
+      setSelectedInspectTarget(null)
+      return
+    }
+    selectPageById(page.id)
+    openInspectPanel()
+    setSelectedInspectTarget({
+      ...payload,
+      frameId: page.id,
+    })
+  })
+
+  ipcMain.on('inspect-node-detail-update', (event, payload) => {
+    const page = findPageByPageView(event.sender)
+    if (!page || !payload || typeof payload !== 'object') return
+    const raw = payload as { nodeId?: string; id?: string }
+    const nodeId = raw.nodeId ?? raw.id
+    if (!nodeId) return
+    page.inspectDetailsByNodeId ??= {}
+    page.inspectDetailsByNodeId[nodeId] = {
+      ...(payload as Record<string, unknown>),
+      nodeId,
+      id: nodeId,
+      frameId: page.id,
+      sourceLocation: getComponentSourceLocationByNodeId(page.id, nodeId),
+    } as NonNullable<typeof page.inspectDetailsByNodeId>[string]
+  })
+
+  ipcMain.on('resolve-node-detail-response', (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handleNodeDetailResponse(payload)
+  })
+
+  ipcMain.on('take-dom-snapshot-response', (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handleFrameIpcResponse(payload as { requestId: string; data: unknown })
+  })
+
+  ipcMain.on('query-dom-elements-response', (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handleFrameIpcResponse(payload as { requestId: string; data: unknown })
+  })
+
+  ipcMain.on('query-elements-in-rect-response', (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handleFrameIpcResponse(payload as { requestId: string; data: unknown })
+  })
+
+  ipcMain.on('inspect-tree-update', (event, payload) => {
+    const page = findPageByPageView(event.sender)
+    if (!page || !Array.isArray(payload)) return
+    page.componentTree = payload as ComponentTreeNode[]
+    if (bgView && !bgView.webContents.isDestroyed()) {
+      const selectedIds = getSelectedEntityIds()
+      if (selectedIds.length === 1 && selectedIds[0] === page.id) {
+        bgView.webContents.send('component-tree-data', {
+          frameId: page.id,
+          tree: page.componentTree,
+        })
+      }
+    }
+  })
+
+  ipcMain.on('component-tree-update', (event, payload) => {
+    const page = findPageByPageView(event.sender)
+    if (!page || !Array.isArray(payload)) return
+    page.componentTree = payload as ComponentTreeNode[]
+  })
+
+  ipcMain.on(
+    'canvas-edit-component-prop',
+    (
+      _event,
+      { frameId, componentId, propPath, value }: ComponentPropOverridePayload,
+    ) => {
+      forwardOverrideToFrame(frameId, 'override-props', {
+        componentId,
+        propPath,
+        value,
+      })
+    },
+  )
+
+  ipcMain.on(
+    'canvas-edit-component-token',
+    (
+      _event,
+      { frameId, componentId, token, value, selector }: ComponentTokenOverridePayload,
+    ) => {
+      forwardOverrideToFrame(frameId, 'override-token', {
+        componentId,
+        token,
+        value,
+        selector,
+      })
+    },
+  )
+
+  ipcMain.on('comment-overlay-set-active', (_event, active: boolean) => {
+    setCommentOverlayActive(Boolean(active))
+  })
+
+  ipcMain.on('annotate-element-select', (event, payload) => {
+    const page = findPageByPageView(event.sender)
+    if (!page || !payload) return
+    setCommentOverlayActive(true)
+    setPendingFocus({ kind: 'aboveView' })
+    layoutAllViews()
+    if (aboveView && !aboveView.webContents.isDestroyed()) {
+      aboveView.webContents.send('annotate-element-selected', {
+        frameId: page.id,
+        ...payload,
+      })
+    }
+  })
+}

@@ -1,0 +1,636 @@
+import { clipboard, ipcMain, Menu, shell } from 'electron'
+import { VIEWPORT_PRESETS } from '../../shared/constants'
+import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
+import type {
+  AnnotationCreateRequest,
+  ClipboardFrameSelectionPayload,
+  ClipboardEntitySelectionPayload,
+} from '../../shared/types'
+import { pages } from '../runtime/page-runtime'
+import { aboveView } from '../runtime/view-refs'
+import { setPendingFocus } from '../runtime/runtime-context'
+import { executeRegionSelect } from '../runtime/region-select'
+import { setCommentOverlayActive } from '../runtime/runtime-core'
+import { textEntities } from '../runtime/text-entity-state'
+import { fileEntities } from '../runtime/file-entity-state'
+import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from '../runtime/drawing-entity-state'
+import {
+  createFileEntity,
+  createTextEntity,
+  deleteDrawingEntity,
+  deleteTextEntity,
+  deleteFileEntity,
+  setFrameCustom,
+  setFramePreset,
+  updateDrawingEntity,
+  updateFileEntity,
+  updateGroupEntity,
+  updateTextEntity,
+  resizeMultiSelection,
+  groupSelectedEntities,
+  ungroupSelectedGroup,
+} from '../runtime/document-commands'
+import type { MultiResizeEntry } from '../runtime/document-commands'
+import { createNoteFile, readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
+import { saveImageBuffer } from '../runtime/image-assets'
+import {
+  cancelPendingPlacement,
+  focusCanvasBounds,
+  focusSelectedPage,
+  getSelectedEntityIds,
+  selectEntity,
+  openDevToolsForSelectedPage,
+  pendingPlacement,
+  selectPage,
+  selectPageById,
+  selectedPageId,
+  setSelectedEntities,
+  toggleAnnotateMode,
+  toggleDrawMode,
+} from '../runtime/ui-actions'
+import {
+  layoutAllViews,
+  requestLayout,
+  snapToGrid,
+} from '../runtime/surface-layout'
+import { markDirty } from '../runtime/layout-dirty'
+import { pageContentSize } from '../runtime/runtime-geometry'
+import { CHROME_HEADER_HEIGHT } from '../runtime/runtime-constants'
+import {
+  scheduleWorkspaceAutosave,
+} from '../runtime/workspace-session'
+import { navigateFramePage, togglePageLinked } from '../navigation-sync'
+import {
+  deviceIdFromMetadata,
+  frameUsesCustomSize,
+  setCustomFrameSizeMetadata,
+  setDeviceIdMetadata,
+} from '../runtime/runtime-entities'
+import { createAnnotation, moveAnnotation } from '../workspace-annotations'
+import { deleteEdges } from '../workspace-edges'
+import {
+  deleteFrames,
+  groupBoundsForEntityIds,
+} from '../workspace-entities'
+import { findDuplicatePlacement } from '../workspace-placement'
+import {
+  createFrameAtPosition,
+  duplicateEntity,
+  duplicateFrameFromSource,
+  tidySelectedFrames,
+} from '../workspace-frames'
+import { deleteGroups, duplicateGroup, ungroupUserGroup } from '../workspace-groups'
+import {
+  copyableFramePayload,
+  copyableSelectionPayload,
+  pasteEntitiesFromClipboard,
+  pasteFramesFromClipboard,
+} from '../workspace-clipboard'
+import { workspaceGroups } from '../runtime/workspace-model'
+import { selectGroup } from '../runtime/selection-controller'
+import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
+
+const CLIPBOARD_PREFIX_V1 = 'web-canvas:frames:'
+const CLIPBOARD_PREFIX = 'web-canvas:entities:'
+
+function parseClipboardSelection(
+  rawText: string,
+): ClipboardEntitySelectionPayload | ClipboardFrameSelectionPayload | null {
+  // Try v2 (entities) format first
+  if (rawText.startsWith(CLIPBOARD_PREFIX)) {
+    try {
+      const parsed = JSON.parse(
+        rawText.slice(CLIPBOARD_PREFIX.length),
+      ) as ClipboardEntitySelectionPayload
+      if (parsed?.version === 2 && Array.isArray(parsed.entities)) {
+        return parsed
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  // Backward compat: v1 (frames-only) format
+  if (rawText.startsWith(CLIPBOARD_PREFIX_V1)) {
+    try {
+      const parsed = JSON.parse(
+        rawText.slice(CLIPBOARD_PREFIX_V1.length),
+      ) as ClipboardFrameSelectionPayload
+      if (parsed?.version === 1 && Array.isArray(parsed.frames)) {
+        return parsed
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  return null
+}
+
+
+export function registerCanvasEntityIpc(): void {
+  ipcMain.on(
+    'canvas-place-pending-entity',
+    (_event, { canvasX, canvasY }: { canvasX: number; canvasY: number }) => {
+      const placement = pendingPlacement()
+      if (!placement) return
+      if (placement.entityKind === 'text') {
+        createTextEntity({ canvasX, canvasY })
+      } else if (placement.entityKind === 'file') {
+        try {
+          const filePath = createNoteFile()
+          createFileEntity({ canvasX, canvasY, file: filePath, width: 300, height: 300 })
+        } catch (error) {
+          console.error('Failed to create note file:', error)
+        }
+      } else {
+        createFrameAtPosition({
+          sourceFrameId: placement.sourceFrameId,
+          presetIndex: placement.presetIndex ?? 0,
+          customSize: placement.customSize ?? false,
+          canvasX,
+          canvasY: canvasY - CHROME_HEADER_HEIGHT,
+          mode: 'add_from_toolbar',
+          focus: true,
+        })
+      }
+      cancelPendingPlacement()
+    },
+  )
+
+  ipcMain.on('canvas-delete-selection', () => {
+    const targets = uiSelectedCanvasTargets()
+    if (!targets.length) return
+    const edgeIds = targets.filter((target) => target.kind === 'edge').map((target) => target.id)
+    if (edgeIds.length) {
+      deleteEdges({ edgeIds })
+    }
+    const entityIds = targets
+      .filter((target) => target.kind !== 'edge')
+      .map((target) => target.id)
+    if (!entityIds.length) {
+      layoutAllViews()
+      return
+    }
+    // Split entity IDs into frames, text entities, file entities, and drawing entities by checking collections
+    const frameIds = entityIds.filter((id) => pages.some((p) => p.id === id))
+    const textIds = entityIds.filter((id) => textEntities.some((n) => n.id === id))
+    const fileIds = entityIds.filter((id) => fileEntities.some((f) => f.id === id))
+    const drawingIds = entityIds.filter((id) => drawingEntities.some((d) => d.id === id))
+    if (frameIds.length) deleteFrames({ frameIds })
+    for (const id of textIds) deleteTextEntity(id)
+    for (const id of fileIds) deleteFileEntity(id)
+    for (const id of drawingIds) deleteDrawingEntity(id)
+  })
+
+  ipcMain.on('canvas-delete-frame', (_event, { frameId }: { frameId: string }) => {
+    if (!pages.some((candidate) => candidate.id === frameId)) return
+    deleteFrames({ frameIds: [frameId] })
+  })
+
+  ipcMain.on('canvas-tidy-selection', () => {
+    tidySelectedFrames()
+  })
+
+  ipcMain.on('canvas-navigate-frame', (_event, { frameId, url }: { frameId: string; url: string }) => {
+    const page = pages.find((candidate) => candidate.id === frameId)
+    if (!page) return
+    navigateFramePage(page, { type: 'load-url', url })
+  })
+
+  ipcMain.on('canvas-back-frame', (_event, { frameId }: { frameId: string }) => {
+    const page = pages.find((candidate) => candidate.id === frameId)
+    if (!page) return
+    navigateFramePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
+  })
+
+  ipcMain.on('canvas-forward-frame', (_event, { frameId }: { frameId: string }) => {
+    const page = pages.find((candidate) => candidate.id === frameId)
+    if (!page) return
+    navigateFramePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
+  })
+
+  ipcMain.on('canvas-reload-frame', (_event, { frameId }: { frameId: string }) => {
+    const page = pages.find((candidate) => candidate.id === frameId)
+    if (!page) return
+    navigateFramePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
+  })
+
+  ipcMain.on(
+    'canvas-reveal-entity',
+    (_event, { entityId, entityKind }: { entityId: string; entityKind: string }) => {
+      if (entityKind === 'frame') {
+        if (!selectPageById(entityId)) return
+        focusSelectedPage()
+        return
+      }
+      selectEntity(entityId, entityKind)
+      const te = textEntities.find((t) => t.id === entityId)
+      const fe = fileEntities.find((f) => f.id === entityId)
+      const de = drawingEntities.find((d) => d.id === entityId)
+      const entity = te ?? fe ?? de
+      if (entity) {
+        focusCanvasBounds({ x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height })
+      }
+    },
+  )
+
+  ipcMain.on(
+    'canvas-delete-entity',
+    (_event, { entityId, entityKind }: { entityId: string; entityKind: string }) => {
+      if (entityKind === 'text') {
+        deleteTextEntity(entityId)
+      } else if (entityKind === 'file') {
+        deleteFileEntity(entityId)
+      } else if (entityKind === 'drawing') {
+        deleteDrawingEntity(entityId)
+      }
+      layoutAllViews()
+    },
+  )
+
+  ipcMain.on('canvas-reveal-group', (_event, { groupId }: { groupId: string }) => {
+    const group = workspaceGroups.find((candidate) => candidate.id === groupId)
+    if (!group) return
+    selectGroup(groupId)
+    focusCanvasBounds({
+      x: group.canvasX,
+      y: group.canvasY,
+      width: group.width,
+      height: group.height,
+    })
+    layoutAllViews()
+  })
+
+  ipcMain.on('canvas-ungroup-group', (_event, { groupId }: { groupId: string }) => {
+    const group = workspaceGroups.find((g) => g.id === groupId)
+    if (!group) return
+    selectGroup(groupId)
+    ungroupSelectedGroup()
+  })
+
+  ipcMain.on(
+    'canvas-set-frame-preset',
+    (_event, { frameId, index }: { frameId: string; index: number }) => {
+      if (index < 0 || index >= VIEWPORT_PRESETS.length) return
+      const idx = pages.findIndex((candidate) => candidate.id === frameId)
+      if (idx === -1) return
+      selectPage(idx)
+      setFramePreset(frameId, index)
+    },
+  )
+
+  ipcMain.on('canvas-set-frame-custom', (_event, { frameId }: { frameId: string }) => {
+    setFrameCustom(frameId)
+  })
+
+  ipcMain.on(
+    'canvas-update-frame-bounds',
+    (
+      _event,
+      {
+        frameId,
+        patch,
+      }: {
+        frameId: string
+        patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }
+      },
+    ) => {
+      const page = pages.find((candidate) => candidate.id === frameId)
+      if (!page) return
+      const currentSize = pageContentSize(page)
+      const nextSize = {
+        width: patch.width !== undefined ? snapToGrid(patch.width) : currentSize.width,
+        height: patch.height !== undefined ? snapToGrid(patch.height) : currentSize.height,
+      }
+      const sizeWasResized = patch.width !== undefined || patch.height !== undefined
+      const sizeChanged =
+        nextSize.width !== currentSize.width || nextSize.height !== currentSize.height
+      if (frameUsesCustomSize(page.metadata) || (sizeWasResized && sizeChanged)) {
+        let meta = setCustomFrameSizeMetadata(page.metadata, nextSize)
+        // Resizing away from a device preset clears the device — keeps shell as generic frame
+        if (sizeChanged && deviceIdFromMetadata(meta)) {
+          meta = setDeviceIdMetadata(meta, null)
+        }
+        page.metadata = meta
+      }
+      if (patch.canvasX !== undefined) page.canvasX = snapToGrid(patch.canvasX)
+      if (patch.canvasY !== undefined) page.canvasY = snapToGrid(patch.canvasY)
+      scheduleWorkspaceAutosave()
+      markDirty('canvas')
+      requestLayout()
+    },
+  )
+
+  ipcMain.on('canvas-duplicate-frame', (_event, { frameId }: { frameId: string }) => {
+    if (!pages.some((candidate) => candidate.id === frameId)) return
+    duplicateFrameFromSource({
+      sourceFrameId: frameId,
+      focus: true,
+    })
+  })
+
+  ipcMain.on('canvas-toggle-linked-frame', (_event, { frameId }: { frameId: string }) => {
+    const page = pages.find((candidate) => candidate.id === frameId)
+    if (!page) return
+    togglePageLinked(page)
+    layoutAllViews()
+  })
+
+  ipcMain.on('canvas-show-frame-context-menu', (_event, { frameId }: { frameId: string }) => {
+    const page = pages.find((candidate) => candidate.id === frameId)
+    if (!page) return
+    const canGoBack = page.pageView.webContents.canGoBack()
+    const canGoForward = page.pageView.webContents.canGoForward()
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'Back',
+        enabled: canGoBack,
+        click: () => navigateFramePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() }),
+      },
+      {
+        label: 'Forward',
+        enabled: canGoForward,
+        click: () => navigateFramePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() }),
+      },
+      {
+        label: 'Reload',
+        click: () => navigateFramePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() }),
+      },
+      { type: 'separator' },
+      {
+        label: 'Duplicate',
+        click: () => {
+          duplicateFrameFromSource({ sourceFrameId: frameId, focus: true, skipGrouping: true })
+        },
+      },
+      {
+        label: page.linked ? 'Unlink Frame' : 'Link Frame',
+        click: () => {
+          togglePageLinked(page)
+          layoutAllViews()
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Delete',
+        click: () => {
+          deleteFrames({ frameIds: [frameId] })
+        },
+      },
+    ])
+    menu.popup()
+  })
+
+  ipcMain.on('canvas-reveal-frame', (_event, { frameId }: { frameId: string }) => {
+    if (!selectPageById(frameId)) return
+    focusSelectedPage()
+  })
+
+  ipcMain.on('canvas-set-selection-preset', (_event, index: number) => {
+    const frameId = selectedPageId()
+    if (!frameId) return
+    if (index < 0 || index >= VIEWPORT_PRESETS.length) return
+    const page = pages.find((candidate) => candidate.id === frameId)
+    if (!page) return
+    page.presetIndex = index
+    scheduleWorkspaceAutosave()
+    layoutAllViews()
+  })
+
+  ipcMain.on('canvas-open-devtools-selection', () => {
+    if (!selectedPageId()) return
+    openDevToolsForSelectedPage()
+  })
+
+  ipcMain.on('canvas-duplicate-selection', () => {
+    const entityIds = getSelectedEntityIds()
+    if (!entityIds.length) return
+    // For single selection, duplicate the entity (frame or text entity)
+    if (entityIds.length === 1) {
+      duplicateEntity({ entityId: entityIds[0], focus: true })
+      return
+    }
+    const payload = copyableSelectionPayload()
+    if (!payload) return
+    const bounds = groupBoundsForEntityIds(entityIds)
+    if (!bounds) return
+    const placement = findDuplicatePlacement(bounds)
+    pasteEntitiesFromClipboard({
+      payload,
+      canvasX: placement.canvasX,
+      canvasY: placement.canvasY,
+    })
+  })
+
+  ipcMain.on('canvas-copy-selection', () => {
+    const payload = copyableSelectionPayload()
+    if (!payload) return
+    clipboard.writeText(`${CLIPBOARD_PREFIX}${JSON.stringify(payload)}`)
+  })
+
+
+  ipcMain.on(
+    'canvas-paste-selection',
+    (_event, { canvasX, canvasY }: { canvasX: number; canvasY: number }) => {
+      // Check for image on clipboard first
+      const clipImage = clipboard.readImage()
+      if (!clipImage.isEmpty()) {
+        const file = saveImageBuffer(clipImage.toPNG(), 'png')
+        const { width, height } = clipImage.getSize()
+        createFileEntity({ canvasX, canvasY, file, width, height })
+        return
+      }
+
+      const payload = parseClipboardSelection(clipboard.readText())
+      if (!payload) return
+      if (payload.version === 2) {
+        pasteEntitiesFromClipboard({ payload, canvasX, canvasY })
+      } else {
+        pasteFramesFromClipboard({ payload, canvasX, canvasY })
+      }
+    },
+  )
+
+  ipcMain.on('canvas-toggle-linked-selection', () => {
+    const frameIds = getSelectedEntityIds()
+    if (!frameIds.length) return
+    const selectedPages = frameIds
+      .map((frameId) => pages.find((candidate) => candidate.id === frameId))
+      .filter((page): page is (typeof pages)[number] => page !== undefined)
+    if (!selectedPages.length) return
+    const nextLinked = !selectedPages.every((page) => page.linked)
+    for (const page of selectedPages) {
+      if (page.linked !== nextLinked) {
+        togglePageLinked(page)
+      }
+    }
+    layoutAllViews()
+  })
+
+  ipcMain.on('canvas-toggle-annotate-mode', () => {
+    toggleAnnotateMode()
+  })
+
+  ipcMain.on('canvas-toggle-draw-mode', () => {
+    if (!DRAWING_FEATURE_ENABLED) return
+    toggleDrawMode()
+  })
+
+  ipcMain.on('canvas-create-annotation', (_event, request: AnnotationCreateRequest) => {
+    createAnnotation(request)
+  })
+
+  ipcMain.on('canvas-create-drawing', (_event, input: {
+    canvasX: number
+    canvasY: number
+    width: number
+    height: number
+    strokes: import('../../shared/types').AnnotationDrawingStroke[]
+  }) => {
+    if (!DRAWING_FEATURE_ENABLED) return
+    createDrawingEntityInState(input)
+    layoutAllViews()
+    scheduleWorkspaceAutosave()
+  })
+
+  ipcMain.on(
+    'canvas-commit-region-select',
+    (_event, canvasRect: { x: number; y: number; width: number; height: number }) => {
+      // Forward to annotation overlay to show comment composer.
+      setCommentOverlayActive(true)
+      setPendingFocus({ kind: 'aboveView' })
+      layoutAllViews()
+      if (aboveView && !aboveView.webContents.isDestroyed()) {
+        aboveView.webContents.send('region-select-committed', { canvasRect })
+      }
+    },
+  )
+
+  ipcMain.on(
+    'canvas-create-region-annotation',
+    (_event, payload: { canvasRect: { x: number; y: number; width: number; height: number }; text: string }) => {
+      executeRegionSelect(payload.canvasRect, payload.text).catch((err) => {
+        console.error('[region-select] failed:', err)
+      })
+    },
+  )
+
+  ipcMain.on(
+    'canvas-move-annotation',
+    (_event, payload: { annotationId?: string; dx?: number; dy?: number } | undefined) => {
+      const annotationId = payload?.annotationId?.trim()
+      if (!annotationId) return
+      if (typeof payload?.dx !== 'number' || typeof payload?.dy !== 'number') return
+      moveAnnotation(annotationId, payload.dx, payload.dy)
+    },
+  )
+
+  // --- Text Entity IPC ---
+
+  ipcMain.on(
+    'canvas-create-text-entity',
+    (_event, { canvasX, canvasY, text, color }: { canvasX: number; canvasY: number; text?: string; color?: string }) => {
+      createTextEntity({ canvasX, canvasY, text, color })
+    },
+  )
+
+  ipcMain.on(
+    'canvas-update-text-entity',
+    (_event, { id, patch }: { id: string; patch: { text?: string; color?: string; width?: number; height?: number; canvasX?: number; canvasY?: number } }) => {
+      updateTextEntity(id, patch)
+    },
+  )
+
+  ipcMain.on('canvas-delete-text-entity', (_event, { id }: { id: string }) => {
+    deleteTextEntity(id)
+  })
+
+  ipcMain.on(
+    'canvas-update-drawing-entity',
+    (_event, { id, patch }: { id: string; patch: { width?: number; height?: number; canvasX?: number; canvasY?: number } }) => {
+      updateDrawingEntity(id, patch)
+    },
+  )
+
+  ipcMain.on('canvas-delete-drawing-entity', (_event, { id }: { id: string }) => {
+    deleteDrawingEntity(id)
+  })
+
+  ipcMain.on('canvas-duplicate-text-entity', (_event, { id }: { id: string }) => {
+    duplicateEntity({ entityId: id, focus: true })
+  })
+
+  // --- File Entity IPC ---
+
+  ipcMain.on(
+    'canvas-update-file-entity',
+    (_event, { id, patch }: { id: string; patch: { width?: number; height?: number; canvasX?: number; canvasY?: number } }) => {
+      updateFileEntity(id, patch)
+    },
+  )
+
+  ipcMain.on('canvas-delete-file-entity', (_event, { id }: { id: string }) => {
+    deleteFileEntity(id)
+  })
+
+  ipcMain.on('canvas-duplicate-file-entity', (_event, { id }: { id: string }) => {
+    duplicateEntity({ entityId: id, focus: true })
+  })
+
+  ipcMain.on('canvas-show-file-in-finder', (_event, { filePath }: { filePath: string }) => {
+    shell.showItemInFolder(filePath)
+  })
+
+  ipcMain.handle('read-note-file', (_event, { filePath }: { filePath: string }) => {
+    return readNoteFile(filePath)
+  })
+
+  ipcMain.handle('write-note-file', (_event, { filePath, content }: { filePath: string; content: string }) => {
+    writeNoteFile(filePath, content)
+    return true
+  })
+
+  ipcMain.handle('rename-note-file', (_event, { filePath, newName }: { filePath: string; newName: string }) => {
+    const newPath = renameNoteFile(filePath, newName)
+    if (!newPath) return null
+    // Update the file entity's file path
+    const entity = fileEntities.find((e) => e.file === filePath)
+    if (entity) {
+      entity.file = newPath
+      scheduleWorkspaceAutosave()
+      requestLayout()
+    }
+    return newPath
+  })
+
+  ipcMain.on(
+    'canvas-update-group-entity',
+    (_event, { id, patch }: { id: string; patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string } }) => {
+      updateGroupEntity(id, patch)
+    },
+  )
+
+  ipcMain.on('canvas-duplicate-group', (_event, { id }: { id: string }) => {
+    duplicateGroup({ groupId: id, focus: true })
+  })
+
+  ipcMain.on('canvas-delete-group', (_event, { id }: { id: string }) => {
+    deleteGroups({ groupIds: [id] })
+  })
+
+  ipcMain.on('canvas-group-selection', () => {
+    groupSelectedEntities()
+  })
+
+  ipcMain.on('canvas-ungroup-selection', () => {
+    ungroupSelectedGroup()
+  })
+
+  ipcMain.on(
+    'canvas-resize-multi-selection',
+    (_event, { entries }: { entries: MultiResizeEntry[] }) => {
+      resizeMultiSelection(entries)
+    },
+  )
+}

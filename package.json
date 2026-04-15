@@ -1,0 +1,84 @@
+{
+  "name": "telescope",
+  "productName": "Telescope",
+  "version": "0.2.1-alpha.10",
+  "description": "A spatial canvas for agent collaboration on the web",
+  "homepage": "https://github.com/lklyne/telescope",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lklyne/telescope.git"
+  },
+  "main": ".vite/build/index.js",
+  "config": {
+    "forge": "./forge.config.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm build:mcp-helper && pnpm build:cli && electron-forge start",
+    "dev:restart": "bash scripts/dev-restart.sh",
+    "build": "pnpm build:mcp-helper && pnpm build:cli && electron-forge package",
+    "build:mcp-helper": "esbuild src/main/mcp-helper.ts --bundle --platform=node --format=cjs --target=node22 --outfile=out/main/mcp-helper.js",
+    "build:cli": "esbuild src/main/cli.ts --bundle --platform=node --format=cjs --target=node22 --outfile=out/main/cli.js",
+    "mcp": "node ./out/main/mcp-helper.js",
+    "cli": "node ./out/main/cli.js",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint src",
+    "dist:mac": "pnpm build:mcp-helper && pnpm build:cli && electron-forge make --platform darwin",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:smoke": "vitest run --config vitest.smoke.config.ts",
+    "test:agent": "bash tests/agent/run-scenarios.sh",
+    "release:alpha": "npm version prerelease --preid=alpha && git push --follow-tags",
+    "release:patch": "npm version patch && git push --follow-tags",
+    "release:minor": "npm version minor && git push --follow-tags"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.2.0",
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "@sentry/core": "^8.55.0",
+    "@sentry/electron": "^5.11.0",
+    "electron-updater": "^6.8.3",
+    "lucide-react": "^0.576.0",
+    "perfect-freehand": "^1.2.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "ws": "^8.20.0",
+    "yjs": "^13.6.30"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.0.0",
+    "@electron-forge/maker-dmg": "^7.0.0",
+    "@electron-forge/maker-zip": "^7.0.0",
+    "@electron-forge/plugin-vite": "^7.0.0",
+    "@electron-forge/publisher-github": "^7.11.1",
+    "@electron-forge/shared-types": "^7.11.1",
+    "@electron/notarize": "^3.1.1",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/semver": "^7.7.1",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^40.8.0",
+    "esbuild": "^0.27.4",
+    "eslint": "^10.2.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.58.2",
+    "vite": "^7.3.1",
+    "vitest": "^4.1.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "macos-alias",
+      "fs-xattr"
+    ],
+    "overrides": {
+      "@electron/notarize": "^3.1.1"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+import type { Annotation, LayoutUpdateData } from '../../shared/types'
+import { canvasRectToScreenRect } from './annotationMath'
+
+export function RegionSelectAnnotations({
+  annotations,
+  hitTestEnabled,
+  layoutData,
+  onOpenThread,
+}: {
+  annotations: Annotation[]
+  hitTestEnabled: boolean
+  layoutData: LayoutUpdateData
+  onOpenThread: (annotationId: string) => void
+}) {
+  const regionAnnotations = annotations.filter(
+    (a) =>
+      a.anchor.type === 'region' &&
+      a.status !== 'resolved' &&
+      a.status !== 'dismissed',
+  )
+  if (regionAnnotations.length === 0) return null
+
+  return (
+    <>
+      {regionAnnotations.map((annotation) => {
+        if (annotation.anchor.type !== 'region') return null
+        const screen = canvasRectToScreenRect(layoutData, annotation.anchor.canvasRect)
+
+        return (
+          <button
+            key={annotation.id}
+            type="button"
+            data-overlay-ui
+            aria-label="Open region select annotation"
+            className={`${hitTestEnabled ? 'pointer-events-auto' : 'pointer-events-none'} absolute rounded border-2 border-dashed border-rose-400/70 bg-rose-400/5 hover:bg-rose-400/10`}
+            style={{ left: screen.left, top: screen.top - layoutData.canvasOrigin.y, width: screen.width, height: screen.height, cursor: 'pointer' }}
+            onClick={() => onOpenThread(annotation.id)}
+          />
+        )
+      })}
+    </>
+  )
+}

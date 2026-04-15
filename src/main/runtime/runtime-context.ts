@@ -1,0 +1,186 @@
+import type { WebContents } from 'electron'
+import type {
+  CanvasHoverTarget,
+  CanvasInteractionState,
+  DevtoolsPanelData,
+  InspectNodeDetail,
+} from '../../shared/types'
+import type { FocusTarget } from '../../shared/interaction-types'
+import type { Page } from './runtime-entities'
+
+// --- Viewport state ---
+
+export let zoom = 1.0
+export let pan = { x: 0, y: 0 }
+
+export function setZoomState(value: number): void {
+  zoom = value
+}
+
+export function getZoom(): number {
+  return zoom
+}
+
+export function setPanState(value: { x: number; y: number }): void {
+  pan = value
+}
+
+// --- Canvas interaction flags ---
+
+export let selectionOverlayActive = false
+export let hoverTarget: CanvasHoverTarget = null
+export let interactionState: CanvasInteractionState = { kind: 'idle' }
+export let arrowNavigationLocked = false
+export let spaceModifierHeld = false
+export let hoveringCanvasChrome = false
+
+// Explicit focus intent consumed by FocusReconciler at end of the next
+// layout pass. Null means "derive from state". Cleared after reconcile.
+export let pendingFocus: FocusTarget | null = null
+
+export function setPendingFocus(value: FocusTarget | null): void {
+  pendingFocus = value
+}
+
+export function setSelectionOverlayActive(value: boolean): void {
+  selectionOverlayActive = value
+}
+
+export function setHoverTarget(value: CanvasHoverTarget): void {
+  hoverTarget = value
+}
+
+export function setInteractionState(value: CanvasInteractionState): void {
+  if (
+    value.kind !== 'idle' &&
+    interactionState.kind !== 'idle' &&
+    value.kind !== interactionState.kind
+  ) {
+    console.warn('[interaction-state] ignored conflicting transition', {
+      current: interactionState,
+      next: value,
+    })
+    return
+  }
+  interactionState = value
+}
+
+export function setArrowNavigationLocked(value: boolean): void {
+  arrowNavigationLocked = value
+}
+
+export function setSpaceModifierHeld(value: boolean): void {
+  spaceModifierHeld = value
+}
+
+export function setHoveringCanvasChrome(value: boolean): void {
+  hoveringCanvasChrome = value
+}
+
+
+// --- Inspect state ---
+
+export let inspectActiveFrameId: string | null = null
+export let inspectHoveredTarget: InspectNodeDetail | null = null
+export let inspectSelectedTarget: InspectNodeDetail | null = null
+export const inspectSelectedNodeIdByFrame = new Map<string, string>()
+
+export function setInspectActiveFrameId(value: string | null): void {
+  inspectActiveFrameId = value
+}
+
+export function setInspectHoveredTarget(value: InspectNodeDetail | null): void {
+  inspectHoveredTarget = value
+}
+
+export function setInspectSelectedTarget(value: InspectNodeDetail | null): void {
+  inspectSelectedTarget = value
+}
+
+// --- Workspace persistence ---
+
+export let workspaceAutosaveTimer: NodeJS.Timeout | null = null
+export let workspacePersistenceSuspendCount = 0
+
+export function setWorkspaceAutosaveTimer(value: NodeJS.Timeout | null): void {
+  workspaceAutosaveTimer = value
+}
+
+export function incrementWorkspacePersistenceSuspendCount(): void {
+  workspacePersistenceSuspendCount += 1
+}
+
+export function decrementWorkspacePersistenceSuspendCount(): void {
+  workspacePersistenceSuspendCount = Math.max(0, workspacePersistenceSuspendCount - 1)
+}
+
+// --- MCP / DevTools state ---
+
+export let browserDevtoolsAttachGeneration = 0
+export const automationInteractiveFrameCounts = new Map<string, number>()
+export let mcpConnectionStatus: NonNullable<
+  NonNullable<DevtoolsPanelData['emptyState']>['status']
+> = {
+  healthy: false,
+  appServerRunning: false,
+  discoveryFilePresent: false,
+  mcpClientConnected: false,
+  activeClientCount: 0,
+  lastClientSeenAt: null,
+}
+
+export function incrementBrowserDevtoolsAttachGeneration(): number {
+  browserDevtoolsAttachGeneration += 1
+  return browserDevtoolsAttachGeneration
+}
+
+export function addAutomationInteractiveFrameId(frameId: string): void {
+  automationInteractiveFrameCounts.set(frameId, (automationInteractiveFrameCounts.get(frameId) ?? 0) + 1)
+}
+
+export function removeAutomationInteractiveFrameId(frameId: string): void {
+  const current = automationInteractiveFrameCounts.get(frameId) ?? 0
+  if (current <= 1) {
+    automationInteractiveFrameCounts.delete(frameId)
+    return
+  }
+  automationInteractiveFrameCounts.set(frameId, current - 1)
+}
+
+export function clearAutomationInteractiveFrameIds(): void {
+  automationInteractiveFrameCounts.clear()
+}
+
+export function setMcpConnectionStatusState(
+  value: NonNullable<NonNullable<DevtoolsPanelData['emptyState']>['status']>,
+): void {
+  mcpConnectionStatus = value
+}
+
+// --- Pages ---
+
+export const pages: Page[] = []
+
+import { selectedPageIndex as uiSelectedPageIndex } from '../ui-state'
+
+export function findPageById(id: string): Page | undefined {
+  return pages.find((page) => page.id === id)
+}
+
+export function findPageBySender(senderWebContents: WebContents): Page | undefined {
+  return pages.find((p) => p.chromeView.webContents === senderWebContents)
+}
+
+export function findPageByPageView(senderWebContents: WebContents): Page | undefined {
+  return pages.find((p) => p.pageView.webContents === senderWebContents)
+}
+
+export function selectedPage(): Page | null {
+  const selectedIndex = uiSelectedPageIndex(pages.map((p) => p.id))
+  if (selectedIndex === null || selectedIndex < 0 || selectedIndex >= pages.length) return null
+  return pages[selectedIndex]
+}
+
+export function selectedPageId(): string | null {
+  return selectedPage()?.id ?? null
+}

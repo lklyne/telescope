@@ -1,0 +1,216 @@
+import { memo, useEffect, useRef, useState } from 'react'
+import Markdown from 'react-markdown'
+import type { CanvasSceneTextEntity } from '../../shared/types'
+import { resolveCanvasColor } from '../../shared/canvas-colors'
+import { SelectableEntityShell } from './SelectableEntityShell'
+import type { EntityResizePatch } from './entityConstants'
+import { MIN_TEXT_WIDTH, MIN_TEXT_HEIGHT } from './entityConstants'
+
+function TextBlockCard({
+  note,
+  getZoom,
+  isDark,
+  isSelected,
+  isMarqueePreview,
+  canEdit,
+  onSelect,
+  onUpdateText,
+  onResize,
+  onTextEditingChange,
+  onDragStart,
+  onDrag,
+  onDragEnd,
+}: {
+  note: CanvasSceneTextEntity
+  getZoom: () => number
+  isDark: boolean
+  isSelected: boolean
+  isMarqueePreview: boolean
+  canEdit: boolean
+  onSelect: (id: string) => void
+  onUpdateText: (id: string, text: string) => void
+  onResize: (id: string, patch: EntityResizePatch) => void
+  onTextEditingChange: (active: boolean) => void
+  onDragStart: (id: string) => void
+  onDrag: (id: string, dx: number, dy: number) => void
+  onDragEnd: () => void
+}) {
+  const [localText, setLocalText] = useState(note.text)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isFocusedRef = useRef(false)
+
+  // Sync from props when not actively editing
+  useEffect(() => {
+    if (!isFocusedRef.current) {
+      setLocalText(note.text)
+    }
+  }, [note.text])
+
+  // Clear text editing state when edit mode is lost (e.g. multi-select or deletion)
+  useEffect(() => {
+    if (!canEdit && isFocusedRef.current) {
+      isFocusedRef.current = false
+      onTextEditingChange(false)
+    }
+  }, [canEdit, onTextEditingChange])
+
+  const handleTextChange = (value: string) => {
+    setLocalText(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      onUpdateText(note.id, value)
+    }, 300)
+  }
+
+  return (
+    <SelectableEntityShell
+      id={note.id}
+      canvasX={note.canvasX}
+      canvasY={note.canvasY}
+      width={note.width}
+      height={note.height}
+      getZoom={getZoom}
+      minWidth={MIN_TEXT_WIDTH}
+      minHeight={MIN_TEXT_HEIGHT}
+      isDark={isDark}
+      isSelected={isSelected}
+      isMarqueePreview={isMarqueePreview}
+      background={resolveCanvasColor(note.color)}
+      onSelect={onSelect}
+      onResize={onResize}
+      onDragStart={onDragStart}
+      onDrag={onDrag}
+      onDragEnd={onDragEnd}
+      showResizeHandles={false}
+      shouldStartDrag={(event) => {
+        if (canEdit) return false
+        const target = event.target as HTMLElement | null
+        if (target?.closest('button, textarea')) return false
+        return true
+      }}
+    >
+      <div
+        style={{
+          width: note.width,
+          height: note.height,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div
+          style={{ minHeight: 8, cursor: 'grab' }}
+          onMouseDown={(e) => {
+            if (e.button !== 0) return
+            e.stopPropagation()
+          }}
+        />
+        {canEdit ? (
+          <textarea
+            className="text-block-textarea flex-1 w-full resize-none border-none outline-none bg-transparent px-2 pb-2"
+            style={{
+              fontSize: 12,
+              color: 'rgb(0, 0, 0)',
+              fontFamily: 'system-ui, sans-serif',
+            }}
+            value={localText}
+            placeholder="Type a note..."
+            onChange={(e) => handleTextChange(e.target.value)}
+            onFocus={() => { isFocusedRef.current = true; onTextEditingChange(true) }}
+            onBlur={() => {
+              isFocusedRef.current = false
+              onTextEditingChange(false)
+              if (debounceRef.current) {
+                clearTimeout(debounceRef.current)
+                debounceRef.current = null
+              }
+              onUpdateText(note.id, localText)
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <div
+            className="flex-1 select-none overflow-hidden px-2 pb-2 text-block-markdown"
+            style={{
+              fontSize: 12,
+              color: 'rgb(0, 0, 0)',
+              fontFamily: 'system-ui, sans-serif',
+              wordBreak: 'break-word',
+            }}
+          >
+            {localText ? <Markdown>{localText}</Markdown> : <span>Type a note...</span>}
+          </div>
+        )}
+      </div>
+    </SelectableEntityShell>
+  )
+}
+
+const MemoTextBlockCard = memo(TextBlockCard, (prev, next) => {
+  return (
+    prev.note.id === next.note.id &&
+    prev.note.text === next.note.text &&
+    prev.note.color === next.note.color &&
+    prev.note.canvasX === next.note.canvasX &&
+    prev.note.canvasY === next.note.canvasY &&
+    prev.note.width === next.note.width &&
+    prev.note.height === next.note.height &&
+    prev.isDark === next.isDark &&
+    prev.isSelected === next.isSelected &&
+    prev.isMarqueePreview === next.isMarqueePreview &&
+    prev.canEdit === next.canEdit
+  )
+})
+
+export function TextBlockLayer({
+  entities,
+  getZoom,
+  isDark,
+  marqueePreviewIds,
+  selectedEntityIdSet,
+  selectedEntityCount,
+  onSelect,
+  onUpdateText,
+  onResize,
+  onTextEditingChange,
+  onDragStart,
+  onDrag,
+  onDragEnd,
+}: {
+  entities: CanvasSceneTextEntity[]
+  getZoom: () => number
+  isDark: boolean
+  marqueePreviewIds: Set<string> | null
+  selectedEntityIdSet: Set<string>
+  selectedEntityCount: number
+  onSelect: (id: string) => void
+  onUpdateText: (id: string, text: string) => void
+  onResize: (id: string, patch: EntityResizePatch) => void
+  onTextEditingChange: (active: boolean) => void
+  onDragStart: (id: string) => void
+  onDrag: (id: string, dx: number, dy: number) => void
+  onDragEnd: () => void
+}) {
+  if (!entities.length) return null
+  return (
+    <>
+      {entities.map((note) => (
+        <MemoTextBlockCard
+          key={note.id}
+          getZoom={getZoom}
+          isDark={isDark}
+          isSelected={selectedEntityIdSet.has(note.id)}
+          isMarqueePreview={marqueePreviewIds?.has(note.id) ?? false}
+          canEdit={selectedEntityCount === 1 && selectedEntityIdSet.has(note.id)}
+          note={note}
+          onDrag={onDrag}
+          onDragEnd={onDragEnd}
+          onDragStart={onDragStart}
+          onResize={onResize}
+          onSelect={onSelect}
+          onTextEditingChange={onTextEditingChange}
+          onUpdateText={onUpdateText}
+        />
+      ))}
+    </>
+  )
+}

@@ -1,0 +1,308 @@
+import type { Route } from './types'
+import type { PresenceTargetRect, PresenceTargetRefSource } from '../../shared/types'
+import {
+  mcpSessions,
+  pendingIntents,
+  PENDING_INTENT_TTL_MS,
+  resolveSession,
+  getPresenceCursors,
+  coercePresenceLabelKey,
+  coercePresenceActivity,
+  coercePresenceSurface,
+  coercePresenceTargetRefSource,
+  resolveCanvasPointForFrame,
+  resolvePresenceTargetRect,
+  findPresenceTarget,
+  upsertPresenceCursor,
+  upsertActivePresenceTask,
+  clearActivePresenceTask,
+  scheduleThinkingState,
+  invalidateAgentSnapshot,
+  beginPresenceDeparture,
+  resetPresenceState,
+} from '../presence-manager'
+import { cdpProxyRegistrations, resetCdpProxyState } from '../cdp-proxy'
+import {
+  clearAutomationInteractiveFrameIds,
+} from '../runtime/runtime-context'
+import { selectNone as clearSelection } from '../runtime/selection-controller'
+import { sendInteractiveState } from '../runtime/overlay-manager'
+import { setCanvasMode as setUiCanvasMode } from '../ui-state'
+import { writeJson, notifyStatusListeners } from '../app-control-server'
+
+function resetSmokeTestState(): void {
+  resetPresenceState()
+  resetCdpProxyState()
+  clearAutomationInteractiveFrameIds()
+  clearSelection()
+  setUiCanvasMode()
+  sendInteractiveState()
+}
+
+export const sessionRoutes: Route[] = [
+  {
+    method: 'GET',
+    pattern: '/session/presence',
+    async handler({ response }) {
+      writeJson(response, 200, { cursors: getPresenceCursors() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/session/presence',
+    async handler({ request, response, body }) {
+      const payload = body as Record<string, unknown>
+      const eventType =
+        payload.eventType === 'start' ||
+        payload.eventType === 'surface' ||
+        payload.eventType === 'act' ||
+        payload.eventType === 'think' ||
+        payload.eventType === 'done'
+          ? payload.eventType
+          : null
+      const surface = coercePresenceSurface(payload.surface)
+      const activity = coercePresenceActivity(payload.phase)
+      if (eventType === 'done') {
+        clearActivePresenceTask(request, payload)
+        writeJson(response, 200, { ok: true })
+        return
+      }
+      if (!surface || !activity) {
+        writeJson(response, 400, { error: 'surface and phase are required' })
+        return
+      }
+      const coordinates =
+        payload.coordinates && typeof payload.coordinates === 'object'
+          ? (payload.coordinates as Record<string, unknown>)
+          : {}
+      const frameId = typeof payload.frameId === 'string' ? payload.frameId : null
+      const targetRef = typeof payload.targetRef === 'string' ? payload.targetRef : null
+      const targetRefSource = coercePresenceTargetRefSource(payload.targetRefSource)
+      const frameX = typeof coordinates.frameX === 'number' ? coordinates.frameX : null
+      const frameY = typeof coordinates.frameY === 'number' ? coordinates.frameY : null
+      const explicitTargetRect =
+        coordinates.targetRect &&
+        typeof coordinates.targetRect === 'object' &&
+        typeof (coordinates.targetRect as Record<string, unknown>).x === 'number' &&
+        typeof (coordinates.targetRect as Record<string, unknown>).y === 'number' &&
+        typeof (coordinates.targetRect as Record<string, unknown>).width === 'number' &&
+        typeof (coordinates.targetRect as Record<string, unknown>).height === 'number'
+          ? (coordinates.targetRect as PresenceTargetRect)
+          : null
+      const targetRect = resolvePresenceTargetRect(frameId, targetRef, targetRefSource, explicitTargetRect)
+      const framePosition =
+        surface === 'frame' && frameId
+          ? resolveCanvasPointForFrame(frameId, { frameX, frameY, targetRect })
+          : null
+      const taskLabel = typeof payload.taskLabel === 'string' ? payload.taskLabel : null
+      const labelHint = typeof payload.labelHint === 'string' ? payload.labelHint.trim().slice(0, 48) : null
+      if (eventType === 'start' || eventType === 'surface' || eventType === 'act' || eventType === 'think') {
+        upsertActivePresenceTask(request, {
+          body: payload,
+          taskLabel,
+          surface,
+          frameId,
+          frameX,
+          frameY,
+          canvasX:
+            typeof coordinates.canvasX === 'number'
+              ? coordinates.canvasX
+              : framePosition?.canvasX ?? null,
+          canvasY:
+            typeof coordinates.canvasY === 'number'
+              ? coordinates.canvasY
+              : framePosition?.canvasY ?? null,
+          targetName: typeof payload.targetName === 'string' ? payload.targetName : null,
+          targetRect,
+          labelHint,
+        })
+      }
+      upsertPresenceCursor(request, {
+        body: payload,
+        canvasX:
+          typeof coordinates.canvasX === 'number'
+            ? coordinates.canvasX
+            : framePosition?.canvasX,
+        canvasY:
+          typeof coordinates.canvasY === 'number'
+            ? coordinates.canvasY
+            : framePosition?.canvasY,
+        surface,
+        activity: eventType === 'think' ? 'thinking' : activity,
+        frameId,
+        frameX,
+        frameY,
+        labelKey:
+          eventType === 'think'
+            ? 'thinking'
+            : coercePresenceLabelKey(payload.labelKey),
+        taskLabel,
+        labelHint,
+        labelParams:
+          payload.labelParams && typeof payload.labelParams === 'object'
+            ? (payload.labelParams as Record<string, string | number | boolean>)
+            : null,
+        targetRef,
+        targetRefSource,
+        targetName: typeof payload.targetName === 'string' ? payload.targetName : null,
+        targetRect,
+      })
+      if (frameId && targetRef && ['click_target', 'type_text', 'wait_page'].includes(String(payload.labelKey))) {
+        invalidateAgentSnapshot(frameId)
+      }
+      scheduleThinkingState(request)
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/session/presence/intent',
+    async handler({ request, response, body }) {
+      const payload = body as Record<string, unknown>
+      const resolved = resolveSession(request, payload)
+      if (!resolved) {
+        writeJson(response, 400, { error: 'session required' })
+        return
+      }
+      const labelKey = coercePresenceLabelKey(payload.labelKey)
+      const command = typeof payload.command === 'string' ? payload.command : null
+      let frameId = typeof payload.frameId === 'string' ? payload.frameId : null
+      if (!frameId) {
+        for (const reg of cdpProxyRegistrations.values()) {
+          if (reg.sessionId === resolved.sessionId) {
+            frameId = reg.frameId
+            break
+          }
+        }
+      }
+      const targetRef = typeof payload.targetRef === 'string' ? payload.targetRef : null
+      const targetRefSource = coercePresenceTargetRefSource(payload.targetRefSource)
+      const targetName = typeof payload.targetName === 'string' ? payload.targetName : null
+      const taskLabel = typeof payload.taskLabel === 'string' ? payload.taskLabel : null
+      const labelHint = typeof payload.labelHint === 'string' ? payload.labelHint.trim().slice(0, 48) : null
+
+      if (!labelKey || !command) {
+        writeJson(response, 400, { error: 'labelKey and command are required' })
+        return
+      }
+
+      const prev = pendingIntents.get(resolved.sessionId)
+      if (prev) clearTimeout(prev.expiryTimer)
+      const expiryTimer = setTimeout(() => pendingIntents.delete(resolved.sessionId), PENDING_INTENT_TTL_MS)
+      pendingIntents.set(resolved.sessionId, {
+        labelKey,
+        frameId,
+        targetRef,
+        targetRefSource,
+        command,
+        receivedAt: Date.now(),
+        expiryTimer,
+      })
+
+      const targetRect = resolvePresenceTargetRect(frameId, targetRef, targetRefSource, null)
+      const observationCommands = new Set(['snapshot', 'wait', 'get'])
+      const fallbackFrameY = observationCommands.has(command) ? 20 : undefined
+      const framePosition =
+        frameId
+          ? resolveCanvasPointForFrame(frameId, {
+              frameX: undefined,
+              frameY: fallbackFrameY,
+              targetRect,
+            })
+          : null
+
+      upsertActivePresenceTask(request, {
+        body: payload,
+        taskLabel,
+        surface: frameId ? 'frame' : 'canvas',
+        frameId,
+        canvasX: framePosition?.canvasX ?? null,
+        canvasY: framePosition?.canvasY ?? null,
+        targetName,
+        targetRect,
+        labelHint,
+      })
+
+      upsertPresenceCursor(request, {
+        body: payload,
+        canvasX: framePosition?.canvasX,
+        canvasY: framePosition?.canvasY,
+        surface: frameId ? 'frame' : 'canvas',
+        activity: 'traveling',
+        frameId,
+        frameX: null,
+        frameY: null,
+        labelKey,
+        taskLabel,
+        labelHint,
+        targetRef,
+        targetRefSource,
+        targetName,
+        targetRect,
+      })
+
+      scheduleThinkingState(request)
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/mcp/session/open',
+    async handler({ response, body }) {
+      const payload = body as { sessionId?: string; clientName?: string }
+      if (!payload.sessionId) {
+        writeJson(response, 400, { error: 'sessionId is required' })
+        return
+      }
+      mcpSessions.set(payload.sessionId, {
+        id: payload.sessionId,
+        clientName: payload.clientName ?? 'telescope-mcp',
+        lastSeenAt: Date.now(),
+      })
+      notifyStatusListeners()
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/mcp/session/ping',
+    async handler({ response, body }) {
+      const payload = body as { sessionId?: string; clientName?: string }
+      if (!payload.sessionId) {
+        writeJson(response, 400, { error: 'sessionId is required' })
+        return
+      }
+      const existing = mcpSessions.get(payload.sessionId)
+      mcpSessions.set(payload.sessionId, {
+        id: payload.sessionId,
+        clientName: payload.clientName ?? existing?.clientName ?? 'telescope-mcp',
+        lastSeenAt: Date.now(),
+      })
+      notifyStatusListeners()
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/mcp/session/close',
+    async handler({ response, body }) {
+      const payload = body as { sessionId?: string }
+      if (!payload.sessionId) {
+        writeJson(response, 400, { error: 'sessionId is required' })
+        return
+      }
+      mcpSessions.delete(payload.sessionId)
+      notifyStatusListeners()
+      beginPresenceDeparture(payload.sessionId)
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/reset-state',
+    async handler({ response }) {
+      resetSmokeTestState()
+      writeJson(response, 200, { ok: true })
+    },
+  },
+]

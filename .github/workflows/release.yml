@@ -21,6 +21,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:mcp-helper
+      - run: pnpm build:cli
       - name: Import code signing certificate
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}

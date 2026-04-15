@@ -29,7 +29,7 @@ const config: ForgeConfig = {
   publishers: [
     new PublisherGithub({
       repository: { owner: 'lklyne', name: 'telescope' },
-      prerelease: true,
+      prerelease: false,
       draft: false,
     }),
   ],

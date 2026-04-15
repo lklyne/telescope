@@ -12,6 +12,7 @@ const config: ForgeConfig = {
     name: 'Telescope',
     icon: 'build/icon',
     extraResource: ['out/main/mcp-helper.js', 'out/main/cli.js', 'resources/telescope-cli.sh'],
+    ignore: [],
     ...(isSigning && {
       osxSign: {},
       osxNotarize: {

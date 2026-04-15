@@ -2,7 +2,7 @@
 
 All notable changes to Telescope will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/). Do not use prerelease suffixes (`-alpha.N`, `-beta.N`) — `update.electronjs.org` filters them out, so they will not reach installed clients. Increment patch/minor versions instead.
+The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/). Do not use prerelease suffixes (`-alpha.N`, `-beta.N`). `update.electronjs.org` filters based on GitHub's "prerelease" release flag (not the SemVer suffix), so tagged-alpha versions *can* reach clients — but mixing SemVer prerelease ordering with GitHub's flag is a footgun. Just increment patch/minor versions and keep releases as non-prereleases.
 
 ## [Unreleased]
 

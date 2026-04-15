@@ -1,7 +1,7 @@
 {
   "name": "telescope",
   "productName": "Telescope",
-  "version": "0.2.1-alpha.14",
+  "version": "0.2.3",
   "description": "A spatial canvas for agent collaboration on the web",
   "homepage": "https://github.com/lklyne/telescope",
   "repository": {
@@ -29,7 +29,6 @@
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:smoke": "vitest run --config vitest.smoke.config.ts",
     "test:agent": "bash tests/agent/run-scenarios.sh",
-    "release:alpha": "npm version prerelease --preid=alpha && git push --follow-tags",
     "release:patch": "npm version patch && git push --follow-tags",
     "release:minor": "npm version minor && git push --follow-tags"
   },

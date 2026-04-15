@@ -1,7 +1,7 @@
 {
   "name": "telescope",
   "productName": "Telescope",
-  "version": "0.2.1-alpha.11",
+  "version": "0.2.1-alpha.12",
   "description": "A spatial canvas for agent collaboration on the web",
   "homepage": "https://github.com/lklyne/telescope",
   "repository": {
@@ -38,12 +38,12 @@
     "@modelcontextprotocol/sdk": "^1.18.0",
     "@sentry/core": "^8.55.0",
     "@sentry/electron": "^5.11.0",
-    "electron-updater": "^6.8.3",
     "lucide-react": "^0.576.0",
     "perfect-freehand": "^1.2.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
+    "update-electron-app": "^3.1.2",
     "ws": "^8.20.0",
     "yjs": "^13.6.30"
   },

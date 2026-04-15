@@ -1,39 +1,34 @@
-import { autoUpdater } from 'electron-updater'
-import { app, dialog } from 'electron'
+import { updateElectronApp, UpdateSourceType } from 'update-electron-app'
+import { app, autoUpdater, dialog } from 'electron'
 
 /**
  * Initialize auto-update checking.
- * Uses electron-updater with GitHub Releases as the update feed.
+ * Uses update.electronjs.org (free GitHub release-backed feed).
  * In dev mode, updates are skipped silently.
  */
 export function initAutoUpdater(): void {
   if (!app.isPackaged) return
 
-  autoUpdater.autoDownload = true
-  autoUpdater.autoInstallOnAppQuit = true
+  updateElectronApp({
+    updateSource: {
+      type: UpdateSourceType.ElectronPublicUpdateService,
+      repo: 'lklyne/telescope',
+    },
+    updateInterval: '10 minutes',
+  })
 
-  autoUpdater.on('update-downloaded', (info) => {
+  autoUpdater.on('update-downloaded', (_event, _releaseNotes, releaseName) => {
     dialog
       .showMessageBox({
         type: 'info',
         title: 'Update Ready',
-        message: `Telescope ${info.version} has been downloaded. Restart to apply the update.`,
+        message: `Telescope ${releaseName} has been downloaded. Restart to apply the update.`,
         buttons: ['Restart Now', 'Later'],
         defaultId: 0,
       })
       .then(({ response }) => {
-        if (response === 0) {
-          autoUpdater.quitAndInstall()
-        }
+        if (response === 0) autoUpdater.quitAndInstall()
       })
-  })
-
-  autoUpdater.on('error', (err) => {
-    console.error('Auto-update error:', err.message)
-  })
-
-  autoUpdater.checkForUpdates().catch((err) => {
-    console.error('Failed to check for updates:', err.message)
   })
 }
 
@@ -48,21 +43,13 @@ export async function checkForUpdatesManually(): Promise<void> {
     return
   }
 
-  try {
-    const result = await autoUpdater.checkForUpdates()
-    if (!result || !result.updateInfo || result.updateInfo.version === app.getVersion()) {
-      dialog.showMessageBox({
-        type: 'info',
-        title: 'No Updates',
-        message: `Telescope ${app.getVersion()} is the latest version.`,
-      })
-    }
-    // If an update is found, the 'update-downloaded' handler will show the restart dialog.
-  } catch (err) {
+  autoUpdater.once('update-not-available', () => {
     dialog.showMessageBox({
-      type: 'error',
-      title: 'Update Check Failed',
-      message: `Could not check for updates: ${err instanceof Error ? err.message : String(err)}`,
+      type: 'info',
+      title: 'No Updates',
+      message: `Telescope ${app.getVersion()} is the latest version.`,
     })
-  }
+  })
+
+  autoUpdater.checkForUpdates()
 }

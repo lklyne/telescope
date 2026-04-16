@@ -49,16 +49,14 @@ function EntityListItem({
     paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP,
     paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
   }
-  const canRename = typeof onRename === 'function'
-
   function startRename() {
-    if (!canRename) return
+    if (!onRename) return
     setIsEditing(true)
   }
 
   function commitRename(next: string) {
     setIsEditing(false)
-    if (canRename && next && next !== label) onRename!(next)
+    if (onRename && next && next !== label) onRename(next)
   }
 
   const row = isEditing ? (
@@ -79,7 +77,7 @@ function EntityListItem({
       className={rootClassName}
       style={rowStyle}
       onClick={onClick}
-      onDoubleClick={canRename ? startRename : undefined}
+      onDoubleClick={onRename ? startRename : undefined}
       title={label}
     >
       {icon}
@@ -99,7 +97,7 @@ function EntityListItem({
                 : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900'
             }`}
           >
-            {canRename ? (
+            {onRename ? (
               <Menu.Item
                 className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
                   isDark

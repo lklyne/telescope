@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type Variant = 'canvas-chrome' | 'sidebar-row'
 
@@ -14,7 +14,7 @@ interface InlineEditLabelProps {
   titleClassName?: string
   inputClassName?: string
   onTitleClick?: () => void
-  children?: (value: string) => ReactNode
+  displayValue?: string
 }
 
 const DEFAULT_TITLE_CLASS: Record<Variant, string> = {
@@ -43,18 +43,19 @@ export function InlineEditLabel({
   titleClassName,
   inputClassName,
   onTitleClick,
-  children,
+  displayValue,
 }: InlineEditLabelProps) {
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
+  const valueRef = useRef(value)
+  valueRef.current = value
 
   useEffect(() => {
-    if (isEditing) {
-      setDraft(value)
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }
-  }, [isEditing, value])
+    if (!isEditing) return
+    setDraft(valueRef.current)
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }, [isEditing])
 
   function commit() {
     const trimmed = draft.trim()
@@ -110,7 +111,7 @@ export function InlineEditLabel({
       }
       title={value}
     >
-      {children ? children(value) : value}
+      {displayValue ?? value}
     </span>
   )
 }

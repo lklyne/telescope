@@ -175,6 +175,7 @@ export function renameWorkspaceTextEntity(entityId: string, name: string): boole
   const entity = textEntities.find((candidate) => candidate.id === entityId)
   const trimmed = name.trim()
   if (!entity || !trimmed) return false
+  if (trimmed === entity.label) return true
   updateTextEntity(entity.id, { label: trimmed })
   requestLayout()
   scheduleWorkspaceAutosave()
@@ -185,6 +186,7 @@ export function renameWorkspaceDrawingEntity(entityId: string, name: string): bo
   const entity = drawingEntities.find((candidate) => candidate.id === entityId)
   const trimmed = name.trim()
   if (!entity || !trimmed) return false
+  if (trimmed === entity.label) return true
   updateDrawingEntity(entity.id, { label: trimmed })
   requestLayout()
   scheduleWorkspaceAutosave()

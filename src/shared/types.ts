@@ -214,6 +214,7 @@ export interface PersistedTextEntity extends CanvasEntityBase {
   color: string
   width: number
   height: number
+  label?: string
 }
 
 export type FileObjectFit = 'contain' | 'cover' | 'fill'
@@ -250,6 +251,7 @@ export interface PersistedDrawingEntity extends CanvasEntityBase {
   width: number
   height: number
   strokes: AnnotationDrawingStroke[]
+  label?: string
 }
 
 export type PersistedCanvasEntity =
@@ -1305,6 +1307,9 @@ export interface CanvasBgElectronAPI {
   duplicateGroup: (id: string) => void
   deleteGroup: (id: string) => void
   renameGroup: (groupId: string, name: string) => void
+  renameFileEntity: (entityId: string, name: string) => void
+  renameTextEntity: (entityId: string, name: string) => void
+  renameDrawingEntity: (entityId: string, name: string) => void
   dropFileBuffer: (buffer: Uint8Array, ext: string, canvasX: number, canvasY: number) => void
   selectEntity: (entityId: string, entityKind: CanvasEntityKind) => void
   selectGroup: (groupId: string) => void
@@ -1416,6 +1421,9 @@ export interface LeftSidebarElectronAPI {
   renameTab: (tabId: string, name: string) => void
   renameFrame: (frameId: string, name: string) => void
   renameGroup: (groupId: string, name: string) => void
+  renameFileEntity: (entityId: string, name: string) => void
+  renameTextEntity: (entityId: string, name: string) => void
+  renameDrawingEntity: (entityId: string, name: string) => void
   duplicateTab: (tabId: string) => void
   deleteTab: (tabId: string) => void
   reorderTab: (tabId: string, toIndex: number) => void

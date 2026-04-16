@@ -57,19 +57,24 @@ export function writeNoteFile(filePath: string, content: string): void {
 }
 
 /**
- * Rename a note file on disk. Returns the new absolute file path,
- * or null if the rename failed.
+ * Rename a note file on disk, preserving its existing extension.
+ * Returns the new absolute file path, or null if the rename failed.
  */
 export function renameNoteFile(oldFilePath: string, newName: string): string | null {
   const dir = join(oldFilePath, '..')
+  const baseName = oldFilePath.split('/').pop() ?? oldFilePath
+  const ext = /\.wireframe\.json$/i.test(baseName)
+    ? '.wireframe.json'
+    : /\.md$/i.test(baseName)
+      ? '.md'
+      : ''
   const sanitized = sanitizeNoteName(newName)
-  let fileName = `${sanitized}.md`
+  let fileName = `${sanitized}${ext}`
   let newPath = join(dir, fileName)
 
-  // Handle name collisions
   let counter = 2
   while (existsSync(newPath) && newPath !== oldFilePath) {
-    fileName = `${sanitized} ${counter}.md`
+    fileName = `${sanitized} ${counter}${ext}`
     newPath = join(dir, fileName)
     counter++
   }
@@ -82,4 +87,11 @@ export function renameNoteFile(oldFilePath: string, newName: string): string | n
   } catch {
     return null
   }
+}
+
+/**
+ * Whether a file path is a renamable workspace-managed note (markdown or wireframe).
+ */
+export function isRenamableNotePath(filePath: string): boolean {
+  return /\.md$/i.test(filePath) || /\.wireframe\.json$/i.test(filePath)
 }

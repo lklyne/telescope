@@ -2,6 +2,7 @@ import { useEffect, useState, type ComponentType } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import { Laptop, Smartphone, Tablet } from 'lucide-react'
+import { InlineEditLabel } from './InlineEditLabel'
 
 type FrameVisual = {
   id: string
@@ -77,35 +78,18 @@ export function FrameListItem({
   onDelete,
 }: FrameListItemProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [editingName, setEditingName] = useState(frame.label)
   const Icon = viewportIcon(frame.label, frame.width)
   const canEdit = typeof onRename === 'function'
   const hasContextMenu = canEdit || typeof onDelete === 'function'
 
-  useEffect(() => {
-    if (!isEditing) {
-      setEditingName(frame.label)
-    }
-  }, [frame.label, isEditing])
-
   function startRename() {
     if (!canEdit) return
-    setEditingName(frame.label)
     setIsEditing(true)
   }
 
-  function cancelRename() {
+  function commitRename(next: string) {
     setIsEditing(false)
-    setEditingName(frame.label)
-  }
-
-  function commitRename() {
-    if (!canEdit) return
-    const nextName = editingName.trim()
-    if (nextName && nextName !== frame.label) {
-      onRename(nextName)
-    }
-    setIsEditing(false)
+    if (canEdit && next && next !== frame.label) onRename!(next)
   }
 
   const rootClassName = `flex items-center gap-1 text-left text-xs font-normal ${
@@ -134,29 +118,13 @@ export function FrameListItem({
   const content = isEditing ? (
     <div className={rootClassName} style={horizontalPaddingStyle}>
       <FrameGlyph faviconUrl={frame.faviconUrl} Icon={Icon} />
-      <input
-        autoFocus
-        value={editingName}
-        onChange={(event) => setEditingName(event.target.value)}
-        onBlur={commitRename}
-        onClick={(event) => event.stopPropagation()}
-        onDoubleClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault()
-            commitRename()
-          }
-          if (event.key === 'Escape') {
-            event.preventDefault()
-            cancelRename()
-          }
-        }}
-        onFocus={(event) => event.target.select()}
-        className={`min-w-0 flex-1 rounded-[4px] ring-1 p-0 text-xs leading-[inherit] font-[inherit] outline-none ${
-          isDark
-            ? 'ring-zinc-600 bg-zinc-950 text-zinc-100'
-            : 'ring-zinc-300 bg-white text-zinc-900'
-        }`}
+      <InlineEditLabel
+        value={frame.label}
+        isEditing
+        onCommit={commitRename}
+        onCancel={() => setIsEditing(false)}
+        variant="sidebar-row"
+        isDark={isDark}
       />
       {showDimensions && frame.width && frame.height ? (
         <span className="ml-auto shrink-0 text-xs text-zinc-400">

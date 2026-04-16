@@ -39,9 +39,12 @@ import {
   createWorkspaceTab,
   deleteWorkspaceTab,
   duplicateWorkspaceTab,
+  renameWorkspaceDrawingEntity,
+  renameWorkspaceFileEntity,
   renameWorkspaceFrame,
   renameWorkspaceGroup,
   renameWorkspaceTab,
+  renameWorkspaceTextEntity,
   reorderWorkspaceTab,
   scheduleWorkspaceAutosave,
   setActiveWorkspaceTab,
@@ -204,6 +207,27 @@ export function registerCanvasIpc(): void {
     'canvas-rename-group',
     (_event, { groupId, name }: { groupId: string; name: string }) => {
       renameWorkspaceGroup(groupId, name)
+    },
+  )
+
+  ipcMain.on(
+    'canvas-rename-file-entity',
+    (_event, { entityId, name }: { entityId: string; name: string }) => {
+      renameWorkspaceFileEntity(entityId, name)
+    },
+  )
+
+  ipcMain.on(
+    'canvas-rename-text-entity',
+    (_event, { entityId, name }: { entityId: string; name: string }) => {
+      renameWorkspaceTextEntity(entityId, name)
+    },
+  )
+
+  ipcMain.on(
+    'canvas-rename-drawing-entity',
+    (_event, { entityId, name }: { entityId: string; name: string }) => {
+      renameWorkspaceDrawingEntity(entityId, name)
     },
   )
 

@@ -186,6 +186,7 @@ export default function App({
             onDoubleClick={(groupId) => {
               api.enterGroup(groupId)
             }}
+            onRenameGroup={api.renameGroup}
           />
         </CanvasEntityViewportLayer>
       ) : null}
@@ -283,7 +284,7 @@ export default function App({
               onStartDragEntity: api.startDragEntity,
               onDragEntity: api.dragEntity,
               onEndDragEntity: api.endDragEntity,
-              onRenameFile: api.renameNoteFile,
+              onRenameFileEntity: api.renameFileEntity,
               onWriteFile: api.writeNoteFile,
               onJsonModeChange: (entityId, jsonMode) => {
                 setFileJsonModeMap((prev) => {

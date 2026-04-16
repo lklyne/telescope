@@ -1,5 +1,9 @@
 import { randomUUID } from 'crypto'
 import { markDirty } from './layout-dirty'
+import { fileEntities, updateFileEntity } from './file-entity-state'
+import { textEntities, updateTextEntity } from './text-entity-state'
+import { drawingEntities, updateDrawingEntity } from './drawing-entity-state'
+import { isRenamableNotePath, renameNoteFile } from './note-assets'
 import type {
   PersistedWorkspaceTab,
   WorkspaceSnapshot,
@@ -148,6 +152,40 @@ export function renameWorkspaceGroup(groupId: string, name: string): boolean {
   if (!group || !trimmed) return false
   group.label = trimmed
   markDirty('sidebar')
+  requestLayout()
+  scheduleWorkspaceAutosave()
+  return true
+}
+
+export function renameWorkspaceFileEntity(entityId: string, name: string): boolean {
+  const entity = fileEntities.find((candidate) => candidate.id === entityId)
+  const trimmed = name.trim()
+  if (!entity || !trimmed) return false
+  if (!isRenamableNotePath(entity.file)) return false
+  const newPath = renameNoteFile(entity.file, trimmed)
+  if (!newPath) return false
+  if (newPath === entity.file) return true
+  updateFileEntity(entity.id, { file: newPath })
+  requestLayout()
+  scheduleWorkspaceAutosave()
+  return true
+}
+
+export function renameWorkspaceTextEntity(entityId: string, name: string): boolean {
+  const entity = textEntities.find((candidate) => candidate.id === entityId)
+  const trimmed = name.trim()
+  if (!entity || !trimmed) return false
+  updateTextEntity(entity.id, { label: trimmed })
+  requestLayout()
+  scheduleWorkspaceAutosave()
+  return true
+}
+
+export function renameWorkspaceDrawingEntity(entityId: string, name: string): boolean {
+  const entity = drawingEntities.find((candidate) => candidate.id === entityId)
+  const trimmed = name.trim()
+  if (!entity || !trimmed) return false
+  updateDrawingEntity(entity.id, { label: trimmed })
   requestLayout()
   scheduleWorkspaceAutosave()
   return true

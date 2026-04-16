@@ -19,6 +19,12 @@ const api: LeftSidebarElectronAPI = {
   renameTab: (tabId, name) => ipcRenderer.send('canvas-rename-tab', { tabId, name }),
   renameFrame: (frameId, name) => ipcRenderer.send('canvas-rename-frame', { frameId, name }),
   renameGroup: (groupId, name) => ipcRenderer.send('canvas-rename-group', { groupId, name }),
+  renameFileEntity: (entityId, name) =>
+    ipcRenderer.send('canvas-rename-file-entity', { entityId, name }),
+  renameTextEntity: (entityId, name) =>
+    ipcRenderer.send('canvas-rename-text-entity', { entityId, name }),
+  renameDrawingEntity: (entityId, name) =>
+    ipcRenderer.send('canvas-rename-drawing-entity', { entityId, name }),
   duplicateTab: (tabId) => ipcRenderer.send('canvas-duplicate-tab', { tabId }),
   deleteTab: (tabId) => ipcRenderer.send('canvas-delete-tab', { tabId }),
   reorderTab: (tabId, toIndex) => ipcRenderer.send('canvas-reorder-tab', { tabId, toIndex }),

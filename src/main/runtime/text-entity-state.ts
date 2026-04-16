@@ -24,6 +24,7 @@ export interface TextEntity {
   width: number
   height: number
   parentGroupId?: string
+  label?: string
 }
 
 export const DEFAULT_TEXT_WIDTH = 200
@@ -41,6 +42,7 @@ export function createTextEntity(input: {
   height?: number
   id?: string
   parentGroupId?: string
+  label?: string
 }): TextEntity {
   const entity: TextEntity = {
     id: input.id ?? `text_${randomUUID()}`,
@@ -51,6 +53,7 @@ export function createTextEntity(input: {
     width: input.width ?? DEFAULT_TEXT_WIDTH,
     height: input.height ?? DEFAULT_TEXT_HEIGHT,
     parentGroupId: input.parentGroupId,
+    label: input.label,
   }
   textEntities.push(entity)
   markDirty('canvas', 'sidebar', 'floating-ui')
@@ -67,6 +70,7 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
   if (patch.width !== undefined) entity.width = patch.width
   if (patch.height !== undefined) entity.height = patch.height
   if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
+  if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar', 'floating-ui')
   return entity
 }
@@ -119,5 +123,6 @@ export function persistTextEntity(entity: TextEntity): PersistedTextEntity {
     width: entity.width,
     height: entity.height,
     parentGroupId: entity.parentGroupId,
+    label: entity.label,
   }
 }

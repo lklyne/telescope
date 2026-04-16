@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Collapsible } from '@base-ui/react/collapsible'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import { ChevronDown, ChevronRight, FolderOpen, Image, PenLine, StickyNote } from 'lucide-react'
 import type { LeftSidebarElectronAPI, SidebarCanvasItem, SidebarFileItem, SidebarFrameItem, SidebarGroupItem, SidebarTextItem } from '../../shared/types'
 import { FrameListItem } from '../shared/frameListItem'
+import { InlineEditLabel } from '../shared/InlineEditLabel'
+
+const RENAMABLE_FILE_PATTERN = /\.(md|wireframe\.json)$/i
 
 const LIST_OUTER_LEFT_PADDING = 14
 const LIST_OUTER_RIGHT_PADDING = 8
@@ -17,6 +20,7 @@ function EntityListItem({
   active,
   isDark,
   onClick,
+  onRename,
   onDelete,
   deleteLabel = 'Delete',
   depth,
@@ -26,10 +30,12 @@ function EntityListItem({
   active: boolean
   isDark: boolean
   onClick: () => void
+  onRename?: (name: string) => void
   onDelete: () => void
   deleteLabel?: string
   depth: number
 }) {
+  const [isEditing, setIsEditing] = useState(false)
   const rootClassName = `flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
     active
       ? isDark
@@ -39,24 +45,51 @@ function EntityListItem({
         ? 'text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
         : 'text-zinc-800 hover:bg-[var(--surface-interactive-hover)]'
   }`
+  const rowStyle = {
+    paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP,
+    paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
+  }
+  const canRename = typeof onRename === 'function'
+
+  function startRename() {
+    if (!canRename) return
+    setIsEditing(true)
+  }
+
+  function commitRename(next: string) {
+    setIsEditing(false)
+    if (canRename && next && next !== label) onRename!(next)
+  }
+
+  const row = isEditing ? (
+    <div className={rootClassName} style={rowStyle}>
+      {icon}
+      <InlineEditLabel
+        value={label}
+        isEditing
+        onCommit={commitRename}
+        onCancel={() => setIsEditing(false)}
+        variant="sidebar-row"
+        isDark={isDark}
+      />
+    </div>
+  ) : (
+    <button
+      type="button"
+      className={rootClassName}
+      style={rowStyle}
+      onClick={onClick}
+      onDoubleClick={canRename ? startRename : undefined}
+      title={label}
+    >
+      {icon}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </button>
+  )
 
   return (
     <ContextMenu.Root>
-      <ContextMenu.Trigger className="block w-full">
-        <button
-          type="button"
-          className={rootClassName}
-          style={{
-            paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP,
-            paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
-          }}
-          onClick={onClick}
-          title={label}
-        >
-          {icon}
-          <span className="min-w-0 flex-1 truncate">{label}</span>
-        </button>
-      </ContextMenu.Trigger>
+      <ContextMenu.Trigger className="block w-full">{row}</ContextMenu.Trigger>
       <Menu.Portal>
         <Menu.Positioner sideOffset={6}>
           <Menu.Popup
@@ -66,6 +99,18 @@ function EntityListItem({
                 : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900'
             }`}
           >
+            {canRename ? (
+              <Menu.Item
+                className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
+                  isDark
+                    ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
+                    : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
+                }`}
+                onClick={startRename}
+              >
+                <span>Rename</span>
+              </Menu.Item>
+            ) : null}
             <Menu.Item
               className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
                 isDark
@@ -100,31 +145,15 @@ function GroupTreeItem({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editingName, setEditingName] = useState(group.label)
   const isSelected = selectedGroupId === group.id
 
-  useEffect(() => {
-    if (!isEditing) {
-      setEditingName(group.label)
-    }
-  }, [group.label, isEditing])
-
   function startRename() {
-    setEditingName(group.label)
     setIsEditing(true)
   }
 
-  function cancelRename() {
+  function commitRename(next: string) {
     setIsEditing(false)
-    setEditingName(group.label)
-  }
-
-  function commitRename() {
-    const nextName = editingName.trim()
-    if (nextName && nextName !== group.label) {
-      api.renameGroup(group.id, nextName)
-    }
-    setIsEditing(false)
+    if (next && next !== group.label) api.renameGroup(group.id, next)
   }
 
   return (
@@ -149,29 +178,13 @@ function GroupTreeItem({
                 }}
               >
                 <FolderOpen size={14} className="shrink-0 text-zinc-500" />
-                <input
-                  autoFocus
-                  value={editingName}
-                  onChange={(event) => setEditingName(event.target.value)}
-                  onBlur={commitRename}
-                  onClick={(event) => event.stopPropagation()}
-                  onDoubleClick={(event) => event.stopPropagation()}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      commitRename()
-                    }
-                    if (event.key === 'Escape') {
-                      event.preventDefault()
-                      cancelRename()
-                    }
-                  }}
-                  onFocus={(event) => event.target.select()}
-                  className={`min-w-0 flex-1 rounded-[4px] border px-0.5 text-xs outline-none ${
-                    isDark
-                      ? 'border-zinc-600 bg-zinc-950 text-zinc-100'
-                      : 'border-zinc-300 bg-white text-zinc-900'
-                  }`}
+                <InlineEditLabel
+                  value={group.label}
+                  isEditing
+                  onCommit={commitRename}
+                  onCancel={() => setIsEditing(false)}
+                  variant="sidebar-row"
+                  isDark={isDark}
                 />
                 <button
                   type="button"
@@ -324,6 +337,7 @@ function SidebarCanvasTreeItem({
           isDark={isDark}
           depth={depth}
           onClick={() => api.revealEntity(item.id, 'text')}
+          onRename={(name) => api.renameTextEntity(item.id, name)}
           onDelete={() => api.deleteEntity(item.id, 'text')}
         />
       </div>
@@ -340,6 +354,7 @@ function SidebarCanvasTreeItem({
           isDark={isDark}
           depth={depth}
           onClick={() => api.revealEntity(item.id, 'drawing')}
+          onRename={(name) => api.renameDrawingEntity(item.id, name)}
           onDelete={() => api.deleteEntity(item.id, 'drawing')}
           deleteLabel="Delete Drawing"
         />
@@ -347,6 +362,7 @@ function SidebarCanvasTreeItem({
     )
   }
 
+  const canRenameFile = RENAMABLE_FILE_PATTERN.test(item.file)
   return (
     <div>
       <EntityListItem
@@ -356,6 +372,7 @@ function SidebarCanvasTreeItem({
         isDark={isDark}
         depth={depth}
         onClick={() => api.revealEntity(item.id, 'file')}
+        onRename={canRenameFile ? (name) => api.renameFileEntity(item.id, name) : undefined}
         onDelete={() => api.deleteEntity(item.id, 'file')}
       />
     </div>

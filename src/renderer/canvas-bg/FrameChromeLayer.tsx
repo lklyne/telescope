@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, EllipsisVertical, RotateCw, Search } from 'lucide-react'
 import type { CanvasSceneFrameEntity } from '../../shared/types'
 import { normalizeUserUrl } from '../../shared/url'
 import { EntityChrome } from './EntityChromeHeader'
+import { InlineEditLabel } from '../shared/InlineEditLabel'
 
 export function FrameChromeLayer({
   frames,
@@ -88,37 +89,28 @@ function FrameChromeItem({
   onShowContextMenu: (frameId: string) => void
 }) {
   const [isEditing, setIsEditing] = useState(false)
-  const [addressValue, setAddressValue] = useState(frame.url)
   const [pendingUrl, setPendingUrl] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const isBlank = frame.url === 'about:blank' && !pendingUrl
 
   useEffect(() => {
-    setAddressValue(frame.url)
     setPendingUrl(null)
   }, [frame.url])
 
-  useEffect(() => {
-    if (isEditing) {
-      if (isBlank) setAddressValue('')
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }
-  }, [isEditing])
-
   // Reset editing when becoming inactive
   useEffect(() => {
-    if (!isActive && isEditing) {
-      setIsEditing(false)
-      setAddressValue(frame.url)
-    }
-  }, [isActive, isEditing, frame.url])
+    if (!isActive && isEditing) setIsEditing(false)
+  }, [isActive, isEditing])
 
-  const handleCommitUrl = () => {
-    const value = addressValue.trim()
-    if (value && value !== frame.url) {
-      const normalized = normalizeUserUrl(value)
+  const editValue = isBlank ? '' : frame.url
+  const displayValue = isBlank
+    ? 'Type a URL'
+    : frame.label || pendingUrl || frame.url
+
+  const handleCommitUrl = (next: string) => {
+    const trimmed = next.trim()
+    if (trimmed && trimmed !== frame.url) {
+      const normalized = normalizeUserUrl(trimmed)
       setPendingUrl(normalized)
       onNavigateFrame(frame.id, normalized)
     }
@@ -147,38 +139,25 @@ function FrameChromeItem({
       onMouseEnter={() => onHoverFrame(frame.id)}
       onMouseLeave={() => onHoverFrame(null)}
     >
-      {isEditing ? (
-        <EntityChrome.DragTrigger onMouseDown={(e) => e.stopPropagation()}>
-          {faviconIcon}
-          <input
-            ref={inputRef}
-            type="text"
-            value={addressValue}
-            onChange={(event) => setAddressValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') handleCommitUrl()
-              if (event.key === 'Escape') {
-                setAddressValue(frame.url)
-                setIsEditing(false)
-              }
-            }}
-            onBlur={handleCommitUrl}
-            placeholder={isBlank ? 'Type a URL' : frame.url}
-            spellCheck={false}
-            className="min-w-0 flex-1 border-0 bg-transparent text-xs font-medium outline-none placeholder:text-zinc-400 focus:outline-none"
-          />
-        </EntityChrome.DragTrigger>
-      ) : (
-        <EntityChrome.DragTrigger>
-          {faviconIcon}
-          <EntityChrome.Title
-            onClick={isSelected ? () => setIsEditing(true) : undefined}
-            className={isBlank ? 'text-zinc-400' : ''}
-          >
-            {isBlank ? 'Type a URL' : (frame.label || pendingUrl || frame.url)}
-          </EntityChrome.Title>
-        </EntityChrome.DragTrigger>
-      )}
+      <EntityChrome.DragTrigger
+        onMouseDown={isEditing ? (event) => event.stopPropagation() : undefined}
+      >
+        {faviconIcon}
+        <InlineEditLabel
+          value={editValue}
+          isEditing={isEditing}
+          onStartEdit={isSelected ? () => setIsEditing(true) : undefined}
+          onCommit={handleCommitUrl}
+          onCancel={() => setIsEditing(false)}
+          variant="canvas-chrome"
+          isDark={isDark}
+          placeholder={isBlank ? 'Type a URL' : frame.url}
+          titleClassName={`min-w-0 truncate font-medium ${isBlank ? 'text-zinc-400' : ''}`}
+          onTitleClick={isSelected ? () => setIsEditing(true) : undefined}
+        >
+          {() => displayValue}
+        </InlineEditLabel>
+      </EntityChrome.DragTrigger>
 
       {!isEditing && (
         <EntityChrome.Actions>

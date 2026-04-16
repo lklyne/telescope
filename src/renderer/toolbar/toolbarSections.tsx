@@ -28,8 +28,8 @@ import { ZOOM_PRESETS } from './useToolbarState'
 
 function toolbarIconBtnClass(isDark: boolean): string {
   return isDark
-    ? 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-300 hover:bg-zinc-700/70 hover:text-zinc-100 active:bg-zinc-700 disabled:pointer-events-none disabled:opacity-45'
-    : 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-600 hover:bg-black/5 hover:text-zinc-900 active:bg-black/10 disabled:pointer-events-none disabled:opacity-45'
+    ? 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-300 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-100 active:bg-[var(--surface-interactive)] disabled:pointer-events-none disabled:opacity-45'
+    : 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-600 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-900 active:bg-[var(--surface-interactive)] disabled:pointer-events-none disabled:opacity-45'
 }
 
 function toolbarActiveIconBtnClass(isDark: boolean): string {
@@ -165,8 +165,8 @@ export function CenterActions({
   const iconButtonClassName = toolbarIconBtnClass(isDark)
   const activeIconButtonClassName = toolbarActiveIconBtnClass(isDark)
   const selectTriggerClassName = isDark
-    ? 'toolbar-squircle-btn flex w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[8px] border border-transparent bg-transparent py-1 pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-zinc-700/70'
-    : 'toolbar-squircle-btn flex w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[8px] border border-transparent bg-transparent py-1 pl-2 pr-1 text-xs tabular-nums text-zinc-600 hover:bg-black/5 hover:text-zinc-900 active:bg-black/10'
+    ? 'toolbar-squircle-btn flex w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[8px] border border-transparent bg-transparent py-1 pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
+    : 'toolbar-squircle-btn flex w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[8px] border border-transparent bg-transparent py-1 pl-2 pr-1 text-xs tabular-nums text-zinc-600 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-900 active:bg-[var(--surface-interactive)]'
   const popupClassName =
     'z-50 min-w-[140px] rounded-md border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1 shadow-xl'
   const popupItemClassName = isDark

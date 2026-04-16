@@ -90,6 +90,7 @@ export function setBoundsIfChanged(
 import {
   BROWSER_HEADER_HEIGHT,
   CARD_BORDER_RADIUS,
+  CONTENT_INSET,
   DEVTOOLS_HEADER_GAP,
   DEVTOOLS_HEADER_HEIGHT,
   DEVTOOLS_PANEL_PADDING,
@@ -107,26 +108,36 @@ export function layoutDevtoolsViews(): void {
   const devtoolsWidth = uiDevtoolsWidth()
   const devtoolsPanelTab = uiDevtoolsPanelTab()
 
-  if (devtoolsView && win) {
+  if (!win) return
+
+  // Recompute content rect here — same formula as in layoutAllViews —
+  // so devtools positioning stays inside the rounded content panel.
+  const { width: winWidth, height: winHeight } = win.getBounds()
+  const sidebarWidth = uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0
+  const contentX = sidebarWidth + CONTENT_INSET
+  const contentY = CONTENT_INSET
+  const contentWidth = Math.max(0, winWidth - sidebarWidth - 2 * CONTENT_INSET)
+  const contentHeight = Math.max(0, winHeight - 2 * CONTENT_INSET)
+
+  // Right-anchor devtools inside the content rect.
+  const devtoolsX = contentX + contentWidth - devtoolsWidth
+  const devtoolsY = contentY + layoutCache.toolbarHeight
+  const devtoolsAreaHeight = Math.max(0, contentHeight - layoutCache.toolbarHeight)
+
+  if (devtoolsView) {
     if (devtoolsOpen && boundSelectedPage() && devtoolsPanelTab === 'browser-devtools') {
-      const { width, height } = win.getBounds()
       const panelWidth = clampDevtoolsWidth(devtoolsWidth)
       setUiDevtoolsWidth(panelWidth)
-      const panelX = width - panelWidth
-      const panelY = layoutCache.toolbarHeight
-      const panelHeight = height - layoutCache.toolbarHeight
-      const contentX = panelX
-      const contentY = panelY + DEVTOOLS_HEADER_HEIGHT + DEVTOOLS_HEADER_GAP
-      const contentWidth = panelWidth
-      const contentHeight = Math.max(
+      const innerX = contentX + contentWidth - panelWidth
+      const innerY = devtoolsY + DEVTOOLS_HEADER_HEIGHT + DEVTOOLS_HEADER_GAP
+      const innerWidth = panelWidth
+      const innerHeight = Math.max(
         0,
-        panelHeight -
-          DEVTOOLS_HEADER_HEIGHT -
-          DEVTOOLS_HEADER_GAP,
+        devtoolsAreaHeight - DEVTOOLS_HEADER_HEIGHT - DEVTOOLS_HEADER_GAP,
       )
       layoutCache.lastDevtoolsViewBoundsKey = setBoundsIfChanged(
           devtoolsView,
-          { x: contentX, y: contentY, width: contentWidth, height: contentHeight },
+          { x: innerX, y: innerY, width: innerWidth, height: innerHeight },
           layoutCache.lastDevtoolsViewBoundsKey,
         )
     } else {
@@ -134,23 +145,19 @@ export function layoutDevtoolsViews(): void {
     }
   }
 
-  if (devtoolsBackgroundView && win) {
-    const { width, height } = win.getBounds()
-    const hiddenBounds = HIDDEN_BOUNDS
+  if (devtoolsBackgroundView) {
     if (devtoolsOpen) {
       layoutCache.lastDevtoolsBackgroundBoundsKey = setBoundsIfChanged(
         devtoolsBackgroundView,
-        { x: width - devtoolsWidth, y: layoutCache.toolbarHeight, width: devtoolsWidth, height: height - layoutCache.toolbarHeight },
+        { x: devtoolsX, y: devtoolsY, width: devtoolsWidth, height: devtoolsAreaHeight },
         layoutCache.lastDevtoolsBackgroundBoundsKey,
       )
     } else {
-      layoutCache.lastDevtoolsBackgroundBoundsKey = setBoundsIfChanged(devtoolsBackgroundView, hiddenBounds, layoutCache.lastDevtoolsBackgroundBoundsKey)
+      layoutCache.lastDevtoolsBackgroundBoundsKey = setBoundsIfChanged(devtoolsBackgroundView, HIDDEN_BOUNDS, layoutCache.lastDevtoolsBackgroundBoundsKey)
     }
   }
 
-  if (devtoolsHeaderView && win) {
-    const { width, height } = win.getBounds()
-    const hiddenBounds = HIDDEN_BOUNDS
+  if (devtoolsHeaderView) {
     if (devtoolsOpen) {
       const showCustomPanel =
         boundSelectedPage() === null || devtoolsPanelTab !== 'browser-devtools'
@@ -158,14 +165,14 @@ export function layoutDevtoolsViews(): void {
         devtoolsHeaderView,
         showCustomPanel
           ? {
-              x: width - devtoolsWidth,
-              y: layoutCache.toolbarHeight,
+              x: devtoolsX,
+              y: devtoolsY,
               width: devtoolsWidth,
-              height: Math.max(0, height - layoutCache.toolbarHeight),
+              height: devtoolsAreaHeight,
             }
           : {
-              x: width - devtoolsWidth,
-              y: layoutCache.toolbarHeight,
+              x: devtoolsX,
+              y: devtoolsY,
               width: devtoolsWidth,
               height: DEVTOOLS_HEADER_HEIGHT,
             },
@@ -173,27 +180,24 @@ export function layoutDevtoolsViews(): void {
       )
       notifyDevtoolsPanelData()
     } else {
-      layoutCache.lastDevtoolsHeaderBoundsKey = setBoundsIfChanged(devtoolsHeaderView, hiddenBounds, layoutCache.lastDevtoolsHeaderBoundsKey)
+      layoutCache.lastDevtoolsHeaderBoundsKey = setBoundsIfChanged(devtoolsHeaderView, HIDDEN_BOUNDS, layoutCache.lastDevtoolsHeaderBoundsKey)
     }
   }
 
-  if (devtoolsResizeHandleView && win) {
-    const { height } = win.getBounds()
-    const hiddenBounds = HIDDEN_BOUNDS
+  if (devtoolsResizeHandleView) {
     if (devtoolsOpen) {
-      const { width, height } = win.getBounds()
       layoutCache.lastDevtoolsResizeBoundsKey = setBoundsIfChanged(
         devtoolsResizeHandleView,
         {
-          x: width - devtoolsWidth,
-          y: layoutCache.toolbarHeight,
+          x: devtoolsX,
+          y: devtoolsY,
           width: DEVTOOLS_RESIZE_HANDLE_WIDTH,
-          height: height - layoutCache.toolbarHeight,
+          height: devtoolsAreaHeight,
         },
         layoutCache.lastDevtoolsResizeBoundsKey,
       )
     } else {
-      layoutCache.lastDevtoolsResizeBoundsKey = setBoundsIfChanged(devtoolsResizeHandleView, hiddenBounds, layoutCache.lastDevtoolsResizeBoundsKey)
+      layoutCache.lastDevtoolsResizeBoundsKey = setBoundsIfChanged(devtoolsResizeHandleView, HIDDEN_BOUNDS, layoutCache.lastDevtoolsResizeBoundsKey)
     }
   }
 }
@@ -208,16 +212,34 @@ export function layoutAllViews(): void {
   const devtoolsWidth = uiDevtoolsWidth()
   const devtoolsPanelTab = uiDevtoolsPanelTab()
   const selectedFrameIds = uiSelectedEntityIds()
+
+  // --- Content panel rect ---
+  // The opaque, rounded content area to the right of the sidebar. Toolbar,
+  // canvas (bgView), pages, above-view, and devtools all live inside this
+  // rect. The sidebar column (when open) and the CONTENT_INSET padding
+  // around the panel show the window's native vibrancy.
+  const { width: winWidth, height: winHeight } = win.getBounds()
+  const sidebarOpen = uiLeftSidebarOpen()
+  const sidebarWidth = sidebarOpen ? LEFT_SIDEBAR_WIDTH : 0
+  const contentX = sidebarWidth + CONTENT_INSET
+  const contentY = CONTENT_INSET
+  const contentWidth = Math.max(0, winWidth - sidebarWidth - 2 * CONTENT_INSET)
+  const contentHeight = Math.max(0, winHeight - 2 * CONTENT_INSET)
   const contentTopInset = layoutCache.toolbarHeight + (viewMode === 'browser' ? BROWSER_HEADER_HEIGHT : 0)
 
   const frameOverlays = backgroundFrameOverlays()
   const nextActiveSelection = activeCanvasSelection()
 
   // --- Canvas background + annotation overlay ---
+  // bgView is the opaque, rounded "content panel" fill. It spans the full
+  // content area minus the devtools column on the right.
   if (bgView && win) {
-    const { width, height } = win.getBounds()
-    const bgWidth = Math.max(0, width - (devtoolsOpen ? devtoolsWidth : 0))
-    layoutCache.lastBackgroundBoundsKey = setBoundsIfChanged(bgView, { x: 0, y: 0, width: bgWidth, height }, layoutCache.lastBackgroundBoundsKey)
+    const bgWidth = Math.max(0, contentWidth - (devtoolsOpen ? devtoolsWidth : 0))
+    layoutCache.lastBackgroundBoundsKey = setBoundsIfChanged(
+      bgView,
+      { x: contentX, y: contentY, width: bgWidth, height: contentHeight },
+      layoutCache.lastBackgroundBoundsKey,
+    )
     if (consumeDirty('canvas')) {
       bgView.webContents.send(
         'layout-update',
@@ -232,18 +254,19 @@ export function layoutAllViews(): void {
   }
 
   // --- Left sidebar ---
+  // Full-height: sits at y=0 so native macOS vibrancy fills the entire
+  // left column, including behind the traffic lights. The sidebar renderer
+  // adds top padding to clear the traffic lights.
   if (leftSidebarView && win) {
-    const { height } = win.getBounds()
-    const showLeftSidebar = uiLeftSidebarOpen()
-    leftSidebarView.setVisible(showLeftSidebar)
+    leftSidebarView.setVisible(sidebarOpen)
     layoutCache.lastLeftSidebarBoundsKey = setBoundsIfChanged(
       leftSidebarView,
-      showLeftSidebar
+      sidebarOpen
         ? {
             x: 0,
-            y: layoutCache.toolbarHeight,
+            y: 0,
             width: LEFT_SIDEBAR_WIDTH,
-            height: Math.max(0, height - layoutCache.toolbarHeight),
+            height: Math.max(0, winHeight),
           }
         : { x: 0, y: 0, width: 0, height: 0 },
       layoutCache.lastLeftSidebarBoundsKey,
@@ -259,7 +282,6 @@ export function layoutAllViews(): void {
   // marquee + floating menu + saved drawings. The renderer no longer
   // drives this; it only renders what it's told to render.
   if (aboveView && win) {
-    const { width, height } = win.getBounds()
     const selectedTargets = selectedCanvasTargets()
     const shouldCover = shouldGateBeOpen({
       interactionKind: interactionState.kind === 'idle' ? 'idle'
@@ -280,10 +302,10 @@ export function layoutAllViews(): void {
     })
     const bounds = shouldCover
           ? {
-              x: 0,
-              y: contentTopInset,
-              width: Math.max(0, width - (devtoolsOpen ? devtoolsWidth : 0)),
-              height: Math.max(0, height - contentTopInset),
+              x: contentX,
+              y: contentY + contentTopInset,
+              width: Math.max(0, contentWidth - (devtoolsOpen ? devtoolsWidth : 0)),
+              height: Math.max(0, contentHeight - contentTopInset),
             }
           : { x: 0, y: 0, width: 0, height: 0 }
     layoutCache.lastCommentOverlayBoundsKey = setBoundsIfChanged(
@@ -296,7 +318,8 @@ export function layoutAllViews(): void {
   // --- Cursor overlay window bounds ---
   // Child BrowserWindow for agent-presence cursors. Bounds are in screen
   // coordinates (not win-relative), derived from the main window's
-  // content bounds + the toolbar inset. Shown only when cursors exist.
+  // content bounds + the content-panel offset + toolbar/browser inset.
+  // Shown only when cursors exist.
   if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed() && win) {
     const hasCursors = getPresenceCursors().length > 0
     if (!hasCursors) {
@@ -305,10 +328,10 @@ export function layoutAllViews(): void {
     } else {
       const contentBounds = win.getContentBounds()
       const overlayBounds = {
-        x: contentBounds.x,
-        y: contentBounds.y + contentTopInset,
-        width: Math.max(1, contentBounds.width - (devtoolsOpen ? devtoolsWidth : 0)),
-        height: Math.max(1, contentBounds.height - contentTopInset),
+        x: contentBounds.x + contentX,
+        y: contentBounds.y + contentY + contentTopInset,
+        width: Math.max(1, contentWidth - (devtoolsOpen ? devtoolsWidth : 0)),
+        height: Math.max(1, contentHeight - contentTopInset),
       }
       const key = `${overlayBounds.x},${overlayBounds.y},${overlayBounds.width},${overlayBounds.height}`
       if (layoutCache.lastCursorOverlayBoundsKey !== key) {
@@ -441,11 +464,13 @@ export function layoutAllViews(): void {
   layoutDevtoolsViews()
 
   // --- Toolbar ---
+  // Sits at the top of the content panel (not spanning full window width).
+  // Renderer applies CSS `border-radius: 10px 10px 0 0` so the top corners
+  // match the content panel's rounded corners.
   if (toolbarView && win) {
-    const { width } = win.getBounds()
     layoutCache.lastToolbarBoundsKey = setBoundsIfChanged(
       toolbarView,
-      { x: 0, y: 0, width, height: layoutCache.toolbarHeight },
+      { x: contentX, y: contentY, width: contentWidth, height: layoutCache.toolbarHeight },
       layoutCache.lastToolbarBoundsKey,
     )
     if (consumeDirty('toolbar')) {

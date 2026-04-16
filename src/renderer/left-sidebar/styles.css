@@ -2,6 +2,13 @@
 @import "../shared/surfaceTheme.css";
 @variant dark (&:where(.dark, .dark *));
 
+/* Transparent root so native macOS vibrancy (set on the BaseWindow) shows
+   through the sidebar column. The React <aside> uses bg-transparent too. */
+html,
+body {
+  background: transparent;
+}
+
 .thin-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;

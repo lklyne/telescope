@@ -123,12 +123,17 @@ export default function App({
 
   return (
     <aside
-      className={`flex h-screen w-screen flex-col overflow-hidden ${
-        isDark
-          ? 'border-r border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-zinc-100'
-          : 'border-r border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-zinc-900'
+      className={`flex h-screen w-screen flex-col overflow-hidden bg-transparent ${
+        isDark ? 'text-zinc-100' : 'text-zinc-900'
       }`}
     >
+      {/*
+        Traffic-light header spacer. Matches toolbar height so the sidebar's
+        first content row aligns horizontally with the toolbar's baseline.
+        The region is window-draggable so the sidebar behaves like a native
+        titlebar. The macOS traffic lights paint on top natively.
+      */}
+      <div className="h-11 shrink-0 [-webkit-app-region:drag]" />
       <div
         className={
           pagesExpanded

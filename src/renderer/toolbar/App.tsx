@@ -78,7 +78,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [annotationMode, inspectEnabled, selection.viewMode])
-  const isMac = navigator.userAgent.includes('Mac')
   const showMultiFrameAddressBar = selection.selectionCount > 1
   const showTabsModeAddressBar = isBrowserMode && hasSelection
   const showCenterActionsOnly = !showMultiFrameAddressBar && !showTabsModeAddressBar
@@ -123,9 +122,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
       `}</style>
 
       <div
-        className={`toolbar-bar fixed top-0 left-0 right-0 grid h-[44px] grid-cols-[auto_1fr_auto] items-center gap-1 ${
-          isMac ? 'pl-[86px] pr-4' : 'px-4'
-        } select-none [-webkit-app-region:drag] border-b border-[var(--surface-toolbar-border)] bg-[var(--surface-toolbar)] text-[var(--surface-toolbar-foreground)]`}
+        className="toolbar-bar fixed top-0 left-0 right-0 grid h-[44px] grid-cols-[auto_1fr_auto] items-center gap-1 px-4 select-none overflow-hidden rounded-t-[10px] [-webkit-app-region:drag] border-b border-[var(--surface-toolbar-border)] bg-[var(--surface-toolbar)] text-[var(--surface-toolbar-foreground)]"
       >
         <LeftActions
           isDark={isDark}

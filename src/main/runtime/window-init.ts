@@ -30,6 +30,7 @@ import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
 import { requestLayout, setZoom, setPan, focusSelectedPage } from './viewport-control'
 import {
+  contentPanelColor,
   isDark,
   loadPreferences,
 } from './preferences'
@@ -72,6 +73,7 @@ import {
   mcpConnectionStatus,
 } from './runtime-context'
 import {
+  CONTENT_BORDER_RADIUS,
   TOOLBAR_HEIGHT,
 } from './runtime-constants'
 
@@ -147,7 +149,11 @@ export function initWindow(): void {
     title: 'Telescope',
     titleBarStyle: 'hidden',
     ...(process.platform === 'darwin'
-      ? { trafficLightPosition: { x: 14, y: 13 } }
+      ? {
+          trafficLightPosition: { x: 14, y: 16 },
+          vibrancy: 'sidebar',
+          visualEffectState: 'active',
+        }
       : {}),
   }))
   const currentWin = win
@@ -158,7 +164,9 @@ export function initWindow(): void {
 
   currentWin.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
 
-  // 1. Background view
+  // 1. Background view — serves as the opaque, rounded "content panel"
+  // that sits inset from the sidebar and window edges. Canvas React app
+  // renders on top of this opaque fill.
   setBgView(new WebContentsView({
     webPreferences: {
       preload: preloadPath('canvas-bg'),
@@ -168,7 +176,8 @@ export function initWindow(): void {
   }))
   const currentBgView = bgView
   if (!currentBgView) return
-  currentBgView.setBackgroundColor('#00000000')
+  currentBgView.setBackgroundColor(contentPanelColor())
+  currentBgView.setBorderRadius(CONTENT_BORDER_RADIUS)
   // Strip cross-origin-resource-policy from image responses in UI renderers
   // (canvas-bg, sidebar) so they can load favicon images from any origin.
   // Scoped to UI view webContents only — page views are left untouched.
@@ -336,6 +345,7 @@ export function initWindow(): void {
   const currentDevtoolsBackgroundView = devtoolsBackgroundView
   if (!currentDevtoolsBackgroundView) return
   currentDevtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
+  currentDevtoolsBackgroundView.setBorderRadius(CONTENT_BORDER_RADIUS)
   currentDevtoolsBackgroundView.webContents.loadURL('about:blank')
   currentWin.contentView.addChildView(currentDevtoolsBackgroundView)
   currentDevtoolsBackgroundView.setBounds(devtoolsPrewarmBounds)

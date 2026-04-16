@@ -6,6 +6,7 @@ import {
   BROWSER_HEADER_HEIGHT,
   CARD_BORDER_WIDTH,
   CHROME_PAGE_GAP,
+  CONTENT_INSET,
   LEFT_SIDEBAR_WIDTH,
   devtoolsPanelDebug,
 } from './runtime-constants'
@@ -111,11 +112,15 @@ export function computeCanvasOrigin(input: {
   toolbarHeight: number
   browserHeaderHeight: number
   leftSidebarWidth: number
+  contentInset: number
 }): { x: number; y: number } {
   const viewMode = input.currentViewMode()
   return {
-    x: input.leftSidebarWidth,
-    y: input.toolbarHeight + (viewMode === 'browser' ? input.browserHeaderHeight : 0),
+    x: input.leftSidebarWidth + input.contentInset,
+    y:
+      input.contentInset +
+      input.toolbarHeight +
+      (viewMode === 'browser' ? input.browserHeaderHeight : 0),
   }
 }
 
@@ -127,6 +132,7 @@ export function computeAvailableCanvasViewport(input: {
   toolbarHeight: number
   browserHeaderHeight: number
   leftSidebarWidth: number
+  contentInset: number
 }): { width: number; height: number } {
   const viewport = computeAvailableCanvasViewportRect(input)
   return { width: viewport.width, height: viewport.height }
@@ -140,19 +146,25 @@ export function computeAvailableCanvasViewportRect(input: {
   toolbarHeight: number
   browserHeaderHeight: number
   leftSidebarWidth: number
+  contentInset: number
 }): { x: number; y: number; width: number; height: number } {
   const { width = 0, height = 0 } = input.win?.getBounds() ?? {}
-  const leftInset = input.leftSidebarWidth
+  const leftInset = input.leftSidebarWidth + input.contentInset
   const topInset =
-    input.toolbarHeight + (input.currentViewMode() === 'browser' ? input.browserHeaderHeight : 0)
+    input.contentInset +
+    input.toolbarHeight +
+    (input.currentViewMode() === 'browser' ? input.browserHeaderHeight : 0)
   return {
     x: leftInset,
     y: topInset,
     width: Math.max(
       0,
-      width - (input.currentDevtoolsOpen() ? input.currentDevtoolsWidth() : 0) - leftInset,
+      width -
+        (input.currentDevtoolsOpen() ? input.currentDevtoolsWidth() : 0) -
+        leftInset -
+        input.contentInset,
     ),
-    height: Math.max(0, height - topInset),
+    height: Math.max(0, height - topInset - input.contentInset),
   }
 }
 
@@ -350,6 +362,7 @@ export function boundAvailableCanvasViewport(): { width: number; height: number 
     toolbarHeight: layoutCache.toolbarHeight,
     browserHeaderHeight: BROWSER_HEADER_HEIGHT,
     leftSidebarWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
+    contentInset: CONTENT_INSET,
   })
 }
 
@@ -362,6 +375,7 @@ export function boundAvailableCanvasViewportRect(): { x: number; y: number; widt
     toolbarHeight: layoutCache.toolbarHeight,
     browserHeaderHeight: BROWSER_HEADER_HEIGHT,
     leftSidebarWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
+    contentInset: CONTENT_INSET,
   })
 }
 
@@ -387,6 +401,7 @@ export function boundCanvasOrigin(): { x: number; y: number } {
     toolbarHeight: layoutCache.toolbarHeight,
     browserHeaderHeight: BROWSER_HEADER_HEIGHT,
     leftSidebarWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
+    contentInset: CONTENT_INSET,
   })
 }
 

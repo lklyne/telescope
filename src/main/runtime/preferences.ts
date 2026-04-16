@@ -114,10 +114,22 @@ export function frameColor(): string {
   return isDark() ? '#57534e' : '#a8a29e'
 }
 
+/**
+ * Opaque background color for the content panel (bgView). Drawn behind the
+ * canvas so the rounded-corner inset panel has a solid fill, while the
+ * window's vibrancy shows through in the sidebar column and around the panel.
+ */
+export function contentPanelColor(): string {
+  return isDark() ? '#18181b' : '#fafafa'
+}
+
 export function broadcastTheme(): void {
   if (win) win.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
   const data = { isDark: isDark() }
-  if (bgView) bgView.webContents.send('theme-changed', data)
+  if (bgView) {
+    bgView.setBackgroundColor(contentPanelColor())
+    bgView.webContents.send('theme-changed', data)
+  }
   if (leftSidebarView) leftSidebarView.webContents.send('theme-changed', data)
   if (toolbarView) toolbarView.webContents.send('theme-changed', data)
   if (aboveView && !aboveView.webContents.isDestroyed()) {

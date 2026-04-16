@@ -13,6 +13,15 @@ export const TOOLBAR_BORDER_DARK = '#3f3f46'
 export const BROWSER_HEADER_HEIGHT = 36
 export const LEFT_SIDEBAR_WIDTH = 256
 
+// --- Content panel (Arc-style inset rounded area to the right of sidebar) ---
+// The content panel is the opaque, rounded-corner region that holds canvas,
+// toolbar, pages, and devtools. It sits inside the window with CONTENT_INSET
+// padding on top, right, and bottom (the sidebar itself sits flush to the
+// left window edge). The gap between sidebar and content panel is also
+// CONTENT_INSET, so the sidebar's translucent vibrancy frames the panel.
+export const CONTENT_INSET = 8
+export const CONTENT_BORDER_RADIUS = 10
+
 // --- DevTools panel ---
 export const DEVTOOLS_DEFAULT_WIDTH = 400
 export const DEVTOOLS_MIN_WIDTH = 280

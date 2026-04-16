@@ -2,6 +2,13 @@
 @import "../shared/surfaceTheme.css";
 @variant dark (&:where(.dark, .dark *));
 
+/* Transparent root so the panel's rounded top-right corner reveals the
+   devtoolsBackgroundView beneath (which is itself rounded). */
+html,
+body {
+  background: transparent;
+}
+
 .mcp-inline-command-scroll {
   scrollbar-width: none;
   -ms-overflow-style: none;

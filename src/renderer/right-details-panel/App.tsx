@@ -29,9 +29,13 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   })
   useReportTextEditing(rightDetailsPanelApi.setTextEditing)
 
+  // rounded-tr clips the panel's top-right corner to match the content
+  // panel's rounded corner. The left edge meets the canvas flush, and the
+  // other corners either sit inside the rounded content panel (top-left)
+  // or are clipped by the devtoolsBackgroundView's rounded bottom-right.
   const frameClass = isDark
-    ? 'h-screen w-screen overflow-hidden border-l border-[var(--surface-panel-border)] bg-[var(--surface-panel)] text-zinc-100'
-    : 'h-screen w-screen overflow-hidden border-l border-[var(--surface-panel-border)] bg-[var(--surface-panel)] text-zinc-900'
+    ? 'h-screen w-screen overflow-hidden rounded-tr-[10px] border-l border-[var(--surface-panel-border)] bg-[var(--surface-panel)] text-zinc-100'
+    : 'h-screen w-screen overflow-hidden rounded-tr-[10px] border-l border-[var(--surface-panel-border)] bg-[var(--surface-panel)] text-zinc-900'
   const frames = panelData.frames ?? []
   const annotations = panelData.annotations ?? []
   const mcpSetup = panelData.emptyState?.kind === 'mcp_setup' ? panelData.emptyState : null

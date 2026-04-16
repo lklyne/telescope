@@ -6,7 +6,7 @@ import { pages } from '../runtime/page-runtime'
 import { aboveView } from '../runtime/view-refs'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { setHoverEntity, setHoveredFrame } from '../runtime/runtime-core'
-import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
+import { annotationMode as uiAnnotationMode, selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
 import {
   canvasOrigin,
   layoutAllViews,
@@ -138,6 +138,7 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on('canvas-hover-frame', (_event, { frameId }: { frameId: string | null }) => {
     if (interactionBlocksPageHover()) return
+    if (uiAnnotationMode() === 'region_select') return
     setHoveredFrame(frameId)
   })
 

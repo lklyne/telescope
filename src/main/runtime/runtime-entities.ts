@@ -45,7 +45,7 @@ export interface Page {
   lastSafeAreaCssKey?: string
   lastSafeAreaCssId?: string
   crashedAt?: number
-  crashReason?: string
+  crashReason?: Electron.RenderProcessGoneDetails['reason']
 }
 
 // ---------------------------------------------------------------------------

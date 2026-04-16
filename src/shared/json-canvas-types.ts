@@ -13,7 +13,7 @@ export type CanvasColor = '1' | '2' | '3' | '4' | '5' | '6' | (string & {})
 
 export interface JsonCanvasNodeBase {
   id: string
-  type: 'text' | 'link' | 'file' | 'group'
+  type: 'text' | 'link' | 'file' | 'group' | 'drawing'
   x: number
   y: number
   width: number
@@ -62,15 +62,27 @@ export interface JsonCanvasGroupNode extends JsonCanvasNodeBase {
   groupMetadata?: Record<string, unknown>
 }
 
+/**
+ * Drawing node (Telescope extension). Other JSON Canvas tools ignore
+ * unknown `type` values per the spec's extensibility model.
+ */
+export interface JsonCanvasDrawingNode extends JsonCanvasNodeBase {
+  type: 'drawing'
+  strokes: AnnotationDrawingStroke[]
+  label?: string
+  parentGroupId?: string
+}
+
 export type JsonCanvasNode =
   | JsonCanvasTextNode
   | JsonCanvasLinkNode
   | JsonCanvasFileNode
   | JsonCanvasGroupNode
+  | JsonCanvasDrawingNode
 
 // --- Edges ---
 
-import type { EdgeSide, EdgeEnd } from './types'
+import type { AnnotationDrawingStroke, EdgeSide, EdgeEnd } from './types'
 export type { EdgeSide, EdgeEnd }
 
 export interface JsonCanvasEdge {

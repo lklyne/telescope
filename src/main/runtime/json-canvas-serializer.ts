@@ -10,6 +10,7 @@ import type {
   BrowserTabMode,
   DevtoolsPanelTab,
   PersistedCanvasEntity,
+  PersistedDrawingEntity,
   PersistedFileEntity,
   PersistedFrameEntity,
   PersistedGroupEntity,
@@ -20,6 +21,7 @@ import type {
 } from '../../shared/types'
 import type {
   JsonCanvasDocument,
+  JsonCanvasDrawingNode,
   JsonCanvasEdge,
   JsonCanvasFileNode,
   JsonCanvasGroupNode,
@@ -80,6 +82,8 @@ export function serializeToJsonCanvas(
       nodes.push(serializeFileToFileNode(entity))
     } else if (entity.kind === 'group') {
       nodes.push(serializeGroupEntityToGroupNode(entity))
+    } else if (entity.kind === 'drawing') {
+      nodes.push(serializeDrawingToDrawingNode(entity))
     }
   }
 
@@ -148,6 +152,20 @@ function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNod
     height: entity.height,
     file: entity.file,
     subpath: entity.subpath,
+  }
+}
+
+function serializeDrawingToDrawingNode(entity: PersistedDrawingEntity): JsonCanvasDrawingNode {
+  return {
+    id: entity.id,
+    type: 'drawing',
+    x: entity.canvasX,
+    y: entity.canvasY,
+    width: entity.width,
+    height: entity.height,
+    strokes: entity.strokes,
+    label: entity.label,
+    parentGroupId: entity.parentGroupId,
   }
 }
 
@@ -227,6 +245,10 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
       const entity = deserializeGroupNodeToGroup(node)
       entities[entity.id] = entity
       entityOrder.push(entity.id)
+    } else if (node.type === 'drawing') {
+      const entity = deserializeDrawingNodeToDrawing(node)
+      entities[entity.id] = entity
+      entityOrder.push(entity.id)
     }
   }
 
@@ -295,6 +317,20 @@ function deserializeFileNodeToFile(node: JsonCanvasFileNode): PersistedFileEntit
     canvasY: node.y,
     width: node.width,
     height: node.height,
+  }
+}
+
+function deserializeDrawingNodeToDrawing(node: JsonCanvasDrawingNode): PersistedDrawingEntity {
+  return {
+    kind: 'drawing',
+    id: node.id,
+    canvasX: node.x,
+    canvasY: node.y,
+    width: node.width,
+    height: node.height,
+    strokes: node.strokes,
+    label: node.label,
+    parentGroupId: node.parentGroupId,
   }
 }
 

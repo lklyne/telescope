@@ -6,11 +6,16 @@ import type {
   ThemeData,
 } from '../../shared/types'
 import {
+  isOverlayUiTarget,
   normalizeRect,
+  screenPointToCanvasPoint,
   screenRectToCanvasRect,
+  snapToGrid,
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { DRAW_CURSOR } from '../canvas-bg/canvasBgConstants'
+import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
+import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
 import {
@@ -120,6 +125,49 @@ export default function App({
   )
   const hasSavedDrawings =
     !hasSelectedFrame && layoutData.entities.some((e) => e.kind === 'drawing')
+
+  // Above-view owns placement preview whenever its gate is open (saved
+  // drawings force us to cover the canvas, so canvas-bg can't see the
+  // pointer). Tracks cursor from window pointermove and commits on click.
+  // Above-view's pointer events are relative to its origin at canvasOrigin.y,
+  // so we add that offset to get the window-relative coords that
+  // buildPendingPlacementPreview expects.
+  const pendingPlacement = layoutData.pendingPlacement
+  const [placementCursor, setPlacementCursor] = useState<{
+    clientX: number
+    clientY: number
+  } | null>(null)
+  useEffect(() => {
+    if (!pendingPlacement) {
+      setPlacementCursor(null)
+      return
+    }
+    if (
+      pendingPlacement.initialClientX !== null &&
+      pendingPlacement.initialClientY !== null
+    ) {
+      setPlacementCursor({
+        clientX: pendingPlacement.initialClientX,
+        clientY: pendingPlacement.initialClientY,
+      })
+    }
+  }, [pendingPlacement])
+  useEffect(() => {
+    if (!pendingPlacement) return
+    const handlePointerMove = (event: PointerEvent) => {
+      if (isOverlayUiTarget(event.target)) return
+      setPlacementCursor({
+        clientX: event.clientX,
+        clientY: event.clientY + layoutRef.current.canvasOrigin.y,
+      })
+    }
+    window.addEventListener('pointermove', handlePointerMove)
+    return () => window.removeEventListener('pointermove', handlePointerMove)
+  }, [pendingPlacement])
+  const placementPreview = useMemo(
+    () => buildPendingPlacementPreview(layoutData, placementCursor),
+    [layoutData, placementCursor],
+  )
 
   const {
     consumeSuppressedAnnotationClick,
@@ -244,6 +292,63 @@ export default function App({
     [layoutRef],
   )
 
+  // Hover hit-test over any interactive entity kind. Above-view intercepts
+  // pointer events whenever the gate is open (e.g. saved drawings present),
+  // so canvas-bg's chrome-level mouseenter/leave never fires — we forward
+  // hover changes through api.hoverFrame.
+  const hitTestHoverTarget = useCallback(
+    (clientX: number, clientY: number): string | null => {
+      const layout = layoutRef.current
+      const windowY = clientY + layout.canvasOrigin.y
+      const FRAME_CHROME = 44
+      for (let i = layout.entities.length - 1; i >= 0; i--) {
+        const e = layout.entities[i]
+        if (e.kind === 'group' || e.kind === 'drawing') continue
+        const top = e.kind === 'frame' ? e.screenY - FRAME_CHROME : e.screenY
+        const bottom = e.screenY + e.screenHeight
+        if (
+          clientX >= e.screenX &&
+          clientX <= e.screenX + e.screenWidth &&
+          windowY >= top &&
+          windowY <= bottom
+        ) {
+          return e.id
+        }
+      }
+      return null
+    },
+    [layoutRef],
+  )
+  const lastHoverIdRef = useRef<string | null>(null)
+  const hoverForwardingEnabled = layoutData.annotationMode !== 'draw'
+  useEffect(() => {
+    const clearHover = () => {
+      if (lastHoverIdRef.current === null) return
+      lastHoverIdRef.current = null
+      api.hoverFrame(null)
+    }
+    if (!hoverForwardingEnabled) {
+      clearHover()
+      return
+    }
+    const handleMove = (event: PointerEvent) => {
+      if (isOverlayUiTarget(event.target)) return
+      const nextId = hitTestHoverTarget(event.clientX, event.clientY)
+      if (nextId === lastHoverIdRef.current) return
+      lastHoverIdRef.current = nextId
+      api.hoverFrame(nextId)
+    }
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerleave', clearHover)
+    window.addEventListener('blur', clearHover)
+    return () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerleave', clearHover)
+      window.removeEventListener('blur', clearHover)
+      clearHover()
+    }
+  }, [hitTestHoverTarget, hoverForwardingEnabled])
+
   const onFramePointerDown = useCallback(
     (frameId: string, event: MouseEvent) => {
       api.selectFrame(frameId)
@@ -270,13 +375,37 @@ export default function App({
     [],
   )
 
-  const dragMode: 'region_select' | 'marquee' | null = !overlayInteractive
-    ? layoutData.annotationMode === 'region_select'
-      ? 'region_select'
-      : hasSavedDrawings
-        ? 'marquee'
-        : null
-    : null
+  const placementClickAt = useCallback(
+    (screenX: number, screenY: number) => {
+      const layout = layoutRef.current
+      const point = screenPointToCanvasPoint(
+        screenX,
+        screenY + layout.canvasOrigin.y,
+        layout,
+      )
+      api.placePendingEntity(snapToGrid(point.x), snapToGrid(point.y))
+    },
+    [],
+  )
+
+  // Above-view's pointer events are relative to its origin (canvasOrigin.y
+  // below the toolbar), but main's canvas-click-at expects window-relative
+  // coords — adjust Y before forwarding.
+  const canvasClickAtFromAboveView = useCallback(
+    (screenX: number, screenY: number) => {
+      api.canvasClickAt(screenX, screenY + layoutRef.current.canvasOrigin.y)
+    },
+    [],
+  )
+
+  const dragMode: 'region_select' | 'marquee' | null =
+    !overlayInteractive && !pendingPlacement
+      ? layoutData.annotationMode === 'region_select'
+        ? 'region_select'
+        : hasSavedDrawings
+          ? 'marquee'
+          : null
+      : null
   const activeDragMove =
     dragMode === 'region_select' ? onDragMove : dragMode === 'marquee' ? onMarqueeMove : undefined
   const activeDragEnd =
@@ -285,14 +414,29 @@ export default function App({
     () => ({
       canvasZoom: api.canvasZoom,
       canvasPan: api.canvasPan,
-      canvasDeselect: overlayInteractive ? undefined : api.canvasDeselect,
-      canvasClickAt: overlayInteractive || activeDragMove ? undefined : api.canvasClickAt,
+      canvasDeselect: overlayInteractive || pendingPlacement ? undefined : api.canvasDeselect,
+      canvasClickAt: overlayInteractive
+        ? undefined
+        : pendingPlacement
+          ? placementClickAt
+          : canvasClickAtFromAboveView,
       onDragMove: activeDragMove,
       onDragEnd: activeDragEnd,
-      hitTestFrame: overlayInteractive ? undefined : hitTestFrame,
-      onFramePointerDown: overlayInteractive ? undefined : onFramePointerDown,
+      hitTestFrame: overlayInteractive || pendingPlacement ? undefined : hitTestFrame,
+      onFramePointerDown:
+        overlayInteractive || pendingPlacement ? undefined : onFramePointerDown,
     }),
-    [api, overlayInteractive, activeDragMove, activeDragEnd, hitTestFrame, onFramePointerDown],
+    [
+      api,
+      overlayInteractive,
+      pendingPlacement,
+      placementClickAt,
+      canvasClickAtFromAboveView,
+      activeDragMove,
+      activeDragEnd,
+      hitTestFrame,
+      onFramePointerDown,
+    ],
   )
   // Always enabled: when the overlay has zero bounds (main's gate closed),
   // the renderer DOM receives no events, so listener attachment is a no-op.
@@ -340,11 +484,21 @@ export default function App({
         layoutData={layoutData}
         selectedEntityIds={layoutData.selectedEntityIds}
         onSelect={
-          layoutData.annotationMode === 'off'
+          layoutData.annotationMode === 'off' && layoutData.pendingPlacement === null
             ? (id) => api.selectEntity(id, 'drawing')
             : undefined
         }
       />
+
+      {placementPreview ? (
+        <PlacementPreviewLayer
+          isDark={isDark}
+          preview={{
+            ...placementPreview,
+            top: placementPreview.top - layoutData.canvasOrigin.y,
+          }}
+        />
+      ) : null}
 
       {!captureMode ? (
         <>

@@ -117,7 +117,7 @@ describe('shouldGateBeOpen', () => {
     expect(shouldGateBeOpen({ ...base(), hasSavedDrawings: true })).toBe(true)
   })
 
-  it('closed when saved drawings exist but a frame is selected', () => {
+  it('closed when saved drawings exist but a single frame is selected', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
@@ -127,4 +127,28 @@ describe('shouldGateBeOpen', () => {
       }),
     ).toBe(false)
   })
+
+  it('open when saved drawings exist and multi-selection includes a frame', () => {
+    expect(
+      shouldGateBeOpen({
+        ...base(),
+        hasSavedDrawings: true,
+        selectedEntityIds: ['f1', 't1'],
+        selectedEntityKinds: ['frame', 'text'],
+      }),
+    ).toBe(true)
+  })
+
+  it.each(['inspect', 'annotate-comment'] as const)(
+    'closed when saved drawings exist but toolMode is %s',
+    (toolMode) => {
+      expect(
+        shouldGateBeOpen({
+          ...base(),
+          toolMode,
+          hasSavedDrawings: true,
+        }),
+      ).toBe(false)
+    },
+  )
 })

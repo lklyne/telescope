@@ -124,11 +124,20 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
       <div
         className="toolbar-bar fixed top-0 left-0 right-0 grid h-[44px] grid-cols-[auto_1fr_auto] items-center gap-1 px-4 select-none overflow-hidden rounded-t-[10px] [-webkit-app-region:drag] border-b border-[var(--surface-toolbar-border)] bg-[var(--surface-toolbar)] text-[var(--surface-toolbar-foreground)]"
       >
-        <LeftActions
-          isDark={isDark}
-          leftSidebarOpen={leftSidebarOpen}
-          onToggleLeftSidebar={toolbarApi.toggleLeftSidebar}
-        />
+        {/*
+          Sidebar toggle lives in the sidebar's own header when the sidebar
+          is open. Surface it here only when the sidebar is collapsed so the
+          user has a way to reopen it without the keyboard shortcut.
+        */}
+        {leftSidebarOpen ? (
+          <div />
+        ) : (
+          <LeftActions
+            isDark={isDark}
+            leftSidebarOpen={leftSidebarOpen}
+            onToggleLeftSidebar={toolbarApi.toggleLeftSidebar}
+          />
+        )}
 
         {showTabsModeAddressBar ? (
           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -239,10 +248,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           <RightPanelToggle
             isDark={isDark}
             devtoolsOpen={devtoolsOpen}
-            isBrowserMode={isBrowserMode}
-            hasFrames={hasFrames}
             onToggleDevTools={toolbarApi.toggleDevTools}
-            onToggleBrowserMode={toolbarApi.toggleBrowserMode}
           />
         </div>
       </div>

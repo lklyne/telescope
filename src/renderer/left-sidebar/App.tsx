@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
-import { Check, ChevronDown, ChevronRight, File, Plus } from 'lucide-react'
+import { Tabs } from '@base-ui/react/tabs'
+import { Check, ChevronDown, ChevronRight, File, LayoutTemplate, PanelRight, PanelTop, Plus } from 'lucide-react'
 import type {
   LeftSidebarData,
   LeftSidebarElectronAPI,
@@ -128,12 +129,20 @@ export default function App({
       }`}
     >
       {/*
-        Traffic-light header spacer. Matches toolbar height so the sidebar's
+        Traffic-light header. Matches toolbar height so the sidebar's
         first content row aligns horizontally with the toolbar's baseline.
-        The region is window-draggable so the sidebar behaves like a native
-        titlebar. The macOS traffic lights paint on top natively.
+        The whole strip is window-draggable (behaves like a native titlebar);
+        interactive controls opt out with [-webkit-app-region:no-drag].
+        The left 78px is reserved for the macOS traffic-light buttons.
       */}
-      <div className="h-11 shrink-0 [-webkit-app-region:drag]" />
+      <SidebarHeader
+        isDark={isDark}
+        leftSidebarOpen
+        viewMode={sidebarData.viewMode}
+        hasFrames={sidebarData.hasFrames}
+        onToggleLeftSidebar={api.toggleLeftSidebar}
+        onToggleBrowserMode={api.toggleBrowserMode}
+      />
       <div
         className={
           pagesExpanded
@@ -300,5 +309,77 @@ export default function App({
         </div>
       </div>
     </aside>
+  )
+}
+
+interface SidebarHeaderProps {
+  isDark: boolean
+  leftSidebarOpen: boolean
+  viewMode: LeftSidebarData['viewMode']
+  hasFrames: boolean
+  onToggleLeftSidebar: () => void
+  onToggleBrowserMode: () => void
+}
+
+function SidebarHeader({
+  isDark,
+  leftSidebarOpen,
+  viewMode,
+  hasFrames,
+  onToggleLeftSidebar,
+  onToggleBrowserMode,
+}: SidebarHeaderProps) {
+  const iconButtonClass = isDark
+    ? 'flex items-center justify-center rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-300 hover:bg-zinc-700/70 hover:text-zinc-100 active:bg-zinc-700'
+    : 'flex items-center justify-center rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-600 hover:bg-black/5 hover:text-zinc-900 active:bg-black/10'
+
+  const modeTabClass = isDark
+    ? 'relative z-10 flex items-center justify-center rounded-[8px] border-0 bg-transparent p-1.5 text-zinc-300 opacity-60 outline-none transition-[color,opacity] select-none hover:text-zinc-100 hover:opacity-100 data-[active]:text-zinc-100 data-[active]:opacity-100 disabled:pointer-events-none disabled:opacity-45'
+    : 'relative z-10 flex items-center justify-center rounded-[8px] border-0 bg-transparent p-1.5 text-zinc-600 opacity-60 outline-none transition-[color,opacity] select-none hover:text-zinc-900 hover:opacity-100 data-[active]:text-zinc-900 data-[active]:opacity-100 disabled:pointer-events-none disabled:opacity-45'
+
+  const modeTabIndicatorClass =
+    'absolute top-1/2 left-0 z-[-1] h-[var(--active-tab-height)] w-[var(--active-tab-width)] -translate-y-1/2 translate-x-[var(--active-tab-left)] rounded-[8px] bg-[var(--surface-interactive)] transition-all duration-200 ease-in-out'
+
+  const isBrowserMode = viewMode === 'browser'
+
+  return (
+    <div className="flex h-11 shrink-0 items-center gap-1 pl-[78px] pr-2 [-webkit-app-region:drag]">
+      <div className="flex items-center gap-1 [-webkit-app-region:no-drag]">
+        <button
+          type="button"
+          onClick={onToggleLeftSidebar}
+          className={iconButtonClass}
+          title={leftSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+          <PanelRight
+            size={14}
+            className={leftSidebarOpen ? '' : 'opacity-60'}
+            style={{ transform: 'scaleX(-1)' }}
+          />
+        </button>
+
+        <Tabs.Root
+          value={isBrowserMode ? 'browser' : 'canvas'}
+          onValueChange={(value) => {
+            if ((value === 'browser') !== isBrowserMode) onToggleBrowserMode()
+          }}
+        >
+          <Tabs.List className="relative z-0 flex items-center gap-1" aria-label="View mode">
+            <Tabs.Tab className={modeTabClass} value="canvas" title="Canvas">
+              <LayoutTemplate size={14} />
+            </Tabs.Tab>
+            <Tabs.Tab
+              className={modeTabClass}
+              disabled={!hasFrames}
+              value="browser"
+              title="Browser"
+            >
+              <PanelTop size={14} />
+            </Tabs.Tab>
+            <Tabs.Indicator className={modeTabIndicatorClass} />
+          </Tabs.List>
+        </Tabs.Root>
+      </div>
+    </div>
   )
 }

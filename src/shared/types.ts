@@ -1423,6 +1423,7 @@ export interface LeftSidebarElectronAPI {
   setTabExpanded: (tabId: string, expanded: boolean) => void
   setTextEditing: (active: boolean) => void
   toggleBrowserMode: () => void
+  toggleLeftSidebar: () => void
   getInitialData: () => Promise<LeftSidebarBootstrapData>
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onSidebarData: (callback: (data: LeftSidebarData) => void) => () => void

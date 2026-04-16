@@ -7,6 +7,7 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
     editingTextEntityId: null,
     selectedPageId: null,
     workspaceViewMode: 'canvas',
+    commentOverlayActive: false,
     pendingFocus: null,
     ...overrides,
   }
@@ -36,6 +37,10 @@ describe('expectedFocus', () => {
   it('editing-text routes to aboveView', () => {
     expect(expectedFocus(state({ interactionMode: 'editing-text', editingTextEntityId: 'e1' })))
       .toEqual({ kind: 'aboveView' })
+  })
+
+  it('routes to aboveView when comment overlay is active', () => {
+    expect(expectedFocus(state({ commentOverlayActive: true }))).toEqual({ kind: 'aboveView' })
   })
 
   it('pendingFocus overrides derivation', () => {

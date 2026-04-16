@@ -3,6 +3,7 @@ import { isTypingTarget, isPlainShortcutKey } from '../../../shared/gesture-util
 
 export function useAnnotationOverlayShortcuts(input: {
   active: boolean
+  annotationModeActive: boolean
   drawInteractionEnabled: boolean
   drawingSessionActive: boolean
   clearDraft: () => void
@@ -10,10 +11,10 @@ export function useAnnotationOverlayShortcuts(input: {
   closeThread: () => void
   deleteSelection: () => void
 }) {
-  const { active, drawInteractionEnabled, drawingSessionActive, clearDraft, clearToolMode, closeThread, deleteSelection } = input
+  const { active, annotationModeActive, drawInteractionEnabled, drawingSessionActive, clearDraft, clearToolMode, closeThread, deleteSelection } = input
 
   useEffect(() => {
-    if (!active && !drawInteractionEnabled) return
+    if (!active && !drawInteractionEnabled && !annotationModeActive) return
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (!document.hasFocus()) return
@@ -29,13 +30,16 @@ export function useAnnotationOverlayShortcuts(input: {
       event.preventDefault()
       if (drawingSessionActive) {
         clearDraft()
-        clearToolMode()
         return
       }
-      closeThread()
+      if (active) {
+        closeThread()
+        return
+      }
+      clearToolMode()
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [active, clearDraft, clearToolMode, closeThread, deleteSelection, drawInteractionEnabled, drawingSessionActive])
+  }, [active, annotationModeActive, clearDraft, clearToolMode, closeThread, deleteSelection, drawInteractionEnabled, drawingSessionActive])
 }

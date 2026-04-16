@@ -237,15 +237,15 @@ export default function App({
                       <Menu.Popup
                         className={`z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
                           isDark
-                            ? 'border-[var(--surface-popover-border)] bg-[var(--surface-popover)] text-zinc-100'
-                            : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover)] text-zinc-900'
+                            ? 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-100'
+                            : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900'
                         }`}
                       >
                         <Menu.Item
                           className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
                             isDark
-                              ? 'text-zinc-100 data-[highlighted]:bg-zinc-800'
-                              : 'text-zinc-900 data-[highlighted]:bg-zinc-100'
+                              ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
+                              : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
                           }`}
                           onClick={() => startRenameTab(tab.id, tab.name)}
                         >
@@ -254,8 +254,8 @@ export default function App({
                         <Menu.Item
                           className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
                             isDark
-                              ? 'text-zinc-100 data-[highlighted]:bg-zinc-800'
-                              : 'text-zinc-900 data-[highlighted]:bg-zinc-100'
+                              ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
+                              : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
                           }`}
                           onClick={() => api.deleteTab(tab.id)}
                         >

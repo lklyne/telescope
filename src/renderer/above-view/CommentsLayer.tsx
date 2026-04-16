@@ -32,9 +32,10 @@ export function PendingCommentComposer({
         width: pendingAnnotation.composerWidth,
       }}
     >
-      <div className="flex items-center gap-2 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover)] py-1.5 pl-3 pr-2 shadow-lg">
+      <div className="flex items-center gap-2 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1.5 pl-3 pr-2 shadow-lg">
         <CommentInput
           inputRef={commentInputRef}
+          autoFocus
           value={commentText}
           onChange={(value) => { setCommentText(value); resizeCommentInput() }}
           onSubmit={submitPendingAnnotation}
@@ -90,9 +91,10 @@ export function RegionSelectComposer({
         data-overlay-ui
         style={{ left: composerX, top: composerY, width: REGION_COMPOSER_WIDTH }}
       >
-        <div className="flex items-center gap-2 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover)] py-1.5 pl-3 pr-2 shadow-lg">
+        <div className="flex items-center gap-2 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1.5 pl-3 pr-2 shadow-lg">
           <CommentInput
             inputRef={commentInputRef}
+            autoFocus
             value={commentText}
             onChange={(value) => { setCommentText(value); resizeCommentInput() }}
             onSubmit={submitRegionAnnotation}

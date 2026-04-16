@@ -6,6 +6,7 @@ import type { RefObject, KeyboardEvent } from 'react'
  */
 export function CommentInput({
   inputRef,
+  autoFocus,
   value,
   onChange,
   onSubmit,
@@ -16,6 +17,7 @@ export function CommentInput({
   buttonClassName,
 }: {
   inputRef?: RefObject<HTMLTextAreaElement | null>
+  autoFocus?: boolean
   value: string
   onChange: (value: string) => void
   onSubmit: () => void
@@ -33,6 +35,7 @@ export function CommentInput({
     <>
       <textarea
         ref={inputRef}
+        autoFocus={autoFocus}
         className="min-h-[24px] flex-1 resize-none bg-transparent py-0.5 text-[14px] leading-6 text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
         rows={1}
         placeholder={placeholder}

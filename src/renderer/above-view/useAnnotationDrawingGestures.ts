@@ -1,34 +1,10 @@
 import { useCallback, useRef } from 'react'
-import type { CanvasBgElectronAPI, CanvasSceneDrawingEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
 import { isOverlayUiTarget, screenPointToCanvasPoint } from '../../shared/gesture-utils'
 import { drawingBounds, snapPointTo45Degrees, type DrawingSession } from './annotationMath'
 
 const DRAW_STROKE_COLOR = '#ef4444'
 const DRAW_STROKE_WIDTH = 6
-
-function hitTestDrawingEntities(
-  screenX: number,
-  screenY: number,
-  layout: LayoutUpdateData,
-): CanvasSceneDrawingEntity | null {
-  const drawings = layout.entities.filter(
-    (e): e is CanvasSceneDrawingEntity => e.kind === 'drawing',
-  )
-  const adjustedScreenY = screenY - layout.canvasOrigin.y
-  for (let i = drawings.length - 1; i >= 0; i--) {
-    const d = drawings[i]
-    const dy = d.screenY - layout.canvasOrigin.y
-    if (
-      screenX >= d.screenX &&
-      screenX <= d.screenX + d.screenWidth &&
-      adjustedScreenY >= dy &&
-      adjustedScreenY <= dy + d.screenHeight
-    ) {
-      return d
-    }
-  }
-  return null
-}
 
 export function useAnnotationDrawingGestures({
   api,
@@ -42,7 +18,6 @@ export function useAnnotationDrawingGestures({
   setDrawingSession,
   setDrawingStrokeActive,
   setPendingAnnotation,
-  submitDrawing,
 }: {
   api: CanvasBgElectronAPI
   clearDraft: () => void
@@ -59,7 +34,6 @@ export function useAnnotationDrawingGestures({
   setPendingAnnotation: React.Dispatch<
     React.SetStateAction<import('./annotationMath').PendingAnnotation | null>
   >
-  submitDrawing: () => void
 }) {
   const annotationDragRef = useRef<{
     pointerId: number
@@ -103,20 +77,8 @@ export function useAnnotationDrawingGestures({
         }
         if (isOverlayUiTarget(event.target)) return
 
-        // Hit-test existing drawing entities before starting a new stroke
-        const layout = layoutRef.current
-        const hitDrawing = hitTestDrawingEntities(event.clientX, event.clientY, layout)
-        if (hitDrawing) {
-          submitDrawing() // commit any in-progress drawing first
-          api.selectEntities([hitDrawing.id])
-          event.preventDefault()
-          return
-        }
-
-        // Deselect any previously selected drawing when clicking empty space
-        if (layoutData.selectedEntityIds.some((id) =>
-          layoutData.entities.some((e) => e.kind === 'drawing' && e.id === id),
-        )) {
+        // Clear any existing selection — draw mode only adds new strokes, never selects.
+        if (layoutData.selectedEntityIds.length > 0) {
           api.selectEntities([])
         }
 
@@ -162,7 +124,6 @@ export function useAnnotationDrawingGestures({
       drawInteractionEnabled,
       layoutData.canvasOrigin.x,
       layoutData.canvasOrigin.y,
-      layoutData.entities,
       layoutData.selectedEntityIds,
       layoutData.viewMode,
       layoutRef,
@@ -170,7 +131,6 @@ export function useAnnotationDrawingGestures({
       setDrawingSession,
       setDrawingStrokeActive,
       setPendingAnnotation,
-      submitDrawing,
     ],
   )
 

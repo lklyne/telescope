@@ -3,12 +3,12 @@ import { canvasRectToScreenRect } from './annotationMath'
 
 export function RegionSelectAnnotations({
   annotations,
-  hitTestEnabled,
+  interactive,
   layoutData,
   onOpenThread,
 }: {
   annotations: Annotation[]
-  hitTestEnabled: boolean
+  interactive: boolean
   layoutData: LayoutUpdateData
   onOpenThread: (annotationId: string) => void
 }) {
@@ -32,7 +32,7 @@ export function RegionSelectAnnotations({
             type="button"
             data-overlay-ui
             aria-label="Open region select annotation"
-            className={`${hitTestEnabled ? 'pointer-events-auto' : 'pointer-events-none'} absolute rounded border-2 border-dashed border-rose-400/70 bg-rose-400/5 hover:bg-rose-400/10`}
+            className={`${interactive ? 'pointer-events-auto' : 'pointer-events-none'} absolute rounded border-2 border-dashed border-rose-400/70 bg-rose-400/5 opacity-50 hover:bg-rose-400/10 hover:opacity-100`}
             style={{ left: screen.left, top: screen.top - layoutData.canvasOrigin.y, width: screen.width, height: screen.height, cursor: 'pointer' }}
             onClick={() => onOpenThread(annotation.id)}
           />

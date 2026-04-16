@@ -60,11 +60,22 @@ function hasFloatingMenu(inputs: GateInputs): boolean {
 }
 
 /**
- * Saved drawings render above frames unless a frame is selected (then we
- * yield so the user can interact with the frame's webContents natively).
+ * Saved drawings render above frames. We only yield the gate when a SINGLE
+ * frame is selected — that's the case where the user wants to interact with
+ * the frame's webContents natively (scroll, click links, etc.). Multi-select
+ * with a frame is a canvas-level gesture (drag, resize a group), not a frame
+ * interaction, so drawings should stay visible.
+ *
+ * We also yield when the user is in a tool mode that needs the frame's
+ * webContents to receive events (comment hover, inspect eyedropper).
+ * Pending-placement keeps the gate open so drawings stay visible while
+ * placing — above-view handles the placement preview and commit itself.
  */
 function hasVisibleSavedDrawings(inputs: GateInputs): boolean {
   if (!inputs.hasSavedDrawings) return false
-  const frameSelected = inputs.selectedEntityKinds.some((k) => k === 'frame')
-  return !frameSelected
+  if (inputs.toolMode !== 'select') return false
+  const singleFrameSelected =
+    inputs.selectedEntityIds.length === 1 &&
+    inputs.selectedEntityKinds[0] === 'frame'
+  return !singleFrameSelected
 }

@@ -270,6 +270,7 @@ export function CanvasSelectionOutlineLayer({
   zoom,
   selectedIdSet,
   marqueePreviewIds,
+  hoveredEntityId,
   onFrameMouseDown,
   onResizeFrame,
   onResizeTextEntity,
@@ -287,6 +288,10 @@ export function CanvasSelectionOutlineLayer({
   zoom: number
   selectedIdSet: Set<string>
   marqueePreviewIds: Set<string> | null
+  /** Main-authoritative hover id from layoutData.hover. Used as a fallback
+   *  when SelectableEntityShell's mouseenter/leave can't fire (e.g. when
+   *  above-view is covering the canvas because saved drawings are visible). */
+  hoveredEntityId: string | null
   onFrameMouseDown: (frameId: string, event: React.MouseEvent) => void
   onResizeFrame: (id: string, patch: EntityResizePatch) => void
   onResizeTextEntity: (id: string, patch: EntityResizePatch) => void
@@ -295,7 +300,8 @@ export function CanvasSelectionOutlineLayer({
   onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; width: number; height: number; canvasX: number; canvasY: number }>) => void
   onDrawingMouseDown: (drawingId: string, event: React.MouseEvent) => void
 }) {
-  const entityHoverId = useContext(EntityHoverValueContext)
+  const localHoverId = useContext(EntityHoverValueContext)
+  const entityHoverId = localHoverId ?? hoveredEntityId
   const isMultiSelect = selectedIdSet.size > 1
   const entities = useMemo(
     () => [...allTextEntities, ...allFileEntities, ...allDrawingEntities].filter(

@@ -308,6 +308,7 @@ export default function App({
             zoom={layoutData.zoom}
             selectedIdSet={selectedEntityIdSet}
             marqueePreviewIds={marqueePreviewIds}
+            hoveredEntityId={hoveredEntityId}
             onFrameMouseDown={handleChromeMouseDown}
             onResizeFrame={(id, patch) => api.updateFrameBounds(id, patch)}
             onResizeTextEntity={(id, patch) => api.updateTextEntity(id, patch)}

@@ -79,17 +79,16 @@ export function FrameListItem({
 }: FrameListItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const Icon = viewportIcon(frame.label, frame.width)
-  const canEdit = typeof onRename === 'function'
-  const hasContextMenu = canEdit || typeof onDelete === 'function'
+  const hasContextMenu = onRename !== undefined || onDelete !== undefined
 
   function startRename() {
-    if (!canEdit) return
+    if (!onRename) return
     setIsEditing(true)
   }
 
   function commitRename(next: string) {
     setIsEditing(false)
-    if (canEdit && next && next !== frame.label) onRename!(next)
+    if (onRename && next && next !== frame.label) onRename(next)
   }
 
   const rootClassName = `flex items-center gap-1 text-left text-xs font-normal ${
@@ -175,7 +174,7 @@ export function FrameListItem({
                 : 'border-zinc-200 bg-white text-zinc-900'
             }`}
           >
-            {canEdit ? (
+            {onRename ? (
               <Menu.Item
                 className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
                   isDark

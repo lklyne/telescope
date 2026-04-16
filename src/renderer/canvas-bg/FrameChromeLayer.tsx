@@ -145,6 +145,7 @@ function FrameChromeItem({
         {faviconIcon}
         <InlineEditLabel
           value={editValue}
+          displayValue={displayValue}
           isEditing={isEditing}
           onStartEdit={isSelected ? () => setIsEditing(true) : undefined}
           onCommit={handleCommitUrl}
@@ -154,9 +155,7 @@ function FrameChromeItem({
           placeholder={isBlank ? 'Type a URL' : frame.url}
           titleClassName={`min-w-0 truncate font-medium ${isBlank ? 'text-zinc-400' : ''}`}
           onTitleClick={isSelected ? () => setIsEditing(true) : undefined}
-        >
-          {() => displayValue}
-        </InlineEditLabel>
+        />
       </EntityChrome.DragTrigger>
 
       {!isEditing && (

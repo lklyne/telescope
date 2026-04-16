@@ -77,7 +77,7 @@ function buildSidebarLeafItem(entityId: string): (SidebarLeafItem & { sortKey: S
     return {
       kind: 'text',
       id: entityId,
-      label: te.text || 'Text',
+      label: te.label || te.text || 'Text',
       color: te.color,
       sortKey: { y: te.canvasY, x: te.canvasX, priority: 0 },
     }
@@ -85,10 +85,14 @@ function buildSidebarLeafItem(entityId: string): (SidebarLeafItem & { sortKey: S
 
   const fe = fileEntities.find((entity) => entity.id === entityId)
   if (fe) {
+    const fileName = fe.file.split('/').pop() ?? fe.file
+    const displayName = fileName
+      .replace(/\.wireframe\.json$/i, '')
+      .replace(/\.md$/i, '')
     return {
       kind: 'file',
       id: entityId,
-      label: fe.file.split('/').pop() ?? fe.file,
+      label: displayName,
       file: fe.file,
       sortKey: { y: fe.canvasY, x: fe.canvasX, priority: 0 },
     }
@@ -96,10 +100,11 @@ function buildSidebarLeafItem(entityId: string): (SidebarLeafItem & { sortKey: S
 
   const de = drawingEntitiesForUi().find((entity) => entity.id === entityId)
   if (de) {
+    const defaultLabel = `Drawing (${de.strokes.length} stroke${de.strokes.length === 1 ? '' : 's'})`
     return {
       kind: 'drawing',
       id: entityId,
-      label: `Drawing (${de.strokes.length} stroke${de.strokes.length === 1 ? '' : 's'})`,
+      label: de.label || defaultLabel,
       strokeCount: de.strokes.length,
       sortKey: { y: de.canvasY, x: de.canvasX, priority: 0 },
     }

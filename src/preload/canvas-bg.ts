@@ -135,6 +135,12 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-delete-group', { id }),
   renameGroup: (groupId: string, name: string) =>
     ipcRenderer.send('canvas-rename-group', { groupId, name }),
+  renameFileEntity: (entityId: string, name: string) =>
+    ipcRenderer.send('canvas-rename-file-entity', { entityId, name }),
+  renameTextEntity: (entityId: string, name: string) =>
+    ipcRenderer.send('canvas-rename-text-entity', { entityId, name }),
+  renameDrawingEntity: (entityId: string, name: string) =>
+    ipcRenderer.send('canvas-rename-drawing-entity', { entityId, name }),
   dropFileBuffer: (buffer: Uint8Array, ext: string, canvasX: number, canvasY: number) =>
     ipcRenderer.send('canvas-drop-file-buffer', { buffer: Buffer.from(buffer), ext, canvasX, canvasY }),
   selectEntity: (entityId: string, entityKind: string) =>

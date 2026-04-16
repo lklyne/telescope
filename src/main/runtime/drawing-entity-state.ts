@@ -22,6 +22,7 @@ export interface DrawingEntity {
   height: number
   strokes: AnnotationDrawingStroke[]
   parentGroupId?: string
+  label?: string
 }
 
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
@@ -40,6 +41,7 @@ export function createDrawingEntity(input: {
   strokes: AnnotationDrawingStroke[]
   id?: string
   parentGroupId?: string
+  label?: string
 }): DrawingEntity {
   const entity: DrawingEntity = {
     id: input.id ?? `drawing_${randomUUID()}`,
@@ -49,6 +51,7 @@ export function createDrawingEntity(input: {
     height: input.height,
     strokes: input.strokes,
     parentGroupId: input.parentGroupId,
+    label: input.label,
   }
   drawingEntities.push(entity)
   markDirty('canvas', 'sidebar', 'floating-ui')
@@ -75,6 +78,7 @@ export function updateDrawingEntity(
   if (patch.height !== undefined) entity.height = patch.height
   if (patch.strokes !== undefined) entity.strokes = patch.strokes
   if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
+  if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar', 'floating-ui')
   return entity
 }
@@ -117,6 +121,7 @@ export function persistDrawingEntity(entity: DrawingEntity): PersistedDrawingEnt
     height: entity.height,
     strokes: entity.strokes,
     parentGroupId: entity.parentGroupId,
+    label: entity.label,
   }
 }
 
@@ -129,5 +134,6 @@ export function restoreDrawingEntity(persisted: PersistedDrawingEntity): Drawing
     height: persisted.height,
     strokes: persisted.strokes,
     parentGroupId: persisted.parentGroupId,
+    label: persisted.label,
   }
 }

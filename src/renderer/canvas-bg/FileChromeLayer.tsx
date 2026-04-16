@@ -1,9 +1,10 @@
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import { EllipsisVertical, FileText } from 'lucide-react'
 import type { CanvasSceneFileEntity } from '../../shared/types'
 import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from './entityConstants'
 import { EntityChrome } from './EntityChromeHeader'
+import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { WIREFRAME_THEME_OPTIONS } from './wireframe/WireframeRenderer'
 import type { WireframeThemeName } from './wireframe/wireframe-types'
 
@@ -12,7 +13,7 @@ interface FileChromeCallbacks {
   onStartDragEntity: (id: string) => void
   onDragEntity: (id: string, dx: number, dy: number) => void
   onEndDragEntity: () => void
-  onRenameFile: (path: string, newName: string) => Promise<string | null>
+  onRenameFileEntity: (entityId: string, newName: string) => void
   onWriteFile: (path: string, content: string) => Promise<boolean>
   /** Notify the card content that jsonMode changed. */
   onJsonModeChange: (entityId: string, jsonMode: boolean) => void
@@ -78,9 +79,7 @@ const FileChromeItem = memo(function FileChromeItem({
     : fileName.replace(/\.md$/i, '')
 
   const [isRenaming, setIsRenaming] = useState(false)
-  const [renameValue, setRenameValue] = useState('')
   const [jsonMode, setJsonMode] = useState(false)
-  const renameInputRef = useRef<HTMLInputElement>(null)
 
   // Wireframe theme — read from file content on demand
   const [wireframeTheme, setWireframeTheme] = useState<WireframeThemeName>('light')
@@ -107,24 +106,15 @@ const FileChromeItem = memo(function FileChromeItem({
     } catch { /* ignore */ }
   }, [entity.file, callbacks])
 
-  const startRename = useCallback(() => {
-    const baseName = isWireframe
-      ? fileName.replace(/\.wireframe\.json$/i, '')
-      : fileName.replace(/\.md$/i, '')
-    setRenameValue(baseName)
-    setIsRenaming(true)
-    setTimeout(() => renameInputRef.current?.select(), 0)
-  }, [fileName, isWireframe])
-
-  const commitRename = useCallback(() => {
-    setIsRenaming(false)
-    const trimmed = renameValue.trim()
-    const baseName = isWireframe
-      ? fileName.replace(/\.wireframe\.json$/i, '')
-      : fileName.replace(/\.md$/i, '')
-    if (!trimmed || trimmed === baseName) return
-    callbacks.onRenameFile(entity.file, trimmed)
-  }, [renameValue, fileName, entity.file, callbacks, isWireframe])
+  const startRename = useCallback(() => setIsRenaming(true), [])
+  const cancelRename = useCallback(() => setIsRenaming(false), [])
+  const commitRename = useCallback(
+    (next: string) => {
+      setIsRenaming(false)
+      callbacks.onRenameFileEntity(entity.id, next)
+    },
+    [callbacks, entity.id],
+  )
 
   const handleJsonModeToggle = useCallback(() => {
     const next = !jsonMode
@@ -172,34 +162,21 @@ const FileChromeItem = memo(function FileChromeItem({
       }}
       onMouseLeave={() => callbacks.onHoverEntity(null)}
     >
-      {isRenaming ? (
-        <EntityChrome.DragTrigger onMouseDown={(e) => e.stopPropagation()}>
-          <FileText size={13} className="shrink-0 text-zinc-400" />
-          <input
-            ref={renameInputRef}
-            type="text"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitRename()
-              if (e.key === 'Escape') setIsRenaming(false)
-              e.stopPropagation()
-            }}
-            onBlur={commitRename}
-            spellCheck={false}
-            className="min-w-0 flex-1 border-0 bg-transparent text-xs font-medium outline-none placeholder:text-zinc-400 focus:outline-none"
-          />
-        </EntityChrome.DragTrigger>
-      ) : (
-        <EntityChrome.DragTrigger>
-          <FileText size={13} className="shrink-0 text-zinc-400" />
-          <EntityChrome.Title
-            onClick={isSelected ? startRename : undefined}
-          >
-            {displayName}
-          </EntityChrome.Title>
-        </EntityChrome.DragTrigger>
-      )}
+      <EntityChrome.DragTrigger
+        onMouseDown={isRenaming ? (event) => event.stopPropagation() : undefined}
+      >
+        <FileText size={13} className="shrink-0 text-zinc-400" />
+        <InlineEditLabel
+          value={displayName}
+          isEditing={isRenaming}
+          onStartEdit={startRename}
+          onCommit={commitRename}
+          onCancel={cancelRename}
+          variant="canvas-chrome"
+          isDark={isDark}
+          onTitleClick={isSelected ? startRename : undefined}
+        />
+      </EntityChrome.DragTrigger>
 
       {isWireframe && (
         <EntityChrome.Actions>

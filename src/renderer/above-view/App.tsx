@@ -126,12 +126,10 @@ export default function App({
   const hasSavedDrawings =
     !hasSelectedFrame && layoutData.entities.some((e) => e.kind === 'drawing')
 
-  // Above-view owns placement preview whenever its gate is open (saved
-  // drawings force us to cover the canvas, so canvas-bg can't see the
-  // pointer). Tracks cursor from window pointermove and commits on click.
-  // Above-view's pointer events are relative to its origin at canvasOrigin.y,
-  // so we add that offset to get the window-relative coords that
-  // buildPendingPlacementPreview expects.
+  // Above-view covers the canvas when saved drawings are present, so canvas-bg
+  // can't see pointermove — above-view owns placement preview here. Seed from
+  // the toolbar click that started placement; merged pointer handler below
+  // keeps it updated.
   const pendingPlacement = layoutData.pendingPlacement
   const [placementCursor, setPlacementCursor] = useState<{
     clientX: number
@@ -151,18 +149,6 @@ export default function App({
         clientY: pendingPlacement.initialClientY,
       })
     }
-  }, [pendingPlacement])
-  useEffect(() => {
-    if (!pendingPlacement) return
-    const handlePointerMove = (event: PointerEvent) => {
-      if (isOverlayUiTarget(event.target)) return
-      setPlacementCursor({
-        clientX: event.clientX,
-        clientY: event.clientY + layoutRef.current.canvasOrigin.y,
-      })
-    }
-    window.addEventListener('pointermove', handlePointerMove)
-    return () => window.removeEventListener('pointermove', handlePointerMove)
   }, [pendingPlacement])
   const placementPreview = useMemo(
     () => buildPendingPlacementPreview(layoutData, placementCursor),
@@ -266,44 +252,20 @@ export default function App({
     [api, layoutRef],
   )
 
-  const hitTestFrame = useCallback(
-    (clientX: number, clientY: number): string | null => {
-      const layout = layoutRef.current
-      // Above-view WCV origin is at canvasOrigin.y; scene entities use
-      // screenY in window coords, so add canvasOrigin.y to clientY.
-      const windowY = clientY + layout.canvasOrigin.y
-      const FRAME_CHROME = 44
-      for (let i = layout.entities.length - 1; i >= 0; i--) {
-        const e = layout.entities[i]
-        if (e.kind !== 'frame') continue
-        const top = e.screenY - FRAME_CHROME
-        const bottom = e.screenY + e.screenHeight
-        if (
-          clientX >= e.screenX &&
-          clientX <= e.screenX + e.screenWidth &&
-          windowY >= top &&
-          windowY <= bottom
-        ) {
-          return e.id
-        }
-      }
-      return null
-    },
-    [layoutRef],
-  )
-
-  // Hover hit-test over any interactive entity kind. Above-view intercepts
-  // pointer events whenever the gate is open (e.g. saved drawings present),
-  // so canvas-bg's chrome-level mouseenter/leave never fires — we forward
-  // hover changes through api.hoverFrame.
-  const hitTestHoverTarget = useCallback(
-    (clientX: number, clientY: number): string | null => {
+  // Above-view WCV origin sits at canvasOrigin.y; scene entities use screenY
+  // in window coords, so we add canvasOrigin.y to clientY before bounds checks.
+  const hitTestEntity = useCallback(
+    (
+      clientX: number,
+      clientY: number,
+      accept: (kind: string) => boolean,
+    ): string | null => {
       const layout = layoutRef.current
       const windowY = clientY + layout.canvasOrigin.y
       const FRAME_CHROME = 44
       for (let i = layout.entities.length - 1; i >= 0; i--) {
         const e = layout.entities[i]
-        if (e.kind === 'group' || e.kind === 'drawing') continue
+        if (!accept(e.kind)) continue
         const top = e.kind === 'frame' ? e.screenY - FRAME_CHROME : e.screenY
         const bottom = e.screenY + e.screenHeight
         if (
@@ -319,6 +281,20 @@ export default function App({
     },
     [layoutRef],
   )
+  const hitTestFrame = useCallback(
+    (clientX: number, clientY: number) =>
+      hitTestEntity(clientX, clientY, (k) => k === 'frame'),
+    [hitTestEntity],
+  )
+  const hitTestHoverTarget = useCallback(
+    (clientX: number, clientY: number) =>
+      hitTestEntity(clientX, clientY, (k) => k !== 'group' && k !== 'drawing'),
+    [hitTestEntity],
+  )
+
+  // One window pointermove handler drives both placement-preview cursor and
+  // hover forwarding. When above-view intercepts events (gate open), canvas-bg
+  // never sees mouseenter/leave, so we dedupe and forward via api.hoverFrame.
   const lastHoverIdRef = useRef<string | null>(null)
   const hoverForwardingEnabled = layoutData.annotationMode !== 'draw'
   useEffect(() => {
@@ -327,16 +303,25 @@ export default function App({
       lastHoverIdRef.current = null
       api.hoverFrame(null)
     }
-    if (!hoverForwardingEnabled) {
+    if (!pendingPlacement && !hoverForwardingEnabled) {
       clearHover()
       return
     }
     const handleMove = (event: PointerEvent) => {
       if (isOverlayUiTarget(event.target)) return
-      const nextId = hitTestHoverTarget(event.clientX, event.clientY)
-      if (nextId === lastHoverIdRef.current) return
-      lastHoverIdRef.current = nextId
-      api.hoverFrame(nextId)
+      if (pendingPlacement) {
+        setPlacementCursor({
+          clientX: event.clientX,
+          clientY: event.clientY + layoutRef.current.canvasOrigin.y,
+        })
+      }
+      if (hoverForwardingEnabled) {
+        const nextId = hitTestHoverTarget(event.clientX, event.clientY)
+        if (nextId !== lastHoverIdRef.current) {
+          lastHoverIdRef.current = nextId
+          api.hoverFrame(nextId)
+        }
+      }
     }
     window.addEventListener('pointermove', handleMove)
     window.addEventListener('pointerleave', clearHover)
@@ -347,7 +332,7 @@ export default function App({
       window.removeEventListener('blur', clearHover)
       clearHover()
     }
-  }, [hitTestHoverTarget, hoverForwardingEnabled])
+  }, [api, hitTestHoverTarget, hoverForwardingEnabled, layoutRef, pendingPlacement])
 
   const onFramePointerDown = useCallback(
     (frameId: string, event: MouseEvent) => {

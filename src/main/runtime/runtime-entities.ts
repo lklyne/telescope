@@ -44,6 +44,8 @@ export interface Page {
   lastSelected?: boolean
   lastSafeAreaCssKey?: string
   lastSafeAreaCssId?: string
+  crashedAt?: number
+  crashReason?: string
 }
 
 // ---------------------------------------------------------------------------

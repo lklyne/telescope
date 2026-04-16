@@ -506,6 +506,7 @@ export interface OnboardingStatusSnapshot {
   cli: OnboardingComponentStatus
   skill: OnboardingComponentStatus
   agentBrowser: OnboardingComponentStatus
+  agentBrowserUserInstall?: { path: string; version: string }
   claudeDirExists: boolean
 }
 
@@ -530,6 +531,9 @@ export interface OnboardingState {
   completed: boolean
   dismissedAt?: number
   completedAt?: number
+  /** SHA-256 of each skill's content as we last installed it. Used to
+   * detect whether the user has hand-edited the file before auto-updating. */
+  skillHashes?: { telescope?: string; 'agent-browser'?: string }
 }
 
 export interface OnboardingElectronAPI {

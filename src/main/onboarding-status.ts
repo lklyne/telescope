@@ -50,6 +50,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatusSnapshot> {
     cli: cliStatus(),
     skill: skillToStatus(getSkillStatus('telescope')),
     agentBrowser,
+    agentBrowserUserInstall: agent.userInstall,
     claudeDirExists: claudeDirExists(),
   }
 }

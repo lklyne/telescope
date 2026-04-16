@@ -20,10 +20,11 @@ import {
 } from './app-control-server'
 import { markDirty } from './runtime/layout-dirty'
 import { registerIpcHandlers } from './ipc-handlers'
-import { setupAppMenu } from './runtime/app-menu'
+import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
 import { loadOnboardingState } from './runtime/preferences'
 import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
 import { configureBundledAgentBrowser } from './agent-browser-install'
+import { autoUpdateSkillsIfSafe } from './skill-auto-update'
 import { initializeDocObservers } from './runtime/workspace-observers'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
 import { sendInteractiveState } from './runtime/overlay-manager'
@@ -123,6 +124,11 @@ app.whenReady().then(async () => {
   setupAppMenu()
   registerIpcHandlers()
   await startAppControlServer()
+
+  // Silently update skills the user hasn't hand-edited; surfaces drift via the
+  // app menu label (refreshed below).
+  autoUpdateSkillsIfSafe()
+  refreshAppMenu()
 
   const skipOnboarding = process.env.TELESCOPE_SKIP_ONBOARDING === '1'
   if (!skipOnboarding && !loadOnboardingState().completed) {

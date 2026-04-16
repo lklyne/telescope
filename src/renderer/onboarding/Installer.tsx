@@ -62,12 +62,14 @@ function Row({
   title,
   description,
   meta,
+  footer,
   disableToggleWhen,
 }: {
   id: OnboardingComponentId
   title: string
   description: string
   meta?: string
+  footer?: ReactNode
   disableToggleWhen?: (snapshot: InstallerRowSnapshot) => boolean
 }) {
   const { rows, setSelected } = useInstaller()
@@ -104,6 +106,7 @@ function Row({
           </p>
         ) : null}
         <RowDetail snapshot={snapshot} />
+        {footer ? <div className="mt-1">{footer}</div> : null}
       </div>
     </div>
   )

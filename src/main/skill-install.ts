@@ -39,8 +39,18 @@ export function claudeDirExists(): boolean {
   return existsSync(join(homedir(), '.claude'))
 }
 
-function sha256(data: Buffer): string {
+export function sha256(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex')
+}
+
+export function bundledSkillHash(skillId: SkillId): string | null {
+  const data = readFileOrNull(bundledSkillPath(skillId))
+  return data ? sha256(data) : null
+}
+
+export function installedSkillHash(skillId: SkillId): string | null {
+  const data = readFileOrNull(installedSkillPath(skillId))
+  return data ? sha256(data) : null
 }
 
 function readFileOrNull(path: string): Buffer | null {

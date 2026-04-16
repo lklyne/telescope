@@ -10,6 +10,8 @@ import { getOnboardingStatus } from '../onboarding-status'
 import { installCli } from '../cli-install'
 import { installSkill } from '../skill-install'
 import { installAgentBrowser } from '../agent-browser-install'
+import { recordInstalledSkillHash } from '../skill-auto-update'
+import { refreshAppMenu } from '../runtime/app-menu'
 import {
   closeOnboardingWindow,
   getOnboardingMode,
@@ -64,10 +66,19 @@ export function registerOnboardingIpc(): void {
       selections: Record<OnboardingComponentId, boolean>,
     ): Promise<OnboardingStatusSnapshot> => {
       await runInstall('cli', selections.cli, () => installCli())
-      await runInstall('skill', selections.skill, () => installSkill('telescope'))
-      await runInstall('agentBrowser', selections.agentBrowser, () => installAgentBrowser())
+      await runInstall('skill', selections.skill, () => {
+        const result = installSkill('telescope')
+        if (result.success) recordInstalledSkillHash('telescope')
+        return result
+      })
+      await runInstall('agentBrowser', selections.agentBrowser, async () => {
+        const result = await installAgentBrowser()
+        if (result.success) recordInstalledSkillHash('agent-browser')
+        return result
+      })
       const status = await getOnboardingStatus()
       broadcast({ kind: 'done', status })
+      refreshAppMenu()
       return status
     },
   )
@@ -77,6 +88,7 @@ export function registerOnboardingIpc(): void {
     saveOnboardingState({ ...prev, completed: true, completedAt: Date.now() })
     resolveOnboardingPromise('complete')
     closeOnboardingWindow()
+    refreshAppMenu()
   })
 
   ipcMain.on('onboarding:dismiss', () => {
@@ -84,5 +96,6 @@ export function registerOnboardingIpc(): void {
     saveOnboardingState({ ...prev, dismissedAt: Date.now() })
     resolveOnboardingPromise('dismiss')
     closeOnboardingWindow()
+    refreshAppMenu()
   })
 }

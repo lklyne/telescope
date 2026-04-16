@@ -13,6 +13,17 @@ function bundledAgentBrowserPath(): string {
     : join(process.cwd(), 'resources', 'bin', 'agent-browser')
 }
 
+function findAgentBrowserOnPath(skip: string): string | null {
+  const dirs = (process.env.PATH ?? '').split(':')
+  for (const dir of dirs) {
+    if (!dir) continue
+    const candidate = join(dir, 'agent-browser')
+    if (candidate === skip) continue
+    if (existsSync(candidate)) return candidate
+  }
+  return null
+}
+
 export function bundledAgentBrowserExists(): boolean {
   return existsSync(bundledAgentBrowserPath())
 }
@@ -66,27 +77,45 @@ export interface AgentBrowserStatus {
     | { kind: 'missing' }
     | { kind: 'blocked'; detail: string }
   skill: SkillStatus
+  userInstall?: { path: string; version: string }
+}
+
+async function detectUserInstall(activePath: string): Promise<
+  { path: string; version: string } | undefined
+> {
+  const candidate = findAgentBrowserOnPath(activePath)
+  if (!candidate) return undefined
+  const result = await runVersion(candidate)
+  if (!result.ok) return undefined
+  return { path: candidate, version: result.version }
 }
 
 export async function getAgentBrowserStatus(): Promise<AgentBrowserStatus> {
   const skill = getSkillStatus('agent-browser')
   const path = resolveAgentBrowserPath()
+  let active: AgentBrowserStatus['binary']
+  let userInstall: { path: string; version: string } | undefined
   if (path === 'agent-browser' && !process.env.AGENT_BROWSER_PATH) {
-    // Resolver fell through to bare name; verify by actually running it
     const result = await runVersion('agent-browser')
     if (result.ok) {
-      return { binary: { kind: 'installed', path: 'agent-browser', version: result.version }, skill }
+      active = { kind: 'installed', path: 'agent-browser', version: result.version }
+    } else {
+      active = { kind: 'missing' }
     }
-    return { binary: { kind: 'missing' }, skill }
+  } else if (!existsSync(path)) {
+    active = { kind: 'missing' }
+  } else {
+    const result = await runVersion(path)
+    if (result.ok) {
+      active = { kind: 'installed', path, version: result.version }
+    } else {
+      active = { kind: 'blocked', detail: result.error }
+    }
   }
-  if (!existsSync(path)) {
-    return { binary: { kind: 'missing' }, skill }
+  if (active.kind === 'installed') {
+    userInstall = await detectUserInstall(active.path)
   }
-  const result = await runVersion(path)
-  if (result.ok) {
-    return { binary: { kind: 'installed', path, version: result.version }, skill }
-  }
-  return { binary: { kind: 'blocked', detail: result.error }, skill }
+  return { binary: active, skill, userInstall }
 }
 
 export interface AgentBrowserInstallResult {

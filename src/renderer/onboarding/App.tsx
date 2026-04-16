@@ -190,6 +190,13 @@ export default function App({
             title="agent-browser"
             description="Lets Telescope capture, inspect, and interact with live web pages inside frames."
             meta="bundled binary + ~/.claude/skills/agent-browser/SKILL.md"
+            footer={
+              status.agentBrowserUserInstall ? (
+                <span className="block text-[11px] text-[var(--surface-toolbar-foreground)] opacity-50">
+                  {`Also found ${status.agentBrowserUserInstall.version} at ${status.agentBrowserUserInstall.path}. Telescope uses the bundled copy; set AGENT_BROWSER_PATH to override.`}
+                </span>
+              ) : null
+            }
           />
         </Installer.Root>
       </div>

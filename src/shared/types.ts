@@ -492,6 +492,58 @@ export interface LeftSidebarBootstrapData extends ThemeBootstrapData {
   sidebarData: LeftSidebarData
 }
 
+// --- Onboarding ---
+
+export type OnboardingComponentId = 'cli' | 'skill' | 'agentBrowser'
+
+export type OnboardingComponentStatus =
+  | { kind: 'installed'; detail?: string }
+  | { kind: 'outdated'; detail?: string }
+  | { kind: 'missing'; detail?: string }
+  | { kind: 'blocked'; detail: string }
+
+export interface OnboardingStatusSnapshot {
+  cli: OnboardingComponentStatus
+  skill: OnboardingComponentStatus
+  agentBrowser: OnboardingComponentStatus
+  claudeDirExists: boolean
+}
+
+export type OnboardingMode = 'welcome' | 'settings'
+
+export interface OnboardingBootstrapData extends ThemeBootstrapData {
+  status: OnboardingStatusSnapshot
+  mode: OnboardingMode
+}
+
+export type OnboardingInstallResult =
+  | { kind: 'success'; detail?: string }
+  | { kind: 'error'; detail: string }
+
+export type OnboardingProgressEvent =
+  | { component: OnboardingComponentId; state: 'installing' }
+  | { component: OnboardingComponentId; state: 'success'; detail?: string }
+  | { component: OnboardingComponentId; state: 'error'; detail: string }
+  | { kind: 'done'; status: OnboardingStatusSnapshot }
+
+export interface OnboardingState {
+  completed: boolean
+  dismissedAt?: number
+  completedAt?: number
+}
+
+export interface OnboardingElectronAPI {
+  getInitialData: () => Promise<OnboardingBootstrapData>
+  refreshStatus: () => Promise<OnboardingStatusSnapshot>
+  install: (
+    selections: Record<OnboardingComponentId, boolean>,
+  ) => Promise<OnboardingStatusSnapshot>
+  complete: () => void
+  dismiss: () => void
+  onProgress: (callback: (event: OnboardingProgressEvent) => void) => () => void
+  onThemeChanged: (callback: (data: ThemeData) => void) => () => void
+}
+
 export interface CanvasLayoutBootstrapData extends ThemeBootstrapData {
   layoutData: LayoutUpdateData
 }

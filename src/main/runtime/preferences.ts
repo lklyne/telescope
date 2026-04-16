@@ -1,11 +1,11 @@
 /**
- * User preferences — devtools panel width/tab persistence.
+ * User preferences — devtools panel width/tab persistence + onboarding state.
  */
 
 import { app, nativeTheme } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import type { DevtoolsPanelTab } from '../../shared/types'
+import type { DevtoolsPanelTab, OnboardingState } from '../../shared/types'
 import {
   bgView,
   aboveView,
@@ -40,6 +40,41 @@ function preferencesPath(): string {
   return join(app.getPath('userData'), PREFERENCES_FILE)
 }
 
+type PreferencesFile = {
+  devtoolsWidth?: number
+  devtoolsPanelTab?: DevtoolsPanelTab | 'elements' | 'devtools'
+  onboarding?: OnboardingState
+}
+
+function readPreferencesFile(): PreferencesFile {
+  try {
+    const file = preferencesPath()
+    if (!existsSync(file)) return {}
+    return JSON.parse(readFileSync(file, 'utf8')) as PreferencesFile
+  } catch (error) {
+    console.error('Failed to read preferences:', error)
+    return {}
+  }
+}
+
+function writePreferencesFile(next: PreferencesFile): void {
+  try {
+    writeFileSync(preferencesPath(), JSON.stringify(next, null, 2), 'utf8')
+  } catch (error) {
+    console.error('Failed to write preferences:', error)
+  }
+}
+
+export function loadOnboardingState(): OnboardingState {
+  const parsed = readPreferencesFile()
+  return parsed.onboarding ?? { completed: false }
+}
+
+export function saveOnboardingState(next: OnboardingState): void {
+  const parsed = readPreferencesFile()
+  writePreferencesFile({ ...parsed, onboarding: next })
+}
+
 export function normalizeDevtoolsPanelTab(
   tab: DevtoolsPanelTab | 'elements' | 'devtools' | undefined,
 ): DevtoolsPanelTab | null {
@@ -67,42 +102,23 @@ export function clampDevtoolsWidth(value: number): number {
 }
 
 export function loadPreferences(): void {
-  try {
-    const file = preferencesPath()
-    if (!existsSync(file)) return
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as {
-      devtoolsWidth?: number
-      devtoolsPanelTab?: DevtoolsPanelTab | 'elements' | 'devtools'
-    }
-    if (typeof parsed.devtoolsWidth === 'number') {
-      setUiDevtoolsWidth(clampDevtoolsWidth(parsed.devtoolsWidth))
-    }
-    const normalizedTab = normalizeDevtoolsPanelTab(parsed.devtoolsPanelTab)
-    if (normalizedTab) {
-      setUiDevtoolsPanelTab(normalizedTab)
-    }
-  } catch (error) {
-    console.error('Failed to load preferences:', error)
+  const parsed = readPreferencesFile()
+  if (typeof parsed.devtoolsWidth === 'number') {
+    setUiDevtoolsWidth(clampDevtoolsWidth(parsed.devtoolsWidth))
+  }
+  const normalizedTab = normalizeDevtoolsPanelTab(parsed.devtoolsPanelTab)
+  if (normalizedTab) {
+    setUiDevtoolsPanelTab(normalizedTab)
   }
 }
 
 export function savePreferences(): void {
-  try {
-    writeFileSync(
-      preferencesPath(),
-      JSON.stringify(
-        {
-          devtoolsWidth: uiDevtoolsWidth(),
-          devtoolsPanelTab: uiDevtoolsPanelTab(),
-        },
-        null,
-        2,
-      ),
-      'utf8',
-    )
-  } catch (error) {
-    console.error('Failed to save preferences:', error)
-  }
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    devtoolsWidth: uiDevtoolsWidth(),
+    devtoolsPanelTab: uiDevtoolsPanelTab(),
+  })
 }
 
 export function isDark(): boolean {

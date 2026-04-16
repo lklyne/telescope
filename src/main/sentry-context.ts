@@ -45,6 +45,7 @@ export type BreadcrumbCategory =
   | 'undo'
   | 'view-mode'
   | 'mcp'
+  | 'onboarding'
 
 export function breadcrumb(
   category: BreadcrumbCategory,

@@ -4,7 +4,7 @@ import { pages, selectedPageId } from './runtime-context'
 import { workspaceViewMode } from '../ui-state'
 import { selectBrowserTab } from './runtime-core'
 import { checkForUpdatesManually } from '../auto-updater'
-import { installCli } from '../cli-install'
+import { showOnboardingWindow } from '../onboarding-window'
 
 export function setupAppMenu(): void {
   const isMac = process.platform === 'darwin'
@@ -26,14 +26,9 @@ export function setupAppMenu(): void {
               },
               { type: 'separator' as const },
               {
-                label: "Install 'telescope' Command\u2026",
+                label: 'Setup Telescope\u2026',
                 click: () => {
-                  const result = installCli()
-                  dialog.showMessageBox({
-                    type: result.success ? 'info' : 'warning',
-                    title: 'Install CLI',
-                    message: result.message,
-                  })
+                  void showOnboardingWindow('settings')
                 },
               },
               { type: 'separator' as const },

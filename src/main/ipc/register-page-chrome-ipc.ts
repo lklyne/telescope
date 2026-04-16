@@ -29,6 +29,7 @@ import {
   interactionBlocksPageHover,
   interactionBlocksPageSelection,
 } from '../runtime/interaction-state'
+import { annotationMode as uiAnnotationMode } from '../ui-state'
 import { tryEnter, commitActive, cancelActive } from '../runtime/interaction-controller'
 import {
   findPageByPageView,
@@ -82,6 +83,7 @@ export function registerPageChromeIpc(): void {
 
   ipcMain.on('frame-hover', (event, hovered: boolean) => {
     if (interactionBlocksPageHover()) return
+    if (uiAnnotationMode() === 'region_select') return
     const page = pages.find((candidate) => candidate.pageView.webContents === event.sender)
     setHoverEntity(hovered && page ? { id: page.id, kind: 'frame' } : null)
   })

@@ -296,7 +296,8 @@ export default function App({
   // hover forwarding. When above-view intercepts events (gate open), canvas-bg
   // never sees mouseenter/leave, so we dedupe and forward via api.hoverFrame.
   const lastHoverIdRef = useRef<string | null>(null)
-  const hoverForwardingEnabled = layoutData.annotationMode !== 'draw'
+  const hoverForwardingEnabled =
+    layoutData.annotationMode !== 'draw' && layoutData.annotationMode !== 'region_select'
   useEffect(() => {
     const clearHover = () => {
       if (lastHoverIdRef.current === null) return
@@ -407,9 +408,14 @@ export default function App({
           : canvasClickAtFromAboveView,
       onDragMove: activeDragMove,
       onDragEnd: activeDragEnd,
-      hitTestFrame: overlayInteractive || pendingPlacement ? undefined : hitTestFrame,
+      hitTestFrame:
+        overlayInteractive || pendingPlacement || dragMode === 'region_select'
+          ? undefined
+          : hitTestFrame,
       onFramePointerDown:
-        overlayInteractive || pendingPlacement ? undefined : onFramePointerDown,
+        overlayInteractive || pendingPlacement || dragMode === 'region_select'
+          ? undefined
+          : onFramePointerDown,
     }),
     [
       api,
@@ -419,6 +425,7 @@ export default function App({
       canvasClickAtFromAboveView,
       activeDragMove,
       activeDragEnd,
+      dragMode,
       hitTestFrame,
       onFramePointerDown,
     ],

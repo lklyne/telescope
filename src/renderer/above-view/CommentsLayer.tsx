@@ -159,7 +159,7 @@ export function AnnotationThreadPopover({
           width: threadPosition.width,
         }}
       >
-        <div className="rounded-2xl border border-[var(--surface-popover-border)] bg-[var(--surface-popover)] text-zinc-900 shadow-xl dark:text-zinc-100">
+        <div className="rounded-2xl border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900 shadow-xl dark:text-zinc-100">
           <div
             className="flex items-center justify-between border-b border-zinc-200 px-2.5 py-1.5 dark:border-zinc-700"
             style={{
@@ -184,7 +184,7 @@ export function AnnotationThreadPopover({
                 <button
                   type="button"
                   data-overlay-ui
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 hover:bg-[var(--surface-popover)] dark:text-zinc-300 dark:hover:bg-[var(--surface-popover)]"
                   aria-label="More actions"
                   title="More actions"
                   onClick={() => setOpenThreadMenu((current) => !current)}
@@ -194,12 +194,12 @@ export function AnnotationThreadPopover({
                 {openThreadMenu ? (
                   <div
                     data-overlay-ui
-                    className="absolute right-0 top-8 z-[60] min-w-[112px] rounded border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] p-1 text-zinc-700 shadow-sm dark:text-zinc-200"
+                    className="absolute right-0 top-8 z-[60] min-w-40 rounded-[10px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] p-1 text-zinc-900 shadow-xl dark:text-zinc-100"
                   >
                     <button
                       type="button"
                       data-overlay-ui
-                      className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      className="flex w-full cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left text-xs text-zinc-900 hover:bg-[var(--surface-popover)] dark:text-zinc-100 dark:hover:bg-[var(--surface-popover)]"
                       onClick={() => {
                         setOpenThreadMenu(false)
                         api.resolveAnnotation(openThread.id)
@@ -212,7 +212,7 @@ export function AnnotationThreadPopover({
                     <button
                       type="button"
                       data-overlay-ui
-                      className="mt-0.5 flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      className="flex w-full cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left text-xs text-zinc-900 hover:bg-[var(--surface-popover)] dark:text-zinc-100 dark:hover:bg-[var(--surface-popover)]"
                       onClick={() => {
                         setOpenThreadMenu(false)
                         api.deleteAnnotation(openThread.id)
@@ -227,7 +227,7 @@ export function AnnotationThreadPopover({
               </div>
               <button
                 type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 hover:bg-[var(--surface-popover)] dark:text-zinc-300 dark:hover:bg-[var(--surface-popover)]"
                 onClick={closeThread}
                 aria-label="Close"
               >

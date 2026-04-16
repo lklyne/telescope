@@ -637,6 +637,8 @@ export interface DevtoolsPanelData {
   inspect?: InspectPanelState
   annotations?: Annotation[]
   frames?: DevtoolsPanelFrameSummary[]
+  originBindings?: OriginBindings
+  fixInProgress?: Record<string, number>
   textEntity?: PanelTextEntityDetail
   fileEntity?: PanelFileEntityDetail
   drawingEntity?: PanelDrawingEntityDetail
@@ -1508,6 +1510,10 @@ export interface DevtoolsPanelElectronAPI {
   resolveAnnotation: (annotationId: string) => void
   deleteAnnotation: (annotationId: string) => void
   openAnnotationThread: (annotationId: string) => void
+  triggerFixComments: (origin: string) => void
+  setAutoFix: (origin: string, enabled: boolean) => void
+  pickRepoForOrigin: (origin: string) => void
+  removeOriginBinding: (origin: string) => void
   updateTextEntity: (id: string, patch: { color?: string }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
@@ -1636,7 +1642,18 @@ export interface AnnotationMetadata extends Record<string, unknown> {
   regionComponents?: RegionComponentGroup[]
   /** DOM elements found within the selected region, grouped by frame. */
   regionElements?: RegionElementGroup[]
+  /** Who resolved this annotation, when status === 'resolved'. */
+  resolvedBy?: 'user' | 'agent'
 }
+
+// --- Origin bindings (repo hookups for local dev URLs) ---
+
+export interface OriginBinding {
+  repoPath: string
+  autoFix: boolean
+}
+
+export type OriginBindings = Record<string, OriginBinding>
 
 export interface Annotation {
   id: string

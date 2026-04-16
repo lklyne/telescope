@@ -136,11 +136,12 @@ export function resolveAgentBrowserPath(): string {
 export function spawnAsync(
   cmd: string,
   args: string[],
-  opts: { timeout: number; input?: string; maxBuffer?: number },
+  opts: { timeout: number; input?: string; maxBuffer?: number; cwd?: string },
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: opts.cwd,
       env: { ...process.env, NO_COLOR: '1' },
     })
     const maxBuf = opts.maxBuffer ?? 10 * 1024 * 1024

@@ -40,6 +40,8 @@ import {
   wireMcpEmptyState,
   notifyDevtoolsPanelData,
 } from './inspect-session'
+import { initFixOrchestrator } from '../agent-fix/fix-orchestrator'
+import { onQueueChange } from '../agent-fix/fix-queue'
 import {
   backgroundFrameOverlays,
   activeCanvasSelection,
@@ -138,6 +140,8 @@ export function initWindow(): void {
     ungroupSelectedGroup,
   })
   loadPreferences()
+  initFixOrchestrator()
+  onQueueChange(() => notifyDevtoolsPanelData())
   ensureWorkspaceTabsInitialized()
   layoutCache.toolbarHeight = TOOLBAR_HEIGHT
 

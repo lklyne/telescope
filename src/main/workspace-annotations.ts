@@ -130,6 +130,14 @@ export function getAnnotationById(id: string): Annotation | undefined {
   return workspaceAnnotations.find((a) => a.id === id)
 }
 
+let onAnnotationCreatedListener: ((annotation: Annotation) => void) | null = null
+
+export function setOnAnnotationCreated(
+  fn: ((annotation: Annotation) => void) | null,
+): void {
+  onAnnotationCreatedListener = fn
+}
+
 export function createAnnotation(request: AnnotationCreateRequest): Annotation {
   const annotation: Annotation = {
     id: makeId('ann'),
@@ -146,6 +154,13 @@ export function createAnnotation(request: AnnotationCreateRequest): Annotation {
   markDirty('canvas', 'pages')
   requestLayout()
   scheduleWorkspaceAutosave()
+  if (onAnnotationCreatedListener) {
+    try {
+      onAnnotationCreatedListener(annotation)
+    } catch (error) {
+      console.error('onAnnotationCreated listener failed:', error)
+    }
+  }
   return annotation
 }
 
@@ -153,12 +168,22 @@ export function updateAnnotationStatus(
   id: string,
   status: AnnotationStatus,
   reason?: string,
+  resolvedBy?: 'user' | 'agent',
 ): Annotation | null {
   const annotation = workspaceAnnotations.find((a) => a.id === id)
   if (!annotation) return null
   annotation.status = status
+  const metadataPatch: AnnotationMetadata = { ...annotation.metadata }
   if (reason) {
-    annotation.metadata = { ...annotation.metadata, dismissReason: reason }
+    metadataPatch.dismissReason = reason
+  }
+  if (status === 'resolved' && resolvedBy) {
+    metadataPatch.resolvedBy = resolvedBy
+  } else if (status !== 'resolved') {
+    delete metadataPatch.resolvedBy
+  }
+  if (Object.keys(metadataPatch).length) {
+    annotation.metadata = metadataPatch
   }
   markDirty('canvas', 'pages')
   requestLayout()
@@ -178,6 +203,13 @@ export function addAnnotationReply(
     text,
     timestamp: new Date().toISOString(),
   })
+  if (author === 'user' && annotation.status === 'resolved') {
+    annotation.status = 'pending'
+    if (annotation.metadata?.resolvedBy) {
+      const { resolvedBy: _discard, ...rest } = annotation.metadata
+      annotation.metadata = rest
+    }
+  }
   markDirty('canvas', 'pages')
   requestLayout()
   scheduleWorkspaceAutosave()

@@ -36,6 +36,8 @@ import {
   devtoolsHeaderView,
   toolbarView,
 } from './view-refs'
+import { getOriginBindings } from './preferences'
+import { getInFlightCountByOrigin } from '../agent-fix/fix-queue'
 import {
   findPageById,
   inspectActiveFrameId,
@@ -425,6 +427,8 @@ export function notifyDevtoolsPanelData(): void {
     inspect,
     annotations: [...workspaceAnnotations],
     frames,
+    originBindings: getOriginBindings(),
+    fixInProgress: getInFlightCountByOrigin(),
     ...buildEntityDetails(panelMode),
     emptyState: _mcpEmptyState(),
   })

@@ -1,6 +1,6 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import { ChevronRight } from 'lucide-react'
-import type { Annotation, DevtoolsPanelData, DevtoolsPanelFrameSummary } from '../../../shared/types'
+import type { Annotation, DevtoolsPanelData, DevtoolsPanelFrameSummary, OriginBindings } from '../../../shared/types'
 import { dividerClass, isUnresolved, mutedClass } from '../rightDetailsPanelHelpers'
 import { useFocusedAnnotationScroll } from '../useFocusedAnnotationScroll'
 import { CommentRow, CommentsPane } from './CommentsPane'
@@ -14,6 +14,8 @@ export function DocumentPane({
   focusedAnnotationId,
   annotateEnabled,
   annotateAvailable,
+  originBindings,
+  fixInProgress,
   mcpSetup,
   mcpConnected,
   copiedInstall,
@@ -25,6 +27,8 @@ export function DocumentPane({
   focusedAnnotationId?: string | null
   annotateEnabled: boolean
   annotateAvailable: boolean
+  originBindings: OriginBindings
+  fixInProgress: Record<string, number>
   mcpSetup: DevtoolsPanelData['emptyState'] | null
   mcpConnected: boolean
   copiedInstall: 'idle' | 'ok' | 'err'
@@ -54,6 +58,8 @@ export function DocumentPane({
             focusedAnnotationId={focusedAnnotationId}
             annotateEnabled={annotateEnabled}
             annotateAvailable={annotateAvailable}
+            originBindings={originBindings}
+            fixInProgress={fixInProgress}
           />
         </Collapsible.Panel>
       </Collapsible.Root>

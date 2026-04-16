@@ -119,6 +119,8 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             focusedAnnotationId={panelData.focusedAnnotationId}
             annotateEnabled={Boolean(panelData.annotateEnabled)}
             annotateAvailable={Boolean(panelData.annotateAvailable)}
+            originBindings={panelData.originBindings ?? {}}
+            fixInProgress={panelData.fixInProgress ?? {}}
             mcpSetup={mcpSetup}
             mcpConnected={mcpConnected}
             copiedInstall={copiedInstall}

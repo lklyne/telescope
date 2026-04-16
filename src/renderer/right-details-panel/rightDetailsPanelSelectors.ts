@@ -97,6 +97,37 @@ export function groupAnnotationsByFrame(
   return groups
 }
 
+export function originForAnnotation(annotation: Annotation): string | null {
+  const pageUrl = annotation.metadata?.pageUrl
+  if (!pageUrl) return null
+  try {
+    return new URL(pageUrl).origin
+  } catch {
+    return null
+  }
+}
+
+type OriginGroup = {
+  origin: string
+  unresolvedCount: number
+  annotations: Annotation[]
+}
+
+export function groupAnnotationsByOrigin(
+  annotations: Annotation[],
+): OriginGroup[] {
+  const grouped = new Map<string, OriginGroup>()
+  for (const annotation of annotations) {
+    const origin = originForAnnotation(annotation)
+    if (!origin) continue
+    const existing = grouped.get(origin) ?? { origin, unresolvedCount: 0, annotations: [] }
+    existing.annotations.push(annotation)
+    if (isUnresolved(annotation.status)) existing.unresolvedCount++
+    grouped.set(origin, existing)
+  }
+  return Array.from(grouped.values()).sort((a, b) => a.origin.localeCompare(b.origin))
+}
+
 export function buildUnresolvedCountsByNodeId(
   annotations: Annotation[],
   activeFrameId: string | null,

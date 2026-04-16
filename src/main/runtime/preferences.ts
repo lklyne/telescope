@@ -5,7 +5,12 @@
 import { app, nativeTheme } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import type { DevtoolsPanelTab, OnboardingState } from '../../shared/types'
+import type {
+  DevtoolsPanelTab,
+  OnboardingState,
+  OriginBinding,
+  OriginBindings,
+} from '../../shared/types'
 import {
   bgView,
   aboveView,
@@ -44,6 +49,7 @@ type PreferencesFile = {
   devtoolsWidth?: number
   devtoolsPanelTab?: DevtoolsPanelTab | 'elements' | 'devtools'
   onboarding?: OnboardingState
+  originBindings?: OriginBindings
 }
 
 function readPreferencesFile(): PreferencesFile {
@@ -101,6 +107,8 @@ export function clampDevtoolsWidth(value: number): number {
   )
 }
 
+let originBindings: OriginBindings = {}
+
 export function loadPreferences(): void {
   const parsed = readPreferencesFile()
   if (typeof parsed.devtoolsWidth === 'number') {
@@ -110,6 +118,9 @@ export function loadPreferences(): void {
   if (normalizedTab) {
     setUiDevtoolsPanelTab(normalizedTab)
   }
+  if (parsed.originBindings && typeof parsed.originBindings === 'object') {
+    originBindings = parsed.originBindings
+  }
 }
 
 export function savePreferences(): void {
@@ -118,7 +129,29 @@ export function savePreferences(): void {
     ...parsed,
     devtoolsWidth: uiDevtoolsWidth(),
     devtoolsPanelTab: uiDevtoolsPanelTab(),
+    originBindings,
   })
+}
+
+export function getOriginBindings(): OriginBindings {
+  return originBindings
+}
+
+export function getOriginBinding(origin: string): OriginBinding | undefined {
+  return originBindings[origin]
+}
+
+export function setOriginBinding(origin: string, binding: OriginBinding): void {
+  originBindings = { ...originBindings, [origin]: binding }
+  savePreferences()
+}
+
+export function removeOriginBinding(origin: string): void {
+  if (!(origin in originBindings)) return
+  const next = { ...originBindings }
+  delete next[origin]
+  originBindings = next
+  savePreferences()
 }
 
 export function isDark(): boolean {

@@ -71,7 +71,6 @@ export default function App({
     setDrawingSession,
     setDrawingStrokeActive,
     setPendingAnnotation,
-    submitDrawing,
     submitPendingAnnotation,
     submitRegionAnnotation,
   } = useAnnotationDraftState({
@@ -141,11 +140,11 @@ export default function App({
     setDrawingSession,
     setDrawingStrokeActive,
     setPendingAnnotation,
-    submitDrawing,
   })
 
   useAnnotationOverlayShortcuts({
     active: Boolean(pendingAnnotation || pendingRegionRect || drawingSession || openThreadId),
+    annotationModeActive: layoutData.annotationMode !== 'off',
     drawInteractionEnabled,
     drawingSessionActive: Boolean(pendingAnnotation || pendingRegionRect || drawingSession),
     clearDraft,
@@ -311,12 +310,15 @@ export default function App({
   }, [clearDraft, openThreadId])
 
   useEffect(() => {
-    const nextCursor = drawInteractionEnabled ? DRAW_CURSOR : ''
-    document.documentElement.style.cursor = nextCursor
-    document.body.style.cursor = nextCursor
+    if (!drawInteractionEnabled) return
+    // Force the pen cursor across every element while in draw mode — some
+    // children (drawing hit-paths, thread chrome, region annotations) set
+    // their own cursor and would otherwise win on hover.
+    const style = document.createElement('style')
+    style.textContent = `html, body, body * { cursor: ${DRAW_CURSOR} !important; }`
+    document.head.appendChild(style)
     return () => {
-      document.documentElement.style.cursor = ''
-      document.body.style.cursor = ''
+      style.remove()
     }
   }, [drawInteractionEnabled])
 
@@ -346,12 +348,14 @@ export default function App({
 
       {!captureMode ? (
         <>
-          <RegionSelectAnnotations
-            annotations={layoutData.annotations}
-            hitTestEnabled={layoutData.annotationMode !== 'region_select'}
-            layoutData={layoutData}
-            onOpenThread={openThreadById}
-          />
+          {layoutData.annotationMode === 'region_select' ? (
+            <RegionSelectAnnotations
+              annotations={layoutData.annotations}
+              interactive={!selectionOverlay && !pendingRegionRect}
+              layoutData={layoutData}
+              onOpenThread={openThreadById}
+            />
+          ) : null}
 
           {drawingSession ? <DrawingLayer drawing={{ version: 1, ...drawingSession }} layout={layoutData} active /> : null}
 

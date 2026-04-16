@@ -25,6 +25,7 @@ export type FocusState = {
   editingTextEntityId: string | null
   selectedPageId: string | null
   workspaceViewMode: 'canvas' | 'browser'
+  commentOverlayActive: boolean
   /** Explicit intent set by a subsystem (overrides derivation). Cleared after reconcile. */
   pendingFocus: FocusTarget | null
 }
@@ -45,6 +46,12 @@ export function expectedFocus(state: FocusState): FocusTarget {
       return { kind: 'aboveView' }
     case 'idle':
       break
+  }
+
+  // Comment overlay active — the above-view owns focus so the
+  // composer textarea can receive keyboard input.
+  if (state.commentOverlayActive) {
+    return { kind: 'aboveView' }
   }
 
   // Browser mode with a live page — the page should be focused so

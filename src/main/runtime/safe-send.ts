@@ -1,7 +1,7 @@
 import type { WebContents } from 'electron'
 
 export function safeSend(wc: WebContents, channel: string, ...args: unknown[]): void {
-  if (wc.isDestroyed()) return
+  if (wc.isDestroyed() || wc.isCrashed()) return
   try {
     wc.send(channel, ...args)
   } catch {

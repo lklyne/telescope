@@ -151,7 +151,23 @@ export function createPage(config: PageConfig): Page {
   })
   page.pageView.webContents.on('did-start-loading', () => {
     selectionDebug('page:did-start-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
+    page.crashedAt = undefined
+    page.crashReason = undefined
     requestLayout()
+  })
+  page.pageView.webContents.on('render-process-gone', (_event, details) => {
+    page.crashedAt = Date.now()
+    page.crashReason = details.reason
+    breadcrumb('page', 'render-process-gone', {
+      host: hostOf(page.url),
+      reason: details.reason,
+      exitCode: details.exitCode,
+    })
+    selectionDebug('page:render-process-gone', { pageId: page.id, ...details })
+  })
+  page.pageView.webContents.on('unresponsive', () => {
+    breadcrumb('page', 'unresponsive', { host: hostOf(page.url) })
+    selectionDebug('page:unresponsive', { pageId: page.id })
   })
   page.pageView.webContents.on('did-stop-loading', () => {
     selectionDebug('page:did-stop-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })

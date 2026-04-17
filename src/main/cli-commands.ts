@@ -1,6 +1,6 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { callApp } from './shared/app-client'
-import { handleBrowse } from './shared/browse-handler'
+import { handleBrowse, shellQuote } from './shared/browse-handler'
 import { upsertEntities, type UpsertOptions, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
@@ -467,7 +467,7 @@ function stripTelescopeFlags(argv: string[]): string[] {
 }
 
 const browsePassthrough: VerbHandler = async (args) => {
-  const command = [args.verb, ...stripTelescopeFlags(args.rest)].join(' ')
+  const command = [args.verb, ...stripTelescopeFlags(args.rest).map(shellQuote)].join(' ')
   return browseRaw(args, command)
 }
 

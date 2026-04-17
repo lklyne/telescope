@@ -5,18 +5,37 @@ import {
   getAnnotationById,
   getAnnotations,
   setOnAnnotationCreated,
+  setOnAnnotationReply,
   updateAnnotationStatus,
 } from '../workspace-annotations'
 import { getOriginBinding } from '../runtime/preferences'
 import { buildFixPrompt } from './prompt-builder'
 import { invokeClaude, type FixResult } from './claude-spawner'
-import { enqueueFix, isAnnotationInFlight } from './fix-queue'
+import {
+  isAnnotationInFlight,
+  markFixFinished,
+  markFixStarted,
+} from './fix-tracker'
+import {
+  appendFixEvent,
+  finalizeFixProgress,
+  startFixProgress,
+} from './fix-progress'
 
 const MAX_AGENT_REPLIES = 20
 
 export function initFixOrchestrator(): void {
   setOnAnnotationCreated((annotation) => {
     if (annotation.author !== 'user') return
+    const origin = annotationOrigin(annotation)
+    if (!origin) return
+    const binding = getOriginBinding(origin)
+    if (!binding || !binding.autoFix) return
+    fixAnnotation(annotation.id)
+  })
+  setOnAnnotationReply((annotation, reply) => {
+    if (reply.author !== 'user') return
+    if (annotation.status === 'dismissed') return
     const origin = annotationOrigin(annotation)
     if (!origin) return
     const binding = getOriginBinding(origin)
@@ -66,14 +85,30 @@ function fixAnnotationCore(annotation: Annotation): boolean {
 
   const prompt = buildFixPrompt(annotation)
   updateAnnotationStatus(annotation.id, 'acknowledged')
+  startFixProgress(annotation.id, origin)
+  markFixStarted(annotation.id, origin)
+  void runFix(annotation.id, origin, prompt, binding.repoPath)
+  return true
+}
 
-  return enqueueFix({
-    annotationId: annotation.id,
-    origin,
-    repoPath: binding.repoPath,
-    run: () => invokeClaude(prompt, binding.repoPath),
-    onComplete: (result, error) => handleCompletion(annotation.id, result, error),
-  })
+async function runFix(
+  annotationId: string,
+  origin: string,
+  prompt: string,
+  repoPath: string,
+): Promise<void> {
+  let result: FixResult | null = null
+  let error: Error | null = null
+  try {
+    result = await invokeClaude(prompt, repoPath, {
+      onEvent: (event) => appendFixEvent(annotationId, event.kind, event.text),
+    })
+  } catch (err) {
+    error = err instanceof Error ? err : new Error(String(err))
+  } finally {
+    markFixFinished(annotationId, origin)
+  }
+  handleCompletion(annotationId, result, error)
 }
 
 function handleCompletion(
@@ -83,9 +118,16 @@ function handleCompletion(
 ): void {
   if (error || !result) {
     const message = error ? error.message : 'Unknown error from fix runner.'
-    addAnnotationReply(annotationId, 'agent', `Fix failed: ${truncate(message, 240)}`)
+    const shortMessage = truncate(message, 240)
+    appendFixEvent(annotationId, 'error', shortMessage)
+    finalizeFixProgress(annotationId, 'failed', { error: shortMessage })
+    addAnnotationReply(annotationId, 'agent', `Fix failed: ${shortMessage}`)
     return
   }
+  finalizeFixProgress(annotationId, 'completed', {
+    summary: result.summary,
+    shouldResolve: result.shouldResolve,
+  })
   addAnnotationReply(annotationId, 'agent', result.summary)
   if (result.shouldResolve) {
     updateAnnotationStatus(annotationId, 'resolved', 'Auto-resolved by agent', 'agent')

@@ -39,6 +39,50 @@ export const GLOBAL_AB_FLAGS = ['--content-boundaries', '--max-output', '100000'
 // Parsing helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Quote an argv token for re-joining into a shell-ish command string.
+ *
+ * `splitShellArgs` is the inverse: it strips quote chars while honoring them
+ * as grouping delimiters. So to round-trip argv through a joined string
+ * without losing whitespace/quote content (e.g. for `eval 'foo.bar("baz")'`),
+ * every arg containing shell-significant chars must be re-quoted here first.
+ */
+export function shellQuote(arg: string): string {
+  if (arg === '') return "''"
+  if (/^[A-Za-z0-9_\-@.:/=+,]+$/.test(arg)) return arg
+  return `'${arg.replace(/'/g, "'\\''")}'`
+}
+
+/**
+ * Split a command string on unquoted `&&` into chained command segments.
+ * Returns the original string as a single-element array when no unquoted
+ * separator is present — e.g. `&&` inside an `eval 'a && b'` JS literal.
+ */
+export function splitChainedCommands(cmd: string): string[] {
+  const out: string[] = []
+  let current = ''
+  let inDouble = false
+  let inSingle = false
+  let escaped = false
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i]
+    if (escaped) { current += ch; escaped = false; continue }
+    if (ch === '\\' && !inSingle) { current += ch; escaped = true; continue }
+    if (ch === '"' && !inSingle) { current += ch; inDouble = !inDouble; continue }
+    if (ch === "'" && !inDouble) { current += ch; inSingle = !inSingle; continue }
+    if (!inDouble && !inSingle && ch === '&' && cmd[i + 1] === '&') {
+      out.push(current.trim())
+      current = ''
+      i += 1
+      continue
+    }
+    current += ch
+  }
+  const tail = current.trim()
+  if (tail) out.push(tail)
+  return out.length ? out : ['']
+}
+
 /** Split a command string into argv tokens, respecting quoted strings. */
 export function splitShellArgs(cmd: string): string[] {
   const tokens: string[] = []
@@ -207,10 +251,11 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   }
 
   const rawCommand = (args.command as string).trim()
-  const isChained = rawCommand.includes(' && ')
+  const chainedParts = splitChainedCommands(rawCommand)
+  const isChained = chainedParts.length > 1
 
   // Parse first command for presence animation
-  const firstCmd = isChained ? rawCommand.split(/\s*&&\s*/)[0] : rawCommand
+  const firstCmd = isChained ? chainedParts[0] : rawCommand
   const { verb, ref } = parseCommandArgs(firstCmd)
   const labelKey = verb ? COMMAND_LABELS[verb] ?? null : null
 
@@ -248,7 +293,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
     if (isChained) {
       // ---- Chained commands: use batch --json --bail ----
-      const parts = rawCommand.split(/\s*&&\s*/)
+      const parts = chainedParts
       // Auto-scroll refs into view before mutations
       const expanded: string[][] = []
       for (const p of parts) {

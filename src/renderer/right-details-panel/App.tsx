@@ -121,6 +121,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             annotateAvailable={Boolean(panelData.annotateAvailable)}
             originBindings={panelData.originBindings ?? {}}
             fixInProgress={panelData.fixInProgress ?? {}}
+            fixProgress={panelData.fixProgress ?? {}}
             mcpSetup={mcpSetup}
             mcpConnected={mcpConnected}
             copiedInstall={copiedInstall}

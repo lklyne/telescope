@@ -37,7 +37,8 @@ import {
   toolbarView,
 } from './view-refs'
 import { getOriginBindings } from './preferences'
-import { getInFlightCountByOrigin } from '../agent-fix/fix-queue'
+import { getInFlightCountByOrigin } from '../agent-fix/fix-tracker'
+import { getFixProgress } from '../agent-fix/fix-progress'
 import {
   findPageById,
   inspectActiveFrameId,
@@ -429,6 +430,7 @@ export function notifyDevtoolsPanelData(): void {
     frames,
     originBindings: getOriginBindings(),
     fixInProgress: getInFlightCountByOrigin(),
+    fixProgress: getFixProgress(),
     ...buildEntityDetails(panelMode),
     emptyState: _mcpEmptyState(),
   })

@@ -639,6 +639,7 @@ export interface DevtoolsPanelData {
   frames?: DevtoolsPanelFrameSummary[]
   originBindings?: OriginBindings
   fixInProgress?: Record<string, number>
+  fixProgress?: Record<string, FixProgressEntry>
   textEntity?: PanelTextEntityDetail
   fileEntity?: PanelFileEntityDetail
   drawingEntity?: PanelDrawingEntityDetail
@@ -1654,6 +1655,37 @@ export interface OriginBinding {
 }
 
 export type OriginBindings = Record<string, OriginBinding>
+
+// --- Fix progress (live stream of `claude -p` events per annotation) ---
+
+export type FixProgressEventKind =
+  | 'system'
+  | 'text'
+  | 'tool_use'
+  | 'tool_result'
+  | 'result'
+  | 'stderr'
+  | 'error'
+
+export interface FixProgressEvent {
+  kind: FixProgressEventKind
+  text: string
+  timestamp: string
+}
+
+export type FixProgressStatus = 'running' | 'completed' | 'failed'
+
+export interface FixProgressEntry {
+  annotationId: string
+  origin: string
+  startedAt: string
+  updatedAt: string
+  status: FixProgressStatus
+  events: FixProgressEvent[]
+  summary?: string
+  shouldResolve?: boolean
+  error?: string
+}
 
 export interface Annotation {
   id: string

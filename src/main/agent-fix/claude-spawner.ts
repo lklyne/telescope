@@ -1,5 +1,7 @@
-import { spawnAsync } from '../shared/browse-handler'
+import { spawn } from 'child_process'
+import type { FixProgressEvent } from '../../shared/types'
 import { truncate } from '../../shared/annotation-utils'
+import { parseStreamLine } from './stream-json-parser'
 
 export interface FixResult {
   summary: string
@@ -7,10 +9,18 @@ export interface FixResult {
   rawOutput: string
 }
 
-const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000
-const DEFAULT_MAX_BUFFER = 5 * 1024 * 1024
+export interface InvokeOptions {
+  onEvent?: (event: FixProgressEvent) => void
+  timeout?: number
+}
 
-type SpawnerFn = (prompt: string, repoPath: string, timeout: number) => Promise<FixResult>
+const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000
+
+type SpawnerFn = (
+  prompt: string,
+  repoPath: string,
+  options: InvokeOptions,
+) => Promise<FixResult>
 
 let override: SpawnerFn | null = null
 
@@ -18,28 +28,89 @@ export function _setSpawnerOverride(fn: SpawnerFn | null): void {
   override = fn
 }
 
-export async function invokeClaude(
+export function invokeClaude(
   prompt: string,
   repoPath: string,
-  timeout: number = DEFAULT_TIMEOUT_MS,
+  options: InvokeOptions = {},
 ): Promise<FixResult> {
-  if (override) return override(prompt, repoPath, timeout)
+  if (override) return override(prompt, repoPath, options)
+  const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS
 
-  const { stdout, stderr } = await spawnAsync(
-    'claude',
-    ['-p', prompt, '--output-format', 'text'],
-    { timeout, cwd: repoPath, maxBuffer: DEFAULT_MAX_BUFFER },
-  )
+  return new Promise<FixResult>((resolve, reject) => {
+    const child = spawn(
+      'claude',
+      [
+        '-p', prompt,
+        '--output-format', 'stream-json',
+        '--verbose',
+        '--dangerously-skip-permissions',
+      ],
+      {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: repoPath,
+        env: { ...process.env, NO_COLOR: '1' },
+      },
+    )
 
-  const parsed = parseOutput(stdout)
-  if (!parsed.summary && stderr.trim()) {
-    return {
-      summary: `Claude exited without output. stderr: ${truncate(stderr.trim(), 400)}`,
-      shouldResolve: false,
-      rawOutput: stdout,
+    let stdoutBuffer = ''
+    let rawOutput = ''
+    let finalText = ''
+
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL')
+      reject(new Error(`claude timed out after ${timeout}ms`))
+    }, timeout)
+
+    const handleLine = (line: string): void => {
+      const parsed = parseStreamLine(line)
+      if (!parsed) return
+      if (parsed.finalText != null) finalText = parsed.finalText
+      if (options.onEvent) options.onEvent(parsed.event)
     }
-  }
-  return { ...parsed, rawOutput: stdout }
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      const text = chunk.toString('utf-8')
+      rawOutput += text
+      stdoutBuffer += text
+      let newlineIdx = stdoutBuffer.indexOf('\n')
+      while (newlineIdx !== -1) {
+        handleLine(stdoutBuffer.slice(0, newlineIdx))
+        stdoutBuffer = stdoutBuffer.slice(newlineIdx + 1)
+        newlineIdx = stdoutBuffer.indexOf('\n')
+      }
+    })
+
+    child.stderr.on('data', (chunk: Buffer) => {
+      const text = chunk.toString('utf-8')
+      rawOutput += text
+      const line = text.trim().split(/\r?\n/).pop() ?? ''
+      if (line && options.onEvent) {
+        options.onEvent({
+          kind: 'stderr',
+          text: truncate(line, 320),
+          timestamp: new Date().toISOString(),
+        })
+      }
+    })
+
+    child.on('error', (err) => {
+      clearTimeout(timer)
+      reject(err)
+    })
+
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      if (stdoutBuffer.trim()) handleLine(stdoutBuffer)
+      if (code !== 0 && !finalText) {
+        reject(new Error(`claude exited with code ${code}`))
+        return
+      }
+      const parsed = parseOutput(finalText || rawOutput)
+      resolve({ ...parsed, rawOutput })
+    })
+
+    child.stdin.end()
+  })
 }
 
 export function parseOutput(stdout: string): { summary: string; shouldResolve: boolean } {

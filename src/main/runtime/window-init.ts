@@ -41,7 +41,8 @@ import {
   notifyDevtoolsPanelData,
 } from './inspect-session'
 import { initFixOrchestrator } from '../agent-fix/fix-orchestrator'
-import { onQueueChange } from '../agent-fix/fix-queue'
+import { onTrackerChange } from '../agent-fix/fix-tracker'
+import { onProgressChange } from '../agent-fix/fix-progress'
 import {
   backgroundFrameOverlays,
   activeCanvasSelection,
@@ -141,7 +142,8 @@ export function initWindow(): void {
   })
   loadPreferences()
   initFixOrchestrator()
-  onQueueChange(() => notifyDevtoolsPanelData())
+  onTrackerChange(() => notifyDevtoolsPanelData())
+  onProgressChange(() => notifyDevtoolsPanelData())
   ensureWorkspaceTabsInitialized()
   layoutCache.toolbarHeight = TOOLBAR_HEIGHT
 

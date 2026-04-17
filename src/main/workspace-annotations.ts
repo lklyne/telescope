@@ -2,6 +2,7 @@ import type {
   Annotation,
   AnnotationCreateRequest,
   AnnotationMetadata,
+  AnnotationReply,
   AnnotationStatus,
 } from '../shared/types'
 import {
@@ -138,6 +139,16 @@ export function setOnAnnotationCreated(
   onAnnotationCreatedListener = fn
 }
 
+let onAnnotationReplyListener:
+  | ((annotation: Annotation, reply: AnnotationReply) => void)
+  | null = null
+
+export function setOnAnnotationReply(
+  fn: ((annotation: Annotation, reply: AnnotationReply) => void) | null,
+): void {
+  onAnnotationReplyListener = fn
+}
+
 export function createAnnotation(request: AnnotationCreateRequest): Annotation {
   const annotation: Annotation = {
     id: makeId('ann'),
@@ -200,17 +211,21 @@ export function addAnnotationReply(
 ): Annotation | null {
   const annotation = workspaceAnnotations.find((a) => a.id === id)
   if (!annotation) return null
-  annotation.replies.push({
-    author,
-    text,
-    timestamp: new Date().toISOString(),
-  })
+  const reply: AnnotationReply = { author, text, timestamp: new Date().toISOString() }
+  annotation.replies = [...annotation.replies, reply]
   if (author === 'user' && annotation.status === 'resolved') {
     updateAnnotationStatus(id, 'pending')
   }
   markDirty('canvas', 'pages')
   requestLayout()
   scheduleWorkspaceAutosave()
+  if (onAnnotationReplyListener) {
+    try {
+      onAnnotationReplyListener(annotation, reply)
+    } catch (error) {
+      console.error('onAnnotationReply listener failed:', error)
+    }
+  }
   return annotation
 }
 

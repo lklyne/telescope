@@ -1,0 +1,10 @@
+{
+  "context_servers": {
+    "sentry": {
+      "source": "custom",
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp",
+      "headers": {}
+    }
+  }
+}

@@ -1,6 +1,12 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import { ChevronRight } from 'lucide-react'
-import type { Annotation, DevtoolsPanelData, DevtoolsPanelFrameSummary, OriginBindings } from '../../../shared/types'
+import type {
+  Annotation,
+  DevtoolsPanelData,
+  DevtoolsPanelFrameSummary,
+  FixProgressEntry,
+  OriginBindings,
+} from '../../../shared/types'
 import { dividerClass, isUnresolved, mutedClass } from '../rightDetailsPanelHelpers'
 import { useFocusedAnnotationScroll } from '../useFocusedAnnotationScroll'
 import { CommentRow, CommentsPane } from './CommentsPane'
@@ -16,6 +22,7 @@ export function DocumentPane({
   annotateAvailable,
   originBindings,
   fixInProgress,
+  fixProgress,
   mcpSetup,
   mcpConnected,
   copiedInstall,
@@ -29,6 +36,7 @@ export function DocumentPane({
   annotateAvailable: boolean
   originBindings: OriginBindings
   fixInProgress: Record<string, number>
+  fixProgress: Record<string, FixProgressEntry>
   mcpSetup: DevtoolsPanelData['emptyState'] | null
   mcpConnected: boolean
   copiedInstall: 'idle' | 'ok' | 'err'
@@ -60,6 +68,7 @@ export function DocumentPane({
             annotateAvailable={annotateAvailable}
             originBindings={originBindings}
             fixInProgress={fixInProgress}
+            fixProgress={fixProgress}
           />
         </Collapsible.Panel>
       </Collapsible.Root>
@@ -69,6 +78,7 @@ export function DocumentPane({
         annotations={annotations}
         focusedAnnotationId={focusedAnnotationId}
         divider={divider}
+        fixProgress={fixProgress}
       />
 
       {mcpSetup ? (
@@ -109,11 +119,13 @@ function ResolvedPane({
   annotations,
   focusedAnnotationId,
   divider,
+  fixProgress,
 }: {
   isDark: boolean
   annotations: Annotation[]
   focusedAnnotationId?: string | null
   divider: string
+  fixProgress: Record<string, FixProgressEntry>
 }) {
   const resolved = annotations.filter((a) => !isUnresolved(a.status))
   if (!resolved.length) return null
@@ -148,6 +160,7 @@ function ResolvedPane({
               focusRowClass={focusRowClass}
               focusedAnnotationId={focusedAnnotationId}
               registerAnnotationElement={registerAnnotationElement}
+              progress={fixProgress[annotation.id]}
             />
           ))}
         </section>

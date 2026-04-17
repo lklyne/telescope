@@ -6,6 +6,7 @@ import type {
   InspectNodeDetail,
   InspectPanelState,
 } from '../../shared/types'
+import { annotationOrigin } from '../../shared/annotation-utils'
 import { isUnresolved } from './rightDetailsPanelHelpers'
 
 type AnnotationGroup = {
@@ -97,16 +98,6 @@ export function groupAnnotationsByFrame(
   return groups
 }
 
-export function originForAnnotation(annotation: Annotation): string | null {
-  const pageUrl = annotation.metadata?.pageUrl
-  if (!pageUrl) return null
-  try {
-    return new URL(pageUrl).origin
-  } catch {
-    return null
-  }
-}
-
 type OriginGroup = {
   origin: string
   unresolvedCount: number
@@ -118,7 +109,7 @@ export function groupAnnotationsByOrigin(
 ): OriginGroup[] {
   const grouped = new Map<string, OriginGroup>()
   for (const annotation of annotations) {
-    const origin = originForAnnotation(annotation)
+    const origin = annotationOrigin(annotation)
     if (!origin) continue
     const existing = grouped.get(origin) ?? { origin, unresolvedCount: 0, annotations: [] }
     existing.annotations.push(annotation)

@@ -55,7 +55,6 @@ export function enqueueFix(entry: QueueEntry): boolean {
   if (queue.pending.some((e) => e.annotationId === entry.annotationId)) return false
   queue.pending.push(entry)
   void drain(entry.repoPath)
-  notify()
   return true
 }
 

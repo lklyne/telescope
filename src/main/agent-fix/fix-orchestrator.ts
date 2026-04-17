@@ -1,12 +1,5 @@
-/**
- * Entry point for Claude-powered annotation fixes.
- *
- * - fixAnnotation: one-off fix for a single annotation (stateless, fresh claude -p)
- * - fixPendingAnnotationsForOrigin: batch fix all unresolved annotations for an origin
- * - initFixOrchestrator: registers the auto-fix observer on annotation creation
- */
-
 import type { Annotation } from '../../shared/types'
+import { annotationOrigin, truncate } from '../../shared/annotation-utils'
 import {
   addAnnotationReply,
   getAnnotationById,
@@ -24,7 +17,7 @@ const MAX_AGENT_REPLIES = 20
 export function initFixOrchestrator(): void {
   setOnAnnotationCreated((annotation) => {
     if (annotation.author !== 'user') return
-    const origin = originOf(annotation)
+    const origin = annotationOrigin(annotation)
     if (!origin) return
     const binding = getOriginBinding(origin)
     if (!binding || !binding.autoFix) return
@@ -35,49 +28,52 @@ export function initFixOrchestrator(): void {
 export function fixAnnotation(annotationId: string): boolean {
   const annotation = getAnnotationById(annotationId)
   if (!annotation) return false
-  if (isAnnotationInFlight(annotationId)) return false
-
-  const origin = originOf(annotation)
-  if (!origin) {
-    addAnnotationReply(annotationId, 'agent', 'Cannot fix: annotation has no associated page URL.')
-    return false
-  }
-  const binding = getOriginBinding(origin)
-  if (!binding) {
-    addAnnotationReply(annotationId, 'agent', `Cannot fix: no repo linked to ${origin}. Link one in the Comments panel.`)
-    return false
-  }
-  const agentReplies = annotation.replies.filter((r) => r.author === 'agent').length
-  if (agentReplies >= MAX_AGENT_REPLIES) {
-    addAnnotationReply(annotationId, 'agent', 'Agent reply cap reached. Resolve manually or reopen with a new comment.')
-    return false
-  }
-
-  const prompt = buildFixPrompt(annotation)
-  updateAnnotationStatus(annotationId, 'acknowledged')
-
-  const enqueued = enqueueFix({
-    annotationId,
-    origin,
-    repoPath: binding.repoPath,
-    run: () => invokeClaude(prompt, binding.repoPath),
-    onComplete: (result, error) => handleCompletion(annotationId, result, error),
-  })
-  return enqueued
+  return fixAnnotationCore(annotation)
 }
 
 export function fixPendingAnnotationsForOrigin(origin: string): number {
   const binding = getOriginBinding(origin)
   if (!binding) return 0
-  const candidates = getAnnotations().filter((annotation) => {
-    if (annotation.status === 'resolved' || annotation.status === 'dismissed') return false
-    return originOf(annotation) === origin
+  const candidates = getAnnotations().filter((a) => {
+    if (a.status === 'resolved' || a.status === 'dismissed') return false
+    return annotationOrigin(a) === origin
   })
   let queued = 0
-  for (const annotation of candidates) {
-    if (fixAnnotation(annotation.id)) queued++
+  for (const candidate of candidates) {
+    if (fixAnnotationCore(candidate)) queued++
   }
   return queued
+}
+
+function fixAnnotationCore(annotation: Annotation): boolean {
+  if (isAnnotationInFlight(annotation.id)) return false
+
+  const origin = annotationOrigin(annotation)
+  if (!origin) {
+    addAnnotationReply(annotation.id, 'agent', 'Cannot fix: annotation has no associated page URL.')
+    return false
+  }
+  const binding = getOriginBinding(origin)
+  if (!binding) {
+    addAnnotationReply(annotation.id, 'agent', `Cannot fix: no repo linked to ${origin}. Link one in the Comments panel.`)
+    return false
+  }
+  const agentReplies = annotation.replies.filter((r) => r.author === 'agent').length
+  if (agentReplies >= MAX_AGENT_REPLIES) {
+    addAnnotationReply(annotation.id, 'agent', 'Agent reply cap reached. Resolve manually or reopen with a new comment.')
+    return false
+  }
+
+  const prompt = buildFixPrompt(annotation)
+  updateAnnotationStatus(annotation.id, 'acknowledged')
+
+  return enqueueFix({
+    annotationId: annotation.id,
+    origin,
+    repoPath: binding.repoPath,
+    run: () => invokeClaude(prompt, binding.repoPath),
+    onComplete: (result, error) => handleCompletion(annotation.id, result, error),
+  })
 }
 
 function handleCompletion(
@@ -96,17 +92,3 @@ function handleCompletion(
   }
 }
 
-function originOf(annotation: Annotation): string | null {
-  const pageUrl = annotation.metadata?.pageUrl
-  if (!pageUrl) return null
-  try {
-    return new URL(pageUrl).origin
-  } catch {
-    return null
-  }
-}
-
-function truncate(value: string, max: number): string {
-  if (value.length <= max) return value
-  return value.slice(0, max - 1) + '…'
-}

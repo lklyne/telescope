@@ -176,6 +176,8 @@ export function updateAnnotationStatus(
   const metadataPatch: AnnotationMetadata = { ...annotation.metadata }
   if (reason) {
     metadataPatch.dismissReason = reason
+  } else if (status !== 'dismissed') {
+    delete metadataPatch.dismissReason
   }
   if (status === 'resolved' && resolvedBy) {
     metadataPatch.resolvedBy = resolvedBy
@@ -204,11 +206,7 @@ export function addAnnotationReply(
     timestamp: new Date().toISOString(),
   })
   if (author === 'user' && annotation.status === 'resolved') {
-    annotation.status = 'pending'
-    if (annotation.metadata?.resolvedBy) {
-      const { resolvedBy: _discard, ...rest } = annotation.metadata
-      annotation.metadata = rest
-    }
+    updateAnnotationStatus(id, 'pending')
   }
   markDirty('canvas', 'pages')
   requestLayout()

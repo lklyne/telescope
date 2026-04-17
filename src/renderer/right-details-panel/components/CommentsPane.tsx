@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Collapsible } from '@base-ui/react/collapsible'
 import { Popover } from '@base-ui/react/popover'
 import { ChevronRight, MessageCircle, Wrench, X } from 'lucide-react'
@@ -161,8 +162,8 @@ export function CommentsPane({
   const dividerClass = isDark ? 'border-zinc-700/50' : 'border-zinc-200/80'
   const rowHoverClass = isDark ? 'hover:bg-zinc-700/55' : 'hover:border-zinc-300'
   const focusRowClass = isDark ? 'bg-blue-500/20' : 'bg-blue-500/10'
-  const groups = groupAnnotationsByFrame(annotations, frames)
-  const originGroups = groupAnnotationsByOrigin(annotations)
+  const groups = useMemo(() => groupAnnotationsByFrame(annotations, frames), [annotations, frames])
+  const originGroups = useMemo(() => groupAnnotationsByOrigin(annotations), [annotations])
   const { registerAnnotationElement } = useFocusedAnnotationScroll(
     focusedAnnotationId,
     annotations,

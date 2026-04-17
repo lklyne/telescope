@@ -1,4 +1,5 @@
 import type { Annotation } from '../../shared/types'
+import { truncate } from '../../shared/annotation-utils'
 
 export function buildFixPrompt(annotation: Annotation): string {
   const lines: string[] = []
@@ -74,9 +75,4 @@ export function buildFixPrompt(annotation: Annotation): string {
 
 function labelForAuthor(author: 'user' | 'agent'): string {
   return author === 'agent' ? 'Agent' : 'User'
-}
-
-function truncate(value: string, max: number): string {
-  if (value.length <= max) return value
-  return value.slice(0, max - 1) + '…'
 }

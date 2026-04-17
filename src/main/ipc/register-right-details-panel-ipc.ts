@@ -209,16 +209,11 @@ export function registerRightDetailsPanelIpc(): void {
     async (event, payload: { origin?: string } | undefined) => {
       const origin = payload?.origin?.trim()
       if (!origin) return
-      const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow() ?? undefined
+      const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
+      const dialogOpts: Electron.OpenDialogOptions = { title: `Choose repo for ${origin}`, properties: ['openDirectory'] }
       const result = win
-        ? await dialog.showOpenDialog(win, {
-            title: `Choose repo for ${origin}`,
-            properties: ['openDirectory'],
-          })
-        : await dialog.showOpenDialog({
-            title: `Choose repo for ${origin}`,
-            properties: ['openDirectory'],
-          })
+        ? await dialog.showOpenDialog(win, dialogOpts)
+        : await dialog.showOpenDialog(dialogOpts)
       if (result.canceled || result.filePaths.length === 0) return
       const repoPath = result.filePaths[0]
       const existing = getOriginBinding(origin)

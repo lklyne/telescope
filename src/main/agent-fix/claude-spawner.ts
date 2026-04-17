@@ -1,4 +1,5 @@
 import { spawnAsync } from '../shared/browse-handler'
+import { truncate } from '../../shared/annotation-utils'
 
 export interface FixResult {
   summary: string
@@ -74,9 +75,4 @@ export function parseOutput(stdout: string): { summary: string; shouldResolve: b
     summary: truncate(summary || '(no summary)', 280),
     shouldResolve,
   }
-}
-
-function truncate(value: string, max: number): string {
-  if (value.length <= max) return value
-  return value.slice(0, max - 1) + '…'
 }

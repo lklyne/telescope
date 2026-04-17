@@ -35,13 +35,11 @@ export async function getOnboardingStatus(): Promise<OnboardingStatusSnapshot> {
   const agent = await getAgentBrowserStatus()
   let agentBrowser: OnboardingComponentStatus
   if (agent.binary.kind === 'installed' && agent.skill.kind === 'installed') {
-    agentBrowser = { kind: 'installed', detail: `agent-browser ${agent.binary.version}` }
+    agentBrowser = { kind: 'installed', detail: `${agent.binary.version} of agent-browser already installed` }
   } else if (agent.binary.kind === 'blocked') {
     agentBrowser = { kind: 'blocked', detail: agent.binary.detail }
   } else if (agent.skill.kind === 'blocked') {
     agentBrowser = { kind: 'blocked', detail: agent.skill.detail }
-  } else if (agent.skill.kind === 'outdated' && agent.binary.kind === 'installed') {
-    agentBrowser = { kind: 'outdated', detail: agent.skill.detail }
   } else {
     agentBrowser = { kind: 'missing' }
   }
@@ -50,7 +48,6 @@ export async function getOnboardingStatus(): Promise<OnboardingStatusSnapshot> {
     cli: cliStatus(),
     skill: skillToStatus(getSkillStatus('telescope')),
     agentBrowser,
-    agentBrowserUserInstall: agent.userInstall,
     claudeDirExists: claudeDirExists(),
   }
 }

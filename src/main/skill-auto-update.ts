@@ -16,7 +16,7 @@ import {
   type SkillId,
 } from './skill-install'
 
-const SKILL_IDS: SkillId[] = ['telescope', 'agent-browser']
+const SKILL_IDS: SkillId[] = ['telescope']
 
 export interface AutoUpdateOutcome {
   updated: SkillId[]

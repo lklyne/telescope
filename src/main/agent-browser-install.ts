@@ -131,8 +131,11 @@ export async function installAgentBrowser(): Promise<AgentBrowserInstallResult> 
     }
   }
   configureBundledAgentBrowser()
-  const skillResult = installSkill('agent-browser')
-  if (!skillResult.success) return skillResult
+  const existingSkill = getSkillStatus('agent-browser')
+  if (existingSkill.kind === 'missing') {
+    const skillResult = installSkill('agent-browser')
+    if (!skillResult.success) return skillResult
+  }
   const status = await getAgentBrowserStatus()
   if (status.binary.kind !== 'installed') {
     const detail =

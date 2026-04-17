@@ -61,28 +61,19 @@ function Row({
   id,
   title,
   description,
-  meta,
-  footer,
-  disableToggleWhen,
 }: {
   id: OnboardingComponentId
   title: string
   description: string
-  meta?: string
-  footer?: ReactNode
-  disableToggleWhen?: (snapshot: InstallerRowSnapshot) => boolean
 }) {
   const { rows, setSelected } = useInstaller()
   const snapshot = rows[id]
-  const toggleDisabled =
-    snapshot.progress === 'installing' ||
-    (disableToggleWhen ? disableToggleWhen(snapshot) : false)
 
   return (
     <div className={rowBaseClass(snapshot.progress)}>
       <div className="pt-[2px]">
         <Checkbox.Root
-          disabled={toggleDisabled}
+          disabled={snapshot.progress === 'installing'}
           checked={snapshot.selected}
           onCheckedChange={(checked) => setSelected(id, Boolean(checked))}
           className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border border-[var(--surface-popover-border)] bg-[var(--surface-input)] data-[checked]:border-transparent data-[checked]:bg-emerald-500 data-[disabled]:opacity-50"
@@ -100,13 +91,7 @@ function Row({
         <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
           {description}
         </p>
-        {meta ? (
-          <p className="mt-1 font-mono text-[11px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-50">
-            {meta}
-          </p>
-        ) : null}
         <RowDetail snapshot={snapshot} />
-        {footer ? <div className="mt-1">{footer}</div> : null}
       </div>
     </div>
   )

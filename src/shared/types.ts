@@ -506,7 +506,6 @@ export interface OnboardingStatusSnapshot {
   cli: OnboardingComponentStatus
   skill: OnboardingComponentStatus
   agentBrowser: OnboardingComponentStatus
-  agentBrowserUserInstall?: { path: string; version: string }
   claudeDirExists: boolean
 }
 

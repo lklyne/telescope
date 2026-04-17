@@ -8,8 +8,8 @@ let onboardingWindow: BrowserWindow | null = null
 let pendingResolver: ((reason: 'complete' | 'dismiss') => void) | null = null
 let currentMode: OnboardingMode = 'welcome'
 
-const WINDOW_WIDTH = 560
-const WINDOW_HEIGHT = 680
+const WINDOW_WIDTH = 640
+const WINDOW_HEIGHT = 520
 
 export function isOnboardingWindowOpen(): boolean {
   return onboardingWindow !== null && !onboardingWindow.isDestroyed()

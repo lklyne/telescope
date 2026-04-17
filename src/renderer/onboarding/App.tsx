@@ -56,7 +56,37 @@ function allInstalledOrSkipped(
   )
 }
 
-export default function App({
+function WelcomeScreen({ onContinue, onSkip }: { onContinue: () => void; onSkip: () => void }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="titlebar-drag h-[34px] w-full shrink-0" />
+      <div className="flex flex-1 flex-col items-center justify-center px-8 pb-8">
+        <h1 className="text-[28px] font-bold tracking-tight">Welcome to Telescope</h1>
+        <p className="mt-4 max-w-[380px] text-center text-[15px] leading-relaxed text-[var(--surface-toolbar-foreground)] opacity-70">
+          Part browser and part canvas, Telescope is a visual way to build with agents.
+        </p>
+      </div>
+      <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--surface-popover-border)] bg-[var(--surface-panel)] px-8 py-4">
+        <button
+          type="button"
+          className="text-[12px] text-[var(--surface-toolbar-foreground)] opacity-70 hover:opacity-100"
+          onClick={onSkip}
+        >
+          Skip for now
+        </button>
+        <button
+          type="button"
+          className="rounded-[6px] bg-emerald-600 px-4 py-[6px] text-[12px] font-medium text-white shadow-sm hover:bg-emerald-500"
+          onClick={onContinue}
+        >
+          Get started
+        </button>
+      </footer>
+    </div>
+  )
+}
+
+function SetupScreen({
   api,
   initialData,
 }: {
@@ -71,12 +101,6 @@ export default function App({
     skill: defaultSelected(initialData.status.skill),
     agentBrowser: defaultSelected(initialData.status.agentBrowser),
   })
-
-  useEffect(() => {
-    return api.onThemeChanged((data) =>
-      document.documentElement.classList.toggle('dark', data.isDark),
-    )
-  }, [api])
 
   useEffect(() => {
     return api.onProgress((event: OnboardingProgressEvent) => {
@@ -134,6 +158,9 @@ export default function App({
     try {
       const next = await api.install(selections)
       setStatus(next)
+      if (allInstalledOrSkipped(next, INITIAL_PROGRESS)) {
+        api.complete()
+      }
     } finally {
       setInstalling(false)
     }
@@ -147,28 +174,26 @@ export default function App({
       : 'Install selected'
 
   const primaryAction = canFinish ? () => api.complete() : handleInstall
-
-  const showClaudeWarning = !status.claudeDirExists
-  const modeTitle = initialData.mode === 'welcome' ? 'Welcome to Telescope' : 'Telescope Setup'
-  const modeDescription =
-    initialData.mode === 'welcome'
-      ? 'Let’s set up Telescope to work with Claude Code. You can change these any time from the Telescope menu.'
-      : 'Install or re-check the integrations that let Claude Code drive Telescope.'
+  const isSettingsMode = initialData.mode === 'settings'
 
   return (
     <div className="flex h-full flex-col">
       <div className="titlebar-drag h-[34px] w-full shrink-0" />
       <div className="flex-1 min-h-0 overflow-y-auto px-8 pb-8">
-        <header className="mb-6">
-          <h1 className="text-[18px] font-semibold">{modeTitle}</h1>
+        <header className="mb-6 mt-4">
+          <h1 className="text-[18px] font-semibold">
+            {isSettingsMode ? 'Telescope Setup' : 'Setup'}
+          </h1>
           <p className="mt-2 text-[13px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
-            {modeDescription}
+            {isSettingsMode
+              ? 'Install or re-check the integrations that let Claude Code drive Telescope.'
+              : "You'll need to set up a few tools so agents know how this thing works."}
           </p>
         </header>
 
-        {showClaudeWarning ? (
+        {!status.claudeDirExists ? (
           <div className="mb-4 rounded-[8px] border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
-            {`Claude Code doesn’t seem to be installed (~/.claude not found). You can still install the skills; they’ll activate once Claude Code is set up.`}
+            {`Claude Code doesn't seem to be installed (~/.claude not found). You can still install the skills; they'll activate once Claude Code is set up.`}
           </div>
         ) : null}
 
@@ -176,27 +201,17 @@ export default function App({
           <Installer.Row
             id="cli"
             title="Telescope CLI"
-            description="Adds the telescope command to your PATH so Claude Code can drive the canvas."
-            meta="/usr/local/bin/telescope  →  ~/.local/bin/telescope"
+            description="Adds the telescope command so agents can interact with the app."
           />
           <Installer.Row
             id="skill"
-            title="Telescope skill for Claude Code"
-            description="Teaches Claude Code the telescope command vocabulary."
-            meta="~/.claude/skills/telescope/SKILL.md"
+            title="Telescope Skill"
+            description="Teaches agents how to use the Telescope CLI."
           />
           <Installer.Row
             id="agentBrowser"
             title="agent-browser"
-            description="Lets Telescope capture, inspect, and interact with live web pages inside frames."
-            meta="bundled binary + ~/.claude/skills/agent-browser/SKILL.md"
-            footer={
-              status.agentBrowserUserInstall ? (
-                <span className="block text-[11px] text-[var(--surface-toolbar-foreground)] opacity-50">
-                  {`Also found ${status.agentBrowserUserInstall.version} at ${status.agentBrowserUserInstall.path}. Telescope uses the bundled copy; set AGENT_BROWSER_PATH to override.`}
-                </span>
-              ) : null
-            }
+            description="Telescope uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev."
           />
         </Installer.Root>
       </div>
@@ -208,7 +223,7 @@ export default function App({
           disabled={installing}
           onClick={() => api.dismiss()}
         >
-          {initialData.mode === 'welcome' ? 'Skip for now' : 'Close'}
+          {isSettingsMode ? 'Close' : 'Skip for now'}
         </button>
         <button
           type="button"
@@ -221,4 +236,33 @@ export default function App({
       </footer>
     </div>
   )
+}
+
+export default function App({
+  api,
+  initialData,
+}: {
+  api: OnboardingElectronAPI
+  initialData: OnboardingBootstrapData
+}) {
+  const [step, setStep] = useState<'welcome' | 'setup'>(
+    initialData.mode === 'welcome' ? 'welcome' : 'setup',
+  )
+
+  useEffect(() => {
+    return api.onThemeChanged((data) =>
+      document.documentElement.classList.toggle('dark', data.isDark),
+    )
+  }, [api])
+
+  if (step === 'welcome') {
+    return (
+      <WelcomeScreen
+        onContinue={() => setStep('setup')}
+        onSkip={() => api.dismiss()}
+      />
+    )
+  }
+
+  return <SetupScreen api={api} initialData={initialData} />
 }

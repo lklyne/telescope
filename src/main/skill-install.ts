@@ -77,6 +77,7 @@ export function getSkillStatus(skillId: SkillId): SkillStatus {
   }
   const installed = readFileOrNull(installedSkillPath(skillId))
   if (!installed) return { kind: 'missing' }
+  if (skillId === 'agent-browser') return { kind: 'installed' }
   if (sha256(bundled) === sha256(installed)) return { kind: 'installed' }
   return { kind: 'outdated', detail: 'Installed skill differs from bundled version.' }
 }

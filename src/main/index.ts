@@ -91,6 +91,8 @@ if (userDataDirArg) {
   app.setPath('userData', userDataDirArg.slice('--user-data-dir='.length))
 }
 
+let quitRequested = false
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
   app.quit()
@@ -135,6 +137,7 @@ app.whenReady().then(async () => {
     breadcrumb('onboarding', 'shown')
     const reason = await showOnboardingWindow('welcome')
     breadcrumb('onboarding', reason)
+    if (quitRequested) return
   }
 
   initWindow()
@@ -240,5 +243,6 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  quitRequested = true
   flushWorkspaceAutosaveSync()
 })

@@ -50,6 +50,7 @@ export async function setup() {
       NODE_ENV: 'production',
       TELESCOPE_PORT: String(SMOKE_PORT),
       TELESCOPE_REMOTE_DEBUGGING_PORT: String(SMOKE_CDP_PORT),
+      TELESCOPE_SKIP_ONBOARDING: '1',
     },
   })
 

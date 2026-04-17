@@ -23,6 +23,7 @@ export default defineConfig({
         'left-sidebar': resolve(__dirname, 'src/renderer/left-sidebar/index.html'),
         'devtools-resize-handle': resolve(__dirname, 'src/renderer/devtools-resize-handle/index.html'),
         'right-details-panel': resolve(__dirname, 'src/renderer/right-details-panel/index.html'),
+        onboarding: resolve(__dirname, 'src/renderer/onboarding/index.html'),
       },
     },
   },

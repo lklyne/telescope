@@ -20,7 +20,11 @@ import {
 } from './app-control-server'
 import { markDirty } from './runtime/layout-dirty'
 import { registerIpcHandlers } from './ipc-handlers'
-import { setupAppMenu } from './runtime/app-menu'
+import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
+import { loadOnboardingState } from './runtime/preferences'
+import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
+import { configureBundledAgentBrowser } from './agent-browser-install'
+import { autoUpdateSkillsIfSafe } from './skill-auto-update'
 import { initializeDocObservers } from './runtime/workspace-observers'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
 import { sendInteractiveState } from './runtime/overlay-manager'
@@ -87,12 +91,18 @@ if (userDataDirArg) {
   app.setPath('userData', userDataDirArg.slice('--user-data-dir='.length))
 }
 
+let quitRequested = false
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
   app.quit()
 }
 
 app.on('second-instance', () => {
+  if (isOnboardingWindowOpen()) {
+    focusOnboardingWindow()
+    return
+  }
   if (!win || win.isDestroyed()) return
   win.focus()
 })
@@ -111,11 +121,26 @@ app.whenReady().then(async () => {
   })
 
   identifyInstall()
+  configureBundledAgentBrowser()
 
   setupAppMenu()
-  initWindow()
   registerIpcHandlers()
   await startAppControlServer()
+
+  // Silently update skills the user hasn't hand-edited; surfaces drift via the
+  // app menu label (refreshed below).
+  autoUpdateSkillsIfSafe()
+  refreshAppMenu()
+
+  const skipOnboarding = process.env.TELESCOPE_SKIP_ONBOARDING === '1'
+  if (!skipOnboarding && !loadOnboardingState().completed) {
+    breadcrumb('onboarding', 'shown')
+    const reason = await showOnboardingWindow('welcome')
+    breadcrumb('onboarding', reason)
+    if (quitRequested) return
+  }
+
+  initWindow()
   setMcpConnectionStatus(getMcpConnectionStatus())
   onMcpConnectionStatusChanged((status) => {
     setTag('has_mcp_connection', status.healthy)
@@ -218,5 +243,6 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  quitRequested = true
   flushWorkspaceAutosaveSync()
 })

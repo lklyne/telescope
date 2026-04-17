@@ -4,12 +4,38 @@ import { pages, selectedPageId } from './runtime-context'
 import { workspaceViewMode } from '../ui-state'
 import { selectBrowserTab } from './runtime-core'
 import { checkForUpdatesManually } from '../auto-updater'
-import { installCli } from '../cli-install'
+import { showOnboardingWindow } from '../onboarding-window'
+import {
+  bundledSkillHash,
+  installedSkillHash,
+  type SkillId,
+} from '../skill-install'
 
-export function setupAppMenu(): void {
+const SKILL_IDS: SkillId[] = ['telescope', 'agent-browser']
+
+function pendingSkillUpdates(): number {
+  let count = 0
+  for (const id of SKILL_IDS) {
+    const installed = installedSkillHash(id)
+    const bundled = bundledSkillHash(id)
+    if (installed !== null && bundled !== null && installed !== bundled) {
+      count++
+    }
+  }
+  return count
+}
+
+function setupLabel(): string {
+  const pending = pendingSkillUpdates()
+  if (pending === 0) return 'Setup Telescope\u2026'
+  if (pending === 1) return 'Setup Telescope\u2026 (1 update)'
+  return `Setup Telescope\u2026 (${pending} updates)`
+}
+
+function buildTemplate(): Electron.MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin'
 
-  const template: Electron.MenuItemConstructorOptions[] = [
+  return [
     // App menu (macOS only)
     ...(isMac
       ? [
@@ -26,14 +52,9 @@ export function setupAppMenu(): void {
               },
               { type: 'separator' as const },
               {
-                label: "Install 'telescope' Command\u2026",
+                label: setupLabel(),
                 click: () => {
-                  const result = installCli()
-                  dialog.showMessageBox({
-                    type: result.success ? 'info' : 'warning',
-                    title: 'Install CLI',
-                    message: result.message,
-                  })
+                  void showOnboardingWindow('settings')
                 },
               },
               { type: 'separator' as const },
@@ -132,8 +153,16 @@ export function setupAppMenu(): void {
       ],
     },
   ]
+}
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+export function setupAppMenu(): void {
+  Menu.setApplicationMenu(Menu.buildFromTemplate(buildTemplate()))
+}
+
+/** Rebuild the application menu in place. Use after install/dismiss to
+ * refresh the "(N updates)" suffix on the Setup item. */
+export function refreshAppMenu(): void {
+  setupAppMenu()
 }
 
 function showAboutDialog(): void {

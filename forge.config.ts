@@ -11,7 +11,13 @@ const config: ForgeConfig = {
     appBundleId: 'com.lyleklyne.telescope',
     name: 'Telescope',
     icon: 'build/icon',
-    extraResource: ['out/main/mcp-helper.js', 'out/main/cli.js', 'resources/telescope-cli.sh'],
+    extraResource: [
+      'out/main/mcp-helper.js',
+      'out/main/cli.js',
+      'resources/telescope-cli.sh',
+      'resources/skills',
+      'resources/bin',
+    ],
     ignore: [],
     ...(isSigning && {
       osxSign: {},
@@ -73,6 +79,11 @@ const config: ForgeConfig = {
         },
         {
           entry: 'src/preload/page-content.ts',
+          config: 'vite.preload.config.ts',
+          target: 'preload',
+        },
+        {
+          entry: 'src/preload/onboarding.ts',
           config: 'vite.preload.config.ts',
           target: 'preload',
         },

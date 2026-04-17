@@ -5,6 +5,7 @@ import {
   isDark,
   layoutAllViews,
 } from '../runtime/surface-layout'
+import { getCursorMotion } from '../runtime/preferences'
 import { rebuildWindowFromSnapshot } from '../runtime/window-shell'
 import {
   currentPersistedWorkspaceRecord,
@@ -51,6 +52,7 @@ export function registerAppIpc(): void {
   ipcMain.handle('get-canvas-layout-bootstrap', async () => ({
     theme: { isDark: isDark() },
     layoutData: getCanvasLayoutData(),
+    cursorMotion: getCursorMotion(),
   }))
 
   ipcMain.handle('get-floating-ui-bootstrap', async () => ({

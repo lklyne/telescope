@@ -24,6 +24,7 @@ import {
   setFileDeviceOrientation,
   toggleFileDeviceShell,
 } from '../runtime/document-commands'
+import { showDebugWindow } from '../debug-window'
 import { navigateFramePage, togglePageLinked } from '../navigation-sync'
 import { deleteFrames } from '../workspace-entities'
 import { duplicateFrameFromSource } from '../workspace-frames'
@@ -76,6 +77,10 @@ export function registerRightDetailsPanelIpc(): void {
 
   ipcMain.on('right-details-panel-dismiss-browser-devtools', () => {
     dismissBrowserDevTools()
+  })
+
+  ipcMain.on('right-details-panel:open-debug-window', () => {
+    showDebugWindow()
   })
 
   ipcMain.on('right-details-panel-clear-inspect-selection', () => {

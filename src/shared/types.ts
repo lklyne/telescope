@@ -1,5 +1,16 @@
 // --- IPC Channel Types ---
 
+export type {
+  CursorMotionParams,
+  CurveDirection,
+  EasingPreset,
+  EasingSpec,
+  Vec2,
+} from './cursor-motion'
+
+import type { CursorMotionParams } from './cursor-motion'
+
+
 export interface ViewportPreset {
   label: string
   width: number
@@ -544,8 +555,25 @@ export interface OnboardingElectronAPI {
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 
+// --- Debug window ---
+
+export interface DebugBootstrapData extends ThemeBootstrapData {
+  cursorMotion: CursorMotionParams
+}
+
+export interface DebugElectronAPI {
+  getInitialData: () => Promise<DebugBootstrapData>
+  updateCursorMotion: (params: CursorMotionParams) => void
+  resetCursorMotion: () => void
+  onCursorMotionChanged: (
+    callback: (params: CursorMotionParams) => void,
+  ) => () => void
+  onThemeChanged: (callback: (data: ThemeData) => void) => () => void
+}
+
 export interface CanvasLayoutBootstrapData extends ThemeBootstrapData {
   layoutData: LayoutUpdateData
+  cursorMotion: CursorMotionParams
 }
 
 export interface FloatingUiUpdatePayload {
@@ -1417,6 +1445,9 @@ export interface CanvasBgElectronAPI {
     callback: (data: LayoutUpdateData['fixProgress']) => void,
   ) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
+  onCursorMotionChanged: (
+    callback: (params: CursorMotionParams) => void,
+  ) => () => void
 }
 
 export interface FloatingUiElectronAPI {
@@ -1549,6 +1580,7 @@ export interface DevtoolsPanelElectronAPI {
   deleteFrame: (frameId: string) => void
   openBrowserDevTools: () => void
   closeBrowserDevTools: () => void
+  openDebugWindow: () => void
   getInitialData: () => Promise<ThemeBootstrapData>
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onPanelData: (callback: (data: DevtoolsPanelData) => void) => () => void

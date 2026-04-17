@@ -93,6 +93,7 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('right-details-panel-delete-frame', { frameId }),
   openBrowserDevTools: () => ipcRenderer.send('right-details-panel-open-browser-devtools'),
   closeBrowserDevTools: () => ipcRenderer.send('right-details-panel-dismiss-browser-devtools'),
+  openDebugWindow: () => ipcRenderer.send('right-details-panel:open-debug-window'),
   getInitialData: () => ipcRenderer.invoke('get-theme-bootstrap'),
   onThemeChanged: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: ThemeData) => callback(data)

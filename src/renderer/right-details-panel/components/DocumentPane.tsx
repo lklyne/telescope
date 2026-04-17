@@ -45,10 +45,11 @@ export function DocumentPane({
   const originGroups = useMemo(() => groupAnnotationsByOrigin(annotations), [annotations])
 
   return (
-    <div className="flex h-full flex-col overflow-auto">
-      <PaneHeader
-        label="Document"
-      />
+    <div className="flex h-full flex-col">
+      <div className="flex-1 min-h-0 overflow-auto">
+        <PaneHeader
+          label="Document"
+        />
 
       <Collapsible.Root defaultOpen>
         <div className="flex items-center">
@@ -88,6 +89,18 @@ export function DocumentPane({
         divider={divider}
         fixProgress={fixProgress}
       />
+      </div>
+      <footer className={`flex shrink-0 items-center justify-end border-t px-2 py-1 ${divider}`}>
+        <button
+          type="button"
+          aria-label="Open debug menu"
+          title="Debug menu"
+          onClick={() => rightDetailsPanelApi.openDebugWindow()}
+          className="rounded p-1 text-zinc-700 hover:bg-zinc-200/60 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          <Settings size={14} />
+        </button>
+      </footer>
     </div>
   )
 }

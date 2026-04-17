@@ -6,6 +6,7 @@ import { app, nativeTheme } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import type {
+  CursorMotionParams,
   DevtoolsPanelTab,
   FixConfig,
   OnboardingState,
@@ -13,9 +14,13 @@ import type {
   OriginBindings,
 } from '../../shared/types'
 import {
+  DEFAULT_CURSOR_MOTION,
+  normalizeCursorMotion,
+} from '../../shared/cursor-motion'
+import {
   bgView,
   aboveView,
-
+  cursorOverlayWindow,
   devtoolsBackgroundView,
   devtoolsHeaderView,
   devtoolsResizeHandleView,
@@ -52,7 +57,12 @@ type PreferencesFile = {
   onboarding?: OnboardingState
   originBindings?: OriginBindings
   fixConfig?: Omit<FixConfig, 'configured'>
+  debug?: {
+    cursorMotion?: CursorMotionParams
+  }
 }
+
+let currentCursorMotion: CursorMotionParams = DEFAULT_CURSOR_MOTION
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -129,6 +139,20 @@ export function loadPreferences(): void {
   if (parsed.fixConfig && typeof parsed.fixConfig === 'object') {
     fixConfig = { ...DEFAULT_FIX_CONFIG, ...parsed.fixConfig, configured: true }
   }
+  currentCursorMotion = normalizeCursorMotion(parsed.debug?.cursorMotion)
+}
+
+export function getCursorMotion(): CursorMotionParams {
+  return currentCursorMotion
+}
+
+export function saveCursorMotion(next: CursorMotionParams): void {
+  currentCursorMotion = normalizeCursorMotion(next)
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    debug: { ...parsed.debug, cursorMotion: currentCursorMotion },
+  })
 }
 
 export function savePreferences(): void {
@@ -202,5 +226,22 @@ export function broadcastTheme(): void {
     const page = pages[i]
     page.frameView.setBackgroundColor(frameColor())
     page.chromeView.webContents.send('theme-changed', data)
+  }
+}
+
+export function broadcastCursorMotion(): void {
+  const params = currentCursorMotion
+  if (bgView && !bgView.webContents.isDestroyed()) {
+    bgView.webContents.send('cursor-motion-changed', params)
+  }
+  if (aboveView && !aboveView.webContents.isDestroyed()) {
+    aboveView.webContents.send('cursor-motion-changed', params)
+  }
+  if (
+    cursorOverlayWindow &&
+    !cursorOverlayWindow.isDestroyed() &&
+    !cursorOverlayWindow.webContents.isDestroyed()
+  ) {
+    cursorOverlayWindow.webContents.send('cursor-motion-changed', params)
   }
 }

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AnnotationCreateRequest,
   CanvasBgElectronAPI,
+  CursorMotionParams,
   EdgeSide,
   LayoutUpdateData,
   SelectionOverlayPayload,
@@ -248,6 +249,12 @@ const api: CanvasBgElectronAPI = {
       callback(data)
     ipcRenderer.on('theme-changed', handler)
     return () => ipcRenderer.removeListener('theme-changed', handler)
+  },
+  onCursorMotionChanged: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, params: CursorMotionParams) =>
+      callback(params)
+    ipcRenderer.on('cursor-motion-changed', handler)
+    return () => ipcRenderer.removeListener('cursor-motion-changed', handler)
   },
 }
 

@@ -1,13 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
-import '../above-view/styles.css'
+import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
-import type { CanvasBgElectronAPI } from '../../shared/types'
+import type { DebugElectronAPI } from '../../shared/types'
 
 initRendererSentry()
 
-const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
+const api = (window as unknown as { electronAPI: DebugElectronAPI }).electronAPI
 
 async function bootstrap() {
   const initialData = await api.getInitialData()
@@ -15,10 +15,7 @@ async function bootstrap() {
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App
-        initialLayoutData={initialData.layoutData}
-        initialCursorMotion={initialData.cursorMotion}
-      />
+      <App api={api} initialData={initialData} />
     </StrictMode>,
   )
 }

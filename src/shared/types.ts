@@ -516,10 +516,6 @@ export interface OnboardingBootstrapData extends ThemeBootstrapData {
   mode: OnboardingMode
 }
 
-export type OnboardingInstallResult =
-  | { kind: 'success'; detail?: string }
-  | { kind: 'error'; detail: string }
-
 export type OnboardingProgressEvent =
   | { component: OnboardingComponentId; state: 'installing' }
   | { component: OnboardingComponentId; state: 'success'; detail?: string }

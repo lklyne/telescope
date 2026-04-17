@@ -150,10 +150,11 @@ export function installCli(): CliInstallResult {
 }
 
 export function uninstallCli(): { success: boolean; message: string } {
+  const wrapperPath = getCliWrapperPath()
   const paths = [PRIMARY_SYMLINK_PATH, userLocalSymlinkPath()]
   let removed = false
   for (const path of paths) {
-    if (readSymlinkTarget(path) !== null) {
+    if (readSymlinkTarget(path) === wrapperPath) {
       try {
         unlinkSync(path)
         removed = true

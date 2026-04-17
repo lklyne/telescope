@@ -149,7 +149,7 @@ function SetupScreen({
     try {
       const next = await api.install(selections)
       setStatus(next)
-      if (allInstalledOrSkipped(next, progress)) {
+      if (allInstalledOrSkipped(next, INITIAL_PROGRESS)) {
         api.complete()
       }
     } finally {

@@ -154,8 +154,4 @@ function RowDetail({ snapshot }: { snapshot: InstallerRowSnapshot }) {
   return <p className={cls}>{text}</p>
 }
 
-function Actions({ children }: { children: ReactNode }) {
-  return <div className="mt-2 flex items-center justify-end gap-2">{children}</div>
-}
-
-export const Installer = { Root, Row, Actions }
+export const Installer = { Root, Row }

@@ -106,7 +106,7 @@ function StatusBadge({ snapshot }: { snapshot: InstallerRowSnapshot }) {
       </span>
     )
   }
-  if (snapshot.progress === 'success') {
+  if (snapshot.progress === 'success' || snapshot.status.kind === 'installed') {
     return (
       <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
         <Check size={12} strokeWidth={3} />
@@ -114,44 +114,27 @@ function StatusBadge({ snapshot }: { snapshot: InstallerRowSnapshot }) {
       </span>
     )
   }
-  if (snapshot.progress === 'error') {
+  if (snapshot.progress === 'error' || snapshot.status.kind === 'blocked') {
     return (
       <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-red-600 dark:text-red-400">
         <CircleAlert size={12} />
-        Failed
+        {snapshot.progress === 'error' ? 'Failed' : 'Blocked'}
       </span>
     )
   }
-  switch (snapshot.status.kind) {
-    case 'installed':
-      return (
-        <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-          <Check size={12} strokeWidth={3} />
-          Installed
-        </span>
-      )
-    case 'outdated':
-      return (
-        <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-          Update available
-        </span>
-      )
-    case 'blocked':
-      return (
-        <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-red-600 dark:text-red-400">
-          <CircleAlert size={12} />
-          Blocked
-        </span>
-      )
-    case 'missing':
-    default:
-      return (
-        <span className="flex shrink-0 items-center gap-1 text-[11px] text-[var(--surface-toolbar-foreground)] opacity-50">
-          <Minus size={12} />
-          Not installed
-        </span>
-      )
+  if (snapshot.status.kind === 'outdated') {
+    return (
+      <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+        Update available
+      </span>
+    )
   }
+  return (
+    <span className="flex shrink-0 items-center gap-1 text-[11px] text-[var(--surface-toolbar-foreground)] opacity-50">
+      <Minus size={12} />
+      Not installed
+    </span>
+  )
 }
 
 function RowDetail({ snapshot }: { snapshot: InstallerRowSnapshot }) {

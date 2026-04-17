@@ -13,10 +13,9 @@ import { installAgentBrowser } from '../agent-browser-install'
 import { recordInstalledSkillHash } from '../skill-auto-update'
 import { refreshAppMenu } from '../runtime/app-menu'
 import {
-  closeOnboardingWindow,
+  closeAndResolve,
   getOnboardingMode,
   getOnboardingWebContents,
-  resolveOnboardingPromise,
 } from '../onboarding-window'
 
 function broadcast(event: OnboardingProgressEvent): void {
@@ -86,16 +85,14 @@ export function registerOnboardingIpc(): void {
   ipcMain.on('onboarding:complete', () => {
     const prev = loadOnboardingState()
     saveOnboardingState({ ...prev, completed: true, completedAt: Date.now() })
-    resolveOnboardingPromise('complete')
-    closeOnboardingWindow()
+    closeAndResolve('complete')
     refreshAppMenu()
   })
 
   ipcMain.on('onboarding:dismiss', () => {
     const prev = loadOnboardingState()
     saveOnboardingState({ ...prev, dismissedAt: Date.now() })
-    resolveOnboardingPromise('dismiss')
-    closeOnboardingWindow()
+    closeAndResolve('dismiss')
     refreshAppMenu()
   })
 }

@@ -67,25 +67,19 @@ export function showOnboardingWindow(mode: OnboardingMode): Promise<'complete' |
   if (isOnboardingWindowOpen()) {
     onboardingWindow!.focus()
     currentMode = mode
-    return new Promise((resolve) => {
-      pendingResolver = resolve
-    })
+  } else {
+    onboardingWindow = createOnboardingWindow(mode)
   }
-  onboardingWindow = createOnboardingWindow(mode)
   return new Promise((resolve) => {
     pendingResolver = resolve
   })
 }
 
-export function resolveOnboardingPromise(reason: 'complete' | 'dismiss'): void {
-  if (pendingResolver) {
-    pendingResolver(reason)
-    pendingResolver = null
-  }
-}
-
-export function closeOnboardingWindow(): void {
+export function closeAndResolve(reason: 'complete' | 'dismiss'): void {
+  const resolver = pendingResolver
+  pendingResolver = null
   if (isOnboardingWindowOpen()) {
     onboardingWindow!.close()
   }
+  resolver?.(reason)
 }

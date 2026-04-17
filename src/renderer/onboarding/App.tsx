@@ -128,26 +128,17 @@ function SetupScreen({
   )
 
   const rows = useMemo<Record<OnboardingComponentId, InstallerRowSnapshot>>(
-    () => ({
-      cli: {
-        status: status.cli,
-        progress: progress.cli.progress,
-        progressDetail: progress.cli.detail,
-        selected: selections.cli,
-      },
-      skill: {
-        status: status.skill,
-        progress: progress.skill.progress,
-        progressDetail: progress.skill.detail,
-        selected: selections.skill,
-      },
-      agentBrowser: {
-        status: status.agentBrowser,
-        progress: progress.agentBrowser.progress,
-        progressDetail: progress.agentBrowser.detail,
-        selected: selections.agentBrowser,
-      },
-    }),
+    () => {
+      const ids: OnboardingComponentId[] = ['cli', 'skill', 'agentBrowser']
+      return Object.fromEntries(
+        ids.map((id) => [id, {
+          status: status[id],
+          progress: progress[id].progress,
+          progressDetail: progress[id].detail,
+          selected: selections[id],
+        }]),
+      ) as Record<OnboardingComponentId, InstallerRowSnapshot>
+    },
     [status, progress, selections],
   )
 
@@ -158,7 +149,7 @@ function SetupScreen({
     try {
       const next = await api.install(selections)
       setStatus(next)
-      if (allInstalledOrSkipped(next, INITIAL_PROGRESS)) {
+      if (allInstalledOrSkipped(next, progress)) {
         api.complete()
       }
     } finally {

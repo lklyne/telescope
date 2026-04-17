@@ -36,7 +36,6 @@ export function autoUpdateSkillsIfSafe(): AutoUpdateOutcome {
     if (!bundled) continue
     if (installed === null) continue // not installed at all — onboarding handles it
     if (installed === bundled) {
-      // Already current; make sure record is in sync
       if (recorded[skillId] !== bundled) nextRecorded[skillId] = bundled
       continue
     }

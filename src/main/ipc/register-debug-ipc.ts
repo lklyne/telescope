@@ -5,21 +5,28 @@ import {
   normalizeCursorMotion,
 } from '../../shared/cursor-motion'
 import {
+  DEFAULT_NARRATION_TUNING,
+  normalizeNarrationTuning,
+} from '../../shared/narration-tuning'
+import {
   broadcastCursorMotion,
   broadcastCursorSplineViz,
   getCursorMotion,
   getCursorSplineViz,
+  getNarrationTuning,
   isDark,
   saveCursorMotion,
   saveCursorSplineViz,
+  saveNarrationTuning,
 } from '../runtime/preferences'
-import { setSplineVizEnabled } from '../narration/director'
+import { setNarrationTuning, setSplineVizEnabled } from '../narration/director'
 
 export function registerDebugIpc(): void {
   ipcMain.handle('debug:get-initial-data', async (): Promise<DebugBootstrapData> => ({
     theme: { isDark: isDark() },
     cursorMotion: getCursorMotion(),
     cursorSplineViz: getCursorSplineViz(),
+    narrationTuning: getNarrationTuning(),
   }))
 
   ipcMain.on('debug:update-cursor-motion', (_event, raw: unknown) => {
@@ -38,5 +45,16 @@ export function registerDebugIpc(): void {
     saveCursorSplineViz(next)
     setSplineVizEnabled(next)
     broadcastCursorSplineViz()
+  })
+
+  ipcMain.on('debug:update-narration-tuning', (_event, raw: unknown) => {
+    const next = normalizeNarrationTuning(raw)
+    saveNarrationTuning(next)
+    setNarrationTuning(next)
+  })
+
+  ipcMain.on('debug:reset-narration-tuning', () => {
+    saveNarrationTuning(DEFAULT_NARRATION_TUNING)
+    setNarrationTuning(DEFAULT_NARRATION_TUNING)
   })
 }

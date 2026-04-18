@@ -18,6 +18,11 @@ import {
   normalizeCursorMotion,
 } from '../../shared/cursor-motion'
 import {
+  DEFAULT_NARRATION_TUNING,
+  normalizeNarrationTuning,
+  type NarrationTuningParams,
+} from '../../shared/narration-tuning'
+import {
   bgView,
   aboveView,
   cursorOverlayWindow,
@@ -60,11 +65,13 @@ type PreferencesFile = {
   debug?: {
     cursorMotion?: CursorMotionParams
     cursorSplineViz?: boolean
+    narrationTuning?: NarrationTuningParams
   }
 }
 
 let currentCursorMotion: CursorMotionParams = DEFAULT_CURSOR_MOTION
 let currentCursorSplineViz = false
+let currentNarrationTuning: NarrationTuningParams = { ...DEFAULT_NARRATION_TUNING }
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -143,6 +150,7 @@ export function loadPreferences(): void {
   }
   currentCursorMotion = normalizeCursorMotion(parsed.debug?.cursorMotion)
   currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
+  currentNarrationTuning = normalizeNarrationTuning(parsed.debug?.narrationTuning)
 }
 
 export function getCursorMotion(): CursorMotionParams {
@@ -168,6 +176,19 @@ export function saveCursorMotion(next: CursorMotionParams): void {
   writePreferencesFile({
     ...parsed,
     debug: { ...parsed.debug, cursorMotion: currentCursorMotion },
+  })
+}
+
+export function getNarrationTuning(): NarrationTuningParams {
+  return currentNarrationTuning
+}
+
+export function saveNarrationTuning(next: NarrationTuningParams): void {
+  currentNarrationTuning = normalizeNarrationTuning(next)
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    debug: { ...parsed.debug, narrationTuning: currentNarrationTuning },
   })
 }
 

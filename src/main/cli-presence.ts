@@ -85,13 +85,14 @@ export function emitNarrationIntentSync(
   payload: NarrationIntentPayload & { capMs?: number },
 ): Promise<void> {
   const kind = payload.kind ?? (BROWSE_VERBS.has(payload.verb) ? 'browse' : 'canvas')
+  // capMs only goes through when the caller passed one explicitly; otherwise
+  // the server defaults from the director's tuning (debug-adjustable).
   return callApp('/session/narration/verb-sync', {
     method: 'POST',
     body: JSON.stringify({
       sessionId,
       clientName: getClientName(),
       kind,
-      capMs: payload.capMs ?? 300,
       ...payload,
     }),
   })

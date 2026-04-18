@@ -36,7 +36,11 @@ import {
   narrateBrowseScanResult,
   narrateCanvasVerb,
 } from '../narration/verb-narration'
-import { setSessionIntent, waitForNextCommit } from '../narration/director'
+import {
+  getDirectorTuning,
+  setSessionIntent,
+  waitForNextCommit,
+} from '../narration/director'
 import type {
   CanvasRect,
   NarrationEvent,
@@ -340,7 +344,7 @@ export const sessionRoutes: Route[] = [
       const capMs =
         typeof payload.capMs === 'number' && isFinite(payload.capMs)
           ? Math.min(1000, Math.max(0, Math.round(payload.capMs)))
-          : 300
+          : getDirectorTuning().syncCapMs
 
       const event = buildAndEmitVerbEvent(
         resolved.sessionId,

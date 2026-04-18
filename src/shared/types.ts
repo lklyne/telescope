@@ -8,7 +8,10 @@ export type {
   Vec2,
 } from './cursor-motion'
 
+export type { NarrationTuningParams } from './narration-tuning'
+
 import type { CursorMotionParams } from './cursor-motion'
+import type { NarrationTuningParams } from './narration-tuning'
 
 
 export interface ViewportPreset {
@@ -600,6 +603,7 @@ export interface OnboardingElectronAPI {
 export interface DebugBootstrapData extends ThemeBootstrapData {
   cursorMotion: CursorMotionParams
   cursorSplineViz: boolean
+  narrationTuning: NarrationTuningParams
 }
 
 export interface DebugElectronAPI {
@@ -613,6 +617,8 @@ export interface DebugElectronAPI {
   onCursorSplineVizChanged: (
     callback: (on: boolean) => void,
   ) => () => void
+  updateNarrationTuning: (params: NarrationTuningParams) => void
+  resetNarrationTuning: () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 

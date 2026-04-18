@@ -324,7 +324,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
         // break the real action.
         await callApp('/session/narration/verb-sync', {
           method: 'POST',
-          body: JSON.stringify({ ...narrationBody, capMs: 300 }),
+          body: JSON.stringify(narrationBody),
         }).catch(() => undefined)
       }
     }

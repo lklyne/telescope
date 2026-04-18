@@ -369,7 +369,7 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n))
 }
 
-function normalizeEasing(raw: unknown): EasingSpec {
+export function normalizeEasing(raw: unknown): EasingSpec {
   if (raw && typeof raw === 'object') {
     const r = raw as Record<string, unknown>
     if (r.kind === 'custom') {

@@ -4,9 +4,16 @@
  *
  * The model never has to think about mood. It falls out of mechanical signals
  * the CLI + director already have.
+ *
+ * Per-mood physics parameters (`MoodParams`, `paramsForMood`) live in
+ * `src/shared/narration-mood-params.ts` so the renderer-side debug playground
+ * can mirror director behavior without reaching into main.
  */
 
 import type { Mood } from '../../shared/narration-event'
+
+export { paramsForMood } from '../../shared/narration-mood-params'
+export type { MoodParams } from '../../shared/narration-mood-params'
 
 export interface MoodSignals {
   verb: string
@@ -62,70 +69,3 @@ export function deriveMood(signals: MoodSignals): Mood {
   return 'exploring'
 }
 
-export interface MoodParams {
-  speedMultiplier: number
-  splineAlpha: number
-  driftRadiusPx: number
-  driftFrequencyHz: number
-  pulseAmplitude: number
-  overshoot: number
-}
-
-export function paramsForMood(mood: Mood): MoodParams {
-  switch (mood) {
-    case 'exploring':
-      return {
-        speedMultiplier: 1.0,
-        splineAlpha: 0.5,
-        driftRadiusPx: 0,
-        driftFrequencyHz: 0,
-        pulseAmplitude: 0,
-        overshoot: 0.04,
-      }
-    case 'committing':
-      return {
-        speedMultiplier: 1.2,
-        splineAlpha: 0.5,
-        driftRadiusPx: 0,
-        driftFrequencyHz: 0,
-        pulseAmplitude: 0,
-        overshoot: 0,
-      }
-    case 'correcting':
-      return {
-        speedMultiplier: 0.85,
-        splineAlpha: 0.75,
-        driftRadiusPx: 0.3,
-        driftFrequencyHz: 0.8,
-        pulseAmplitude: 0.02,
-        overshoot: 0,
-      }
-    case 'waiting':
-      return {
-        speedMultiplier: 0,
-        splineAlpha: 0.5,
-        driftRadiusPx: 2,
-        driftFrequencyHz: 0.6,
-        pulseAmplitude: 0.06,
-        overshoot: 0,
-      }
-    case 'stuck':
-      return {
-        speedMultiplier: 0,
-        splineAlpha: 0.5,
-        driftRadiusPx: 4,
-        driftFrequencyHz: 0.4,
-        pulseAmplitude: 0.1,
-        overshoot: 0,
-      }
-    case 'error':
-      return {
-        speedMultiplier: 0,
-        splineAlpha: 0.5,
-        driftRadiusPx: 0,
-        driftFrequencyHz: 0,
-        pulseAmplitude: 0,
-        overshoot: 0,
-      }
-  }
-}

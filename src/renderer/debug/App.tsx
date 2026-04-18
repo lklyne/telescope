@@ -3,7 +3,9 @@ import type {
   CursorMotionParams,
   DebugBootstrapData,
   DebugElectronAPI,
+  NarrationTuningParams,
 } from '../../shared/types'
+import { DEFAULT_NARRATION_TUNING } from '../../shared/narration-tuning'
 import { useTheme } from '../shared/hooks/useTheme'
 import { CursorMotionSection } from './CursorMotionSection'
 import { NarrationSection } from './NarrationSection'
@@ -28,6 +30,9 @@ export default function App({
     initialData.cursorMotion,
   )
   const [splineViz, setSplineViz] = useState<boolean>(initialData.cursorSplineViz)
+  const [narrationTuning, setNarrationTuning] = useState<NarrationTuningParams>(
+    initialData.narrationTuning,
+  )
 
   useEffect(() => api.onCursorMotionChanged(setCursorMotion), [api])
   useEffect(() => api.onCursorSplineVizChanged(setSplineViz), [api])
@@ -40,6 +45,16 @@ export default function App({
   const commitSplineViz = (next: boolean) => {
     setSplineViz(next)
     api.updateCursorSplineViz(next)
+  }
+
+  const commitNarrationTuning = (next: NarrationTuningParams) => {
+    setNarrationTuning(next)
+    api.updateNarrationTuning(next)
+  }
+
+  const resetNarrationTuning = () => {
+    api.resetNarrationTuning()
+    setNarrationTuning(DEFAULT_NARRATION_TUNING)
   }
 
   return (
@@ -76,7 +91,13 @@ export default function App({
               onReset={api.resetCursorMotion}
             />
           ) : activeSection === 'narration' ? (
-            <NarrationSection splineViz={splineViz} onSplineVizChange={commitSplineViz} />
+            <NarrationSection
+              splineViz={splineViz}
+              onSplineVizChange={commitSplineViz}
+              tuning={narrationTuning}
+              onTuningChange={commitNarrationTuning}
+              onTuningReset={resetNarrationTuning}
+            />
           ) : null}
         </main>
       </div>

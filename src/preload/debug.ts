@@ -24,6 +24,10 @@ const api: DebugElectronAPI = {
     return () =>
       ipcRenderer.removeListener('cursor-spline-viz-changed', handler)
   },
+  updateNarrationTuning: (params) =>
+    ipcRenderer.send('debug:update-narration-tuning', params),
+  resetNarrationTuning: () =>
+    ipcRenderer.send('debug:reset-narration-tuning'),
   onThemeChanged: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: ThemeData) =>
       callback(data)

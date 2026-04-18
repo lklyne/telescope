@@ -15,7 +15,7 @@
  *     layout broadcast layer projects to screen.
  */
 
-import type { Vec2 } from '../../shared/cursor-motion'
+import { easeAt, type Vec2 } from '../../shared/cursor-motion'
 import type {
   DirectorActivity,
   Mood,
@@ -30,19 +30,28 @@ import { foldSpline } from '../../shared/cursor-spline'
 import { composeLabel } from '../../shared/narration-grammar'
 import { deriveMood, paramsForMood } from './mood'
 import { drainSession } from './event-bus'
+import {
+  DEFAULT_NARRATION_TUNING,
+  distanceSpeedScale,
+  type NarrationTuningParams,
+} from '../../shared/narration-tuning'
 
-/** Default dwell at waypoints that ask for a commit visual. */
-const COMMIT_DWELL_MS = 150
-/** How long the 'committing' phase holds after the ripple fires. */
-const COMMIT_HOLD_MS = 160
 /** Error phase freeze duration. */
 const ERROR_FREEZE_MS = 800
-/** Base arc-length rate in px/s. Mood scales this. */
-const BASE_SPEED_PX_S = 600
 /** After settling, how long before the cursor transitions to idle. */
 const IDLE_TRANSITION_MS = 400
 /** Idle → departing removal grace. */
 const DEPARTURE_GRACE_MS = 1500
+
+let tuning: NarrationTuningParams = { ...DEFAULT_NARRATION_TUNING }
+
+export function setNarrationTuning(next: NarrationTuningParams): void {
+  tuning = { ...next }
+}
+
+export function getDirectorTuning(): NarrationTuningParams {
+  return tuning
+}
 
 export interface DirectorClock {
   now: () => number
@@ -71,6 +80,16 @@ interface SessionState {
   splineProgress: number
   /** Legs remaining on the active spline (by arrival length). */
   legs: PendingLeg[]
+  /** Per-spline speed scale from distanceScaling. Recomputed on fold. */
+  splineSpeedScale: number
+  /**
+   * Total ease-duration for the active spline, frozen at fold time from
+   * baseSpeed × mood × distance scale. Infinity when the effective speed is
+   * zero (e.g. waiting/stuck/error moods).
+   */
+  splineDurationMs: number
+  /** Accumulated traveling-phase time along the active spline. */
+  splineElapsedMs: number
 
   phase: DirectorActivity
   phaseUntil: number
@@ -223,6 +242,9 @@ function ensureSession(sessionId: string, clientName: string): SessionState {
     spline: null,
     splineProgress: 0,
     legs: [],
+    splineSpeedScale: 1,
+    splineDurationMs: 0,
+    splineElapsedMs: 0,
     phase: 'idle',
     phaseUntil: 0,
     mood: 'exploring',
@@ -322,15 +344,26 @@ function applyEvents(state: SessionState, events: readonly NarrationEvent[]): vo
       state.spline = null
       state.legs = []
       state.splineProgress = 0
+      state.splineSpeedScale = 1
+      state.splineDurationMs = 0
+      state.splineElapsedMs = 0
       setPhase(state, 'idle', now)
       continue
     }
 
     // Use mood alpha for tension.
-    const alpha = paramsForMood(state.mood).splineAlpha
-    state.spline = foldSpline(currentPos, currentTangent, allAnchors, alpha)
+    const moodParams = paramsForMood(state.mood)
+    state.spline = foldSpline(currentPos, currentTangent, allAnchors, moodParams.splineAlpha)
     state.splineProgress = 0
     state.legs = []
+    state.splineSpeedScale = distanceSpeedScale(tuning, state.spline.totalLength)
+    // Freeze the ease duration at fold time — mood changes only take effect
+    // on the next event (which also refits), matching legacy behavior.
+    const moodMul = tuning.moodSpeedEnabled ? moodParams.speedMultiplier : 1
+    const effectiveSpeed = tuning.baseSpeedPxS * moodMul * state.splineSpeedScale
+    state.splineDurationMs =
+      effectiveSpeed > 0 ? (state.spline.totalLength / effectiveSpeed) * 1000 : Infinity
+    state.splineElapsedMs = 0
 
     // Compute arrival arc-length per leg by walking the spline and sampling
     // each anchor's closest arc position. Simpler + close enough: use segment
@@ -444,16 +477,18 @@ function advance(state: SessionState, now: number): void {
 
   if (state.phase !== 'traveling' || state.spline == null) return
 
-  const params = paramsForMood(state.mood)
-  const speed = BASE_SPEED_PX_S * params.speedMultiplier
   const dtMs = Math.min(now - (state.lastEventAt || now), 1000 / 30)
   state.lastEventAt = now
-  if (speed <= 0) return
 
-  state.splineProgress = Math.min(
-    state.spline.totalLength,
-    state.splineProgress + (speed * dtMs) / 1000,
-  )
+  const dur = state.splineDurationMs
+  if (!Number.isFinite(dur) || dur <= 0) {
+    // Effective speed is zero (waiting/stuck/error). Hold in place.
+    return
+  }
+  state.splineElapsedMs = Math.min(dur, state.splineElapsedMs + dtMs)
+  const t = state.splineElapsedMs / dur
+  const easedT = easeAt(tuning.easing, t)
+  state.splineProgress = easedT * state.spline.totalLength
 
   const sample = state.spline.sample(state.splineProgress)
   state.position = sample.position
@@ -473,10 +508,12 @@ function advance(state: SessionState, now: number): void {
     // Arrived.
     if (nextLeg.waypoint.commit === true) {
       state.commitKey += 1
-      state.phaseUntil = now + COMMIT_HOLD_MS
+      state.phaseUntil = now + tuning.commitHoldMs
       setPhase(state, 'committing', now)
     } else if ((nextLeg.waypoint.pauseMs ?? 0) > 0) {
-      state.phaseUntil = now + (nextLeg.waypoint.pauseMs ?? 0)
+      // Tuning overrides the per-waypoint hint so the debug slider actually
+      // drives dwell globally.
+      state.phaseUntil = now + tuning.commitDwellMs
       setPhase(state, 'dwelling', now)
     } else {
       // Pass through without dwelling.
@@ -580,6 +617,7 @@ export function __resetDirectorForTest(): void {
   frameListeners.clear()
   splineVizEnabled = false
   currentClock = defaultClock
+  tuning = { ...DEFAULT_NARRATION_TUNING }
 }
 
 export function __getSessionStateForTest(sessionId: string): SessionState | undefined {

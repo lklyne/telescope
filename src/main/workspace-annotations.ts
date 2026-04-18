@@ -228,12 +228,15 @@ export function addAnnotationReply(
   if (!annotation) return null
   const reply: AnnotationReply = { author, text, timestamp: new Date().toISOString() }
   annotation.replies = [...annotation.replies, reply]
-  if (author === 'user' && annotation.status === 'resolved') {
+  const statusUpdated = author === 'user' && annotation.status === 'resolved'
+  if (statusUpdated) {
     updateAnnotationStatus(id, 'pending')
   }
-  markDirty('canvas', 'pages')
-  requestLayout()
-  scheduleWorkspaceAutosave()
+  if (!statusUpdated) {
+    markDirty('canvas', 'pages')
+    requestLayout()
+    scheduleWorkspaceAutosave()
+  }
   if (onAnnotationReplyListener) {
     try {
       onAnnotationReplyListener(annotation, reply)

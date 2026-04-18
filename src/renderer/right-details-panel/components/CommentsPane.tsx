@@ -1,11 +1,10 @@
-import { Fragment, useEffect, useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import { Info, Loader2, MessageCircle, RotateCw } from 'lucide-react'
 import type {
   Annotation,
   DevtoolsPanelFrameSummary,
   FixProgressEntry,
-  FixProgressEvent,
 } from '../../../shared/types'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import {
@@ -21,6 +20,7 @@ import {
   MoreVerticalIcon,
   TrashIcon,
 } from '../../shared/PanelIcons'
+import { FixEventList } from '../../shared/FixEventList'
 
 export function CommentRow({
   annotation,
@@ -208,7 +208,7 @@ function FixProgressButton({
             {progress.events.length === 0 ? (
               <div className={`px-2 py-3 text-[11px] ${mutedClass}`}>Waiting for output…</div>
             ) : (
-              <EventList events={progress.events} isDark={isDark} />
+              <FixEventList events={progress.events} className="flex-1 px-2 py-1.5" />
             )}
             {progress.error ? (
               <div className={`border-t px-2 py-1.5 text-[11px] ${
@@ -245,41 +245,6 @@ function FixProgressButton({
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>
-  )
-}
-
-function EventList({ events, isDark }: { events: FixProgressEvent[]; isDark: boolean }) {
-  const scrollRef = useRef<HTMLDivElement | null>(null)
-  const eventCount = events.length
-  useEffect(() => {
-    const node = scrollRef.current
-    if (!node) return
-    node.scrollTop = node.scrollHeight
-  }, [eventCount])
-
-  const kindColor: Record<FixProgressEvent['kind'], string> = {
-    system: isDark ? 'text-zinc-500' : 'text-zinc-500',
-    text: isDark ? 'text-zinc-200' : 'text-zinc-800',
-    tool_use: isDark ? 'text-blue-300' : 'text-blue-700',
-    tool_result: isDark ? 'text-emerald-300' : 'text-emerald-700',
-    result: isDark ? 'text-zinc-100' : 'text-zinc-900',
-    stderr: isDark ? 'text-amber-300' : 'text-amber-700',
-    error: isDark ? 'text-red-300' : 'text-red-700',
-  }
-  const kindLabelClass = isDark ? 'text-zinc-600' : 'text-zinc-400'
-
-  return (
-    <div
-      ref={scrollRef}
-      className="grid flex-1 auto-rows-min grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-0 overflow-auto px-2 py-1.5 font-mono text-[11px] leading-relaxed"
-    >
-      {events.map((event, i) => (
-        <Fragment key={`${event.timestamp}-${i}`}>
-          <span className={kindLabelClass}>{event.kind.replace('_', ' ')}</span>
-          <span className={`break-words ${kindColor[event.kind]}`}>{event.text}</span>
-        </Fragment>
-      ))}
-    </div>
   )
 }
 

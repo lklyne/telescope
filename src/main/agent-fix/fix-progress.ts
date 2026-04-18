@@ -23,6 +23,7 @@ type ChangeListener = () => void
 const listeners = new Set<ChangeListener>()
 
 let notifyScheduled = false
+let cachedSnapshot: Record<string, FixProgressEntry> | null = null
 
 export function onProgressChange(fn: ChangeListener): () => void {
   listeners.add(fn)
@@ -30,6 +31,7 @@ export function onProgressChange(fn: ChangeListener): () => void {
 }
 
 function scheduleNotify(): void {
+  cachedSnapshot = null
   if (notifyScheduled) return
   notifyScheduled = true
   setTimeout(() => {
@@ -89,6 +91,7 @@ export function finalizeFixProgress(
 }
 
 export function getFixProgress(): Record<string, FixProgressEntry> {
+  if (cachedSnapshot) return cachedSnapshot
   const snapshot: Record<string, FixProgressEntry> = {}
   for (const [id, entry] of entries) {
     snapshot[id] = {
@@ -96,5 +99,6 @@ export function getFixProgress(): Record<string, FixProgressEntry> {
       events: entry.events.slice(),
     }
   }
+  cachedSnapshot = snapshot
   return snapshot
 }

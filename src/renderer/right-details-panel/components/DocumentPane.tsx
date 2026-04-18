@@ -100,6 +100,7 @@ export function DocumentPane({
         fixProgress={fixProgress}
       />
 
+      {/* MCP Server section hidden — using CLI instead
       {mcpSetup ? (
         <Collapsible.Root defaultOpen={false}>
           <Collapsible.Trigger
@@ -129,6 +130,7 @@ export function DocumentPane({
           </Collapsible.Panel>
         </Collapsible.Root>
       ) : null}
+      */}
     </div>
   )
 }
@@ -284,8 +286,8 @@ function FixSettingsView({
 
   return (
     <div className="w-[280px]">
-      <div className={`px-3 py-2.5 text-[12px] leading-relaxed ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>
-        Fix uses Claude Code to read your comments and make changes in the linked repo.
+      <div className={`px-3 py-2.5 text-[12px] leading-relaxed text-pretty ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>
+        Fix uses Claude Code to read your comments and make changes in linked repositories.
         Pick a model and permission level below.
       </div>
 
@@ -310,7 +312,7 @@ function FixSettingsView({
             onChange={(e) => setPermissions(e.target.value as FixPermissions)}
             className={selectClass}
           >
-            <option value="dangerously">Skip permissions</option>
+            <option value="dangerously">Bypass permissions</option>
             <option value="default">Default (approve each tool)</option>
           </select>
           {permissions === 'dangerously' ? (
@@ -325,10 +327,10 @@ function FixSettingsView({
         <button
           type="button"
           onClick={handleConfirm}
-          className={`w-full rounded-md px-3 py-1.5 text-[12px] font-medium ${
+          className={`w-full rounded-md border px-3 py-1.5 text-[12px] font-medium ${
             isDark
-              ? 'bg-blue-600/80 text-white hover:bg-blue-600'
-              : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
+              : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
           }`}
         >
           {fixConfig.configured ? 'Save' : 'Get started'}

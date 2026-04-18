@@ -204,6 +204,12 @@ export interface CanvasVerbContext extends NarrationContext {
   /** Two-endpoint verbs (link/group) supply source + target entity ids. */
   bridgeFrom?: string
   bridgeTo?: string
+  /**
+   * Explicit canvas-space rect to target. Used when the CLI knows where the
+   * action will land but no entity exists yet — e.g. `create frame --at x,y`
+   * has placement coordinates but no entity id to look up.
+   */
+  explicitRect?: CanvasRect
   errorHint?: 'retry' | 'hard_fail' | null
 }
 
@@ -273,6 +279,13 @@ export function narrateCanvasVerb(ctx: CanvasVerbContext): NarrationEvent | null
       break
     }
     case 'atomic': {
+      // explicitRect wins when provided — this is the "I'm about to create
+      // something here" path. Entity IDs resolve via runtime lookup for
+      // update/delete/focus/etc.
+      if (ctx.explicitRect) {
+        waypoints = [{ rect: ctx.explicitRect, commit: true, pauseMs: 150 }]
+        break
+      }
       const rects = ctx.entityIds ? rectsForEntities(ctx.entityIds) : []
       if (rects.length > 0) {
         // Multiple targets: hit each in sequence, commit on the last.

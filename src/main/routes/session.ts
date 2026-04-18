@@ -36,8 +36,124 @@ import {
   narrateBrowseScanResult,
   narrateCanvasVerb,
 } from '../narration/verb-narration'
-import { setSessionIntent } from '../narration/director'
-import type { CanvasRect } from '../../shared/narration-event'
+import { setSessionIntent, waitForNextCommit } from '../narration/director'
+import type {
+  CanvasRect,
+  NarrationEvent,
+} from '../../shared/narration-event'
+
+/**
+ * Shared helper: build a NarrationEvent from a verb-sync / verb payload and
+ * push it onto the director queue. Returns the event so the sync handler
+ * can decide whether a commit-wait is worthwhile (non-commit events short-
+ * circuit the wait).
+ */
+function buildAndEmitVerbEvent(
+  resolvedSessionId: string,
+  resolvedClientName: string,
+  payload: Record<string, unknown>,
+): NarrationEvent | null {
+  const verb = typeof payload.verb === 'string' ? payload.verb : null
+  if (!verb) return null
+
+  const kind =
+    payload.kind === 'browse' || payload.kind === 'canvas' || payload.kind === 'scan_result'
+      ? payload.kind
+      : 'canvas'
+
+  const intent =
+    payload.intent === null
+      ? null
+      : typeof payload.intent === 'string'
+        ? payload.intent
+        : undefined
+  if (intent !== undefined) setSessionIntent(resolvedSessionId, intent)
+
+  const frameId = typeof payload.frameId === 'string' ? payload.frameId : null
+  const targetRef = typeof payload.targetRef === 'string' ? payload.targetRef : null
+  const targetName = typeof payload.targetName === 'string' ? payload.targetName : null
+  const targetRole = typeof payload.targetRole === 'string' ? payload.targetRole : null
+  const targetValue = typeof payload.targetValue === 'string' ? payload.targetValue : null
+  const errorHint =
+    payload.errorHint === 'retry' || payload.errorHint === 'hard_fail'
+      ? payload.errorHint
+      : null
+  const bridgeFrom = typeof payload.bridgeFrom === 'string' ? payload.bridgeFrom : null
+  const bridgeTo = typeof payload.bridgeTo === 'string' ? payload.bridgeTo : null
+  const entityIds = Array.isArray(payload.entityIds)
+    ? payload.entityIds.filter((v): v is string => typeof v === 'string')
+    : undefined
+  const explicitRect = isCanvasRect(payload.explicitRect)
+    ? (payload.explicitRect as CanvasRect)
+    : undefined
+
+  const ctxBase = {
+    sessionId: resolvedSessionId,
+    clientName: resolvedClientName,
+  }
+
+  let event: NarrationEvent | null = null
+
+  if (kind === 'browse') {
+    event = narrateBrowseVerb({
+      ...ctxBase,
+      verb,
+      frameId,
+      targetRef,
+      targetName,
+      targetRole,
+      targetValue,
+      errorHint,
+    })
+  } else if (kind === 'scan_result') {
+    const rects = Array.isArray(payload.rects)
+      ? (payload.rects as unknown[]).filter(isCanvasRect) as CanvasRect[]
+      : []
+    event = narrateBrowseScanResult(
+      {
+        ...ctxBase,
+        verb,
+        frameId,
+        targetRef,
+        targetName,
+        targetRole,
+        targetValue,
+      },
+      rects,
+    )
+  } else {
+    event = narrateCanvasVerb({
+      ...ctxBase,
+      verb,
+      entityIds,
+      bridgeFrom: bridgeFrom ?? undefined,
+      bridgeTo: bridgeTo ?? undefined,
+      explicitRect,
+      errorHint,
+    })
+  }
+
+  if (event) {
+    if (intent !== undefined) event.intent = intent
+    emitNarration(event)
+  }
+  return event
+}
+
+function isCanvasRect(r: unknown): r is CanvasRect {
+  return (
+    !!r &&
+    typeof r === 'object' &&
+    typeof (r as CanvasRect).x === 'number' &&
+    typeof (r as CanvasRect).y === 'number' &&
+    typeof (r as CanvasRect).width === 'number' &&
+    typeof (r as CanvasRect).height === 'number'
+  )
+}
+
+function hasCommitWaypoint(event: NarrationEvent | null): boolean {
+  return !!event && event.waypoints.some((w) => w.commit === true)
+}
 
 function resetSmokeTestState(): void {
   resetPresenceState()
@@ -165,10 +281,11 @@ export const sessionRoutes: Route[] = [
   },
   {
     /**
-     * Narration event emit — the CLI posts verb-level intent here and main
-     * builds a NarrationEvent with resolved rects via verb-narration.ts,
-     * then pushes onto the director's queue. Fire-and-forget: the CLI does
-     * not wait on director state.
+     * Narration event emit — fire-and-forget. The CLI posts verb-level intent
+     * here and main builds a NarrationEvent with resolved rects via
+     * verb-narration.ts, then pushes onto the director's queue. The CLI
+     * does NOT wait on director state; this is the default path for reads,
+     * scans, and anything where move-then-act isn't needed.
      */
     method: 'POST',
     pattern: '/session/narration/verb',
@@ -179,100 +296,65 @@ export const sessionRoutes: Route[] = [
         writeJson(response, 400, { error: 'session required' })
         return
       }
-
-      const verb = typeof payload.verb === 'string' ? payload.verb : null
-      if (!verb) {
+      if (typeof payload.verb !== 'string') {
         writeJson(response, 400, { error: 'verb is required' })
         return
       }
-
-      const kind =
-        payload.kind === 'browse' || payload.kind === 'canvas' || payload.kind === 'scan_result'
-          ? payload.kind
-          : 'canvas'
-
-      const intent =
-        payload.intent === null
-          ? null
-          : typeof payload.intent === 'string'
-            ? payload.intent
-            : undefined
-      if (intent !== undefined) setSessionIntent(resolved.sessionId, intent)
-
-      const frameId = typeof payload.frameId === 'string' ? payload.frameId : null
-      const targetRef = typeof payload.targetRef === 'string' ? payload.targetRef : null
-      const targetName = typeof payload.targetName === 'string' ? payload.targetName : null
-      const targetRole = typeof payload.targetRole === 'string' ? payload.targetRole : null
-      const targetValue = typeof payload.targetValue === 'string' ? payload.targetValue : null
-      const errorHint =
-        payload.errorHint === 'retry' || payload.errorHint === 'hard_fail'
-          ? payload.errorHint
-          : null
-      const bridgeFrom = typeof payload.bridgeFrom === 'string' ? payload.bridgeFrom : null
-      const bridgeTo = typeof payload.bridgeTo === 'string' ? payload.bridgeTo : null
-      const entityIds = Array.isArray(payload.entityIds)
-        ? payload.entityIds.filter((v): v is string => typeof v === 'string')
-        : undefined
-
-      const ctxBase = {
-        sessionId: resolved.sessionId,
-        clientName: resolved.session.clientName ?? 'agent',
-      }
-
-      let event: Parameters<typeof emitNarration>[0] | null = null
-
-      if (kind === 'browse') {
-        event = narrateBrowseVerb({
-          ...ctxBase,
-          verb,
-          frameId,
-          targetRef,
-          targetName,
-          targetRole,
-          targetValue,
-          errorHint,
-        })
-      } else if (kind === 'scan_result') {
-        const rects = Array.isArray(payload.rects)
-          ? (payload.rects as unknown[]).filter(
-              (r): r is CanvasRect =>
-                !!r &&
-                typeof r === 'object' &&
-                typeof (r as CanvasRect).x === 'number' &&
-                typeof (r as CanvasRect).y === 'number' &&
-                typeof (r as CanvasRect).width === 'number' &&
-                typeof (r as CanvasRect).height === 'number',
-            )
-          : []
-        event = narrateBrowseScanResult(
-          {
-            ...ctxBase,
-            verb,
-            frameId,
-            targetRef,
-            targetName,
-            targetRole,
-            targetValue,
-          },
-          rects,
-        )
-      } else {
-        event = narrateCanvasVerb({
-          ...ctxBase,
-          verb,
-          entityIds,
-          bridgeFrom: bridgeFrom ?? undefined,
-          bridgeTo: bridgeTo ?? undefined,
-          errorHint,
-        })
-      }
-
-      if (event) {
-        if (intent !== undefined) event.intent = intent
-        emitNarration(event)
-      }
-
+      buildAndEmitVerbEvent(
+        resolved.sessionId,
+        resolved.session.clientName ?? 'agent',
+        payload,
+      )
       writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    /**
+     * Move-then-act narration. Emits the NarrationEvent exactly like /verb,
+     * then awaits the director's next commit phase (up to `capMs`) before
+     * returning. The CLI handler that calls this will block on the HTTP
+     * response, which is exactly what we want for verbs that want "cursor
+     * moves to target, then mutation fires."
+     *
+     * The cap (default 300ms) keeps the wait bounded: if the cursor is far
+     * away or the mood is 'stuck', the mutation proceeds anyway rather than
+     * holding the agent. Events without any `commit: true` waypoint (scans
+     * and passive idioms) short-circuit and return immediately — there's
+     * nothing to wait for.
+     *
+     * Response shape: `{ ok: true, arrival: 'arrived' | 'capped' | 'no-commit' | 'no-session' }`
+     */
+    method: 'POST',
+    pattern: '/session/narration/verb-sync',
+    async handler({ request, response, body }) {
+      const payload = body as Record<string, unknown>
+      const resolved = resolveSession(request, payload)
+      if (!resolved) {
+        writeJson(response, 400, { error: 'session required' })
+        return
+      }
+      if (typeof payload.verb !== 'string') {
+        writeJson(response, 400, { error: 'verb is required' })
+        return
+      }
+      const capMs =
+        typeof payload.capMs === 'number' && isFinite(payload.capMs)
+          ? Math.min(1000, Math.max(0, Math.round(payload.capMs)))
+          : 300
+
+      const event = buildAndEmitVerbEvent(
+        resolved.sessionId,
+        resolved.session.clientName ?? 'agent',
+        payload,
+      )
+
+      if (!hasCommitWaypoint(event)) {
+        writeJson(response, 200, { ok: true, arrival: 'no-commit' })
+        return
+      }
+
+      const arrival = await waitForNextCommit(resolved.sessionId, capMs)
+      writeJson(response, 200, { ok: true, arrival })
     },
   },
   {

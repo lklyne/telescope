@@ -116,6 +116,30 @@ const sessions = new Map<string, SessionState>()
 const phaseListeners = new Set<PhaseTransitionListener>()
 const frameListeners = new Set<() => void>()
 
+/**
+ * Move-then-act arrival waiters.
+ *
+ * CLI handlers that want "cursor moves to target, then the mutation fires"
+ * post their narration intent to /session/narration/verb-sync and await a
+ * commit signal here. Each waiter has its own `capMs` timer so a slow or
+ * long-distance travel never holds the agent indefinitely.
+ *
+ * Design decision: we hook arrival on the `traveling → committing` phase
+ * transition rather than on the dwell start. The commit phase is when the
+ * ripple fires, which is the user-visible "the cursor did the thing" moment.
+ * Waking the mutation exactly here means the cursor's ripple and the
+ * mutation's first visible effect line up naturally.
+ *
+ * If the session has no pending commit waypoint (scan / passive events),
+ * the route short-circuits and doesn't create a waiter at all — see
+ * session.ts's verb-sync handler.
+ */
+interface ArrivalWaiter {
+  resolve: (reason: 'arrived' | 'capped') => void
+  timer: NodeJS.Timeout
+}
+const arrivalWaiters = new Map<string, ArrivalWaiter[]>()
+
 let splineVizEnabled = false
 
 export function setSplineVizEnabled(on: boolean): void {
@@ -340,6 +364,59 @@ function setPhase(state: SessionState, next: DirectorActivity, now: number): voi
     commit: next === 'committing',
     timestamp: now,
   })
+  // Wake any move-then-act waiters when the cursor reaches its commit phase.
+  if (next === 'committing') {
+    resolveArrivalWaiters(state.sessionId, 'arrived')
+  }
+}
+
+function resolveArrivalWaiters(
+  sessionId: string,
+  reason: 'arrived' | 'capped',
+): void {
+  const list = arrivalWaiters.get(sessionId)
+  if (!list || list.length === 0) return
+  arrivalWaiters.delete(sessionId)
+  for (const waiter of list) {
+    clearTimeout(waiter.timer)
+    waiter.resolve(reason)
+  }
+}
+
+/**
+ * Register a one-shot wait for the next commit on this session.
+ *
+ * Returns a promise that resolves with:
+ *  - `'arrived'`  — the cursor hit a commit waypoint within `capMs`
+ *  - `'capped'`   — the cap elapsed first; mutation should proceed anyway
+ *  - `'no-session'` — the session isn't tracked; mutation proceeds without delay
+ *
+ * The promise never rejects and never hangs past `capMs`. This is the
+ * "queue stays queued but verbs can politely wait for the cursor to show
+ * up" primitive — bounded by the cap so a far-away cursor can't stall the
+ * agent beyond a perceptual window.
+ */
+export function waitForNextCommit(
+  sessionId: string,
+  capMs: number,
+): Promise<'arrived' | 'capped' | 'no-session'> {
+  if (!sessions.has(sessionId)) return Promise.resolve('no-session')
+  if (capMs <= 0) return Promise.resolve('capped')
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      // Remove just this waiter; leave siblings in place.
+      const list = arrivalWaiters.get(sessionId)
+      if (list) {
+        const idx = list.findIndex((w) => w.timer === timer)
+        if (idx >= 0) list.splice(idx, 1)
+        if (list.length === 0) arrivalWaiters.delete(sessionId)
+      }
+      resolve('capped')
+    }, capMs)
+    const list = arrivalWaiters.get(sessionId) ?? []
+    list.push({ resolve, timer })
+    arrivalWaiters.set(sessionId, list)
+  })
 }
 
 function advance(state: SessionState, now: number): void {
@@ -448,6 +525,9 @@ export function notifyEventPosted(sessionId: string, clientName: string): void {
 export function endNarration(sessionId: string): void {
   const state = sessions.get(sessionId)
   if (!state) return
+  // Wake any pending arrival waiters before tearing down — they should see
+  // `'capped'` rather than hanging on a session that's about to disappear.
+  resolveArrivalWaiters(sessionId, 'capped')
   state.departureScheduledAt = currentClock.now()
   setPhase(state, 'departing', currentClock.now())
   setTimeout(() => {
@@ -486,6 +566,15 @@ export function getNarrationFrames(): NarrationFramePayload[] {
 // --- Test-only helpers ---
 
 export function __resetDirectorForTest(): void {
+  // Clear any outstanding arrival waiters so their timers don't fire against
+  // a clean director in later tests.
+  for (const list of arrivalWaiters.values()) {
+    for (const waiter of list) {
+      clearTimeout(waiter.timer)
+      waiter.resolve('capped')
+    }
+  }
+  arrivalWaiters.clear()
   sessions.clear()
   phaseListeners.clear()
   frameListeners.clear()

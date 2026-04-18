@@ -48,6 +48,8 @@ export interface NarrationIntentPayload {
   bridgeFrom?: string
   bridgeTo?: string
   rects?: Array<{ x: number; y: number; width: number; height: number }>
+  /** Explicit canvas-space rect (e.g. for `create --at`). */
+  explicitRect?: { x: number; y: number; width: number; height: number }
 }
 
 export function emitNarrationIntent(payload: NarrationIntentPayload): void {
@@ -63,4 +65,39 @@ export function emitNarrationIntent(payload: NarrationIntentPayload): void {
   }).catch(() => {
     /* fire-and-forget */
   })
+}
+
+/**
+ * Move-then-act variant: awaits the director's commit-phase signal before
+ * resolving. Use for verbs where "cursor arrives at target, then mutation
+ * fires" reads better than fire-and-forget.
+ *
+ * The wait is capped server-side (default 300 ms) so a far-away cursor can
+ * never hold up the agent indefinitely. Events without a commit waypoint
+ * (scans, passive) short-circuit and return immediately — the server knows
+ * there's nothing to wait for.
+ *
+ * This does NOT violate the queue principle: the agent was already awaiting
+ * the verb's completion over HTTP. We're inserting a bounded delay inside a
+ * single verb's wall-clock, not gating the agent's thinking between verbs.
+ */
+export function emitNarrationIntentSync(
+  payload: NarrationIntentPayload & { capMs?: number },
+): Promise<void> {
+  const kind = payload.kind ?? (BROWSE_VERBS.has(payload.verb) ? 'browse' : 'canvas')
+  return callApp('/session/narration/verb-sync', {
+    method: 'POST',
+    body: JSON.stringify({
+      sessionId,
+      clientName: getClientName(),
+      kind,
+      capMs: payload.capMs ?? 300,
+      ...payload,
+    }),
+  })
+    .catch(() => {
+      // Network failure → proceed without narration. Silent because we
+      // must never break the verb's actual work on a narration hiccup.
+    })
+    .then(() => undefined)
 }

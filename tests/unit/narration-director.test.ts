@@ -10,6 +10,7 @@ import {
   setSplineVizEnabled,
   onPhaseTransition,
   endNarration,
+  waitForNextCommit,
 } from '../../src/main/narration/director'
 import {
   emitNarration,
@@ -198,6 +199,44 @@ describe('NarrationDirector', () => {
     const viz = getNarrationFrames()[0].splineViz
     expect(viz).not.toBeNull()
     expect(viz!.polyline.length).toBeGreaterThan(1)
+  })
+
+  it('waitForNextCommit resolves on the next commit', async () => {
+    notifyEventPosted(SESSION, CLIENT)
+    emitNarration(mkEvent({}))
+    tick()
+
+    // Kick off a wait with a generous cap.
+    const pending = waitForNextCommit(SESSION, 2_000)
+
+    // Advance the fake clock until the cursor arrives at its commit waypoint.
+    for (let i = 0; i < 40; i++) {
+      clock.advance(16)
+      tick()
+    }
+
+    // The wait resolves with 'arrived' once the commit phase fires.
+    await expect(pending).resolves.toBe('arrived')
+  })
+
+  it('waitForNextCommit caps at the requested timeout', async () => {
+    notifyEventPosted(SESSION, CLIENT)
+    emitNarration(
+      mkEvent({
+        // Long-distance waypoint so travel time exceeds the cap.
+        waypoints: [{ rect: { x: 5_000, y: 5_000, width: 10, height: 10 }, commit: true }],
+      }),
+    )
+    tick()
+
+    // Cap is real time here (setTimeout, not fake-clock driven).
+    const arrival = await waitForNextCommit(SESSION, 20)
+    expect(arrival).toBe('capped')
+  })
+
+  it('waitForNextCommit returns no-session for unknown ids', async () => {
+    const arrival = await waitForNextCommit('not-a-session', 1_000)
+    expect(arrival).toBe('no-session')
   })
 
   it('endNarration transitions to departing', () => {

@@ -282,12 +282,22 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(frameId)
     const abPath = resolveAgentBrowserPath()
 
-    // Fire narration intent (non-blocking). Main builds the NarrationEvent
-    // with a resolved rect and pushes it to the director's queue. For scan
-    // verbs we use the placeholder variant so the cursor drifts on the frame
-    // while agent-browser runs.
+    // Fire narration intent. Main builds the NarrationEvent with a resolved
+    // target rect and pushes it to the director's queue.
+    //
+    // Two paths:
+    //  - Scan verbs (snapshot, query-elements, get, console, errors): fire-
+    //    and-forget placeholder. The cursor drifts on the frame while
+    //    agent-browser runs, and the router will fold in real rects when
+    //    the result comes back.
+    //  - Commit verbs (click, fill, type, select, ...): the sync variant.
+    //    The cursor animates to the resolved element rect first, then the
+    //    CDP-driven action fires. Cap is 300 ms so a far-away cursor can't
+    //    stall agent-browser; past the cap the action runs anyway and the
+    //    cursor catches up.
     if (verb) {
       const scanVerbs = new Set(['snapshot', 'query-elements', 'get', 'console', 'errors'])
+      const passiveVerbs = new Set(['wait', 'screenshot', 'scroll', 'scrollintoview', 'navigate', 'back', 'forward', 'reload'])
       const narrationBody = {
         sessionId,
         clientName,
@@ -301,11 +311,21 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           method: 'POST',
           body: JSON.stringify(narrationBody),
         }).catch(() => {})
-      } else {
+      } else if (passiveVerbs.has(verb)) {
+        // Passive verbs don't have a commit waypoint, so sync would just
+        // return 'no-commit' immediately. Fire-and-forget is cheaper.
         callApp('/session/narration/verb', {
           method: 'POST',
           body: JSON.stringify(narrationBody),
         }).catch(() => {})
+      } else {
+        // Commit verbs: await arrival (capped server-side) before the CDP
+        // call runs. Errors are swallowed — a narration hiccup must not
+        // break the real action.
+        await callApp('/session/narration/verb-sync', {
+          method: 'POST',
+          body: JSON.stringify({ ...narrationBody, capMs: 300 }),
+        }).catch(() => undefined)
       }
     }
 

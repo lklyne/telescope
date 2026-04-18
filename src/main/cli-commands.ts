@@ -4,7 +4,7 @@ import { handleBrowse, shellQuote } from './shared/browse-handler'
 import { upsertEntities, type UpsertOptions, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
-import { emitNarrationIntent } from './cli-presence'
+import { emitNarrationIntent, emitNarrationIntentSync } from './cli-presence'
 
 // ---------------------------------------------------------------------------
 // Verb handlers
@@ -85,13 +85,27 @@ const create: VerbHandler = async (args) => {
     if (!url) { printError('usage: telescope create frame <url>'); return 1 }
     const item: Record<string, unknown> = { kind: 'frame', url }
     item.presetIndex = args.flags.preset ? Number(args.flags.preset) : 6 // default to Laptop
+    let atPoint: { x: number; y: number } | null = null
     if (args.flags.at) {
       const [x, y] = args.flags.at.split(',').map(Number)
       if (!isNaN(x)) item.canvasX = x
       if (!isNaN(y)) item.canvasY = y
+      if (!isNaN(x) && !isNaN(y)) atPoint = { x, y }
     }
     if (args.boolFlags.has('landscape')) item.orientation = 'landscape'
     if (args.boolFlags.has('no-device-frame')) item.showDeviceFrame = false
+    // Move-then-act: cursor travels to the placement rect before the frame
+    // is inserted, so the entity appears to drop into the spot the cursor
+    // just arrived at. When --at is omitted, the cursor falls back to the
+    // current selection / workspace center via verb-narration's defaults.
+    await emitNarrationIntentSync({
+      verb: 'create',
+      kind: 'canvas',
+      explicitRect: atPoint
+        ? { x: atPoint.x, y: atPoint.y, width: 800, height: 600 }
+        : undefined,
+      intent: args.flags.intent,
+    })
     printJson(await upsertEntities([item]))
     return 0
   }
@@ -99,11 +113,21 @@ const create: VerbHandler = async (args) => {
     const text = args.positional.slice(1).join(' ')
     if (!text) { printError('usage: telescope create note <text>'); return 1 }
     const item: Record<string, unknown> = { kind: 'text', text }
+    let atPoint: { x: number; y: number } | null = null
     if (args.flags.at) {
       const [x, y] = args.flags.at.split(',').map(Number)
       if (!isNaN(x)) item.canvasX = x
       if (!isNaN(y)) item.canvasY = y
+      if (!isNaN(x) && !isNaN(y)) atPoint = { x, y }
     }
+    await emitNarrationIntentSync({
+      verb: 'create',
+      kind: 'canvas',
+      explicitRect: atPoint
+        ? { x: atPoint.x, y: atPoint.y, width: 240, height: 120 }
+        : undefined,
+      intent: args.flags.intent,
+    })
     if (args.flags.color) item.color = args.flags.color
     // --kind text: force text entity even for long content
     // --kind file: force file entity even for short content
@@ -141,6 +165,15 @@ const update: VerbHandler = async (args) => {
   // Text note flags
   if (args.flags.text) item.text = args.flags.text
   if (args.flags.color) item.color = args.flags.color
+  // Move-then-act: cursor flies to the entity being edited before the patch
+  // is applied. For long moves the server caps the wait at 300 ms so the
+  // agent never stalls.
+  await emitNarrationIntentSync({
+    verb: 'update',
+    kind: 'canvas',
+    entityIds: [id],
+    intent: args.flags.intent,
+  })
   printJson(await upsertEntities([item]))
   return 0
 }
@@ -153,32 +186,46 @@ function kindFromId(id: string): 'frame' | 'text' | 'file' | 'group' {
 }
 
 const deleteEntities: VerbHandler = async (args) => {
+  // Collect target ids first so we can narrate "cursor flies over the thing
+  // about to be removed" before the entity disappears. For --json input we
+  // pull ids out of the parsed items for the same effect.
+  let items: Array<{ id: string; kind: string }> = []
   if (args.boolFlags.has('json')) {
     const input = await readStdin()
-    const items = JSON.parse(input) as Array<{ id: string; kind?: string }>
-    const withKind = items.map((item) => ({
+    const parsed = JSON.parse(input) as Array<{ id: string; kind?: string }>
+    items = parsed.map((item) => ({
       ...item,
       kind: item.kind ?? kindFromId(item.id),
     }))
-    printJson(await callApp('/entities/delete', {
-      method: 'POST',
-      body: JSON.stringify({ items: withKind }),
-    }))
   } else if (args.positional.length > 0) {
-    const items = args.positional.map((id) => ({ id, kind: kindFromId(id) }))
-    printJson(await callApp('/entities/delete', {
-      method: 'POST',
-      body: JSON.stringify({ items }),
-    }))
+    items = args.positional.map((id) => ({ id, kind: kindFromId(id) }))
   } else {
     printError('usage: telescope delete <id> [id...] or telescope delete --json')
     return 1
   }
+  await emitNarrationIntentSync({
+    verb: 'delete',
+    kind: 'canvas',
+    entityIds: items.map((i) => i.id),
+    intent: args.flags.intent,
+  })
+  printJson(await callApp('/entities/delete', {
+    method: 'POST',
+    body: JSON.stringify({ items }),
+  }))
   return 0
 }
 
 const focus: VerbHandler = async (args) => {
   if (args.positional.length === 0) { printError('usage: telescope focus <frameId> [frameId...]'); return 1 }
+  // Cursor lands on the target frame(s) before the camera pan fires, so the
+  // user sees the cursor "choose" the frame the camera is about to focus.
+  await emitNarrationIntentSync({
+    verb: 'focus',
+    kind: 'canvas',
+    entityIds: args.positional,
+    intent: args.flags.intent,
+  })
   printJson(await callApp('/camera/focus', {
     method: 'POST',
     body: JSON.stringify({ frameIds: args.positional }),
@@ -206,6 +253,16 @@ const unlink: VerbHandler = async (args) => {
 
 const group: VerbHandler = async (args) => {
   if (args.positional.length === 0) { printError('usage: telescope group <entityId> [entityId...]'); return 1 }
+  // Bridge idiom: cursor sweeps across the entities being grouped, commits
+  // on the last one. Short circuit to atomic if only one id was passed.
+  await emitNarrationIntentSync({
+    verb: 'group',
+    kind: 'canvas',
+    bridgeFrom: args.positional[0],
+    bridgeTo: args.positional[args.positional.length - 1],
+    entityIds: args.positional,
+    intent: args.flags.intent,
+  })
   printJson(await callApp('/groups/create', {
     method: 'POST',
     body: JSON.stringify({
@@ -219,6 +276,12 @@ const group: VerbHandler = async (args) => {
 const ungroup: VerbHandler = async (args) => {
   const groupId = args.positional[0]
   if (!groupId) { printError('usage: telescope ungroup <groupId>'); return 1 }
+  await emitNarrationIntentSync({
+    verb: 'ungroup',
+    kind: 'canvas',
+    entityIds: [groupId],
+    intent: args.flags.intent,
+  })
   printJson(await callApp('/groups/ungroup', {
     method: 'POST',
     body: JSON.stringify({ groupId }),
@@ -259,6 +322,15 @@ const annotate: VerbHandler = async (args) => {
   const anchor = args.flags['frame-id']
     ? { type: 'frame', frameId: args.flags['frame-id'] }
     : { type: 'viewport' }
+  // Cursor lands on the frame being annotated before the annotation is
+  // created. When the annotation is viewport-scoped there's nothing to
+  // point at, so the waypoint falls through to the workspace default.
+  await emitNarrationIntentSync({
+    verb: 'annotate',
+    kind: 'canvas',
+    entityIds: args.flags['frame-id'] ? [args.flags['frame-id']] : undefined,
+    intent: args.flags.intent,
+  })
   printJson(await callApp('/annotations', {
     method: 'POST',
     body: JSON.stringify({
@@ -533,10 +605,22 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Unknown verbs are passed to agent-browser as raw commands.')
     return 0
   }
-  // Narration: browse verbs emit their own richer intent from handleBrowse
-  // (they know frameId + targetRef). Everything else fires here with the
-  // verb + optional --intent subtitle.
-  const browseVerbs = new Set([
+  // Narration is emitted by each individual handler so it can resolve real
+  // entity rects and use the sync "move-then-act" variant where it makes
+  // sense. For verbs that don't opt in (workspace/selection/scan reads,
+  // passthroughs, design-system etc.) we fire a fallback fire-and-forget
+  // intent here so the cursor still gets a label + mood update without a
+  // specific rect to move toward.
+  const HANDLER_OWNS_NARRATION = new Set([
+    'create',
+    'update',
+    'upsert',
+    'delete',
+    'focus',
+    'group',
+    'ungroup',
+    'annotate',
+    // Browse verbs narrate from handleBrowse with richer context.
     'snapshot',
     'click',
     'fill',
@@ -555,15 +639,15 @@ export async function dispatch(argv: string[]): Promise<number> {
     'forward',
     'reload',
   ])
-  if (!browseVerbs.has(args.verb)) {
+  if (!HANDLER_OWNS_NARRATION.has(args.verb)) {
     emitNarrationIntent({
       verb: args.verb,
       kind: 'canvas',
       intent: args.flags.intent ?? undefined,
     })
   } else if (args.flags.intent !== undefined) {
-    // Browse verbs: emit just the intent (main sets it on the session). The
-    // real verb-narration fires from handleBrowse with richer context.
+    // Handler-owned narration still needs the --intent propagated so the
+    // session-scoped subtitle is set before the handler's own emit.
     emitNarrationIntent({ verb: args.verb, intent: args.flags.intent })
   }
   const handler = VERBS[args.verb] ?? browsePassthrough

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   CursorMotionParams,
   DebugElectronAPI,
+  NarrationDebugEntry,
   ThemeData,
 } from '../shared/types'
 
@@ -28,6 +29,13 @@ const api: DebugElectronAPI = {
     ipcRenderer.send('debug:update-narration-tuning', params),
   resetNarrationTuning: () =>
     ipcRenderer.send('debug:reset-narration-tuning'),
+  onNarrationTimelineAppend: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, entry: NarrationDebugEntry) =>
+      callback(entry)
+    ipcRenderer.on('narration-timeline-append', handler)
+    return () =>
+      ipcRenderer.removeListener('narration-timeline-append', handler)
+  },
   onThemeChanged: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: ThemeData) =>
       callback(data)

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type {
   CursorMotionParams,
   DebugBootstrapData,
   DebugElectronAPI,
+  NarrationDebugEntry,
   NarrationTuningParams,
 } from '../../shared/types'
 import { DEFAULT_NARRATION_TUNING } from '../../shared/narration-tuning'
@@ -36,6 +37,12 @@ export default function App({
 
   useEffect(() => api.onCursorMotionChanged(setCursorMotion), [api])
   useEffect(() => api.onCursorSplineVizChanged(setSplineViz), [api])
+
+  const subscribeTimeline = useCallback(
+    (cb: (entry: NarrationDebugEntry) => void) =>
+      api.onNarrationTimelineAppend(cb),
+    [api],
+  )
 
   const commitCursorMotion = (next: CursorMotionParams) => {
     setCursorMotion(next)
@@ -97,6 +104,8 @@ export default function App({
               tuning={narrationTuning}
               onTuningChange={commitNarrationTuning}
               onTuningReset={resetNarrationTuning}
+              initialTimeline={initialData.narrationTimeline}
+              subscribeTimeline={subscribeTimeline}
             />
           ) : null}
         </main>

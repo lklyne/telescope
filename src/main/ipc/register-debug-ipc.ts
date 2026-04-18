@@ -20,6 +20,11 @@ import {
   saveNarrationTuning,
 } from '../runtime/preferences'
 import { setNarrationTuning, setSplineVizEnabled } from '../narration/director'
+import {
+  snapshotDebugTimeline,
+  subscribeDebugTimeline,
+} from '../narration/debug-timeline'
+import { getDebugWebContents } from '../debug-window'
 
 export function registerDebugIpc(): void {
   ipcMain.handle('debug:get-initial-data', async (): Promise<DebugBootstrapData> => ({
@@ -27,7 +32,15 @@ export function registerDebugIpc(): void {
     cursorMotion: getCursorMotion(),
     cursorSplineViz: getCursorSplineViz(),
     narrationTuning: getNarrationTuning(),
+    narrationTimeline: snapshotDebugTimeline(),
   }))
+
+  subscribeDebugTimeline((entry) => {
+    const wc = getDebugWebContents()
+    if (wc && !wc.isDestroyed()) {
+      wc.send('narration-timeline-append', entry)
+    }
+  })
 
   ipcMain.on('debug:update-cursor-motion', (_event, raw: unknown) => {
     const next: CursorMotionParams = normalizeCursorMotion(raw)

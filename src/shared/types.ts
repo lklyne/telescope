@@ -12,6 +12,9 @@ export type { NarrationTuningParams } from './narration-tuning'
 
 import type { CursorMotionParams } from './cursor-motion'
 import type { NarrationTuningParams } from './narration-tuning'
+import type { NarrationDebugEntry } from './narration-debug'
+
+export type { NarrationDebugEntry } from './narration-debug'
 
 
 export interface ViewportPreset {
@@ -604,6 +607,7 @@ export interface DebugBootstrapData extends ThemeBootstrapData {
   cursorMotion: CursorMotionParams
   cursorSplineViz: boolean
   narrationTuning: NarrationTuningParams
+  narrationTimeline: NarrationDebugEntry[]
 }
 
 export interface DebugElectronAPI {
@@ -619,6 +623,9 @@ export interface DebugElectronAPI {
   ) => () => void
   updateNarrationTuning: (params: NarrationTuningParams) => void
   resetNarrationTuning: () => void
+  onNarrationTimelineAppend: (
+    callback: (entry: NarrationDebugEntry) => void,
+  ) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 

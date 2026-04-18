@@ -71,7 +71,7 @@ export function useCanvasViewportGestures({
 
       // Mouse left-button gestures.
       if (ctx.pointerType === 'mouse' && ctx.button === 0) {
-        if (layout.viewMode === 'browser') return null
+        if (layout.focusedEntityId !== null) return null
 
         // Pending-placement click: commit the placement and decline the
         // gesture. Returning null cleanly releases capture.
@@ -145,7 +145,7 @@ export function useCanvasViewportGestures({
       }
       // marquee
       if (rect.width < 4 || rect.height < 4) {
-        if (layout.viewMode === 'canvas') api.canvasDeselect()
+        if (layout.focusedEntityId === null) api.canvasDeselect()
       } else {
         api.canvasSelectInRect(screenRectToCanvasRect(rect, layout))
       }
@@ -203,7 +203,7 @@ export function useCanvasViewportGestures({
     const handleMiddleMouseDown = (event: MouseEvent) => {
       const layout = layoutRef.current
       if (event.button !== 1) return
-      if (layout.viewMode === 'browser') return
+      if (layout.focusedEntityId !== null) return
       if (isOverlayUiTarget(event.target)) return
       if (event.clientY < layout.canvasOrigin.y) return
       middleDrag = { screenX: event.screenX, screenY: event.screenY }
@@ -232,7 +232,7 @@ export function useCanvasViewportGestures({
     // File drag/drop onto the canvas.
     const handleDragOver = (event: DragEvent) => {
       const layout = layoutRef.current
-      if (layout.viewMode === 'browser') return
+      if (layout.focusedEntityId !== null) return
       if (!event.dataTransfer?.types.includes('Files')) return
       event.preventDefault()
       if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
@@ -240,7 +240,7 @@ export function useCanvasViewportGestures({
 
     const handleDrop = (event: DragEvent) => {
       const layout = layoutRef.current
-      if (layout.viewMode === 'browser') return
+      if (layout.focusedEntityId !== null) return
       if (!event.dataTransfer?.files.length) return
       event.preventDefault()
       event.stopImmediatePropagation()

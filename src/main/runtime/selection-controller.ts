@@ -1,13 +1,13 @@
 import type { CanvasEntityKind, UiState } from '../../shared/types'
 import {
+  clearFocus as setUiClearFocus,
   devtoolsPanelTab as uiDevtoolsPanelTab,
+  focusedEntity as uiFocusedEntity,
   getUiState,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
-  setCanvasMode as setUiCanvasMode,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
   setSelection as setUiSelection,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   findPageById,
@@ -69,8 +69,8 @@ export function resolveEntityKind(entityId: string): CanvasEntityKind {
   return 'frame'
 }
 
-function browserSelectionAllowed(nextSelection: SelectionCommand): boolean {
-  return nextSelection.kind === 'single-entity' && nextSelection.entityKind === 'frame'
+function focusAllowed(nextSelection: SelectionCommand): boolean {
+  return nextSelection.kind === 'single-entity'
 }
 
 function describeSelection(selection: SelectionCommand): Record<string, unknown> | undefined {
@@ -118,8 +118,9 @@ function commitSelection(
   const shouldSyncInspection = options?.syncInspection ?? true
   const shouldNotifyDevtools = options?.notifyDevtools ?? true
 
-  if (uiWorkspaceViewMode(currentUi) === 'browser' && !browserSelectionAllowed(nextSelection)) {
-    setUiCanvasMode()
+  // If focus is active and selection changes to multi/none, exit focus
+  if (uiFocusedEntity(currentUi) && !focusAllowed(nextSelection)) {
+    setUiClearFocus()
   }
 
   if (selectionEquals(getUiState().selection, nextSelection)) {
@@ -138,7 +139,7 @@ function commitSelection(
   setUiSelection(nextSelection)
   breadcrumb('selection', nextSelection.kind, describeSelection(nextSelection))
 
-  if (!browserSelectionAllowed(nextSelection) && uiDevtoolsPanelTab() === 'browser-devtools') {
+  if (!focusAllowed(nextSelection) && uiDevtoolsPanelTab() === 'browser-devtools') {
     setUiDevtoolsPanelTab('comments')
     savePreferences()
   }

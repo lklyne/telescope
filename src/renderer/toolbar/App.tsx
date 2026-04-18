@@ -32,7 +32,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     currentPresetValue,
     hasSelection,
     hasFrames,
-    isBrowserMode,
+    isFocused,
     defaultToolActive,
     agentCursors,
   } = useToolbarState()
@@ -54,7 +54,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
         (selection.pendingPlacementActive ||
           annotationMode !== 'off' ||
           inspectEnabled ||
-          selection.viewMode === 'browser')
+          selection.focusedEntityId !== null)
       ) {
         event.preventDefault()
         if (document.activeElement instanceof HTMLElement) {
@@ -64,8 +64,8 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
         if (annotationMode !== 'off' || inspectEnabled) {
           toolbarApi.clearToolMode()
         }
-        if (selection.viewMode === 'browser') {
-          toolbarApi.toggleBrowserMode()
+        if (selection.focusedEntityId !== null) {
+          toolbarApi.exitFocus()
         }
         return
       }
@@ -77,11 +77,11 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [annotationMode, inspectEnabled, selection.viewMode])
+  }, [annotationMode, inspectEnabled, selection.focusedEntityId])
   const isMac = navigator.userAgent.includes('Mac')
   const showMultiFrameAddressBar = selection.selectionCount > 1
-  const showTabsModeAddressBar = isBrowserMode && hasSelection
-  const showCenterActionsOnly = !showMultiFrameAddressBar && !showTabsModeAddressBar
+  const showFocusAddressBar = isFocused && hasSelection
+  const showCenterActionsOnly = !showMultiFrameAddressBar && !showFocusAddressBar
 
   return (
     <>
@@ -133,7 +133,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           onToggleLeftSidebar={toolbarApi.toggleLeftSidebar}
         />
 
-        {showTabsModeAddressBar ? (
+        {showFocusAddressBar ? (
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <ToolbarDivider isDark={isDark} />
             <div className="min-w-0 flex-1">
@@ -155,7 +155,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             <div className="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag]">
               <CenterActions
                 isDark={isDark}
-                isBrowserMode={isBrowserMode}
+                isFocused={isFocused}
                 defaultToolActive={defaultToolActive}
                 annotationMode={annotationMode}
                 annotateAvailable={annotateAvailable}
@@ -204,7 +204,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             <div className="flex min-w-0 max-w-full items-center gap-2 [-webkit-app-region:no-drag]">
               <CenterActions
                 isDark={isDark}
-                isBrowserMode={isBrowserMode}
+                isFocused={isFocused}
                 defaultToolActive={defaultToolActive}
                 annotationMode={annotationMode}
                 annotateAvailable={annotateAvailable}
@@ -242,10 +242,12 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           <RightPanelToggle
             isDark={isDark}
             devtoolsOpen={devtoolsOpen}
-            isBrowserMode={isBrowserMode}
+            isFocused={isFocused}
+            hasSelection={hasSelection}
             hasFrames={hasFrames}
             onToggleDevTools={toolbarApi.toggleDevTools}
-            onToggleBrowserMode={toolbarApi.toggleBrowserMode}
+            onFocusSelectedEntity={toolbarApi.focusSelectedEntity}
+            onExitFocus={toolbarApi.exitFocus}
           />
         </div>
       </div>

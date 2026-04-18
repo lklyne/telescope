@@ -9,9 +9,6 @@ import {
   setDevtoolsWidth as setUiDevtoolsWidth,
   setLeftSidebarOpen as setUiLeftSidebarOpen,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
-  setBrowserMode as setUiBrowserMode,
-  setCanvasMode as setUiCanvasMode,
-  selectedEntityId as uiSelectedEntityId,
   selectedGroupId as uiSelectedGroupId,
   createDefaultUiState,
   resetUiState,
@@ -84,7 +81,6 @@ import {
 import {
   deselectAll,
   selectPage,
-  setBrowserMode,
   setSelectedFrames,
 } from './selection-state'
 import {
@@ -275,16 +271,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
       commitSelectGroup(snapshot.selectedGroupId)
     }
 
-    // Restore browser mode — legacy snapshots may have browserTabMode 'responsive' or 'frame',
-    // both now just mean "browser mode targeting a frame"
-    if (snapshot.browserTabMode === 'frame' || snapshot.browserTabMode === 'responsive') {
-      const frameId = snapshot.selectedFrameId ?? uiSelectedEntityId()
-      if (frameId) {
-        setUiBrowserMode({ frameId })
-      } else {
-        setUiCanvasMode()
-      }
-    }
+    // Focus state is ephemeral — snapshots never restore focus.
 
     if (snapshot.devtoolsOpen && uiSelectedPageIndex(pages.map((p) => p.id)) !== null) {
       toggleDevTools()
@@ -328,14 +315,6 @@ export function restorePersistedWorkspace(
   )
   const activeTab = workspaceTabs.find((tab) => tab.id === activeWorkspaceTabId)
   if (!activeTab) return false
-  if (record.viewMode === 'browser') {
-    const frameId = activeTab.snapshot.selectedFrameId ?? activeTab.snapshot.selectedFrameIds?.[0]
-    if (frameId) {
-      setUiBrowserMode({ frameId })
-    }
-  } else {
-    setUiCanvasMode()
-  }
   applyTabState(activeTab)
   // Startup path: UndoManager not yet created, so this initial hydration
   // won't generate an undo step. initializeDocObservers() handles the

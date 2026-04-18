@@ -18,15 +18,14 @@ import { saveImageBuffer } from '../runtime/image-assets'
 import { imageSizeFromBuffer } from '../runtime/image-sizing'
 import {
   cancelPendingPlacement,
+  clearFocus,
   focusSelectedPage,
   getSelectedEntityIds,
-  selectBrowserTab,
   selectEntity,
   selectPage,
   selectPageById,
   selectedPageId,
-  setBrowserMode,
-  setCanvasMode,
+  setFocus,
   setSelectedEntities,
 } from '../runtime/ui-actions'
 import {
@@ -50,10 +49,8 @@ import {
   setActiveWorkspaceTab,
   setWorkspaceTabExpanded,
 } from '../runtime/workspace-session'
-import {
-  setFrameBrowserSizeMode,
-  type BrowserSizeMode,
-} from '../runtime/runtime-entities'
+import { setFrameSizeMode } from '../runtime/runtime-entities'
+import type { FrameSizeMode } from '../../shared/types'
 import { createEdges, deleteEdges } from '../workspace-edges'
 import { selectEntitiesInRect } from '../workspace-entities'
 import { createFileEntity } from '../runtime/document-commands'
@@ -152,31 +149,24 @@ export function registerCanvasIpc(): void {
     }
   })
 
-  // --- Browser mode ---
+  // --- Focus ---
 
-  ipcMain.on('canvas-select-browser-tab', (_event, { frameId }: { frameId: string }) => {
-    selectBrowserTab(frameId)
+  ipcMain.on('canvas-set-focus', (_event, { entityId, entityKind }: { entityId: string; entityKind: CanvasEntityKind }) => {
+    setFocus(entityId, entityKind)
+  })
+
+  ipcMain.on('canvas-clear-focus', () => {
+    clearFocus()
   })
 
   ipcMain.on(
-    'canvas-set-browser-size-mode',
-    (_event, { frameId, mode }: { frameId: string; mode: BrowserSizeMode }) => {
+    'canvas-set-frame-size-mode',
+    (_event, { frameId, mode }: { frameId: string; mode: FrameSizeMode }) => {
       const page = pages.find((candidate) => candidate.id === frameId)
       if (!page) return
-      page.metadata = setFrameBrowserSizeMode(page.metadata, mode)
+      page.metadata = setFrameSizeMode(page.metadata, mode)
       scheduleWorkspaceAutosave()
       layoutAllViews()
-    },
-  )
-
-  ipcMain.on(
-    'canvas-set-browser-mode',
-    (_event, { mode }: { mode: 'canvas' | 'browser' }) => {
-      if (mode === 'browser') {
-        setBrowserMode()
-        return
-      }
-      setCanvasMode()
     },
   )
 

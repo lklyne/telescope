@@ -10,7 +10,7 @@ import { pages } from './runtime/page-runtime'
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
-import { workspaceViewMode } from './ui-state'
+import { isFocused } from './ui-state'
 
 /**
  * Initialize Sentry for the Electron main process.
@@ -68,7 +68,7 @@ function readAppStateTags(): Record<string, string> {
         drawingEntities.length +
         workspaceGroups.length,
     ),
-    view_mode: workspaceViewMode(),
+    focused: isFocused() ? 'true' : 'false',
   }
 }
 

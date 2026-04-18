@@ -3,6 +3,7 @@ import type {
   CanvasEntityKind,
   LeftSidebarData,
   LeftSidebarElectronAPI,
+  SidebarFilter,
   ThemeData,
 } from '../shared/types'
 
@@ -32,7 +33,11 @@ const api: LeftSidebarElectronAPI = {
   setTabExpanded: (tabId, expanded) =>
     ipcRenderer.send('canvas-set-tab-expanded', { tabId, expanded }),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),
-  toggleBrowserMode: () => ipcRenderer.send('toolbar-toggle-browser-mode'),
+  setFocus: (entityId: string, entityKind: CanvasEntityKind) =>
+    ipcRenderer.send('canvas-set-focus', { entityId, entityKind }),
+  clearFocus: () => ipcRenderer.send('canvas-clear-focus'),
+  setSidebarFilter: (filter: SidebarFilter) =>
+    ipcRenderer.send('left-sidebar-set-filter', { filter }),
   getInitialData: () => ipcRenderer.invoke('get-left-sidebar-bootstrap'),
   onThemeChanged: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: ThemeData) => callback(data)

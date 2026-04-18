@@ -3,7 +3,6 @@ import type { WebContents } from 'electron'
 import type { WorkspaceBounds } from '../../shared/types'
 import type { Page } from './runtime-entities'
 import {
-  BROWSER_HEADER_HEIGHT,
   CARD_BORDER_WIDTH,
   CHROME_PAGE_GAP,
   LEFT_SIDEBAR_WIDTH,
@@ -11,7 +10,7 @@ import {
 } from './runtime-constants'
 import {
   frameCustomSizeFromMetadata,
-  frameBrowserSizeModeFromMetadata,
+  frameSizeModeFromMetadata,
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
@@ -23,9 +22,9 @@ import { pages, pan, zoom } from './runtime-context'
 import {
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsWidth as uiDevtoolsWidth,
+  focusedFrameId as uiFocusedFrameId,
   leftSidebarOpen as uiLeftSidebarOpen,
   selectedPageIndex as uiSelectedPageIndex,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import { viewportPresetForIndex } from './runtime-serialization'
 
@@ -107,25 +106,20 @@ export function pageOuterCanvasBounds(
 // ---------------------------------------------------------------------------
 
 export function computeCanvasOrigin(input: {
-  currentViewMode: () => string
   toolbarHeight: number
-  browserHeaderHeight: number
   leftSidebarWidth: number
 }): { x: number; y: number } {
-  const viewMode = input.currentViewMode()
   return {
     x: input.leftSidebarWidth,
-    y: input.toolbarHeight + (viewMode === 'browser' ? input.browserHeaderHeight : 0),
+    y: input.toolbarHeight,
   }
 }
 
 export function computeAvailableCanvasViewport(input: {
   win: { getBounds(): { width: number; height: number } } | null
-  currentViewMode: () => string
   currentDevtoolsOpen: () => boolean
   currentDevtoolsWidth: () => number
   toolbarHeight: number
-  browserHeaderHeight: number
   leftSidebarWidth: number
 }): { width: number; height: number } {
   const viewport = computeAvailableCanvasViewportRect(input)
@@ -134,17 +128,14 @@ export function computeAvailableCanvasViewport(input: {
 
 export function computeAvailableCanvasViewportRect(input: {
   win: { getBounds(): { width: number; height: number } } | null
-  currentViewMode: () => string
   currentDevtoolsOpen: () => boolean
   currentDevtoolsWidth: () => number
   toolbarHeight: number
-  browserHeaderHeight: number
   leftSidebarWidth: number
 }): { x: number; y: number; width: number; height: number } {
   const { width = 0, height = 0 } = input.win?.getBounds() ?? {}
   const leftInset = input.leftSidebarWidth
-  const topInset =
-    input.toolbarHeight + (input.currentViewMode() === 'browser' ? input.browserHeaderHeight : 0)
+  const topInset = input.toolbarHeight
   return {
     x: leftInset,
     y: topInset,
@@ -156,7 +147,7 @@ export function computeAvailableCanvasViewportRect(input: {
   }
 }
 
-function computeFillBrowserViewportSize(input: {
+function computeFocusFillViewportSize(input: {
   availableCanvasViewport: () => { width: number; height: number }
 }): { width: number; height: number } {
   const viewport = input.availableCanvasViewport()
@@ -166,25 +157,27 @@ function computeFillBrowserViewportSize(input: {
   }
 }
 
-export function computeIsFillBrowserPage(input: {
+/**
+ * True when the frame is the focused entity AND its size mode is 'fill' —
+ * the frame should be drawn at viewport dimensions (not canvas position).
+ */
+export function computeIsFocusFillFrame(input: {
   page: Pick<Page, 'id' | 'metadata'>
-  currentViewMode: () => string
-  selectedPageId: () => string | null
+  focusedFrameId: () => string | null
 }): boolean {
   return (
-    input.currentViewMode() === 'browser' &&
-    input.selectedPageId() === input.page.id &&
-    frameBrowserSizeModeFromMetadata(input.page.metadata) === 'fill'
+    input.focusedFrameId() === input.page.id &&
+    frameSizeModeFromMetadata(input.page.metadata) === 'fill'
   )
 }
 
 export function computeEffectivePageContentSize(input: {
   page: Pick<Page, 'id' | 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'>
-  isFillBrowserPage: (page: Pick<Page, 'id' | 'metadata'>) => boolean
-  fillBrowserViewportSize: () => { width: number; height: number }
+  isFocusFillFrame: (page: Pick<Page, 'id' | 'metadata'>) => boolean
+  focusFillViewportSize: () => { width: number; height: number }
 }): { width: number; height: number } {
-  if (input.isFillBrowserPage(input.page)) {
-    return input.fillBrowserViewportSize()
+  if (input.isFocusFillFrame(input.page)) {
+    return input.focusFillViewportSize()
   }
   return pageContentSize(input.page)
 }
@@ -193,13 +186,11 @@ export function computeScreenBoundsForPage(input: {
   page: Page
   effectivePageContentSize: (page: Pick<Page, 'id' | 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'>) => { width: number; height: number }
   availableCanvasViewportRect: () => { x: number; y: number; width: number; height: number }
-  currentViewMode: () => string
-  selectedPageId: () => string | null
-  isFillBrowserPage: (page: Pick<Page, 'id' | 'metadata'>) => boolean
+  focusedFrameId: () => string | null
+  isFocusFillFrame: (page: Pick<Page, 'id' | 'metadata'>) => boolean
   zoom: number
   pan: { x: number; y: number }
   toolbarHeight: number
-  browserHeaderHeight: number
   chromePageGap: number
   cardBorderWidth: number
 }): {
@@ -210,43 +201,29 @@ export function computeScreenBoundsForPage(input: {
 } {
   const { width: w, height: h } = input.effectivePageContentSize(input.page)
   const bw = input.cardBorderWidth
-  const isBrowserActive =
-    input.currentViewMode() === 'browser' && input.selectedPageId() === input.page.id
-  const isFillBrowserActive = input.isFillBrowserPage(input.page)
-  const displayZoom = isFillBrowserActive ? 1 : input.zoom
+  const isFocusFillActive = input.isFocusFillFrame(input.page)
+  const displayZoom = isFocusFillActive ? 1 : input.zoom
   const chromeH = Math.round(input.page.chromeHeight * input.zoom)
   const gap = Math.round(input.chromePageGap * input.zoom)
   const contentW = Math.round(w * displayZoom)
   const fullPageH = Math.round(h * displayZoom)
   const viewport = input.availableCanvasViewportRect()
-  const browserViewportTop = input.toolbarHeight + input.browserHeaderHeight
-  const browserViewportHeight = viewport.height
-  const maxBrowserPageH = Math.max(0, browserViewportHeight)
-  const pageH = isFillBrowserActive
-    ? maxBrowserPageH
-    : isBrowserActive
-      ? Math.min(fullPageH, maxBrowserPageH)
-      : fullPageH
-  const rawChromeX = isBrowserActive
-    ? isFillBrowserActive
-      ? viewport.x
-      : Math.round(viewport.x + (viewport.width - w * input.zoom) / 2)
+  const viewportTop = input.toolbarHeight
+  const viewportHeight = viewport.height
+  const maxPageH = Math.max(0, viewportHeight)
+  const pageH = isFocusFillActive ? maxPageH : fullPageH
+  const rawChromeX = isFocusFillActive
+    ? viewport.x
     : Math.round(viewport.x + input.page.canvasX * input.zoom + input.pan.x)
-  const browserMinPageY = browserViewportTop
-  const centeredBrowserPageY = Math.round(
-    browserViewportTop + (browserViewportHeight - pageH) / 2,
-  )
-  const pageY = isBrowserActive
-    ? fullPageH >= maxBrowserPageH
-      ? browserMinPageY
-      : Math.max(browserMinPageY, centeredBrowserPageY)
+  const pageY = isFocusFillActive
+    ? viewportTop
     : Math.round(input.page.canvasY * input.zoom + input.pan.y) + input.toolbarHeight + chromeH + gap
-  const chromeY = isBrowserActive
-    ? browserViewportTop
+  const chromeY = isFocusFillActive
+    ? viewportTop
     : Math.round(input.page.canvasY * input.zoom + input.pan.y) + input.toolbarHeight
-  // Compute shell rect (device frame bezel) — skip in fill-browser mode
+  // Compute shell rect (device frame bezel) — skip in focus-fill mode
   const insets = pageShellInsets(input.page)
-  const shellRect = insets && !isFillBrowserActive
+  const shellRect = insets && !isFocusFillActive
     ? {
         x: rawChromeX - Math.round(insets.left * displayZoom),
         y: pageY - Math.round(insets.top * displayZoom),
@@ -289,13 +266,13 @@ export function computeApplyEmulation(input: {
   page?: Page
   zoom: number
   effectivePageContentSize: (page: Pick<Page, 'id' | 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'>) => { width: number; height: number }
-  isFillBrowserPage: (page: Pick<Page, 'id' | 'metadata'>) => boolean
+  isFocusFillFrame: (page: Pick<Page, 'id' | 'metadata'>) => boolean
   viewportPresetForIndex: (presetIndex: number) => { width: number; height: number }
 }): void {
   const start = Date.now()
   const vp = input.viewportPresetForIndex(input.presetIndex)
   const nativeScale = screen.getPrimaryDisplay().scaleFactor
-  const fillScale = input.page && input.isFillBrowserPage(input.page) ? 1 : input.zoom
+  const fillScale = input.page && input.isFocusFillFrame(input.page) ? 1 : input.zoom
   const size = input.page
     ? input.effectivePageContentSize(input.page)
     : { width: vp.width, height: vp.height }
@@ -333,22 +310,19 @@ export function boundSelectedPageId(): string | null {
   return page?.id ?? null
 }
 
-export function boundIsFillBrowserPage(page: Pick<Page, 'id' | 'metadata'>): boolean {
-  return computeIsFillBrowserPage({
+export function boundIsFocusFillFrame(page: Pick<Page, 'id' | 'metadata'>): boolean {
+  return computeIsFocusFillFrame({
     page,
-    currentViewMode: uiWorkspaceViewMode,
-    selectedPageId: boundSelectedPageId,
+    focusedFrameId: uiFocusedFrameId,
   })
 }
 
 export function boundAvailableCanvasViewport(): { width: number; height: number } {
   return computeAvailableCanvasViewport({
     win,
-    currentViewMode: uiWorkspaceViewMode,
     currentDevtoolsOpen: uiDevtoolsOpen,
     currentDevtoolsWidth: uiDevtoolsWidth,
     toolbarHeight: layoutCache.toolbarHeight,
-    browserHeaderHeight: BROWSER_HEADER_HEIGHT,
     leftSidebarWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
   })
 }
@@ -356,17 +330,15 @@ export function boundAvailableCanvasViewport(): { width: number; height: number 
 export function boundAvailableCanvasViewportRect(): { x: number; y: number; width: number; height: number } {
   return computeAvailableCanvasViewportRect({
     win,
-    currentViewMode: uiWorkspaceViewMode,
     currentDevtoolsOpen: uiDevtoolsOpen,
     currentDevtoolsWidth: uiDevtoolsWidth,
     toolbarHeight: layoutCache.toolbarHeight,
-    browserHeaderHeight: BROWSER_HEADER_HEIGHT,
     leftSidebarWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
   })
 }
 
-export function boundFillBrowserViewportSize(): { width: number; height: number } {
-  return computeFillBrowserViewportSize({
+export function boundFocusFillViewportSize(): { width: number; height: number } {
+  return computeFocusFillViewportSize({
     availableCanvasViewport: boundAvailableCanvasViewport,
   })
 }
@@ -376,16 +348,14 @@ export function boundEffectivePageContentSize(
 ): { width: number; height: number } {
   return computeEffectivePageContentSize({
     page,
-    isFillBrowserPage: boundIsFillBrowserPage,
-    fillBrowserViewportSize: boundFillBrowserViewportSize,
+    isFocusFillFrame: boundIsFocusFillFrame,
+    focusFillViewportSize: boundFocusFillViewportSize,
   })
 }
 
 export function boundCanvasOrigin(): { x: number; y: number } {
   return computeCanvasOrigin({
-    currentViewMode: uiWorkspaceViewMode,
     toolbarHeight: layoutCache.toolbarHeight,
-    browserHeaderHeight: BROWSER_HEADER_HEIGHT,
     leftSidebarWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
   })
 }
@@ -399,13 +369,11 @@ export function boundScreenBoundsForPage(page: Page) {
     page,
     effectivePageContentSize: boundEffectivePageContentSize,
     availableCanvasViewportRect: boundAvailableCanvasViewportRect,
-    currentViewMode: uiWorkspaceViewMode,
-    selectedPageId: boundSelectedPageId,
-    isFillBrowserPage: boundIsFillBrowserPage,
+    focusedFrameId: uiFocusedFrameId,
+    isFocusFillFrame: boundIsFocusFillFrame,
     zoom,
     pan,
     toolbarHeight: layoutCache.toolbarHeight,
-    browserHeaderHeight: BROWSER_HEADER_HEIGHT,
     chromePageGap: CHROME_PAGE_GAP,
     cardBorderWidth: CARD_BORDER_WIDTH,
   })
@@ -418,7 +386,7 @@ export function boundApplyEmulation(webContents: WebContents, presetIndex: numbe
     page,
     zoom,
     effectivePageContentSize: boundEffectivePageContentSize,
-    isFillBrowserPage: boundIsFillBrowserPage,
+    isFocusFillFrame: boundIsFocusFillFrame,
     viewportPresetForIndex,
   })
 }

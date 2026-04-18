@@ -27,7 +27,7 @@ import {
 } from '../runtime/runtime-context'
 import { selectNone as clearSelection } from '../runtime/selection-controller'
 import { sendInteractiveState } from '../runtime/overlay-manager'
-import { setCanvasMode as setUiCanvasMode } from '../ui-state'
+import { clearFocus as setUiClearFocus } from '../ui-state'
 import { writeJson, notifyStatusListeners } from '../app-control-server'
 
 function resetSmokeTestState(): void {
@@ -35,7 +35,7 @@ function resetSmokeTestState(): void {
   resetCdpProxyState()
   clearAutomationInteractiveFrameIds()
   clearSelection()
-  setUiCanvasMode()
+  setUiClearFocus()
   sendInteractiveState()
 }
 

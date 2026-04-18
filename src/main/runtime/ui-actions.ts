@@ -1,12 +1,12 @@
 // Facade: re-exports UI action functions.
 
 export {
+  clearFocus,
   deselectAll,
+  focusSelectedEntity,
   selectPage,
-  setBrowserMode,
-  setCanvasMode,
+  setFocus,
   setSelectedFrames,
-  toggleBrowserMode,
 } from './selection-state'
 
 export {
@@ -52,7 +52,6 @@ export {
 export {
   getSelectedEntityIds,
   getSelectedGroupId,
-  selectBrowserTab,
   selectEntity,
   selectPageById,
   setHoverEntity,

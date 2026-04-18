@@ -32,7 +32,7 @@ export function DeviceShellLayer({
   fileEntities?: CanvasSceneFileEntity[]
   isDark: boolean
 }) {
-  const framedFrames: DeviceShellItem[] = frames.filter((f) => f.showDeviceFrame && f.browserSizeMode !== 'fill')
+  const framedFrames: DeviceShellItem[] = frames.filter((f) => f.showDeviceFrame && f.sizeMode !== 'fill')
   const framedFiles: DeviceShellItem[] = (fileEntities ?? []).filter((f) => f.showDeviceFrame)
 
   if (!framedFrames.length && !framedFiles.length) return null

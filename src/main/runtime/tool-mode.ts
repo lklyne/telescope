@@ -8,13 +8,13 @@ import { pages } from './runtime-context'
 import { markDirty } from './layout-dirty'
 import {
   annotationMode as uiAnnotationMode,
+  clearFocus as setUiClearFocus,
   devtoolsPanelTab as uiDevtoolsPanelTab,
   inspectEnabled as uiInspectEnabled,
   pendingPlacement as uiPendingPlacement,
   selectedPageIndex as uiSelectedPageIndex,
   clearToolMode as clearUiToolMode,
   setAnnotationMode as setUiAnnotationMode,
-  setCanvasMode as setUiCanvasMode,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
   setInspectEnabled as setUiInspectEnabled,
   setPendingPlacement as setUiPendingPlacement,
@@ -96,7 +96,7 @@ export function startPendingPlacement(input: {
     customSize: input.customSize ?? false,
     sourceFrameId: input.sourceFrameId,
   })
-  setUiCanvasMode()
+  setUiClearFocus()
   setUiInspectEnabled(false, { hasPages: pages.length > 0 })
   setUiAnnotationMode('off', { hasPages: pages.length > 0 })
   requestLayout()

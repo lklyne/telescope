@@ -41,22 +41,22 @@ import {
 } from './runtime-context'
 import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
 import {
-  activeBrowserFrameId as uiActiveBrowserFrameId,
   annotationMode as uiAnnotationMode,
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsWidth as uiDevtoolsWidth,
+  focusedEntityId as uiFocusedEntityId,
+  focusedFrameId as uiFocusedFrameId,
   pendingPlacement as uiPendingPlacement,
   selectedCanvasTargets as uiSelectedCanvasTargets,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   pageContentSize,
   boundEffectivePageContentSize as effectivePageContentSize,
   boundAvailableCanvasViewport as localAvailableCanvasViewport,
   boundCanvasOrigin as localCanvasOrigin,
-  boundFillBrowserViewportSize as localFillBrowserViewportSize,
+  boundFocusFillViewportSize as localFocusFillViewportSize,
   boundScreenBoundsForPage as screenBoundsForPage,
 } from './runtime-geometry'
 import { frameDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
@@ -68,7 +68,7 @@ import {
 } from './text-entity-state'
 import {
   frameUsesCustomSize,
-  frameBrowserSizeModeFromMetadata,
+  frameSizeModeFromMetadata,
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
@@ -103,15 +103,15 @@ function mainWindowContentBounds(): {
 // --- Exported data builders ---
 
 export function backgroundFrameOverlays(): CanvasSceneFrameEntity[] {
-  const viewMode = uiWorkspaceViewMode()
-  const activeBrowserPageId = viewMode === 'browser' ? uiActiveBrowserFrameId() : null
+  const focusedFrameIdValue = uiFocusedFrameId()
   return pages.map((page) => {
     const { width, height } = effectivePageContentSize(page)
     const bounds = screenBoundsForPage(page)
     const deviceId = deviceIdFromMetadata(page.metadata)
-    // In browser mode, only show the device shell for the active tab
+    const isFocusedFrame = focusedFrameIdValue === page.id
+    // When a frame is focused, only show the device shell for the focused frame
     const showShell = showDeviceFrameFromMetadata(page.metadata)
-      && (viewMode === 'canvas' || page.id === activeBrowserPageId)
+      && (focusedFrameIdValue === null || isFocusedFrame)
     return {
       kind: 'frame' as const,
       id: page.id,
@@ -122,7 +122,9 @@ export function backgroundFrameOverlays(): CanvasSceneFrameEntity[] {
       canGoForward: page.pageView.webContents.canGoForward(),
       isLoading: page.pageView.webContents.isLoading(),
       isCustomSize: frameUsesCustomSize(page.metadata),
-      browserSizeMode: viewMode === 'canvas' ? 'device' : frameBrowserSizeModeFromMetadata(page.metadata),
+      sizeMode: isFocusedFrame
+        ? frameSizeModeFromMetadata(page.metadata)
+        : 'fit',
       canvasX: page.canvasX,
       canvasY: page.canvasY,
       width,
@@ -143,22 +145,6 @@ export function backgroundFrameOverlays(): CanvasSceneFrameEntity[] {
       contentScreenWidth: bounds.page.width,
       contentScreenHeight: bounds.page.height,
       useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
-    }
-  })
-}
-
-function buildLiveBrowserTabSummaries() {
-  return pages.map((page) => {
-    const { width, height } = pageContentSize(page)
-    return {
-      id: page.id,
-      label: frameDisplayLabel(page),
-      name: page.name?.trim() || undefined,
-      url: page.url,
-      presetIndex: page.presetIndex,
-      faviconUrl: page.faviconUrl ?? null,
-      width,
-      height,
     }
   })
 }
@@ -273,9 +259,9 @@ export function buildCanvasLayoutData(
   frames: CanvasSceneFrameEntity[],
   activeSelection: ActiveCanvasEntitySelection | null,
 ): LayoutUpdateData {
-  const fillViewport = localFillBrowserViewportSize()
+  const fillViewport = localFocusFillViewportSize()
   const pending = uiPendingPlacement()
-  const viewMode = uiWorkspaceViewMode()
+  const focusedFrameIdValue = uiFocusedFrameId()
   const origin = localCanvasOrigin()
   const pendingPlacementData: PendingPlacement | null =
     pending
@@ -284,7 +270,7 @@ export function buildCanvasLayoutData(
           const isFile = pending.entityKind === 'file'
           const sourcePage = pending.sourceFrameId ? findPageById(pending.sourceFrameId) : null
           const preset = (isText || isFile) ? null : viewportPresetForIndex(pending.presetIndex ?? 0)
-          const customSize = sourcePage ? pageContentSize(sourcePage) : localFillBrowserViewportSize()
+          const customSize = sourcePage ? pageContentSize(sourcePage) : localFocusFillViewportSize()
           const contentBounds = mainWindowContentBounds()
           const cursor = screen.getCursorScreenPoint()
           const initialClientX =
@@ -339,20 +325,14 @@ export function buildCanvasLayoutData(
       ),
       ...groupEntities,
     ] as CanvasSceneEntity[],
-    browserTabs: buildLiveBrowserTabSummaries(),
-    browserFillViewport: fillViewport,
+    focusFillViewport: fillViewport,
     selectedEntityIds: uiSelectedEntityIds(),
     selection: uiSelectedCanvasTargets(),
     activeSelection,
     annotationMode: uiAnnotationMode(),
     annotations: [...workspaceAnnotations],
     fixProgress: getFixProgress(),
-    viewMode,
-    activeBrowserTabId:
-      viewMode === 'browser'
-        ? selectedPageId()
-        : null,
-    activeBrowserFrameId: uiActiveBrowserFrameId(),
+    focusedEntityId: uiFocusedEntityId(),
     selectedGroupId: uiSelectedGroupId(),
     hover: hoverTarget,
     interaction: interactionState,
@@ -363,10 +343,9 @@ export function buildCanvasLayoutData(
     groups: groupEntities,
     presenceCursors: getPresenceCursors()
     .filter((c) => {
-      // In browser mode, hide cursors that explicitly target a different frame.
-      if (viewMode !== 'browser') return true
-      const activeFrameId = uiActiveBrowserFrameId()
-      if (c.surface === 'frame' && c.frameId && c.frameId !== activeFrameId) return false
+      // When focused on a frame, hide cursors that explicitly target a different frame.
+      if (focusedFrameIdValue === null) return true
+      if (c.surface === 'frame' && c.frameId && c.frameId !== focusedFrameIdValue) return false
       return true
     })
     .map((c): AgentPresenceCursor => ({
@@ -381,8 +360,6 @@ export function buildCanvasLayoutData(
               fallbackX: frame.width / 2,
               fallbackY: frame.height / 2,
             })
-            // Clamp to the frame's visible area so the cursor doesn't
-            // render outside the frame when targeting off-screen elements.
             const clampedX = Math.max(0, Math.min(point.x, frame.width))
             const clampedY = Math.max(0, Math.min(point.y, frame.height))
             return {
@@ -391,13 +368,10 @@ export function buildCanvasLayoutData(
             }
           }
         }
-        // In browser mode, place canvas-surface cursors on the active frame
+        // When focused on a frame, place canvas-surface cursors on that frame
         // so they remain visible instead of mapping to off-screen canvas coords.
-        if (viewMode === 'browser') {
-          const activeFrameId = uiActiveBrowserFrameId()
-          const frame = activeFrameId
-            ? frames.find((candidate) => candidate.id === activeFrameId)
-            : null
+        if (focusedFrameIdValue) {
+          const frame = frames.find((candidate) => candidate.id === focusedFrameIdValue)
           if (frame) {
             return {
               screenX: frame.screenX + frame.screenWidth / 2,
@@ -466,7 +440,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       loadingPhase: 'idle',
       activeTabId: activeWorkspaceTabId,
       activeTabName,
-      viewMode: uiWorkspaceViewMode(),
+      focusedEntityId: uiFocusedEntityId(),
       pendingPlacementActive: uiPendingPlacement() !== null,
     }
   }
@@ -501,7 +475,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     loadingPhase,
     activeTabId: activeWorkspaceTabId,
     activeTabName,
-    viewMode: uiWorkspaceViewMode(),
+    focusedEntityId: uiFocusedEntityId(),
     pendingPlacementActive: uiPendingPlacement() !== null,
   }
 }

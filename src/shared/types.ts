@@ -26,6 +26,14 @@ export interface PageConfig {
 
 export type CanvasEntityKind = 'frame' | 'text' | 'file' | 'group' | 'edge' | 'drawing'
 
+/**
+ * How a frame is presented when focused.
+ * - fill: fills the viewport (browser-like)
+ * - fit: centered with padding
+ * - device: wrapped in a device bezel, fit-sized
+ */
+export type FrameSizeMode = 'fill' | 'fit' | 'device'
+
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
   id: string
@@ -60,7 +68,7 @@ export interface CanvasSceneFrameEntity {
   canGoForward: boolean
   isLoading: boolean
   isCustomSize: boolean
-  browserSizeMode: 'fill' | 'device'
+  sizeMode: FrameSizeMode
   canvasX: number
   canvasY: number
   width: number
@@ -268,8 +276,7 @@ export interface LayoutUpdateData {
   pan: { x: number; y: number }
   canvasOrigin: { x: number; y: number }
   entities: CanvasSceneEntity[]
-  browserTabs: WorkspaceTabFrameSummary[]
-  browserFillViewport: {
+  focusFillViewport: {
     width: number
     height: number
   }
@@ -279,9 +286,7 @@ export interface LayoutUpdateData {
   annotationMode: AnnotationMode
   annotations: Annotation[]
   fixProgress: Record<string, FixProgressEntry>
-  viewMode: WorkspaceViewMode
-  activeBrowserTabId: string | null
-  activeBrowserFrameId: string | null
+  focusedEntityId: string | null
   selectedGroupId?: string | null
   hover: CanvasHoverTarget
   interaction: CanvasInteractionState
@@ -439,13 +444,16 @@ export type SidebarCanvasItem =
   | SidebarDrawingItem
   | SidebarGroupItem
 
+export type SidebarFilter = { kind: 'all' } | { kind: 'by-kind'; entityKind: CanvasEntityKind }
+
 export interface LeftSidebarData {
   width: number
   selectedEntityIds: string[]
   selectedGroupId?: string | null
   tabs: WorkspaceTabSummary[]
   activeTabId: string | null
-  viewMode: WorkspaceViewMode
+  focusedEntityId: string | null
+  filter: SidebarFilter
   hasFrames: boolean
   items: SidebarCanvasItem[]
 }
@@ -475,7 +483,7 @@ export interface ToolbarSelectionData {
   loadingPhase: 'idle' | 'waiting-response' | 'loading'
   activeTabId: string | null
   activeTabName: string | null
-  viewMode: WorkspaceViewMode
+  focusedEntityId: string | null
   pendingPlacementActive: boolean
 }
 
@@ -838,9 +846,12 @@ export type SelectionOverlayPayload = {
   variant?: 'default' | 'region-select'
 }
 
-export type UiViewMode =
-  | { kind: 'canvas' }
-  | { kind: 'browser'; frameId: string }
+export interface UiFocus {
+  entityId: string
+  entityKind: CanvasEntityKind
+  /** Camera stashed when focus was first entered; restored on exit. */
+  priorCamera: { zoom: number; pan: { x: number; y: number } }
+}
 
 export interface UiDevtoolsState {
   open: boolean
@@ -864,7 +875,8 @@ export interface UiPendingPlacement {
 export interface UiState {
   selection: UiSelection
   toolMode: UiToolMode
-  viewMode: UiViewMode
+  focus: UiFocus | null
+  sidebarFilter: SidebarFilter
   leftSidebarOpen: boolean
   devtools: UiDevtoolsState
   overlays: UiOverlayState
@@ -925,7 +937,8 @@ export interface WorkspaceSnapshot {
   devtoolsOpen: boolean
   devtoolsPanelTab?: DevtoolsPanelTab
   devtoolsWidth: number
-  browserTabMode?: BrowserTabMode
+  /** @deprecated Legacy field from browser-mode era; ignored on read. */
+  browserTabMode?: 'responsive' | 'frame'
   groups?: WorkspaceGroup[]
   edges?: WorkspaceEdge[]
 }
@@ -944,7 +957,6 @@ export interface PersistedWorkspaceRecord {
   name: string
   updatedAt: string
   activeTabId: string
-  viewMode?: WorkspaceViewMode
   tabs: PersistedWorkspaceTab[]
 }
 
@@ -1105,9 +1117,6 @@ export interface WorkspaceBounds {
   height: number
 }
 
-export type WorkspaceViewMode = 'canvas' | 'browser'
-/** @deprecated Browser mode no longer has sub-modes; kept for snapshot compat */
-export type BrowserTabMode = 'responsive' | 'frame'
 
 export interface WorkspaceTabFrameSummary {
   id: string
@@ -1286,7 +1295,8 @@ export interface ToolbarElectronAPI {
   toggleAnnotateMode: () => void
   toggleDrawMode: () => void
   toggleRegionSelectMode: () => void
-  toggleBrowserMode: () => void
+  focusSelectedEntity: () => void
+  exitFocus: () => void
   dropdownOpen: () => void
   dropdownClose: () => void
   setTextEditing: (active: boolean) => void
@@ -1322,14 +1332,14 @@ export interface CanvasBgElectronAPI {
   canvasClickAt: (screenX: number, screenY: number) => void
   clearAnnotateHover: () => void
   selectFrame: (frameId: string) => void
-  selectBrowserTab: (frameId: string) => void
-  addBrowserFrame: (presetIndex: number | 'custom') => void
+  setFocus: (entityId: string, entityKind: CanvasEntityKind) => void
+  clearFocus: () => void
   navigateFrame: (frameId: string, url: string) => void
   goBackFrame: (frameId: string) => void
   goForwardFrame: (frameId: string) => void
   reloadFrame: (frameId: string) => void
   setFrameCustom: (frameId: string) => void
-  setBrowserSizeMode: (frameId: string, mode: 'fill' | 'device') => void
+  setFrameSizeMode: (frameId: string, mode: FrameSizeMode) => void
   updateFrameBounds: (frameId: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   placePendingEntity: (canvasX: number, canvasY: number) => void
   cancelPendingPlacement: () => void
@@ -1489,7 +1499,9 @@ export interface LeftSidebarElectronAPI {
   deleteFrame: (frameId: string) => void
   setTabExpanded: (tabId: string, expanded: boolean) => void
   setTextEditing: (active: boolean) => void
-  toggleBrowserMode: () => void
+  setFocus: (entityId: string, entityKind: CanvasEntityKind) => void
+  clearFocus: () => void
+  setSidebarFilter: (filter: SidebarFilter) => void
   getInitialData: () => Promise<LeftSidebarBootstrapData>
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onSidebarData: (callback: (data: LeftSidebarData) => void) => () => void

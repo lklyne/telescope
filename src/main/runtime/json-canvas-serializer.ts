@@ -7,7 +7,6 @@
 
 import type {
   Annotation,
-  BrowserTabMode,
   DevtoolsPanelTab,
   PersistedCanvasEntity,
   PersistedDrawingEntity,
@@ -216,7 +215,6 @@ function serializeAppState(snapshot: WorkspaceSnapshot): JsonCanvasAppState {
     devtoolsOpen: snapshot.devtoolsOpen,
     devtoolsPanelTab: snapshot.devtoolsPanelTab,
     devtoolsWidth: snapshot.devtoolsWidth,
-    browserTabMode: snapshot.browserTabMode,
   }
 }
 
@@ -269,7 +267,6 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
     devtoolsOpen: appState.devtoolsOpen ?? false,
     devtoolsPanelTab: (appState.devtoolsPanelTab as DevtoolsPanelTab) ?? 'elements',
     devtoolsWidth: appState.devtoolsWidth ?? 400,
-    browserTabMode: (appState.browserTabMode as BrowserTabMode) ?? 'frame',
     edges,
   }
 

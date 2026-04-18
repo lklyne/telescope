@@ -14,7 +14,7 @@ import {
   endAutomationInteractiveFrame,
   sendInteractiveState,
 } from './runtime/overlay-manager'
-import { boundIsFillBrowserPage } from './runtime/runtime-geometry'
+import { boundIsFocusFillFrame } from './runtime/runtime-geometry'
 import {
   activeSessions,
   resolveSession,
@@ -583,9 +583,9 @@ export async function startAppControlServer(): Promise<void> {
           // Snapshot scale on mousePressed; reuse for mouseReleased so a
           // mid-click zoom change doesn't split the pair across scales.
           if (cdpType === 'mousePressed') {
-            clickEmulationScale = boundIsFillBrowserPage(page) ? 1 : getZoom()
+            clickEmulationScale = boundIsFocusFillFrame(page) ? 1 : getZoom()
           }
-          const emulationScale = clickEmulationScale ?? (boundIsFillBrowserPage(page) ? 1 : getZoom())
+          const emulationScale = clickEmulationScale ?? (boundIsFocusFillFrame(page) ? 1 : getZoom())
           if (cdpType === 'mouseReleased') {
             clickEmulationScale = null
           }

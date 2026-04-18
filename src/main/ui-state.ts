@@ -3,11 +3,11 @@ import type {
   CanvasEntityKind,
   CanvasSelectableTarget,
   DevtoolsPanelTab,
+  SidebarFilter,
+  UiFocus,
   UiPendingPlacement,
   UiSelection,
   UiState,
-  UiViewMode,
-  WorkspaceViewMode,
 } from '../shared/types'
 import { isAnnotationModeEnabled, isCanvasEntityKindEnabled } from '../shared/featureFlags'
 import { markDirty } from './runtime/layout-dirty'
@@ -21,10 +21,6 @@ type SelectionInput =
       entityIds: string[]
       entityKindsById: Partial<Record<string, CanvasEntityKind>>
     }
-
-type BrowserTarget = {
-  frameId: string
-}
 
 const DEFAULT_DEVTOOLS_WIDTH = 400
 
@@ -52,7 +48,8 @@ export function createDefaultUiState(): UiState {
   return {
     selection: { kind: 'none' },
     toolMode: 'select',
-    viewMode: { kind: 'canvas' },
+    focus: null,
+    sidebarFilter: { kind: 'all' },
     leftSidebarOpen: true,
     devtools: {
       open: false,
@@ -115,8 +112,8 @@ export function setSelection(input: SelectionInput): UiState {
         entityKindsById: { ...nextInput.entityKindsById },
       }
     }
-    if (uiState.viewMode.kind === 'browser') {
-      uiState.viewMode = { kind: 'canvas' }
+    if (uiState.focus !== null) {
+      uiState.focus = null
     }
     markDirty('canvas', 'sidebar', 'toolbar', 'floating-ui', 'devtools')
     return getUiState()
@@ -159,22 +156,30 @@ export function setAnnotationMode(
   return getUiState()
 }
 
-export function setCanvasMode(): UiState {
-  if (uiState.viewMode.kind !== 'canvas') {
-    breadcrumb('view-mode', 'canvas')
+export function setFocus(focus: UiFocus): UiState {
+  const prev = uiState.focus
+  if (!prev) {
+    breadcrumb('focus', `enter:${focus.entityKind}`)
+  } else if (prev.entityId !== focus.entityId) {
+    breadcrumb('focus', `switch:${focus.entityKind}`)
   }
-  uiState.viewMode = { kind: 'canvas' }
+  uiState.selection = { kind: 'single-entity', entityId: focus.entityId, entityKind: focus.entityKind }
+  uiState.focus = focus
   markDirty('canvas', 'sidebar', 'toolbar', 'bounds', 'pages')
   return getUiState()
 }
 
-export function setBrowserMode(target: BrowserTarget): UiState {
-  if (uiState.viewMode.kind !== 'browser' || uiState.viewMode.frameId !== target.frameId) {
-    breadcrumb('view-mode', 'browser')
-  }
-  uiState.selection = { kind: 'single-entity', entityId: target.frameId, entityKind: 'frame' }
-  uiState.viewMode = { kind: 'browser', frameId: target.frameId }
+export function clearFocus(): UiState {
+  if (uiState.focus === null) return getUiState()
+  breadcrumb('focus', 'exit')
+  uiState.focus = null
   markDirty('canvas', 'sidebar', 'toolbar', 'bounds', 'pages')
+  return getUiState()
+}
+
+export function setSidebarFilter(filter: SidebarFilter): UiState {
+  uiState.sidebarFilter = filter
+  markDirty('sidebar')
   return getUiState()
 }
 
@@ -205,8 +210,8 @@ export function updateSelectionForRemovedEntity(entityId: string): UiState {
           : { kind: 'none' }
   }
 
-  if (uiState.viewMode.kind === 'browser' && uiState.viewMode.frameId === entityId) {
-    uiState.viewMode = { kind: 'canvas' }
+  if (uiState.focus?.entityId === entityId) {
+    uiState.focus = null
   }
   return getUiState()
 }
@@ -260,18 +265,27 @@ export function setDevtoolsWidth(width: number): UiState {
   return getUiState()
 }
 
-export function workspaceViewMode(ui: UiState = uiState): WorkspaceViewMode {
-  return ui.viewMode.kind === 'canvas' ? 'canvas' : 'browser'
+export function focusedEntity(ui: UiState = uiState): UiFocus | null {
+  return ui.focus
 }
 
-export function activeBrowserFrameId(ui: UiState = uiState): string | null {
-  if (ui.viewMode.kind === 'browser') return ui.viewMode.frameId
-  return selectedEntityId(ui)
+export function focusedEntityId(ui: UiState = uiState): string | null {
+  return ui.focus?.entityId ?? null
 }
 
-export function activeBrowserTabId(ui: UiState = uiState): string | null {
-  if (ui.viewMode.kind === 'canvas') return null
-  return ui.viewMode.frameId
+/** True when any entity is focused (replaces the old browser-mode check). */
+export function isFocused(ui: UiState = uiState): boolean {
+  return ui.focus !== null
+}
+
+/** Frame id being focused, or null if focus is on a non-frame or none. */
+export function focusedFrameId(ui: UiState = uiState): string | null {
+  if (ui.focus?.entityKind === 'frame') return ui.focus.entityId
+  return null
+}
+
+export function sidebarFilter(ui: UiState = uiState): SidebarFilter {
+  return ui.sidebarFilter
 }
 
 export function selectedEntityIds(ui: UiState = uiState): string[] {
@@ -308,7 +322,7 @@ export function selectedCanvasTargets(ui: UiState = uiState): CanvasSelectableTa
 export function selectedEntityId(ui: UiState = uiState): string | null {
   if (ui.selection.kind === 'single-entity') return ui.selection.entityId
   if (ui.selection.kind === 'multi-entity') return ui.selection.entityIds[0] ?? null
-  if (ui.viewMode.kind === 'browser') return ui.viewMode.frameId
+  if (ui.focus) return ui.focus.entityId
   return null
 }
 
@@ -386,7 +400,20 @@ function cloneUiState(input: UiState): UiState {
           }
         : { ...input.selection },
     toolMode: input.toolMode,
-    viewMode: { ...input.viewMode },
+    focus: input.focus
+      ? {
+          entityId: input.focus.entityId,
+          entityKind: input.focus.entityKind,
+          priorCamera: {
+            zoom: input.focus.priorCamera.zoom,
+            pan: { ...input.focus.priorCamera.pan },
+          },
+        }
+      : null,
+    sidebarFilter:
+      input.sidebarFilter.kind === 'by-kind'
+        ? { kind: 'by-kind', entityKind: input.sidebarFilter.entityKind }
+        : { kind: 'all' },
     leftSidebarOpen: input.leftSidebarOpen,
     devtools: { ...input.devtools },
     overlays: { ...input.overlays },

@@ -3,10 +3,9 @@ import {
   boundsKey,
   boundApplyEmulation,
   boundEffectivePageContentSize,
-  boundIsFillBrowserPage,
+  boundIsFocusFillFrame,
   boundScreenBoundsForPage,
   boundSelectedPage,
-  boundSelectedPageId,
   boundCanvasOrigin,
 } from './runtime-geometry'
 import {
@@ -45,11 +44,13 @@ import {
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsPanelTab as uiDevtoolsPanelTab,
   devtoolsWidth as uiDevtoolsWidth,
+  focusedEntityId as uiFocusedEntityId,
+  focusedFrameId as uiFocusedFrameId,
   isCommentOverlayVisible as uiCommentOverlayVisible,
+  isFocused as uiIsFocused,
   leftSidebarOpen as uiLeftSidebarOpen,
   selectedEntityIds as uiSelectedEntityIds,
   setDevtoolsWidth as setUiDevtoolsWidth,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   backgroundFrameOverlays,
@@ -88,7 +89,6 @@ export function setBoundsIfChanged(
 }
 
 import {
-  BROWSER_HEADER_HEIGHT,
   CARD_BORDER_RADIUS,
   DEVTOOLS_HEADER_GAP,
   DEVTOOLS_HEADER_HEIGHT,
@@ -202,13 +202,15 @@ export function layoutAllViews(): void {
   if (!win || win.isDestroyed()) return
   const layoutStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
   if (consumeDirty('stack')) applyStack()
-  const viewMode = uiWorkspaceViewMode()
+  const focusedEntityId = uiFocusedEntityId()
+  const focusedFrameIdValue = uiFocusedFrameId()
+  const isFocused = uiIsFocused()
 
   const devtoolsOpen = uiDevtoolsOpen()
   const devtoolsWidth = uiDevtoolsWidth()
   const devtoolsPanelTab = uiDevtoolsPanelTab()
   const selectedFrameIds = uiSelectedEntityIds()
-  const contentTopInset = layoutCache.toolbarHeight + (viewMode === 'browser' ? BROWSER_HEADER_HEIGHT : 0)
+  const contentTopInset = layoutCache.toolbarHeight
 
   const frameOverlays = backgroundFrameOverlays()
   const nextActiveSelection = activeCanvasSelection()
@@ -269,7 +271,7 @@ export function layoutAllViews(): void {
         : interactionState.kind === 'editing-text' ? 'editing-text'
         : interactionState.kind,
       toolMode: getUiState().toolMode,
-      viewMode: uiWorkspaceViewMode(),
+      isFocused,
       commentOverlayActive: uiCommentOverlayVisible(),
       selectionMarqueeVisible: selectionOverlayActive,
       spaceHeld: spaceModifierHeld,
@@ -328,10 +330,11 @@ export function layoutAllViews(): void {
   const windowRect = { x: 0, y: 0, width: winBounds.width, height: winBounds.height }
 
   // --- Per-page bounds, emulation, annotations ---
-  const visibleBrowserPageId = boundSelectedPageId()
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-    const isVisibleInCurrentMode = viewMode === 'canvas' || page.id === visibleBrowserPageId
+    // In focus-fill mode, only the focused frame renders (mirrors old browser mode)
+    const isVisibleInCurrentMode =
+      focusedFrameIdValue === null || page.id === focusedFrameIdValue
     if (!isVisibleInCurrentMode) {
       page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
@@ -360,10 +363,10 @@ export function layoutAllViews(): void {
       continue
     }
 
-    const isFillBrowser = boundIsFillBrowserPage(page)
+    const isFocusFill = boundIsFocusFillFrame(page)
     const deviceId = deviceIdFromMetadata(page.metadata)
     const showShell = showDeviceFrameFromMetadata(page.metadata)
-    const borderRadius = isFillBrowser
+    const borderRadius = isFocusFill
       ? 0
       : deviceId && showShell
         ? Math.round(contentCornerRadiusForDevice(deviceId, deviceOrientationFromMetadata(page.metadata)) * zoom)
@@ -376,8 +379,8 @@ export function layoutAllViews(): void {
 
     const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
     const nativeScale = screen.getPrimaryDisplay().scaleFactor
-    const pageScale = isFillBrowser ? 1 : zoom
-    const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${viewMode}:${devtoolsOpen ? devtoolsWidth : 0}`
+    const pageScale = isFocusFill ? 1 : zoom
+    const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${focusedEntityId ?? ''}:${devtoolsOpen ? devtoolsWidth : 0}`
     if (pageEmulationKey !== page.lastPageEmulationKey) {
       const emulationStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
       boundApplyEmulation(page.pageView.webContents, page.presetIndex, page)
@@ -387,7 +390,7 @@ export function layoutAllViews(): void {
         durationMs: Date.now() - emulationStart,
         emulatedWidth,
         emulatedHeight,
-        viewMode,
+        focusedEntityId,
 
         devtoolsOpen,
       })
@@ -395,7 +398,7 @@ export function layoutAllViews(): void {
 
     // Inject or remove safe-area CSS padding when the device shell is active
     const orientation = deviceOrientationFromMetadata(page.metadata)
-    const safeAreaCss = deviceId && showShell && !isFillBrowser
+    const safeAreaCss = deviceId && showShell && !isFocusFill
       ? safeAreaCssForDevice(deviceId, orientation)
       : null
     const safeAreaKey = safeAreaCss ?? ''

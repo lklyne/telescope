@@ -43,7 +43,7 @@ export type BreadcrumbCategory =
   | 'page'
   | 'navigation'
   | 'undo'
-  | 'view-mode'
+  | 'focus'
   | 'mcp'
   | 'onboarding'
 

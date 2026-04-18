@@ -302,6 +302,46 @@ export interface LayoutUpdateData {
   edges: WorkspaceEdge[]
   groups?: CanvasSceneGroupEntity[]
   presenceCursors: AgentPresenceCursor[]
+  /**
+   * New narration-director frames projected into screen space. Rendered by the
+   * refreshed AgentCursorLayer in step 5; the legacy presenceCursors array is
+   * still emitted alongside until the sweep commit removes it.
+   */
+  narrationFrames: LayoutPresenceFrame[]
+}
+
+export interface LayoutPresenceFrame {
+  sessionId: string
+  clientName: string
+  color: string
+  position: { x: number; y: number }
+  tangent: { x: number; y: number }
+  screenX: number
+  screenY: number
+  activity:
+    | 'traveling'
+    | 'dwelling'
+    | 'committing'
+    | 'waiting'
+    | 'thinking'
+    | 'idle'
+    | 'departing'
+  mood:
+    | 'exploring'
+    | 'committing'
+    | 'correcting'
+    | 'waiting'
+    | 'stuck'
+    | 'error'
+  label: string | null
+  intent: string | null
+  commitKey: number
+  errorKey: number
+  splineViz: {
+    eventId: string
+    polyline: Array<{ x: number; y: number }>
+    waypoints: Array<{ x: number; y: number; width: number; height: number }>
+  } | null
 }
 
 export type PresenceSurface = 'canvas' | 'frame'

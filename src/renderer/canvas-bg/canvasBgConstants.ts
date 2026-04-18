@@ -36,4 +36,5 @@ export const EMPTY_LAYOUT: LayoutUpdateData = {
   edges: [],
   groups: [],
   presenceCursors: [],
+  narrationFrames: [],
 }

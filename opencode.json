@@ -1,9 +1,0 @@
-{
-  "mcp": {
-    "sentry": {
-      "type": "remote",
-      "url": "https://mcp.sentry.dev/mcp",
-      "enabled": true
-    }
-  }
-}

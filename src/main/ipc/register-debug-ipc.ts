@@ -6,15 +6,20 @@ import {
 } from '../../shared/cursor-motion'
 import {
   broadcastCursorMotion,
+  broadcastCursorSplineViz,
   getCursorMotion,
+  getCursorSplineViz,
   isDark,
   saveCursorMotion,
+  saveCursorSplineViz,
 } from '../runtime/preferences'
+import { setSplineVizEnabled } from '../narration/director'
 
 export function registerDebugIpc(): void {
   ipcMain.handle('debug:get-initial-data', async (): Promise<DebugBootstrapData> => ({
     theme: { isDark: isDark() },
     cursorMotion: getCursorMotion(),
+    cursorSplineViz: getCursorSplineViz(),
   }))
 
   ipcMain.on('debug:update-cursor-motion', (_event, raw: unknown) => {
@@ -26,5 +31,12 @@ export function registerDebugIpc(): void {
   ipcMain.on('debug:reset-cursor-motion', () => {
     saveCursorMotion(DEFAULT_CURSOR_MOTION)
     broadcastCursorMotion()
+  })
+
+  ipcMain.on('debug:update-cursor-spline-viz', (_event, on: unknown) => {
+    const next = on === true
+    saveCursorSplineViz(next)
+    setSplineVizEnabled(next)
+    broadcastCursorSplineViz()
   })
 }

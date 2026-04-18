@@ -256,6 +256,12 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.on('cursor-motion-changed', handler)
     return () => ipcRenderer.removeListener('cursor-motion-changed', handler)
   },
+  onCursorSplineVizChanged: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, on: boolean) => callback(on)
+    ipcRenderer.on('cursor-spline-viz-changed', handler)
+    return () =>
+      ipcRenderer.removeListener('cursor-spline-viz-changed', handler)
+  },
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

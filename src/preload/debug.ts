@@ -16,6 +16,14 @@ const api: DebugElectronAPI = {
     ipcRenderer.on('cursor-motion-changed', handler)
     return () => ipcRenderer.removeListener('cursor-motion-changed', handler)
   },
+  updateCursorSplineViz: (on) =>
+    ipcRenderer.send('debug:update-cursor-spline-viz', on),
+  onCursorSplineVizChanged: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, on: boolean) => callback(on)
+    ipcRenderer.on('cursor-spline-viz-changed', handler)
+    return () =>
+      ipcRenderer.removeListener('cursor-spline-viz-changed', handler)
+  },
   onThemeChanged: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: ThemeData) =>
       callback(data)

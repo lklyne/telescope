@@ -6,11 +6,13 @@ import type {
 } from '../../shared/types'
 import { useTheme } from '../shared/hooks/useTheme'
 import { CursorMotionSection } from './CursorMotionSection'
+import { NarrationSection } from './NarrationSection'
 
-type SectionId = 'cursor-motion'
+type SectionId = 'cursor-motion' | 'narration'
 
 const SECTIONS: Array<{ id: SectionId; label: string }> = [
-  { id: 'cursor-motion', label: 'Cursor motion' },
+  { id: 'cursor-motion', label: 'Cursor motion (legacy)' },
+  { id: 'narration', label: 'Narration' },
 ]
 
 export default function App({
@@ -21,16 +23,23 @@ export default function App({
   initialData: DebugBootstrapData
 }) {
   useTheme(initialData.theme, api.onThemeChanged)
-  const [activeSection, setActiveSection] = useState<SectionId>('cursor-motion')
+  const [activeSection, setActiveSection] = useState<SectionId>('narration')
   const [cursorMotion, setCursorMotion] = useState<CursorMotionParams>(
     initialData.cursorMotion,
   )
+  const [splineViz, setSplineViz] = useState<boolean>(initialData.cursorSplineViz)
 
   useEffect(() => api.onCursorMotionChanged(setCursorMotion), [api])
+  useEffect(() => api.onCursorSplineVizChanged(setSplineViz), [api])
 
   const commitCursorMotion = (next: CursorMotionParams) => {
     setCursorMotion(next)
     api.updateCursorMotion(next)
+  }
+
+  const commitSplineViz = (next: boolean) => {
+    setSplineViz(next)
+    api.updateCursorSplineViz(next)
   }
 
   return (
@@ -66,6 +75,8 @@ export default function App({
               onChange={commitCursorMotion}
               onReset={api.resetCursorMotion}
             />
+          ) : activeSection === 'narration' ? (
+            <NarrationSection splineViz={splineViz} onSplineVizChange={commitSplineViz} />
           ) : null}
         </main>
       </div>

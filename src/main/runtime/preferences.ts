@@ -59,10 +59,12 @@ type PreferencesFile = {
   fixConfig?: Omit<FixConfig, 'configured'>
   debug?: {
     cursorMotion?: CursorMotionParams
+    cursorSplineViz?: boolean
   }
 }
 
 let currentCursorMotion: CursorMotionParams = DEFAULT_CURSOR_MOTION
+let currentCursorSplineViz = false
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -140,10 +142,24 @@ export function loadPreferences(): void {
     fixConfig = { ...DEFAULT_FIX_CONFIG, ...parsed.fixConfig, configured: true }
   }
   currentCursorMotion = normalizeCursorMotion(parsed.debug?.cursorMotion)
+  currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
 }
 
 export function getCursorMotion(): CursorMotionParams {
   return currentCursorMotion
+}
+
+export function getCursorSplineViz(): boolean {
+  return currentCursorSplineViz
+}
+
+export function saveCursorSplineViz(next: boolean): void {
+  currentCursorSplineViz = next === true
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    debug: { ...parsed.debug, cursorSplineViz: currentCursorSplineViz },
+  })
 }
 
 export function saveCursorMotion(next: CursorMotionParams): void {
@@ -243,5 +259,22 @@ export function broadcastCursorMotion(): void {
     !cursorOverlayWindow.webContents.isDestroyed()
   ) {
     cursorOverlayWindow.webContents.send('cursor-motion-changed', params)
+  }
+}
+
+export function broadcastCursorSplineViz(): void {
+  const on = currentCursorSplineViz
+  if (bgView && !bgView.webContents.isDestroyed()) {
+    bgView.webContents.send('cursor-spline-viz-changed', on)
+  }
+  if (aboveView && !aboveView.webContents.isDestroyed()) {
+    aboveView.webContents.send('cursor-spline-viz-changed', on)
+  }
+  if (
+    cursorOverlayWindow &&
+    !cursorOverlayWindow.isDestroyed() &&
+    !cursorOverlayWindow.webContents.isDestroyed()
+  ) {
+    cursorOverlayWindow.webContents.send('cursor-spline-viz-changed', on)
   }
 }

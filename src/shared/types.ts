@@ -599,6 +599,7 @@ export interface OnboardingElectronAPI {
 
 export interface DebugBootstrapData extends ThemeBootstrapData {
   cursorMotion: CursorMotionParams
+  cursorSplineViz: boolean
 }
 
 export interface DebugElectronAPI {
@@ -607,6 +608,10 @@ export interface DebugElectronAPI {
   resetCursorMotion: () => void
   onCursorMotionChanged: (
     callback: (params: CursorMotionParams) => void,
+  ) => () => void
+  updateCursorSplineViz: (on: boolean) => void
+  onCursorSplineVizChanged: (
+    callback: (on: boolean) => void,
   ) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
@@ -1487,6 +1492,9 @@ export interface CanvasBgElectronAPI {
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onCursorMotionChanged: (
     callback: (params: CursorMotionParams) => void,
+  ) => () => void
+  onCursorSplineVizChanged: (
+    callback: (on: boolean) => void,
   ) => () => void
 }
 

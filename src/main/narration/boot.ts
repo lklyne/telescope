@@ -13,10 +13,12 @@
 import { markDirty } from '../runtime/layout-dirty'
 import { requestLayout } from '../runtime/surface-layout'
 import { deriveColor } from '../presence-cursor'
+import { getCursorSplineViz } from '../runtime/preferences'
 import {
   configureDirector,
   notifyEventPosted,
   onNarrationFrameChanged,
+  setSplineVizEnabled,
   tick,
 } from './director'
 import { hasPending, subscribe } from './event-bus'
@@ -46,6 +48,8 @@ export function initializeNarrationDirector(): void {
   configureDirector({
     deriveColor,
   })
+
+  setSplineVizEnabled(getCursorSplineViz())
 
   subscribe((sessionId) => {
     // The event-bus subscription fires as soon as a narration event is

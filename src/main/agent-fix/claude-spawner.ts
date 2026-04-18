@@ -1,6 +1,7 @@
 import { spawn } from 'child_process'
 import type { FixProgressEvent } from '../../shared/types'
 import { truncate } from '../../shared/annotation-utils'
+import { getFixConfig } from '../runtime/preferences'
 import { parseStreamLine } from './stream-json-parser'
 
 export interface FixResult {
@@ -37,14 +38,21 @@ export function invokeClaude(
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS
 
   return new Promise<FixResult>((resolve, reject) => {
+    const config = getFixConfig()
+    const args = [
+      '-p', prompt,
+      '--output-format', 'stream-json',
+      '--verbose',
+    ]
+    if (config.model !== 'opus') {
+      args.push('--model', `claude-${config.model}-4-6`)
+    }
+    if (config.permissions === 'dangerously') {
+      args.push('--dangerously-skip-permissions')
+    }
     const child = spawn(
       'claude',
-      [
-        '-p', prompt,
-        '--output-format', 'stream-json',
-        '--verbose',
-        '--dangerously-skip-permissions',
-      ],
+      args,
       {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: repoPath,

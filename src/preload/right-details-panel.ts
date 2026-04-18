@@ -39,6 +39,8 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('right-details-panel-pick-repo-for-origin', { origin }),
   removeOriginBinding: (origin: string) =>
     ipcRenderer.send('right-details-panel-remove-origin-binding', { origin }),
+  setFixConfig: (config: { model: string; permissions: string }) =>
+    ipcRenderer.send('right-details-panel-set-fix-config', config),
   updateTextEntity: (id: string, patch: { color?: string }) =>
     ipcRenderer.send('canvas-update-text-entity', { id, patch }),
   duplicateTextEntity: (id: string) =>

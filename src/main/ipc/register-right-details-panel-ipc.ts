@@ -3,6 +3,7 @@ import type { AnnotationCreateRequest, EdgeEnd, EdgeSide } from '../../shared/ty
 import {
   getOriginBinding,
   removeOriginBinding,
+  setFixConfig,
   setOriginBinding,
 } from '../runtime/preferences'
 import {
@@ -231,6 +232,15 @@ export function registerRightDetailsPanelIpc(): void {
       const origin = payload?.origin?.trim()
       if (!origin) return
       removeOriginBinding(origin)
+      notifyDevtoolsPanelData()
+    },
+  )
+
+  ipcMain.on(
+    'right-details-panel-set-fix-config',
+    (_event, payload: { model?: string; permissions?: string } | undefined) => {
+      if (!payload) return
+      setFixConfig(payload as { model?: 'opus' | 'sonnet' | 'haiku'; permissions?: 'dangerously' | 'default' })
       notifyDevtoolsPanelData()
     },
   )

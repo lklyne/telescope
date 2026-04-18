@@ -123,6 +123,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             originBindings={panelData.originBindings ?? {}}
             fixInProgress={panelData.fixInProgress ?? {}}
             fixProgress={panelData.fixProgress ?? {}}
+            fixConfig={panelData.fixConfig ?? { model: 'opus', permissions: 'dangerously', configured: false }}
             mcpSetup={mcpSetup}
             mcpConnected={mcpConnected}
             copiedInstall={copiedInstall}

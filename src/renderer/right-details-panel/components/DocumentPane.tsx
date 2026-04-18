@@ -1,11 +1,14 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import { Popover } from '@base-ui/react/popover'
-import { ChevronDown, ChevronRight, Eye, FolderOpen, Loader2, Play, Zap } from 'lucide-react'
-import { useMemo } from 'react'
+import { ChevronDown, ChevronRight, FolderOpen, Loader2, Play, Settings, Zap } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import type {
   Annotation,
   DevtoolsPanelData,
   DevtoolsPanelFrameSummary,
+  FixConfig,
+  FixModel,
+  FixPermissions,
   FixProgressEntry,
   OriginBindings,
 } from '../../../shared/types'
@@ -27,6 +30,7 @@ export function DocumentPane({
   originBindings,
   fixInProgress,
   fixProgress,
+  fixConfig,
   mcpSetup,
   mcpConnected,
   copiedInstall,
@@ -41,6 +45,7 @@ export function DocumentPane({
   originBindings: OriginBindings
   fixInProgress: Record<string, number>
   fixProgress: Record<string, FixProgressEntry>
+  fixConfig: FixConfig
   mcpSetup: DevtoolsPanelData['emptyState'] | null
   mcpConnected: boolean
   copiedInstall: 'idle' | 'ok' | 'err'
@@ -70,6 +75,7 @@ export function DocumentPane({
               originGroups={originGroups}
               originBindings={originBindings}
               fixInProgress={fixInProgress}
+              fixConfig={fixConfig}
             />
           ) : null}
         </div>
@@ -132,12 +138,15 @@ function FixMenu({
   originGroups,
   originBindings,
   fixInProgress,
+  fixConfig,
 }: {
   isDark: boolean
   originGroups: { origin: string; unresolvedCount: number }[]
   originBindings: OriginBindings
   fixInProgress: Record<string, number>
+  fixConfig: FixConfig
 }) {
+  const [showSettings, setShowSettings] = useState(!fixConfig.configured)
   const totalUnresolved = originGroups.reduce((s, g) => s + g.unresolvedCount, 0)
   const totalInFlight = Object.values(fixInProgress).reduce((s, n) => s + n, 0)
   const working = totalInFlight > 0
@@ -187,7 +196,13 @@ function FixMenu({
           onClick={anyAutoFix ? undefined : handleFixAll}
           className={`inline-flex items-center gap-1.5 rounded-l-md border px-2 py-1 text-[11px] font-medium ${borderClass} ${btnClass}`}
         >
-          {working ? <Loader2 size={11} className="animate-spin shrink-0" /> : null}
+          {working ? (
+            <Loader2 size={11} className="animate-spin shrink-0" />
+          ) : anyAutoFix ? (
+            <Zap size={11} className="shrink-0" />
+          ) : (
+            <Play size={11} className="shrink-0" />
+          )}
           <span>{faceLabel}</span>
         </button>
 
@@ -207,109 +222,267 @@ function FixMenu({
       <Popover.Portal>
         <Popover.Positioner sideOffset={4} align="end">
           <Popover.Popup className={popupClass}>
-            {/* Global auto / fix now toggle */}
-            <div className={`flex items-center gap-2 border-b px-3 py-2 ${dividerClass}`}>
-              <button
-                type="button"
-                onClick={() => {
-                  for (const group of originGroups) {
-                    if (originBindings[group.origin]) {
-                      rightDetailsPanelApi.setAutoFix(group.origin, !anyAutoFix)
-                    }
-                  }
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
-                  anyAutoFix
-                    ? isDark ? 'bg-emerald-600/80 text-white' : 'bg-emerald-50 text-emerald-700'
-                    : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                }`}
-              >
-                <Zap size={11} className="shrink-0" />
-                Auto
-              </button>
-              <button
-                type="button"
-                onClick={handleFixAll}
-                disabled={!hasBinding || totalUnresolved === 0 || working}
-                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-40 ${
-                  isPrimary
-                    ? isDark ? 'bg-blue-600/80 text-white hover:bg-blue-600' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                    : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                }`}
-              >
-                {working ? <Loader2 size={11} className="animate-spin shrink-0" /> : <Play size={11} className="shrink-0" />}
-                Fix Now
-              </button>
-            </div>
-
-            {/* Origin rows */}
-            {originGroups.map((group, i) => {
-              const binding = originBindings[group.origin]
-              const port = `:${new URL(group.origin).port || '80'}`
-              const repoLabel = binding
-                ? binding.repoPath.replace(/^\/Users\/[^/]+/, '~')
-                : 'Link repo…'
-              const isAuto = binding?.autoFix ?? false
-              const inFlight = (fixInProgress[group.origin] ?? 0) > 0
-
-              return (
-                <div key={group.origin}>
-                  {i > 0 ? <div className={`border-t ${dividerClass}`} /> : null}
-                  <div className="flex items-center gap-2 px-3 py-1.5">
-                    <span className={`shrink-0 text-[11px] font-mono ${muted}`}>{port}</span>
-                    <button
-                      type="button"
-                      onClick={() => rightDetailsPanelApi.pickRepoForOrigin(group.origin)}
-                      className={`min-w-0 flex-1 truncate text-left text-[11px] transition-colors ${
-                        binding
-                          ? isDark ? 'text-zinc-300 hover:text-white' : 'text-zinc-700 hover:text-zinc-900'
-                          : isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'
-                      }`}
-                      title={binding ? binding.repoPath : 'Choose a repo folder…'}
-                    >
-                      {binding ? repoLabel : (
-                        <span className="inline-flex items-center gap-1">
-                          <FolderOpen size={11} className="shrink-0" />
-                          Link repo…
-                        </span>
-                      )}
-                    </button>
-                    <span className={`shrink-0 text-[11px] tabular-nums ${muted}`}>
-                      {group.unresolvedCount}
-                    </span>
-                    {binding ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => rightDetailsPanelApi.setAutoFix(group.origin, !isAuto)}
-                          className={`${iconBtnClass} ${isAuto ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : muted}`}
-                          title={isAuto ? 'Auto-fix on' : 'Auto-fix off'}
-                        >
-                          <Eye size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (group.unresolvedCount > 0 && !inFlight) {
-                              rightDetailsPanelApi.triggerFixComments(group.origin)
-                            }
-                          }}
-                          disabled={group.unresolvedCount === 0 || inFlight}
-                          className={`${iconBtnClass} disabled:opacity-30`}
-                          title="Fix comments"
-                        >
-                          {inFlight ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              )
-            })}
+            {showSettings ? (
+              <FixSettingsView
+                isDark={isDark}
+                fixConfig={fixConfig}
+                dividerClass={dividerClass}
+                muted={muted}
+                onDone={() => setShowSettings(false)}
+              />
+            ) : (
+              <FixOperationsView
+                isDark={isDark}
+                originGroups={originGroups}
+                originBindings={originBindings}
+                fixInProgress={fixInProgress}
+                anyAutoFix={anyAutoFix}
+                hasBinding={hasBinding}
+                isPrimary={isPrimary}
+                working={working}
+                totalUnresolved={totalUnresolved}
+                dividerClass={dividerClass}
+                iconBtnClass={iconBtnClass}
+                muted={muted}
+                handleFixAll={handleFixAll}
+                onOpenSettings={() => setShowSettings(true)}
+              />
+            )}
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>
+  )
+}
+
+function FixSettingsView({
+  isDark,
+  fixConfig,
+  dividerClass,
+  muted,
+  onDone,
+}: {
+  isDark: boolean
+  fixConfig: FixConfig
+  dividerClass: string
+  muted: string
+  onDone: () => void
+}) {
+  const [model, setModel] = useState<FixModel>(fixConfig.model)
+  const [permissions, setPermissions] = useState<FixPermissions>(fixConfig.permissions)
+
+  const selectClass = `w-full rounded-md border px-2 py-1.5 text-[12px] ${
+    isDark
+      ? 'border-zinc-600 bg-zinc-800 text-zinc-100'
+      : 'border-zinc-300 bg-white text-zinc-900'
+  }`
+
+  const handleConfirm = () => {
+    rightDetailsPanelApi.setFixConfig({ model, permissions })
+    onDone()
+  }
+
+  return (
+    <div className="w-[280px]">
+      <div className={`px-3 py-2.5 text-[12px] leading-relaxed ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>
+        Fix uses Claude Code to read your comments and make changes in the linked repo.
+        Pick a model and permission level below.
+      </div>
+
+      <div className={`space-y-3 border-t px-3 py-3 ${dividerClass}`}>
+        <div>
+          <label className="mb-1 block text-[11px] font-medium">Model</label>
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value as FixModel)}
+            className={selectClass}
+          >
+            <option value="opus">Opus</option>
+            <option value="sonnet">Sonnet</option>
+            <option value="haiku">Haiku</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[11px] font-medium">Permissions</label>
+          <select
+            value={permissions}
+            onChange={(e) => setPermissions(e.target.value as FixPermissions)}
+            className={selectClass}
+          >
+            <option value="dangerously">Skip permissions</option>
+            <option value="default">Default (approve each tool)</option>
+          </select>
+          {permissions === 'dangerously' ? (
+            <p className={`mt-1 text-[10px] leading-snug ${muted}`}>
+              Claude will read and write files without asking. Only use this on repos you trust.
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className={`border-t px-3 py-2.5 ${dividerClass}`}>
+        <button
+          type="button"
+          onClick={handleConfirm}
+          className={`w-full rounded-md px-3 py-1.5 text-[12px] font-medium ${
+            isDark
+              ? 'bg-blue-600/80 text-white hover:bg-blue-600'
+              : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+          }`}
+        >
+          {fixConfig.configured ? 'Save' : 'Get started'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function FixOperationsView({
+  isDark,
+  originGroups,
+  originBindings,
+  fixInProgress,
+  anyAutoFix,
+  hasBinding,
+  isPrimary,
+  working,
+  totalUnresolved,
+  dividerClass,
+  iconBtnClass,
+  muted,
+  handleFixAll,
+  onOpenSettings,
+}: {
+  isDark: boolean
+  originGroups: { origin: string; unresolvedCount: number }[]
+  originBindings: OriginBindings
+  fixInProgress: Record<string, number>
+  anyAutoFix: boolean
+  hasBinding: boolean
+  isPrimary: boolean
+  working: boolean
+  totalUnresolved: number
+  dividerClass: string
+  iconBtnClass: string
+  muted: string
+  handleFixAll: () => void
+  onOpenSettings: () => void
+}) {
+  return (
+    <>
+      {/* Global auto / fix now toggle */}
+      <div className={`flex items-center gap-2 border-b px-3 py-2 ${dividerClass}`}>
+        <button
+          type="button"
+          onClick={() => {
+            for (const group of originGroups) {
+              if (originBindings[group.origin]) {
+                rightDetailsPanelApi.setAutoFix(group.origin, !anyAutoFix)
+              }
+            }
+          }}
+          className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+            anyAutoFix
+              ? isDark ? 'bg-emerald-600/80 text-white' : 'bg-emerald-50 text-emerald-700'
+              : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+          }`}
+        >
+          <Zap size={11} className="shrink-0" />
+          Auto
+        </button>
+        <button
+          type="button"
+          onClick={handleFixAll}
+          disabled={!hasBinding || totalUnresolved === 0 || working}
+          className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-40 ${
+            isPrimary
+              ? isDark ? 'bg-blue-600/80 text-white hover:bg-blue-600' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+          }`}
+        >
+          {working ? <Loader2 size={11} className="animate-spin shrink-0" /> : <Play size={11} className="shrink-0" />}
+          Fix all
+        </button>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className={`ml-auto ${iconBtnClass} ${muted}`}
+          title="Fix settings"
+        >
+          <Settings size={13} />
+        </button>
+      </div>
+
+      {/* Origin rows */}
+      {originGroups.map((group, i) => {
+        const binding = originBindings[group.origin]
+        const port = `:${new URL(group.origin).port || '80'}`
+        const repoLabel = binding
+          ? binding.repoPath.replace(/^\/Users\/[^/]+/, '~')
+          : 'Link repo…'
+        const isAuto = binding?.autoFix ?? false
+        const inFlight = (fixInProgress[group.origin] ?? 0) > 0
+
+        return (
+          <div key={group.origin}>
+            {i > 0 ? <div className={`border-t ${dividerClass}`} /> : null}
+            <div className="flex items-center gap-2 px-3 py-1.5">
+              <span className={`shrink-0 text-[11px] font-mono ${muted}`}>{port}</span>
+              <button
+                type="button"
+                onClick={() => rightDetailsPanelApi.pickRepoForOrigin(group.origin)}
+                className={`min-w-0 flex-1 truncate text-left text-[11px] transition-colors ${
+                  binding
+                    ? isDark ? 'text-zinc-300 hover:text-white' : 'text-zinc-700 hover:text-zinc-900'
+                    : isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'
+                }`}
+                title={binding ? binding.repoPath : 'Choose a repo folder…'}
+              >
+                {binding ? repoLabel : (
+                  <span className="inline-flex items-center gap-1">
+                    <FolderOpen size={11} className="shrink-0" />
+                    Link repo…
+                  </span>
+                )}
+              </button>
+              {binding ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => rightDetailsPanelApi.setAutoFix(group.origin, !isAuto)}
+                    className={`${iconBtnClass} ${isAuto ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : muted}`}
+                    title={isAuto ? 'Auto-fix on' : 'Auto-fix off'}
+                  >
+                    <Zap size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (group.unresolvedCount > 0 && !inFlight) {
+                        rightDetailsPanelApi.triggerFixComments(group.origin)
+                      }
+                    }}
+                    disabled={group.unresolvedCount === 0 || inFlight}
+                    className={`${iconBtnClass} disabled:opacity-30`}
+                    title="Fix comments"
+                  >
+                    {inFlight ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+                  </button>
+                </>
+              ) : null}
+              <span
+                className={`ml-1 inline-flex min-w-[20px] shrink-0 items-center justify-center rounded px-1.5 py-0.5 text-[11px] tabular-nums ${
+                  isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-100 text-zinc-500'
+                }`}
+              >
+                {group.unresolvedCount}
+              </span>
+            </div>
+          </div>
+        )
+      })}
+    </>
   )
 }
 

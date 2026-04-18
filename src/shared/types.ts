@@ -641,6 +641,7 @@ export interface DevtoolsPanelData {
   originBindings?: OriginBindings
   fixInProgress?: Record<string, number>
   fixProgress?: Record<string, FixProgressEntry>
+  fixConfig?: FixConfig
   textEntity?: PanelTextEntityDetail
   fileEntity?: PanelFileEntityDetail
   drawingEntity?: PanelDrawingEntityDetail
@@ -1517,6 +1518,7 @@ export interface DevtoolsPanelElectronAPI {
   setAutoFix: (origin: string, enabled: boolean) => void
   pickRepoForOrigin: (origin: string) => void
   removeOriginBinding: (origin: string) => void
+  setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
   updateTextEntity: (id: string, patch: { color?: string }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
@@ -1657,6 +1659,17 @@ export interface OriginBinding {
 }
 
 export type OriginBindings = Record<string, OriginBinding>
+
+// --- Fix config (model + permissions for the Claude subprocess) ---
+
+export type FixModel = 'opus' | 'sonnet' | 'haiku'
+export type FixPermissions = 'dangerously' | 'default'
+
+export interface FixConfig {
+  model: FixModel
+  permissions: FixPermissions
+  configured: boolean
+}
 
 // --- Fix progress (live stream of `claude -p` events per annotation) ---
 

@@ -29,7 +29,7 @@ import type { CatmullRomSpline } from '../../shared/cursor-spline'
 import { foldSpline } from '../../shared/cursor-spline'
 import { composeLabel } from '../../shared/narration-grammar'
 import { deriveMood, paramsForMood } from './mood'
-import { drainSession } from './event-bus'
+import { drainSession, hasCommit } from './event-bus'
 import { pushDebugEntry } from './debug-timeline'
 import {
   DEFAULT_NARRATION_TUNING,
@@ -381,13 +381,12 @@ function applyEvents(state: SessionState, events: readonly NarrationEvent[]): vo
     state.lastProgressAt = now
     setPhase(state, 'traveling', now)
 
-    const hasCommit = event.waypoints.some((w) => w.commit === true)
     pushDebugEntry({
       side: 'director',
       kind: 'dir:apply',
       sessionId: state.sessionId,
       label: `apply ${event.verb}`,
-      detail: `${event.waypoints.length} wp · ${hasCommit ? 'commit' : 'no-commit'} · mood ${state.mood}`,
+      detail: `${event.waypoints.length} wp · ${hasCommit(event) ? 'commit' : 'no-commit'} · mood ${state.mood}`,
     })
   }
 
@@ -594,6 +593,10 @@ export function setSessionIntent(sessionId: string, intent: string | null): void
   const state = sessions.get(sessionId)
   if (!state) return
   state.intent = intent
+}
+
+export function hasNarrationSessions(): boolean {
+  return sessions.size > 0
 }
 
 export function getNarrationFrames(): NarrationFramePayload[] {

@@ -89,7 +89,7 @@ function dropNonCritical(queue: NarrationEvent[], sessionId: string): void {
   }
 }
 
-function hasCommit(event: NarrationEvent): boolean {
+export function hasCommit(event: NarrationEvent): boolean {
   return event.waypoints.some((w) => w.commit === true)
 }
 

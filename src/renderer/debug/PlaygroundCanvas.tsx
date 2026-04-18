@@ -2,26 +2,31 @@ import { useEffect, useRef, useState } from 'react'
 import type { CursorMotionParams, Vec2 } from '../../shared/types'
 import {
   cubicBezierPoint,
-  deriveControlPoints,
+  deriveCandidatePaths,
   easeAt,
+  effectiveDurationMs,
+  pickCandidateIndex,
+  type MotionCandidate,
 } from '../../shared/cursor-motion'
 import { FilledCursorIcon } from '../canvas-bg/AgentCursorLayer'
 
-const TRAIL_LIMIT = 12
+const TRAIL_LIMIT = 6
 const CURSOR_COLOR = '#2563eb'
 const ACTIVE_TRAIL_COLOR = '#16a34a'
+const GHOST_TRAIL_COLOR = '#64748b'
 
 type Trail = {
   id: number
   p0: Vec2
-  p1: Vec2
-  p2: Vec2
   p3: Vec2
+  candidates: MotionCandidate[]
+  pickedIndex: number
 }
 
 type Animation = {
   id: number
   start: number
+  durationMs: number
   p0: Vec2
   p1: Vec2
   p2: Vec2
@@ -74,21 +79,25 @@ export function PlaygroundCanvas({ params }: { params: CursorMotionParams }) {
 
     const activeParams = paramsRef.current
     const seq = ++sequenceRef.current
-    const { p1, p2 } = deriveControlPoints(p0, target, activeParams, seq)
+    const candidates = deriveCandidatePaths(p0, target, activeParams, seq)
+    const pickedIndex = pickCandidateIndex(seq, candidates.length)
+    const picked = candidates[pickedIndex]
     const id = seq
 
     setTrails((prev) => {
-      const next = [...prev, { id, p0, p1, p2, p3: target }]
+      const next = [...prev, { id, p0, p3: target, candidates, pickedIndex }]
       return next.length > TRAIL_LIMIT ? next.slice(next.length - TRAIL_LIMIT) : next
     })
     setActiveTrailId(id)
 
+    const distance = Math.hypot(target.x - p0.x, target.y - p0.y)
     animRef.current = {
       id,
       start: performance.now(),
+      durationMs: effectiveDurationMs(activeParams, distance),
       p0,
-      p1,
-      p2,
+      p1: picked.p1,
+      p2: picked.p2,
       p3: target,
       params: activeParams,
     }
@@ -99,7 +108,7 @@ export function PlaygroundCanvas({ params }: { params: CursorMotionParams }) {
         rafRef.current = null
         return
       }
-      const t = Math.min(1, (now - a.start) / Math.max(1, a.params.durationMs))
+      const t = Math.min(1, (now - a.start) / Math.max(1, a.durationMs))
       const easedT = easeAt(a.params.easing, t)
       const pos = cubicBezierPoint(a.p0, a.p1, a.p2, a.p3, easedT)
       posRef.current = pos
@@ -168,26 +177,50 @@ function TrailsSvg({
       {trails.map((trail, index) => {
         const isActive = trail.id === activeId
         const ageFromNewest = total - 1 - index
-        const opacity = isActive ? 0.95 : Math.max(0.08, 0.5 - ageFromNewest * 0.04)
-        const stroke = isActive ? ACTIVE_TRAIL_COLOR : hueFor(trail.id)
-        const width = isActive ? 2.25 : 1.25
-        const d =
-          `M ${trail.p0.x} ${trail.p0.y} ` +
-          `C ${trail.p1.x} ${trail.p1.y}, ${trail.p2.x} ${trail.p2.y}, ${trail.p3.x} ${trail.p3.y}`
+        const fade = Math.max(0.05, 0.55 - ageFromNewest * 0.09)
+        const pickedHue = isActive ? ACTIVE_TRAIL_COLOR : hueFor(trail.id)
         return (
-          <path
-            key={trail.id}
-            d={d}
-            fill="none"
-            stroke={stroke}
-            strokeOpacity={opacity}
-            strokeWidth={width}
-            strokeLinecap="round"
-          />
+          <g key={trail.id}>
+            {trail.candidates.map((cand, i) => {
+              if (i === trail.pickedIndex) return null
+              const d = pathD(trail.p0, cand.p1, cand.p2, trail.p3)
+              return (
+                <path
+                  key={i}
+                  d={d}
+                  fill="none"
+                  stroke={GHOST_TRAIL_COLOR}
+                  strokeOpacity={isActive ? 0.35 : fade * 0.45}
+                  strokeWidth={1}
+                  strokeDasharray="3 3"
+                  strokeLinecap="round"
+                />
+              )
+            })}
+            {(() => {
+              const picked = trail.candidates[trail.pickedIndex]
+              if (!picked) return null
+              const d = pathD(trail.p0, picked.p1, picked.p2, trail.p3)
+              return (
+                <path
+                  d={d}
+                  fill="none"
+                  stroke={pickedHue}
+                  strokeOpacity={isActive ? 0.95 : Math.max(0.12, fade)}
+                  strokeWidth={isActive ? 2.25 : 1.5}
+                  strokeLinecap="round"
+                />
+              )
+            })()}
+          </g>
         )
       })}
     </svg>
   )
+}
+
+function pathD(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2): string {
+  return `M ${p0.x} ${p0.y} C ${p1.x} ${p1.y}, ${p2.x} ${p2.y}, ${p3.x} ${p3.y}`
 }
 
 function hueFor(id: number): string {

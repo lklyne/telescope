@@ -56,6 +56,18 @@ export function ControlsPanel({
         />
       </Field>
 
+      <Field label="Distance scaling" value={params.distanceScaling.toFixed(2)}>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={params.distanceScaling}
+          onChange={(e) => patch({ distanceScaling: Number(e.target.value) })}
+          className="w-full accent-blue-600"
+        />
+      </Field>
+
       <Field label="Curve strength" value={params.curveStrength.toFixed(2)}>
         <input
           type="range"
@@ -76,6 +88,18 @@ export function ControlsPanel({
           step={0.01}
           value={params.curveAsymmetry}
           onChange={(e) => patch({ curveAsymmetry: Number(e.target.value) })}
+          className="w-full accent-blue-600"
+        />
+      </Field>
+
+      <Field label="Jitter" value={params.curveJitter.toFixed(2)}>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={params.curveJitter}
+          onChange={(e) => patch({ curveJitter: Number(e.target.value) })}
           className="w-full accent-blue-600"
         />
       </Field>

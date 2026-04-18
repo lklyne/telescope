@@ -14,6 +14,7 @@ import {
   cubicBezierPoint,
   deriveControlPoints,
   easeAt,
+  effectiveDurationMs,
 } from '../../shared/cursor-motion'
 
 export function FilledCursorIcon({
@@ -124,6 +125,7 @@ function ClickRipple({ color }: { color: string }) {
 
 type Animation = {
   start: number
+  durationMs: number
   p0: Vec2
   p1: Vec2
   p2: Vec2
@@ -190,8 +192,10 @@ function AgentCursor({
 
     const seq = ++sequenceRef.current
     const { p1, p2 } = deriveControlPoints(p0, p3, motionParams, seq)
+    const distance = Math.hypot(p3.x - p0.x, p3.y - p0.y)
     animRef.current = {
       start: performance.now(),
+      durationMs: effectiveDurationMs(motionParams, distance),
       p0,
       p1,
       p2,
@@ -205,7 +209,7 @@ function AgentCursor({
         rafRef.current = null
         return
       }
-      const t = Math.min(1, (now - a.start) / Math.max(1, a.params.durationMs))
+      const t = Math.min(1, (now - a.start) / Math.max(1, a.durationMs))
       const easedT = easeAt(a.params.easing, t)
       const pos = cubicBezierPoint(a.p0, a.p1, a.p2, a.p3, easedT)
       posRef.current = pos

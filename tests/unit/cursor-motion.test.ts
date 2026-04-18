@@ -60,7 +60,12 @@ describe('deriveControlPoints', () => {
     const { p1, p2 } = deriveControlPoints(
       p0,
       p3,
-      { ...DEFAULT_CURSOR_MOTION, curveStrength: 0, curveAsymmetry: 0 },
+      {
+        ...DEFAULT_CURSOR_MOTION,
+        curveStrength: 0,
+        curveAsymmetry: 0,
+        curveJitter: 0,
+      },
       0,
     )
     expect(p1.y).toBeCloseTo(0)
@@ -71,11 +76,13 @@ describe('deriveControlPoints', () => {
     const paramsLeft = {
       ...DEFAULT_CURSOR_MOTION,
       curveStrength: 0.5,
+      curveJitter: 0,
       curveDirection: 'left' as const,
     }
     const paramsRight = {
       ...DEFAULT_CURSOR_MOTION,
       curveStrength: 0.5,
+      curveJitter: 0,
       curveDirection: 'right' as const,
     }
     const left = deriveControlPoints(p0, p3, paramsLeft, 0)
@@ -88,6 +95,7 @@ describe('deriveControlPoints', () => {
     const params = {
       ...DEFAULT_CURSOR_MOTION,
       curveStrength: 0.5,
+      curveJitter: 0,
       curveDirection: 'alternating' as const,
     }
     const even = deriveControlPoints(p0, p3, params, 0)

@@ -35,14 +35,46 @@ export interface CursorMotionParams {
   curveStrength: number
   curveAsymmetry: number
   curveDirection: CurveDirection
+  /**
+   * 0..1 scalar that adds per-path variation. Strength, asymmetry, handle
+   * angle, and (when direction is 'auto') side all drift by a deterministic
+   * amount derived from `sequenceIndex`, so repeated calls with the same
+   * seed are stable.
+   */
+  curveJitter: number
+  /**
+   * 0..1 exponent controlling how much distance influences duration.
+   *  - 0: duration is constant (`durationMs`) regardless of distance.
+   *  - 1: duration scales linearly with distance (constant cursor speed).
+   * The reference distance is `DISTANCE_SCALE_REFERENCE_PX`: at that distance
+   * the effective duration equals `durationMs`.
+   */
+  distanceScaling: number
 }
 
 export const DEFAULT_CURSOR_MOTION: CursorMotionParams = {
-  durationMs: 250,
+  durationMs: 1080,
   easing: { kind: 'preset', name: 'easeInOutCubic' },
-  curveStrength: 0.25,
-  curveAsymmetry: 0,
+  curveStrength: 0,
+  curveAsymmetry: -1,
   curveDirection: 'auto',
+  curveJitter: 0.2,
+  distanceScaling: 1,
+}
+
+export const DISTANCE_SCALE_REFERENCE_PX = 400
+
+export function effectiveDurationMs(
+  params: CursorMotionParams,
+  distance: number,
+): number {
+  const exp = Math.max(0, Math.min(1, params.distanceScaling))
+  if (exp === 0 || distance <= 0) return params.durationMs
+  const ratio = distance / DISTANCE_SCALE_REFERENCE_PX
+  const scaled = params.durationMs * Math.pow(ratio, exp)
+  // Clamp to the same envelope used by the Duration slider so extreme distances
+  // don't produce imperceptible or runaway animations.
+  return Math.max(50, Math.min(3000, scaled))
 }
 
 // --- 1D easing presets (t in [0,1] → [0,1]) -------------------------------
@@ -147,57 +179,164 @@ export function cubicBezierPoint(
  *  - Positive asymmetry pushes both toward the start (front-loaded curve).
  *  - Negative asymmetry pushes both toward the end (back-loaded curve).
  */
+// Deterministic [0,1) hash from an integer seed. Same (seed, salt) → same value,
+// so callers that re-derive control points for the same sequenceIndex (e.g. the
+// playground drawing trails every render) get a stable curve.
+function seededRandom(seed: number, salt: number): number {
+  let h = Math.imul(seed | 0, 2654435761) ^ Math.imul(salt | 0, 1597334677)
+  h = Math.imul(h ^ (h >>> 15), 2246822519)
+  h = Math.imul(h ^ (h >>> 13), 3266489917)
+  h = (h ^ (h >>> 16)) >>> 0
+  return h / 4294967296
+}
+
+export const CANDIDATE_COUNT = 6
+
+export interface MotionCandidate {
+  p1: Vec2
+  p2: Vec2
+  side: -1 | 1
+}
+
+function candidateSides(
+  direction: CurveDirection,
+  sequenceIndex: number,
+  count: number,
+): (-1 | 1)[] {
+  switch (direction) {
+    case 'left':
+      return Array.from({ length: count }, () => -1 as const)
+    case 'right':
+      return Array.from({ length: count }, () => 1 as const)
+    case 'alternating': {
+      const s: -1 | 1 = sequenceIndex % 2 === 0 ? 1 : -1
+      return Array.from({ length: count }, () => s)
+    }
+    case 'auto':
+    default: {
+      // Half left, half right. Ordered [-,-,-,+,+,+] so candidate indices
+      // in the first half bow one way and the second half the other.
+      const half = Math.floor(count / 2)
+      return Array.from({ length: count }, (_, i) =>
+        i < half ? -1 : (1 as -1 | 1),
+      )
+    }
+  }
+}
+
+// Max per-handle angular rotation (in radians) at full jitter. 135° lets the
+// cursor peel off backward or sideways before curving toward the target.
+const HANDLE_ROTATION_MAX = Math.PI * 0.75
+
+function rotateAround(point: Vec2, pivot: Vec2, angle: number): Vec2 {
+  const dx = point.x - pivot.x
+  const dy = point.y - pivot.y
+  const c = Math.cos(angle)
+  const s = Math.sin(angle)
+  return {
+    x: pivot.x + dx * c - dy * s,
+    y: pivot.y + dx * s + dy * c,
+  }
+}
+
+function candidateFromIndex(
+  p0: Vec2,
+  p3: Vec2,
+  params: CursorMotionParams,
+  sequenceIndex: number,
+  candidateIndex: number,
+  side: -1 | 1,
+  dx: number,
+  dy: number,
+  dist: number,
+): MotionCandidate {
+  const jitter = Math.max(0, Math.min(1, params.curveJitter))
+  // Each candidate uses its own salt so their jitter perturbations differ
+  // even within a single sequenceIndex.
+  const rStrength =
+    seededRandom(sequenceIndex, candidateIndex * 7 + 11) * 2 - 1
+  const rAsym =
+    seededRandom(sequenceIndex, candidateIndex * 7 + 13) * 2 - 1
+  const rAngle1 =
+    seededRandom(sequenceIndex, candidateIndex * 7 + 15) * 2 - 1
+  const rAngle2 =
+    seededRandom(sequenceIndex, candidateIndex * 7 + 17) * 2 - 1
+
+  const px = -dy / dist
+  const py = dx / dist
+
+  const strengthMul = 1 + rStrength * jitter * 0.6 // ±60% at full jitter
+  const strength = Math.max(0, Math.min(1, params.curveStrength * strengthMul))
+  const offset = strength * dist * side
+
+  const asymRaw = params.curveAsymmetry + rAsym * jitter * 0.5
+  const asym = Math.max(-1, Math.min(1, asymRaw))
+
+  const t1 = 1 / 3 - asym * (1 / 3)
+  const t2 = 2 / 3 - asym * (1 / 3)
+
+  const p1Base: Vec2 = {
+    x: p0.x + dx * t1 + px * offset,
+    y: p0.y + dy * t1 + py * offset,
+  }
+  const p2Base: Vec2 = {
+    x: p0.x + dx * t2 + px * offset,
+    y: p0.y + dy * t2 + py * offset,
+  }
+
+  // Rotate each handle around its anchor (p1 around p0, p2 around p3) so the
+  // curve's start/end tangents can deviate from the straight-line direction.
+  // At jitter=0, both rotations are 0 and the base positions are preserved.
+  const angle1 = rAngle1 * jitter * HANDLE_ROTATION_MAX
+  const angle2 = rAngle2 * jitter * HANDLE_ROTATION_MAX
+
+  return {
+    p1: rotateAround(p1Base, p0, angle1),
+    p2: rotateAround(p2Base, p3, angle2),
+    side,
+  }
+}
+
+export function deriveCandidatePaths(
+  p0: Vec2,
+  p3: Vec2,
+  params: CursorMotionParams,
+  sequenceIndex: number,
+  count: number = CANDIDATE_COUNT,
+): MotionCandidate[] {
+  const dx = p3.x - p0.x
+  const dy = p3.y - p0.y
+  const dist = Math.hypot(dx, dy)
+  if (dist < 1e-3) {
+    return Array.from({ length: count }, () => ({
+      p1: { ...p0 },
+      p2: { ...p3 },
+      side: 1 as const,
+    }))
+  }
+  const sides = candidateSides(params.curveDirection, sequenceIndex, count)
+  return sides.map((side, i) =>
+    candidateFromIndex(p0, p3, params, sequenceIndex, i, side, dx, dy, dist),
+  )
+}
+
+export function pickCandidateIndex(
+  sequenceIndex: number,
+  count: number = CANDIDATE_COUNT,
+): number {
+  if (count <= 0) return 0
+  return Math.floor(seededRandom(sequenceIndex, 9973) * count)
+}
+
 export function deriveControlPoints(
   p0: Vec2,
   p3: Vec2,
   params: CursorMotionParams,
   sequenceIndex: number,
 ): { p1: Vec2; p2: Vec2 } {
-  const dx = p3.x - p0.x
-  const dy = p3.y - p0.y
-  const dist = Math.hypot(dx, dy)
-
-  if (dist < 1e-3) {
-    return { p1: { ...p0 }, p2: { ...p3 } }
-  }
-
-  let sign: number
-  switch (params.curveDirection) {
-    case 'left':
-      sign = -1
-      break
-    case 'right':
-      sign = 1
-      break
-    case 'alternating':
-      sign = sequenceIndex % 2 === 0 ? 1 : -1
-      break
-    case 'auto':
-    default:
-      sign = 1
-  }
-
-  // Unit perpendicular (rotate 90° CCW from the travel vector).
-  const px = -dy / dist
-  const py = dx / dist
-
-  const offset = params.curveStrength * dist * sign
-  const asym = Math.max(-1, Math.min(1, params.curveAsymmetry))
-
-  // Along-axis positions: default 1/3 and 2/3; asymmetry shifts both.
-  const t1 = 1 / 3 - asym * (1 / 3)
-  const t2 = 2 / 3 - asym * (1 / 3)
-
-  return {
-    p1: {
-      x: p0.x + dx * t1 + px * offset,
-      y: p0.y + dy * t1 + py * offset,
-    },
-    p2: {
-      x: p0.x + dx * t2 + px * offset,
-      y: p0.y + dy * t2 + py * offset,
-    },
-  }
+  const candidates = deriveCandidatePaths(p0, p3, params, sequenceIndex)
+  const picked = candidates[pickCandidateIndex(sequenceIndex, candidates.length)]
+  return { p1: picked.p1, p2: picked.p2 }
 }
 
 export function sampleCursorPath(
@@ -278,5 +417,15 @@ export function normalizeCursorMotion(raw: unknown): CursorMotionParams {
       1,
     ),
     curveDirection: dir,
+    curveJitter: clamp(
+      Number(r.curveJitter ?? DEFAULT_CURSOR_MOTION.curveJitter),
+      0,
+      1,
+    ),
+    distanceScaling: clamp(
+      Number(r.distanceScaling ?? DEFAULT_CURSOR_MOTION.distanceScaling),
+      0,
+      1,
+    ),
   }
 }

@@ -76,6 +76,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             annotations={annotations}
             selection={panelData.selection}
             frames={frames}
+            fixProgress={panelData.fixProgress ?? {}}
           />
         ) : null
 

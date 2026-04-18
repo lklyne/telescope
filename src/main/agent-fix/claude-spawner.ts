@@ -14,7 +14,7 @@ export interface InvokeOptions {
   timeout?: number
 }
 
-const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000
+const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
 
 type SpawnerFn = (
   prompt: string,

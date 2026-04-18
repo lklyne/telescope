@@ -1,5 +1,7 @@
 import { Collapsible } from '@base-ui/react/collapsible'
-import { ChevronRight } from 'lucide-react'
+import { Popover } from '@base-ui/react/popover'
+import { ChevronDown, ChevronRight, Eye, FolderOpen, Loader2, Play, Zap } from 'lucide-react'
+import { useMemo } from 'react'
 import type {
   Annotation,
   DevtoolsPanelData,
@@ -8,6 +10,8 @@ import type {
   OriginBindings,
 } from '../../../shared/types'
 import { dividerClass, isUnresolved, mutedClass } from '../rightDetailsPanelHelpers'
+import { groupAnnotationsByOrigin } from '../rightDetailsPanelSelectors'
+import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import { useFocusedAnnotationScroll } from '../useFocusedAnnotationScroll'
 import { CommentRow, CommentsPane } from './CommentsPane'
 import { PaneHeader } from './PaneHeader'
@@ -44,6 +48,7 @@ export function DocumentPane({
 }) {
   const muted = mutedClass(isDark)
   const divider = dividerClass(isDark)
+  const originGroups = useMemo(() => groupAnnotationsByOrigin(annotations), [annotations])
 
   return (
     <div className="flex h-full flex-col overflow-auto">
@@ -52,12 +57,22 @@ export function DocumentPane({
       />
 
       <Collapsible.Root defaultOpen>
-        <Collapsible.Trigger
-          className="group flex w-full items-center gap-1.5 px-3 py-2 text-[12px] font-medium"
-        >
-          Comments
-          <ChevronRight size={10} className="transition-all ease-out group-data-[panel-open]:rotate-90" />
-        </Collapsible.Trigger>
+        <div className="flex items-center">
+          <Collapsible.Trigger
+            className="group flex flex-1 items-center gap-1.5 px-3 py-2 text-[12px] font-medium"
+          >
+            Comments
+            <ChevronRight size={10} className="transition-all ease-out group-data-[panel-open]:rotate-90" />
+          </Collapsible.Trigger>
+          {originGroups.length > 0 ? (
+            <FixMenu
+              isDark={isDark}
+              originGroups={originGroups}
+              originBindings={originBindings}
+              fixInProgress={fixInProgress}
+            />
+          ) : null}
+        </div>
         <Collapsible.Panel className="[&[hidden]:not([hidden='until-found'])]:hidden">
           <CommentsPane
             isDark={isDark}
@@ -66,8 +81,6 @@ export function DocumentPane({
             focusedAnnotationId={focusedAnnotationId}
             annotateEnabled={annotateEnabled}
             annotateAvailable={annotateAvailable}
-            originBindings={originBindings}
-            fixInProgress={fixInProgress}
             fixProgress={fixProgress}
           />
         </Collapsible.Panel>
@@ -111,6 +124,192 @@ export function DocumentPane({
         </Collapsible.Root>
       ) : null}
     </div>
+  )
+}
+
+function FixMenu({
+  isDark,
+  originGroups,
+  originBindings,
+  fixInProgress,
+}: {
+  isDark: boolean
+  originGroups: { origin: string; unresolvedCount: number }[]
+  originBindings: OriginBindings
+  fixInProgress: Record<string, number>
+}) {
+  const totalUnresolved = originGroups.reduce((s, g) => s + g.unresolvedCount, 0)
+  const totalInFlight = Object.values(fixInProgress).reduce((s, n) => s + n, 0)
+  const working = totalInFlight > 0
+  const anyAutoFix = originGroups.some((g) => originBindings[g.origin]?.autoFix)
+  const hasBinding = originGroups.some((g) => originBindings[g.origin])
+
+  const faceLabel = anyAutoFix ? 'Auto Fix' : `Fix ${totalUnresolved}`
+  const isPrimary = !anyAutoFix && totalUnresolved > 0
+
+  const handleFixAll = () => {
+    if (!hasBinding || totalUnresolved === 0 || working) return
+    for (const group of originGroups) {
+      if (originBindings[group.origin] && group.unresolvedCount > 0) {
+        rightDetailsPanelApi.triggerFixComments(group.origin)
+      }
+    }
+  }
+
+  const borderClass = isPrimary
+    ? isDark ? 'border-blue-500/70' : 'border-blue-200'
+    : isDark ? 'border-zinc-600' : 'border-zinc-300'
+  const primaryBtnClass = isDark
+    ? 'bg-blue-600/80 text-white hover:bg-blue-600'
+    : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+  const secondaryBtnClass = isDark
+    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+    : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-200'
+  const btnClass = isPrimary ? primaryBtnClass : secondaryBtnClass
+
+  const popupClass = `z-50 min-w-[260px] rounded-[10px] border shadow-xl outline-none ${
+    isDark
+      ? 'border-zinc-700 bg-zinc-900 text-zinc-100'
+      : 'border-zinc-200 bg-white text-zinc-900'
+  }`
+  const dividerClass = isDark ? 'border-zinc-700' : 'border-zinc-200'
+  const iconBtnClass = `rounded p-1 transition-colors ${
+    isDark ? 'hover:bg-zinc-700' : 'hover:bg-zinc-100'
+  }`
+  const muted = isDark ? 'text-zinc-500' : 'text-zinc-400'
+
+  return (
+    <Popover.Root>
+      <div className="mr-2 flex items-center">
+        {/* Action face */}
+        <button
+          type="button"
+          onClick={anyAutoFix ? undefined : handleFixAll}
+          className={`inline-flex items-center gap-1.5 rounded-l-md border px-2 py-1 text-[11px] font-medium ${borderClass} ${btnClass}`}
+        >
+          {working ? <Loader2 size={11} className="animate-spin shrink-0" /> : null}
+          <span>{faceLabel}</span>
+        </button>
+
+        {/* Dropdown caret */}
+        <Popover.Trigger
+          render={
+            <button
+              type="button"
+              className={`inline-flex items-center self-stretch rounded-r-md border border-l-0 px-1.5 ${borderClass} ${btnClass}`}
+            />
+          }
+        >
+          <ChevronDown size={10} />
+        </Popover.Trigger>
+      </div>
+
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={4} align="end">
+          <Popover.Popup className={popupClass}>
+            {/* Global auto / fix now toggle */}
+            <div className={`flex items-center gap-2 border-b px-3 py-2 ${dividerClass}`}>
+              <button
+                type="button"
+                onClick={() => {
+                  for (const group of originGroups) {
+                    if (originBindings[group.origin]) {
+                      rightDetailsPanelApi.setAutoFix(group.origin, !anyAutoFix)
+                    }
+                  }
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+                  anyAutoFix
+                    ? isDark ? 'bg-emerald-600/80 text-white' : 'bg-emerald-50 text-emerald-700'
+                    : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                <Zap size={11} className="shrink-0" />
+                Auto
+              </button>
+              <button
+                type="button"
+                onClick={handleFixAll}
+                disabled={!hasBinding || totalUnresolved === 0 || working}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-40 ${
+                  isPrimary
+                    ? isDark ? 'bg-blue-600/80 text-white hover:bg-blue-600' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                    : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                {working ? <Loader2 size={11} className="animate-spin shrink-0" /> : <Play size={11} className="shrink-0" />}
+                Fix Now
+              </button>
+            </div>
+
+            {/* Origin rows */}
+            {originGroups.map((group, i) => {
+              const binding = originBindings[group.origin]
+              const port = `:${new URL(group.origin).port || '80'}`
+              const repoLabel = binding
+                ? binding.repoPath.replace(/^\/Users\/[^/]+/, '~')
+                : 'Link repo…'
+              const isAuto = binding?.autoFix ?? false
+              const inFlight = (fixInProgress[group.origin] ?? 0) > 0
+
+              return (
+                <div key={group.origin}>
+                  {i > 0 ? <div className={`border-t ${dividerClass}`} /> : null}
+                  <div className="flex items-center gap-2 px-3 py-1.5">
+                    <span className={`shrink-0 text-[11px] font-mono ${muted}`}>{port}</span>
+                    <button
+                      type="button"
+                      onClick={() => rightDetailsPanelApi.pickRepoForOrigin(group.origin)}
+                      className={`min-w-0 flex-1 truncate text-left text-[11px] transition-colors ${
+                        binding
+                          ? isDark ? 'text-zinc-300 hover:text-white' : 'text-zinc-700 hover:text-zinc-900'
+                          : isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'
+                      }`}
+                      title={binding ? binding.repoPath : 'Choose a repo folder…'}
+                    >
+                      {binding ? repoLabel : (
+                        <span className="inline-flex items-center gap-1">
+                          <FolderOpen size={11} className="shrink-0" />
+                          Link repo…
+                        </span>
+                      )}
+                    </button>
+                    <span className={`shrink-0 text-[11px] tabular-nums ${muted}`}>
+                      {group.unresolvedCount}
+                    </span>
+                    {binding ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => rightDetailsPanelApi.setAutoFix(group.origin, !isAuto)}
+                          className={`${iconBtnClass} ${isAuto ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : muted}`}
+                          title={isAuto ? 'Auto-fix on' : 'Auto-fix off'}
+                        >
+                          <Eye size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (group.unresolvedCount > 0 && !inFlight) {
+                              rightDetailsPanelApi.triggerFixComments(group.origin)
+                            }
+                          }}
+                          disabled={group.unresolvedCount === 0 || inFlight}
+                          className={`${iconBtnClass} disabled:opacity-30`}
+                          title="Fix comments"
+                        >
+                          {inFlight ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
 

@@ -18,6 +18,7 @@ import type {
   Annotation,
   DevtoolsPanelFrameSummary,
   DevtoolsPanelSelectionSummary,
+  FixProgressEntry,
   InspectPanelState,
 } from '../../../shared/types'
 import { DEVICE_CATALOG } from '../../../shared/device-catalog'
@@ -51,12 +52,14 @@ export function FramePane({
   annotations,
   selection,
   frames,
+  fixProgress,
 }: {
   inspect: InspectPanelState
   isDark: boolean
   annotations: Annotation[]
   selection?: DevtoolsPanelSelectionSummary
   frames: DevtoolsPanelFrameSummary[]
+  fixProgress: Record<string, FixProgressEntry>
 }) {
   const muted = mutedClass(isDark)
   const divider = dividerClass(isDark)
@@ -155,6 +158,7 @@ export function FramePane({
           divider={divider}
           muted={muted}
           collapsiblePanelClass={collapsiblePanelClass}
+          fixProgress={fixProgress}
         />
 
         {/* Inspect tree (collapsible) */}
@@ -299,6 +303,7 @@ function FrameCommentsSection({
   divider,
   muted,
   collapsiblePanelClass,
+  fixProgress,
 }: {
   annotations: Annotation[]
   activeFrameId: string | null
@@ -306,6 +311,7 @@ function FrameCommentsSection({
   divider: string
   muted: string
   collapsiblePanelClass: string
+  fixProgress: Record<string, FixProgressEntry>
 }) {
   const frameComments = unresolvedCommentsForFrame(annotations, activeFrameId)
   if (!frameComments.length) return null
@@ -333,6 +339,7 @@ function FrameCommentsSection({
                 rowHoverClass={isDark ? 'hover:bg-zinc-700/55' : 'hover:bg-zinc-50'}
                 focusRowClass=""
                 registerAnnotationElement={() => {}}
+                progress={fixProgress[annotation.id]}
               />
             ))}
           </div>

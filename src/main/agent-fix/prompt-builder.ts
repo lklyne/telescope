@@ -53,6 +53,26 @@ export function buildFixPrompt(annotation: Annotation): string {
     lines.push(`Selector: ${annotation.anchor.selector}`)
   }
 
+  if (annotation.anchor.type === 'region') {
+    const { canvasRect } = annotation.anchor
+    lines.push(
+      `Region: x=${Math.round(canvasRect.x)} y=${Math.round(canvasRect.y)} w=${Math.round(canvasRect.width)} h=${Math.round(canvasRect.height)} (canvas coords)`,
+    )
+    const components = annotation.metadata?.regionComponents ?? []
+    for (const group of components) {
+      if (!group.components.length) continue
+      lines.push(`Components in region (${group.frameName}):`)
+      for (const c of group.components) {
+        const loc = c.sourceLocation
+          ? c.sourceLocation.line != null
+            ? `${c.sourceLocation.file}:${c.sourceLocation.line}`
+            : c.sourceLocation.file
+          : 'no source'
+        lines.push(`  - ${c.name} ×${c.count} (${loc})`)
+      }
+    }
+  }
+
   lines.push('')
   lines.push('Thread:')
   lines.push(`[${labelForAuthor(annotation.author)}] ${annotation.text}`)

@@ -229,8 +229,11 @@ const ungroup: VerbHandler = async (args) => {
 // --- Annotation verbs ---
 
 const annotations: VerbHandler = async (args) => {
+  const status = args.boolFlags.has('all')
+    ? 'all'
+    : (args.flags.status ?? 'unresolved')
   const result = await getAnnotationsSlim({
-    status: args.flags.status,
+    status,
     url: args.flags.url,
     frame_id: args.flags['frame-id'],
   })

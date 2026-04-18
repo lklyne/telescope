@@ -143,7 +143,7 @@ export function initWindow(): void {
   loadPreferences()
   initFixOrchestrator()
   onTrackerChange(() => notifyDevtoolsPanelData())
-  onProgressChange(() => notifyDevtoolsPanelData())
+  onProgressChange(() => { markDirty('canvas'); requestLayout(); notifyDevtoolsPanelData() })
   ensureWorkspaceTabsInitialized()
   layoutCache.toolbarHeight = TOOLBAR_HEIGHT
 

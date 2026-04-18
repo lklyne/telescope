@@ -1,13 +1,11 @@
 import { Fragment, useEffect, useMemo, useRef } from 'react'
-import { Collapsible } from '@base-ui/react/collapsible'
 import { Popover } from '@base-ui/react/popover'
-import { Info, Loader2, MessageCircle, Wrench, X } from 'lucide-react'
+import { Info, Loader2, MessageCircle, RotateCw } from 'lucide-react'
 import type {
   Annotation,
   DevtoolsPanelFrameSummary,
   FixProgressEntry,
   FixProgressEvent,
-  OriginBindings,
 } from '../../../shared/types'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import {
@@ -16,7 +14,6 @@ import {
 } from '../rightDetailsPanelHelpers'
 import {
   groupAnnotationsByFrame,
-  groupAnnotationsByOrigin,
 } from '../rightDetailsPanelSelectors'
 import { useFocusedAnnotationScroll } from '../useFocusedAnnotationScroll'
 import {
@@ -181,7 +178,7 @@ function FixProgressButton({
         render={
           <button
             type="button"
-            className={`inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] ${tone}`}
+            className={`-ml-1.5 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] ${tone}`}
             aria-label="Show fix log"
             title="Show fix log"
           />
@@ -218,6 +215,30 @@ function FixProgressButton({
                 isDark ? 'border-zinc-700 bg-red-900/20 text-red-300' : 'border-zinc-200 bg-red-50 text-red-700'
               }`}>
                 {progress.error}
+              </div>
+            ) : null}
+            {progress.status !== 'running' ? (
+              <div
+                className={`flex items-center justify-end border-t px-2 py-1.5 ${
+                  isDark ? 'border-zinc-700 bg-zinc-800/50' : 'border-zinc-200 bg-zinc-50'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => rightDetailsPanelApi.fixSingleAnnotation(progress.annotationId)}
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium ${
+                    progress.status === 'failed'
+                      ? isDark
+                        ? 'border-blue-500/70 bg-blue-600/80 text-white hover:bg-blue-600'
+                        : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      : isDark
+                        ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
+                        : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
+                  }`}
+                >
+                  <RotateCw size={11} />
+                  <span>{progress.status === 'failed' ? 'Retry' : 'Run again'}</span>
+                </button>
               </div>
             ) : null}
           </Popover.Popup>
@@ -269,8 +290,6 @@ export function CommentsPane({
   focusedAnnotationId,
   annotateEnabled,
   annotateAvailable,
-  originBindings,
-  fixInProgress,
   fixProgress,
 }: {
   isDark: boolean
@@ -279,8 +298,6 @@ export function CommentsPane({
   focusedAnnotationId?: string | null
   annotateEnabled: boolean
   annotateAvailable: boolean
-  originBindings: OriginBindings
-  fixInProgress: Record<string, number>
   fixProgress: Record<string, FixProgressEntry>
 }) {
   const mutedClass = isDark ? 'text-zinc-400' : 'text-zinc-500'
@@ -288,7 +305,6 @@ export function CommentsPane({
   const rowHoverClass = isDark ? 'hover:bg-zinc-700/55' : 'hover:border-zinc-300'
   const focusRowClass = isDark ? 'bg-blue-500/20' : 'bg-blue-500/10'
   const groups = useMemo(() => groupAnnotationsByFrame(annotations, frames), [annotations, frames])
-  const originGroups = useMemo(() => groupAnnotationsByOrigin(annotations), [annotations])
   const { registerAnnotationElement } = useFocusedAnnotationScroll(
     focusedAnnotationId,
     annotations,
@@ -296,21 +312,6 @@ export function CommentsPane({
 
   return (
     <section className="px-2 pt-1 pb-3">
-      {originGroups.length > 0 ? (
-        <div className={`mb-2 space-y-1.5 border-b pb-2 ${dividerClass}`}>
-          {originGroups.map((group) => (
-            <OriginSection
-              key={group.origin}
-              origin={group.origin}
-              unresolvedCount={group.unresolvedCount}
-              binding={originBindings[group.origin]}
-              inFlight={fixInProgress[group.origin] ?? 0}
-              isDark={isDark}
-              mutedClass={mutedClass}
-            />
-          ))}
-        </div>
-      ) : null}
       {!groups.some((g) => g.unresolved.length > 0) ? (
         <div
           className={`flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-6 ${
@@ -367,98 +368,3 @@ export function CommentsPane({
   )
 }
 
-function OriginSection({
-  origin,
-  unresolvedCount,
-  binding,
-  inFlight,
-  isDark,
-  mutedClass,
-}: {
-  origin: string
-  unresolvedCount: number
-  binding: OriginBindings[string] | undefined
-  inFlight: number
-  isDark: boolean
-  mutedClass: string
-}) {
-  const fixDisabled = !binding || unresolvedCount === 0 || inFlight > 0
-  const fixLabel = inFlight > 0
-    ? `Fixing ${inFlight}…`
-    : `Fix ${unresolvedCount} comment${unresolvedCount === 1 ? '' : 's'}`
-  const displayRepo = binding ? shortenPath(binding.repoPath) : null
-
-  return (
-    <div
-      className={`flex flex-col gap-1 rounded-md border px-2 py-1.5 text-xs ${
-        isDark ? 'border-zinc-700/60 bg-zinc-800/40' : 'border-zinc-200 bg-zinc-50'
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <span className="truncate font-medium" title={origin}>{origin}</span>
-        {binding ? (
-          <button
-            type="button"
-            className={`ml-auto inline-flex size-4 shrink-0 items-center justify-center rounded ${
-              isDark ? 'text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
-            }`}
-            title="Unlink repo"
-            onClick={() => rightDetailsPanelApi.removeOriginBinding(origin)}
-          >
-            <X size={10} />
-          </button>
-        ) : null}
-      </div>
-      {binding ? (
-        <>
-          <div className={`truncate ${mutedClass}`} title={binding.repoPath}>
-            {displayRepo}
-          </div>
-          <div className="mt-0.5 flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={fixDisabled}
-              onClick={() => rightDetailsPanelApi.triggerFixComments(origin)}
-              className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium disabled:opacity-45 ${
-                isDark
-                  ? 'border-blue-500/70 bg-blue-600/80 text-white hover:bg-blue-600'
-                  : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
-              }`}
-            >
-              <Wrench size={11} />
-              <span>{fixLabel}</span>
-            </button>
-            <label className={`ml-auto inline-flex items-center gap-1 ${mutedClass}`}>
-              <input
-                type="checkbox"
-                checked={binding.autoFix}
-                onChange={(event) =>
-                  rightDetailsPanelApi.setAutoFix(origin, event.currentTarget.checked)
-                }
-              />
-              <span>Auto-fix</span>
-            </label>
-          </div>
-        </>
-      ) : (
-        <button
-          type="button"
-          onClick={() => rightDetailsPanelApi.pickRepoForOrigin(origin)}
-          className={`inline-flex items-center gap-1 self-start rounded-md border px-2 py-1 text-[11px] font-medium ${
-            isDark
-              ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
-              : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
-          }`}
-        >
-          Link repo…
-        </button>
-      )}
-    </div>
-  )
-}
-
-function shortenPath(path: string): string {
-  const segments = path.split('/').filter(Boolean)
-  if (segments.length <= 2) return path
-  return '…/' + segments.slice(-2).join('/')
-}

@@ -31,6 +31,8 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('annotation-open-thread', { annotationId }),
   triggerFixComments: (origin: string) =>
     ipcRenderer.send('right-details-panel-trigger-fix-comments', { origin }),
+  fixSingleAnnotation: (annotationId: string) =>
+    ipcRenderer.send('right-details-panel-fix-single-annotation', { annotationId }),
   setAutoFix: (origin: string, enabled: boolean) =>
     ipcRenderer.send('right-details-panel-set-auto-fix', { origin, enabled }),
   pickRepoForOrigin: (origin: string) =>

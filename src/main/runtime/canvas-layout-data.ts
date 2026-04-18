@@ -87,6 +87,7 @@ import { buildGroupSceneEntity } from './group-entity-state'
 import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { getPresenceCursors } from '../app-control-server'
+import { getFixProgress } from '../agent-fix/fix-progress'
 
 function mainWindowContentBounds(): {
   x: number; y: number; width: number; height: number
@@ -346,6 +347,7 @@ export function buildCanvasLayoutData(
     activeSelection,
     annotationMode: uiAnnotationMode(),
     annotations: [...workspaceAnnotations],
+    fixProgress: getFixProgress(),
     viewMode,
     activeBrowserTabId:
       viewMode === 'browser'

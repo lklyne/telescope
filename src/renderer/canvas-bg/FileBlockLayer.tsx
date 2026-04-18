@@ -61,40 +61,69 @@ function FileBlockCard({
   const [wireframeContent, setWireframeContent] = useState<string | null>(null)
   const wireframeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const fetchNoteContent = useCallback(() => {
+    const src = filePathToSrc(entity.file) + `?t=${Date.now()}`
+    if (isWireframe) {
+      fetch(src)
+        .then((res) => res.text())
+        .then((text) => setWireframeContent(text))
+        .catch(() => {})
+    } else if (isMarkdown) {
+      fetch(src)
+        .then((res) => res.text())
+        .then((text) => {
+          setMdContent(text)
+          if (!isFocusedRef.current) setLocalMdText(text)
+        })
+        .catch(() => {})
+    }
+  }, [entity.file, isWireframe, isMarkdown])
+
+  // Initial load
   useEffect(() => {
-    if (!isWireframe) return
+    if (!isWireframe && !isMarkdown) return
     let cancelled = false
-    fetch(filePathToSrc(entity.file))
+    const src = filePathToSrc(entity.file)
+    fetch(src)
       .then((res) => res.text())
       .then((text) => {
-        if (!cancelled) setWireframeContent(text)
+        if (cancelled) return
+        if (isWireframe) setWireframeContent(text)
+        if (isMarkdown) {
+          setMdContent(text)
+          if (!isFocusedRef.current) setLocalMdText(text)
+        }
       })
-      .catch(() => { if (!cancelled) setWireframeContent(null) })
+      .catch(() => {
+        if (cancelled) return
+        if (isWireframe) setWireframeContent(null)
+        if (isMarkdown) setMdContent(null)
+      })
     return () => { cancelled = true }
-  }, [isWireframe, entity.file])
+  }, [isWireframe, isMarkdown, entity.file])
+
+  // Re-fetch when the window regains visibility (covers external edits by agents, editors, etc.)
+  useEffect(() => {
+    if (!isWireframe && !isMarkdown) return
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      // Skip if user has a pending local write
+      if (wireframeDebounceRef.current || debounceRef.current) return
+      if (isFocusedRef.current) return
+      fetchNoteContent()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [isWireframe, isMarkdown, fetchNoteContent])
 
   const handleWireframeChange = useCallback((json: string) => {
     setWireframeContent(json)
     if (wireframeDebounceRef.current) clearTimeout(wireframeDebounceRef.current)
     wireframeDebounceRef.current = setTimeout(() => {
       fileApi.writeNoteFile(entity.file, json)
+      wireframeDebounceRef.current = null
     }, 300)
   }, [entity.file, fileApi])
-
-  useEffect(() => {
-    if (!isMarkdown) return
-    let cancelled = false
-    fetch(filePathToSrc(entity.file))
-      .then((res) => res.text())
-      .then((text) => {
-        if (!cancelled) {
-          setMdContent(text)
-          if (!isFocusedRef.current) setLocalMdText(text)
-        }
-      })
-      .catch(() => { if (!cancelled) setMdContent(null) })
-    return () => { cancelled = true }
-  }, [isMarkdown, entity.file])
 
   // Clear editing state when edit mode is lost
   useEffect(() => {
@@ -109,6 +138,7 @@ function FileBlockCard({
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       fileApi.writeNoteFile(entity.file, value)
+      debounceRef.current = null
     }, 300)
   }
 

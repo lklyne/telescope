@@ -1,4 +1,5 @@
-import type { Annotation, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import { Fragment, useEffect, useRef } from 'react'
+import type { Annotation, FixProgressEntry, FixProgressEvent, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
 import { canvasRectToScreenRect, type PendingAnnotation } from './annotationMath'
 import { CircleCheckIcon, MoreVerticalIcon, TrashIcon } from '../shared/PanelIcons'
 import { CommentBubble, CommentInput } from '../shared/CommentPrimitives'
@@ -117,6 +118,7 @@ export function AnnotationThreadPopover({
   drawInteractionEnabled,
   openThread,
   openThreadMenu,
+  progress,
   replyText,
   setOpenThreadMenu,
   setReplyText,
@@ -131,6 +133,7 @@ export function AnnotationThreadPopover({
   drawInteractionEnabled: boolean
   openThread: Annotation | null
   openThreadMenu: boolean
+  progress?: FixProgressEntry
   replyText: string
   setOpenThreadMenu: React.Dispatch<React.SetStateAction<boolean>>
   setReplyText: React.Dispatch<React.SetStateAction<string>>
@@ -241,6 +244,9 @@ export function AnnotationThreadPopover({
               <CommentBubble key={`${openThread.id}:reply:${idx}`} author={reply.author} text={reply.text} />
             ))}
           </div>
+          {progress ? (
+            <ThreadFixProgress progress={progress} />
+          ) : null}
           <div className="border-t border-zinc-200 px-2.5 py-2.5 dark:border-zinc-700">
             <div className="flex items-center gap-2 rounded-[16px] border border-zinc-300 bg-zinc-50 py-1.5 pl-2.5 pr-1.5 dark:border-zinc-600 dark:bg-zinc-900/40">
               <CommentInput
@@ -257,5 +263,77 @@ export function AnnotationThreadPopover({
         </div>
       </div>
     </>
+  )
+}
+
+function ThreadFixProgress({ progress }: { progress: FixProgressEntry }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const eventCount = progress.events.length
+
+  useEffect(() => {
+    const node = scrollRef.current
+    if (!node) return
+    node.scrollTop = node.scrollHeight
+  }, [eventCount])
+
+  const statusLabel =
+    progress.status === 'running'
+      ? 'Running'
+      : progress.status === 'failed'
+        ? 'Failed'
+        : 'Completed'
+
+  const statusColor =
+    progress.status === 'running'
+      ? 'text-blue-600 dark:text-blue-400'
+      : progress.status === 'failed'
+        ? 'text-red-600 dark:text-red-400'
+        : 'text-emerald-600 dark:text-emerald-400'
+
+  const kindColor: Record<FixProgressEvent['kind'], string> = {
+    system: 'text-zinc-500',
+    text: 'text-zinc-800 dark:text-zinc-200',
+    tool_use: 'text-blue-700 dark:text-blue-300',
+    tool_result: 'text-emerald-700 dark:text-emerald-300',
+    result: 'text-zinc-900 dark:text-zinc-100',
+    stderr: 'text-amber-700 dark:text-amber-300',
+    error: 'text-red-700 dark:text-red-300',
+  }
+
+  return (
+    <div className="border-t border-zinc-200 dark:border-zinc-700">
+      <div className="flex items-center justify-between px-2.5 py-1.5 text-[11px]">
+        <span className={`font-medium ${statusColor}`}>{statusLabel}</span>
+        <span className="text-zinc-400 dark:text-zinc-500">
+          {eventCount} event{eventCount === 1 ? '' : 's'}
+        </span>
+      </div>
+      {eventCount > 0 ? (
+        <div
+          ref={scrollRef}
+          className="grid max-h-[160px] auto-rows-min grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-0 overflow-auto px-2.5 pb-2 font-mono text-[11px] leading-relaxed"
+        >
+          {progress.events.map((event, i) => (
+            <Fragment key={`${event.timestamp}-${i}`}>
+              <span className="text-zinc-400 dark:text-zinc-600">
+                {event.kind.replace('_', ' ')}
+              </span>
+              <span className={`break-words ${kindColor[event.kind]}`}>
+                {event.text}
+              </span>
+            </Fragment>
+          ))}
+        </div>
+      ) : (
+        <div className="px-2.5 pb-2 text-[11px] text-zinc-400 dark:text-zinc-500">
+          Waiting for output…
+        </div>
+      )}
+      {progress.error ? (
+        <div className="border-t border-zinc-200 px-2.5 py-1.5 text-[11px] text-red-700 dark:border-zinc-700 dark:text-red-300">
+          {progress.error}
+        </div>
+      ) : null}
+    </div>
   )
 }

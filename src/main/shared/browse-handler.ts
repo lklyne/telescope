@@ -125,21 +125,52 @@ export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | 
 // CDP cache
 // ---------------------------------------------------------------------------
 
-const cdpUrlCache = new Map<string, { url: string; expires: number }>()
+const cdpUrlCache = new Map<string, { wsUrl: string; pageUrl: string; expires: number }>()
 const CDP_CACHE_TTL_MS = 60_000
 
-async function resolveCdpUrl(frameId: string): Promise<string> {
+interface CdpResolution {
+  wsUrl: string
+  /** The URL the frame is expected to be showing. */
+  pageUrl: string
+}
+
+async function resolveCdpUrl(frameId: string): Promise<CdpResolution> {
   const cached = cdpUrlCache.get(frameId)
-  if (cached && cached.expires > Date.now()) return cached.url
-  const result = await callApp<{ webSocketDebuggerUrl: string }>(
+  if (cached && cached.expires > Date.now()) return { wsUrl: cached.wsUrl, pageUrl: cached.pageUrl }
+  const result = await callApp<{ webSocketDebuggerUrl: string; url?: string }>(
     `/frames/${frameId}/cdp-target`,
   )
-  cdpUrlCache.set(frameId, { url: result.webSocketDebuggerUrl, expires: Date.now() + CDP_CACHE_TTL_MS })
-  return result.webSocketDebuggerUrl
+  const pageUrl = result.url ?? ''
+  cdpUrlCache.set(frameId, { wsUrl: result.webSocketDebuggerUrl, pageUrl, expires: Date.now() + CDP_CACHE_TTL_MS })
+  return { wsUrl: result.webSocketDebuggerUrl, pageUrl }
 }
 
 export function invalidateCdpCache(frameIds: string[]): void {
   for (const id of frameIds) cdpUrlCache.delete(id)
+}
+
+/**
+ * Check if a snapshot/screenshot output references a page URL that doesn't
+ * match the frame's expected URL.  Returns a warning string, or null.
+ */
+function checkOriginMismatch(output: string, expectedPageUrl: string): string | null {
+  if (!expectedPageUrl) return null
+  // agent-browser annotates output with `origin=<url>`
+  const originMatch = output.match(/origin=(\S+)/)
+  if (!originMatch) return null
+  const actualOrigin = originMatch[1]
+  try {
+    const expected = new URL(expectedPageUrl).origin
+    const actual = new URL(actualOrigin).origin
+    if (expected !== actual) {
+      return `⚠ CDP target mismatch: expected ${expected} but connected to ${actual}. ` +
+        `The frame may not have loaded yet, or the webview resolved to a different target. ` +
+        `Try re-running the command or use \`telescope annotation <id>\` for annotation-based inspection.`
+    }
+  } catch {
+    // URL parsing failed — skip the check
+  }
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -262,7 +293,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   const clientName = getClientName()
 
   return withFrameLock(frameId, async () => {
-    const cdpUrl = await resolveCdpUrl(frameId)
+    const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(frameId)
     const abPath = resolveAgentBrowserPath()
 
     // Fire presence intent (non-blocking)
@@ -351,7 +382,10 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
         // Snapshot: use the snapshot text from structured result
         if (entryVerb === 'snapshot' && typeof entry.result?.snapshot === 'string') {
-          contentBlocks.push({ type: 'text', text: entry.result.snapshot as string })
+          const snapshotText = entry.result.snapshot as string
+          const mismatch = checkOriginMismatch(snapshotText, expectedPageUrl)
+          if (mismatch) contentBlocks.push({ type: 'text', text: mismatch })
+          contentBlocks.push({ type: 'text', text: snapshotText })
           continue
         }
 
@@ -412,6 +446,12 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     }
 
     let output = (stdout + (stderr ? `\n${stderr}` : '')).trim()
+
+    // Warn if the CDP target resolved to a different origin than expected
+    if (verb === 'snapshot') {
+      const mismatch = checkOriginMismatch(output, expectedPageUrl)
+      if (mismatch) output = mismatch + '\n' + output
+    }
 
     // Auto-append URL after mutations
     if (verb && MUTATION_VERBS.has(verb)) {

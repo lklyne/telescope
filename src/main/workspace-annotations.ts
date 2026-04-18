@@ -45,18 +45,27 @@ function resolveFramePageUrl(frameId: string): string | undefined {
   return canonicalAnnotationUrl(page.pageView.webContents.getURL())
 }
 
+function regionPrimaryFrameId(
+  metadata: AnnotationMetadata | undefined,
+): string | undefined {
+  return (
+    metadata?.regionComponents?.[0]?.frameId ??
+    metadata?.regionElements?.[0]?.frameId
+  )
+}
+
 function enrichedAnnotationMetadata(
   request: AnnotationCreateRequest,
 ): AnnotationMetadata | undefined {
   const anchor = request.anchor
-  const frameName =
+  const contextFrameId =
     anchor.type === 'frame' || anchor.type === 'element'
-      ? resolveFrameName(anchor.frameId)
-      : undefined
-  const pageUrl =
-    anchor.type === 'frame' || anchor.type === 'element'
-      ? resolveFramePageUrl(anchor.frameId)
-      : undefined
+      ? anchor.frameId
+      : anchor.type === 'region'
+        ? regionPrimaryFrameId(request.metadata)
+        : undefined
+  const frameName = contextFrameId ? resolveFrameName(contextFrameId) : undefined
+  const pageUrl = contextFrameId ? resolveFramePageUrl(contextFrameId) : undefined
 
   const metadata = request.metadata ? { ...request.metadata } : undefined
   const metadataWithContext: AnnotationMetadata = {
@@ -99,14 +108,20 @@ function enrichedAnnotationMetadata(
 }
 
 export function getAnnotations(filters?: {
-  status?: AnnotationStatus
+  status?: AnnotationStatus | 'unresolved' | 'all'
   url?: string
   frameId?: string
 }): Annotation[] {
   const targetUrl = canonicalAnnotationUrl(filters?.url)
   return workspaceAnnotations.filter((annotation) => {
-    if (filters?.status && annotation.status !== filters.status) {
-      return false
+    if (filters?.status && filters.status !== 'all') {
+      if (filters.status === 'unresolved') {
+        if (annotation.status !== 'pending' && annotation.status !== 'acknowledged') {
+          return false
+        }
+      } else if (annotation.status !== filters.status) {
+        return false
+      }
     }
     if (filters?.frameId) {
       if (annotation.anchor.type === 'canvas') return false

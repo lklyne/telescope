@@ -23,6 +23,7 @@ export const EMPTY_LAYOUT: LayoutUpdateData = {
   activeSelection: null,
   annotationMode: 'off',
   annotations: [],
+  fixProgress: {},
   viewMode: 'canvas',
   activeBrowserTabId: null,
   activeBrowserFrameId: null,

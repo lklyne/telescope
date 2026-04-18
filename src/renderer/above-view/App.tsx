@@ -540,6 +540,7 @@ export default function App({
             drawInteractionEnabled={drawInteractionEnabled}
             openThread={openThread}
             openThreadMenu={openThreadMenu}
+            progress={openThread ? layoutData.fixProgress[openThread.id] : undefined}
             replyText={replyText}
             setOpenThreadMenu={setOpenThreadMenu}
             setReplyText={setReplyText}

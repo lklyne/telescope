@@ -278,6 +278,7 @@ export interface LayoutUpdateData {
   activeSelection: ActiveCanvasEntitySelection | null
   annotationMode: AnnotationMode
   annotations: Annotation[]
+  fixProgress: Record<string, FixProgressEntry>
   viewMode: WorkspaceViewMode
   activeBrowserTabId: string | null
   activeBrowserFrameId: string | null
@@ -1512,6 +1513,7 @@ export interface DevtoolsPanelElectronAPI {
   deleteAnnotation: (annotationId: string) => void
   openAnnotationThread: (annotationId: string) => void
   triggerFixComments: (origin: string) => void
+  fixSingleAnnotation: (annotationId: string) => void
   setAutoFix: (origin: string, enabled: boolean) => void
   pickRepoForOrigin: (origin: string) => void
   removeOriginBinding: (origin: string) => void

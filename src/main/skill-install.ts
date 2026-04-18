@@ -6,7 +6,9 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  statSync,
 } from 'fs'
 
 export type SkillId = 'telescope' | 'agent-browser'
@@ -87,14 +89,28 @@ export interface SkillInstallResult {
   message: string
 }
 
+/** Recursively copy a directory tree, creating directories as needed. */
+function copyDirSync(src: string, dest: string): void {
+  mkdirSync(dest, { recursive: true })
+  for (const entry of readdirSync(src)) {
+    const srcPath = join(src, entry)
+    const destPath = join(dest, entry)
+    if (statSync(srcPath).isDirectory()) {
+      copyDirSync(srcPath, destPath)
+    } else {
+      copyFileSync(srcPath, destPath)
+    }
+  }
+}
+
 export function installSkill(skillId: SkillId): SkillInstallResult {
-  const src = bundledSkillPath(skillId)
-  if (!existsSync(src)) {
-    return { success: false, message: `Bundled skill source missing at ${src}` }
+  const srcDir = bundledSkillDir(skillId)
+  const srcFile = bundledSkillPath(skillId)
+  if (!existsSync(srcFile)) {
+    return { success: false, message: `Bundled skill source missing at ${srcFile}` }
   }
   try {
-    mkdirSync(installedSkillDir(skillId), { recursive: true })
-    copyFileSync(src, installedSkillPath(skillId))
+    copyDirSync(srcDir, installedSkillDir(skillId))
     return {
       success: true,
       message: `${skillId} skill installed at ${installedSkillPath(skillId)}.`,

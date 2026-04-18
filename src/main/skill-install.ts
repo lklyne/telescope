@@ -3,12 +3,9 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { createHash } from 'crypto'
 import {
-  copyFileSync,
+  cpSync,
   existsSync,
-  mkdirSync,
-  readdirSync,
   readFileSync,
-  statSync,
 } from 'fs'
 
 export type SkillId = 'telescope' | 'agent-browser'
@@ -89,20 +86,6 @@ export interface SkillInstallResult {
   message: string
 }
 
-/** Recursively copy a directory tree, creating directories as needed. */
-function copyDirSync(src: string, dest: string): void {
-  mkdirSync(dest, { recursive: true })
-  for (const entry of readdirSync(src)) {
-    const srcPath = join(src, entry)
-    const destPath = join(dest, entry)
-    if (statSync(srcPath).isDirectory()) {
-      copyDirSync(srcPath, destPath)
-    } else {
-      copyFileSync(srcPath, destPath)
-    }
-  }
-}
-
 export function installSkill(skillId: SkillId): SkillInstallResult {
   const srcDir = bundledSkillDir(skillId)
   const srcFile = bundledSkillPath(skillId)
@@ -110,7 +93,7 @@ export function installSkill(skillId: SkillId): SkillInstallResult {
     return { success: false, message: `Bundled skill source missing at ${srcFile}` }
   }
   try {
-    copyDirSync(srcDir, installedSkillDir(skillId))
+    cpSync(srcDir, installedSkillDir(skillId), { recursive: true })
     return {
       success: true,
       message: `${skillId} skill installed at ${installedSkillPath(skillId)}.`,

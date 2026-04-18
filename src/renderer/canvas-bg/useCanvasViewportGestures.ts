@@ -203,9 +203,10 @@ export function useCanvasViewportGestures({
     const handleMiddleMouseDown = (event: MouseEvent) => {
       const layout = layoutRef.current
       if (event.button !== 1) return
-      if (layout.focusedEntityId !== null) return
       if (isOverlayUiTarget(event.target)) return
       if (event.clientY < layout.canvasOrigin.y) return
+      // Pan is a deliberate canvas gesture — exits focus before panning.
+      if (layout.focusedEntityId !== null) api.clearFocus()
       middleDrag = { screenX: event.screenX, screenY: event.screenY }
       event.preventDefault()
     }

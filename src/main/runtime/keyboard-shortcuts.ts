@@ -6,8 +6,8 @@ import type { WebContents } from 'electron'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { arrowNavigationLocked, setArrowNavigationLocked, setSpaceModifierHeld } from './runtime-context'
 import { undo, redo, canUndo, canRedo } from './workspace-undo'
-import { pendingPlacement as uiPendingPlacement } from '../ui-state'
-import { selectAdjacentPage } from './selection-state'
+import { isFocused as uiIsFocused, pendingPlacement as uiPendingPlacement } from '../ui-state'
+import { clearFocus, selectAdjacentPage } from './selection-state'
 import { layoutAllViews } from './layout-engine'
 
 type ArrowDirection = 'left' | 'right' | 'up' | 'down'
@@ -113,6 +113,21 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
     ) {
       event.preventDefault()
       _cancelPendingPlacement()
+      return
+    }
+
+    // Escape exits focus — intercepts before the webview's own Escape handler.
+    if (
+      input.type === 'keyDown' &&
+      input.key === 'Escape' &&
+      !input.shift &&
+      !input.meta &&
+      !input.control &&
+      !input.alt &&
+      uiIsFocused()
+    ) {
+      event.preventDefault()
+      clearFocus()
       return
     }
 

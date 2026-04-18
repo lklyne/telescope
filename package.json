@@ -1,7 +1,7 @@
 {
   "name": "telescope",
   "productName": "Telescope",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "A spatial canvas for agent collaboration on the web",
   "homepage": "https://github.com/lklyne/telescope",
   "repository": {

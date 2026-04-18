@@ -200,8 +200,12 @@ export function registerRightDetailsPanelIpc(): void {
       if (!origin) return
       const existing = getOriginBinding(origin)
       if (!existing) return
-      setOriginBinding(origin, { ...existing, autoFix: !!payload?.enabled })
+      const enabled = !!payload?.enabled
+      setOriginBinding(origin, { ...existing, autoFix: enabled })
       notifyDevtoolsPanelData()
+      if (enabled && !existing.autoFix) {
+        fixPendingAnnotationsForOrigin(origin)
+      }
     },
   )
 

@@ -42,7 +42,8 @@ import {
 } from './inspect-session'
 import { initFixOrchestrator } from '../agent-fix/fix-orchestrator'
 import { onTrackerChange } from '../agent-fix/fix-tracker'
-import { onProgressChange } from '../agent-fix/fix-progress'
+import { getFixProgress, onProgressChange } from '../agent-fix/fix-progress'
+import { safeSend } from './safe-send'
 import {
   backgroundFrameOverlays,
   activeCanvasSelection,
@@ -143,7 +144,10 @@ export function initWindow(): void {
   loadPreferences()
   initFixOrchestrator()
   onTrackerChange(() => notifyDevtoolsPanelData())
-  onProgressChange(() => { markDirty('canvas'); requestLayout(); notifyDevtoolsPanelData() })
+  onProgressChange(() => {
+    if (aboveView) safeSend(aboveView.webContents, 'fix-progress-update', getFixProgress())
+    notifyDevtoolsPanelData()
+  })
   ensureWorkspaceTabsInitialized()
   layoutCache.toolbarHeight = TOOLBAR_HEIGHT
 

@@ -1413,6 +1413,9 @@ export interface CanvasBgElectronAPI {
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
   getInitialData: () => Promise<CanvasLayoutBootstrapData>
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
+  onFixProgressUpdate: (
+    callback: (data: LayoutUpdateData['fixProgress']) => void,
+  ) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 

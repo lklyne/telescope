@@ -237,6 +237,12 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.on('layout-update', handler)
     return () => ipcRenderer.removeListener('layout-update', handler)
   },
+  onFixProgressUpdate: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: LayoutUpdateData['fixProgress']) =>
+      callback(data)
+    ipcRenderer.on('fix-progress-update', handler)
+    return () => ipcRenderer.removeListener('fix-progress-update', handler)
+  },
   onThemeChanged: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: { isDark: boolean }) =>
       callback(data)

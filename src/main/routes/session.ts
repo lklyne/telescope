@@ -41,6 +41,7 @@ import {
   setSessionIntent,
   waitForNextCommit,
 } from '../narration/director'
+import { pushDebugEntry } from '../narration/debug-timeline'
 import type {
   CanvasRect,
   NarrationEvent,
@@ -157,6 +158,21 @@ function isCanvasRect(r: unknown): r is CanvasRect {
 
 function hasCommitWaypoint(event: NarrationEvent | null): boolean {
   return !!event && event.waypoints.some((w) => w.commit === true)
+}
+
+function summarizeEventForDebug(
+  event: NarrationEvent | null,
+  opts: { kind?: string; sync: boolean; capMs?: number },
+): string {
+  const bits: string[] = []
+  if (opts.kind) bits.push(opts.kind)
+  bits.push(opts.sync ? `sync${opts.capMs != null ? ` ${opts.capMs}ms` : ''}` : 'async')
+  if (event) {
+    bits.push(`${event.waypoints.length} wp`)
+    if (hasCommitWaypoint(event)) bits.push('commit')
+    if (event.idiom) bits.push(event.idiom)
+  }
+  return bits.join(' · ')
 }
 
 function resetSmokeTestState(): void {
@@ -304,11 +320,21 @@ export const sessionRoutes: Route[] = [
         writeJson(response, 400, { error: 'verb is required' })
         return
       }
-      buildAndEmitVerbEvent(
+      const emitted = buildAndEmitVerbEvent(
         resolved.sessionId,
         resolved.session.clientName ?? 'agent',
         payload,
       )
+      pushDebugEntry({
+        side: 'cli',
+        kind: 'cli:emit',
+        sessionId: resolved.sessionId,
+        label: `emit ${payload.verb as string}`,
+        detail: summarizeEventForDebug(emitted, {
+          kind: typeof payload.kind === 'string' ? (payload.kind as string) : undefined,
+          sync: false,
+        }),
+      })
       writeJson(response, 200, { ok: true })
     },
   },
@@ -351,13 +377,45 @@ export const sessionRoutes: Route[] = [
         resolved.session.clientName ?? 'agent',
         payload,
       )
+      pushDebugEntry({
+        side: 'cli',
+        kind: 'cli:emit',
+        sessionId: resolved.sessionId,
+        label: `emit ${payload.verb as string}`,
+        detail: summarizeEventForDebug(event, {
+          kind: typeof payload.kind === 'string' ? (payload.kind as string) : undefined,
+          sync: true,
+          capMs,
+        }),
+      })
 
       if (!hasCommitWaypoint(event)) {
+        pushDebugEntry({
+          side: 'cli',
+          kind: 'cli:sync-resolve',
+          sessionId: resolved.sessionId,
+          label: `resolve no-commit`,
+          detail: `${payload.verb as string}`,
+        })
         writeJson(response, 200, { ok: true, arrival: 'no-commit' })
         return
       }
 
+      pushDebugEntry({
+        side: 'cli',
+        kind: 'cli:sync-wait',
+        sessionId: resolved.sessionId,
+        label: `sync wait`,
+        detail: `${payload.verb as string} · cap ${capMs}ms`,
+      })
       const arrival = await waitForNextCommit(resolved.sessionId, capMs)
+      pushDebugEntry({
+        side: 'cli',
+        kind: 'cli:sync-resolve',
+        sessionId: resolved.sessionId,
+        label: `resolve ${arrival}`,
+        detail: `${payload.verb as string}`,
+      })
       writeJson(response, 200, { ok: true, arrival })
     },
   },

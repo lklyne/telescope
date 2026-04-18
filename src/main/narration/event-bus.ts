@@ -8,6 +8,7 @@
  */
 
 import type { NarrationEvent } from '../../shared/narration-event'
+import { pushDebugEntry } from './debug-timeline'
 
 const MAX_QUEUE_DEPTH = 200
 
@@ -19,7 +20,7 @@ const listeners = new Set<Listener>()
 export function emitNarration(event: NarrationEvent): void {
   const queue = queues.get(event.sessionId) ?? []
   if (queue.length >= MAX_QUEUE_DEPTH) {
-    dropNonCritical(queue)
+    dropNonCritical(queue, event.sessionId)
   }
   queue.push(event)
   queues.set(event.sessionId, queue)
@@ -63,13 +64,29 @@ export function subscribe(listener: Listener): () => void {
  * more than preserving every commit. In practice the cap of 200 is generous
  * enough that this rarely triggers.
  */
-function dropNonCritical(queue: NarrationEvent[]): void {
+function dropNonCritical(queue: NarrationEvent[], sessionId: string): void {
   const idx = queue.findIndex((e) => !hasCommit(e))
   if (idx >= 0) {
-    queue.splice(idx, 1)
+    const [dropped] = queue.splice(idx, 1)
+    pushDebugEntry({
+      side: 'director',
+      kind: 'dir:drop',
+      sessionId,
+      label: `drop ${dropped.verb}`,
+      detail: `queue cap (non-commit)`,
+    })
     return
   }
-  queue.shift()
+  const dropped = queue.shift()
+  if (dropped) {
+    pushDebugEntry({
+      side: 'director',
+      kind: 'dir:drop',
+      sessionId,
+      label: `drop ${dropped.verb}`,
+      detail: `queue cap (oldest)`,
+    })
+  }
 }
 
 function hasCommit(event: NarrationEvent): boolean {

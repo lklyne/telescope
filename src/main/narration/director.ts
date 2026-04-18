@@ -30,6 +30,7 @@ import { foldSpline } from '../../shared/cursor-spline'
 import { composeLabel } from '../../shared/narration-grammar'
 import { deriveMood, paramsForMood } from './mood'
 import { drainSession } from './event-bus'
+import { pushDebugEntry } from './debug-timeline'
 import {
   DEFAULT_NARRATION_TUNING,
   distanceSpeedScale,
@@ -379,6 +380,15 @@ function applyEvents(state: SessionState, events: readonly NarrationEvent[]): vo
     state.lastEventAt = now
     state.lastProgressAt = now
     setPhase(state, 'traveling', now)
+
+    const hasCommit = event.waypoints.some((w) => w.commit === true)
+    pushDebugEntry({
+      side: 'director',
+      kind: 'dir:apply',
+      sessionId: state.sessionId,
+      label: `apply ${event.verb}`,
+      detail: `${event.waypoints.length} wp · ${hasCommit ? 'commit' : 'no-commit'} · mood ${state.mood}`,
+    })
   }
 
   state.splineViz = splineVizEnabled ? buildSplineViz(state) : null
@@ -396,6 +406,13 @@ function setPhase(state: SessionState, next: DirectorActivity, now: number): voi
     verb: state.verb,
     commit: next === 'committing',
     timestamp: now,
+  })
+  pushDebugEntry({
+    side: 'director',
+    kind: 'dir:phase',
+    sessionId: state.sessionId,
+    label: `${prev} → ${next}`,
+    detail: state.verb ? `${state.verb} · mood ${state.mood}` : `mood ${state.mood}`,
   })
   // Wake any move-then-act waiters when the cursor reaches its commit phase.
   if (next === 'committing') {

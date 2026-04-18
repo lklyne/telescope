@@ -248,4 +248,14 @@ describe('NarrationDirector', () => {
     const frame = getNarrationFrames()[0]
     expect(frame.activity).toBe('departing')
   })
+
+  it('endNarration resolves outstanding waitForNextCommit waiters as capped', async () => {
+    notifyEventPosted(SESSION, CLIENT)
+    emitNarration(mkEvent({}))
+    tick()
+    const pending = waitForNextCommit(SESSION, 5_000)
+    endNarration(SESSION)
+    const arrival = await pending
+    expect(arrival).toBe('capped')
+  })
 })

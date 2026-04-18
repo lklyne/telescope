@@ -297,7 +297,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     //    cursor catches up.
     if (verb) {
       const scanVerbs = new Set(['snapshot', 'query-elements', 'get', 'console', 'errors'])
-      const passiveVerbs = new Set(['wait', 'screenshot', 'scroll', 'scrollintoview', 'navigate', 'back', 'forward', 'reload'])
+      const passiveVerbs = new Set(['wait', 'screenshot', 'scroll', 'scrollintoview', 'navigate', 'back', 'forward', 'reload', 'hover'])
       const narrationBody = {
         sessionId,
         clientName,

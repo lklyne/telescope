@@ -11,6 +11,16 @@ package-lock.json
 bun.lock
 tests/agent/results/
 
+# editor / tool MCP configs (auto-generated, user-specific)
+.codex/
+.cursor/
+.gemini/
+.mcp.json
+.vscode/
+.zed/
+opencode.json
+config/mcporter.json
+
 # scratch artifacts (dogfood runs, manual captures, regression snapshots, ad-hoc logs)
 tmp/
 tmp-page*.png

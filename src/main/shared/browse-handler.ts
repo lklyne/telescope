@@ -39,6 +39,50 @@ export const GLOBAL_AB_FLAGS = ['--content-boundaries', '--max-output', '100000'
 // Parsing helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Quote an argv token for re-joining into a shell-ish command string.
+ *
+ * `splitShellArgs` is the inverse: it strips quote chars while honoring them
+ * as grouping delimiters. So to round-trip argv through a joined string
+ * without losing whitespace/quote content (e.g. for `eval 'foo.bar("baz")'`),
+ * every arg containing shell-significant chars must be re-quoted here first.
+ */
+export function shellQuote(arg: string): string {
+  if (arg === '') return "''"
+  if (/^[A-Za-z0-9_\-@.:/=+,]+$/.test(arg)) return arg
+  return `'${arg.replace(/'/g, "'\\''")}'`
+}
+
+/**
+ * Split a command string on unquoted `&&` into chained command segments.
+ * Returns the original string as a single-element array when no unquoted
+ * separator is present — e.g. `&&` inside an `eval 'a && b'` JS literal.
+ */
+export function splitChainedCommands(cmd: string): string[] {
+  const out: string[] = []
+  let current = ''
+  let inDouble = false
+  let inSingle = false
+  let escaped = false
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i]
+    if (escaped) { current += ch; escaped = false; continue }
+    if (ch === '\\' && !inSingle) { current += ch; escaped = true; continue }
+    if (ch === '"' && !inSingle) { current += ch; inDouble = !inDouble; continue }
+    if (ch === "'" && !inDouble) { current += ch; inSingle = !inSingle; continue }
+    if (!inDouble && !inSingle && ch === '&' && cmd[i + 1] === '&') {
+      out.push(current.trim())
+      current = ''
+      i += 1
+      continue
+    }
+    current += ch
+  }
+  const tail = current.trim()
+  if (tail) out.push(tail)
+  return out.length ? out : ['']
+}
+
 /** Split a command string into argv tokens, respecting quoted strings. */
 export function splitShellArgs(cmd: string): string[] {
   const tokens: string[] = []
@@ -81,21 +125,52 @@ export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | 
 // CDP cache
 // ---------------------------------------------------------------------------
 
-const cdpUrlCache = new Map<string, { url: string; expires: number }>()
+const cdpUrlCache = new Map<string, { wsUrl: string; pageUrl: string; expires: number }>()
 const CDP_CACHE_TTL_MS = 60_000
 
-async function resolveCdpUrl(frameId: string): Promise<string> {
+interface CdpResolution {
+  wsUrl: string
+  /** The URL the frame is expected to be showing. */
+  pageUrl: string
+}
+
+async function resolveCdpUrl(frameId: string): Promise<CdpResolution> {
   const cached = cdpUrlCache.get(frameId)
-  if (cached && cached.expires > Date.now()) return cached.url
-  const result = await callApp<{ webSocketDebuggerUrl: string }>(
+  if (cached && cached.expires > Date.now()) return { wsUrl: cached.wsUrl, pageUrl: cached.pageUrl }
+  const result = await callApp<{ webSocketDebuggerUrl: string; url?: string }>(
     `/frames/${frameId}/cdp-target`,
   )
-  cdpUrlCache.set(frameId, { url: result.webSocketDebuggerUrl, expires: Date.now() + CDP_CACHE_TTL_MS })
-  return result.webSocketDebuggerUrl
+  const pageUrl = result.url ?? ''
+  cdpUrlCache.set(frameId, { wsUrl: result.webSocketDebuggerUrl, pageUrl, expires: Date.now() + CDP_CACHE_TTL_MS })
+  return { wsUrl: result.webSocketDebuggerUrl, pageUrl }
 }
 
 export function invalidateCdpCache(frameIds: string[]): void {
   for (const id of frameIds) cdpUrlCache.delete(id)
+}
+
+/**
+ * Check if a snapshot/screenshot output references a page URL that doesn't
+ * match the frame's expected URL.  Returns a warning string, or null.
+ */
+function checkOriginMismatch(output: string, expectedPageUrl: string): string | null {
+  if (!expectedPageUrl) return null
+  // agent-browser annotates output with `origin=<url>`
+  const originMatch = output.match(/origin=(\S+)/)
+  if (!originMatch) return null
+  const actualOrigin = originMatch[1]
+  try {
+    const expected = new URL(expectedPageUrl).origin
+    const actual = new URL(actualOrigin).origin
+    if (expected !== actual) {
+      return `⚠ CDP target mismatch: expected ${expected} but connected to ${actual}. ` +
+        `The frame may not have loaded yet, or the webview resolved to a different target. ` +
+        `Try re-running the command or use \`telescope annotation <id>\` for annotation-based inspection.`
+    }
+  } catch {
+    // URL parsing failed — skip the check
+  }
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -136,11 +211,12 @@ export function resolveAgentBrowserPath(): string {
 export function spawnAsync(
   cmd: string,
   args: string[],
-  opts: { timeout: number; input?: string; maxBuffer?: number },
+  opts: { timeout: number; input?: string; maxBuffer?: number; cwd?: string },
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: opts.cwd,
       env: { ...process.env, NO_COLOR: '1' },
     })
     const maxBuf = opts.maxBuffer ?? 10 * 1024 * 1024
@@ -206,17 +282,18 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   }
 
   const rawCommand = (args.command as string).trim()
-  const isChained = rawCommand.includes(' && ')
+  const chainedParts = splitChainedCommands(rawCommand)
+  const isChained = chainedParts.length > 1
 
   // Parse first command for presence animation
-  const firstCmd = isChained ? rawCommand.split(/\s*&&\s*/)[0] : rawCommand
+  const firstCmd = isChained ? chainedParts[0] : rawCommand
   const { verb, ref } = parseCommandArgs(firstCmd)
   const labelKey = verb ? COMMAND_LABELS[verb] ?? null : null
 
   const clientName = getClientName()
 
   return withFrameLock(frameId, async () => {
-    const cdpUrl = await resolveCdpUrl(frameId)
+    const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(frameId)
     const abPath = resolveAgentBrowserPath()
 
     // Fire presence intent (non-blocking)
@@ -247,7 +324,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
     if (isChained) {
       // ---- Chained commands: use batch --json --bail ----
-      const parts = rawCommand.split(/\s*&&\s*/)
+      const parts = chainedParts
       // Auto-scroll refs into view before mutations
       const expanded: string[][] = []
       for (const p of parts) {
@@ -305,7 +382,10 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
         // Snapshot: use the snapshot text from structured result
         if (entryVerb === 'snapshot' && typeof entry.result?.snapshot === 'string') {
-          contentBlocks.push({ type: 'text', text: entry.result.snapshot as string })
+          const snapshotText = entry.result.snapshot as string
+          const mismatch = checkOriginMismatch(snapshotText, expectedPageUrl)
+          if (mismatch) contentBlocks.push({ type: 'text', text: mismatch })
+          contentBlocks.push({ type: 'text', text: snapshotText })
           continue
         }
 
@@ -366,6 +446,12 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     }
 
     let output = (stdout + (stderr ? `\n${stderr}` : '')).trim()
+
+    // Warn if the CDP target resolved to a different origin than expected
+    if (verb === 'snapshot') {
+      const mismatch = checkOriginMismatch(output, expectedPageUrl)
+      if (mismatch) output = mismatch + '\n' + output
+    }
 
     // Auto-append URL after mutations
     if (verb && MUTATION_VERBS.has(verb)) {

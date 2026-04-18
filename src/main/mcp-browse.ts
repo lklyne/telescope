@@ -4,6 +4,8 @@ export {
   MUTATION_VERBS,
   GLOBAL_AB_FLAGS,
   splitShellArgs,
+  shellQuote,
+  splitChainedCommands,
   parseCommandArgs,
   invalidateCdpCache,
   resolveAgentBrowserPath,

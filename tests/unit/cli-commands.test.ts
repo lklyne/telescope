@@ -38,6 +38,8 @@ vi.mock('../../src/main/shared/app-client', () => ({
 
 vi.mock('../../src/main/shared/browse-handler', () => ({
   handleBrowse: mockHandleBrowse,
+  shellQuote: (arg: string) =>
+    /^[A-Za-z0-9_\-@.:/=+,]+$/.test(arg) ? arg : `'${arg.replace(/'/g, "'\\''")}'`,
 }))
 
 vi.mock('../../src/main/shared/entity-ops', () => ({

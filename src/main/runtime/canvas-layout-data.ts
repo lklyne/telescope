@@ -20,6 +20,7 @@ import type {
   ToolbarSelectionData,
 } from '../../shared/types'
 import { resolvePresenceFramePoint } from '../../shared/presence-targeting'
+import { isUnresolved } from '../../shared/annotation-utils'
 import {
   aboveView,
   cursorOverlayWindow,
@@ -87,6 +88,7 @@ import { buildGroupSceneEntity } from './group-entity-state'
 import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { getPresenceCursors } from '../app-control-server'
+import { getFixProgress } from '../agent-fix/fix-progress'
 
 function mainWindowContentBounds(): {
   x: number; y: number; width: number; height: number
@@ -197,9 +199,7 @@ export function annotationsForPage(frameId: string): Annotation[] {
   const page = findPageById(frameId)
   const currentPageUrl = canonicalAnnotationUrl(page?.pageView.webContents.getURL() ?? null)
   return workspaceAnnotations.filter((annotation) => {
-    if (!(annotation.status === 'pending' || annotation.status === 'acknowledged')) {
-      return false
-    }
+    if (!isUnresolved(annotation.status)) return false
     if (annotation.anchor.type === 'canvas') return false
     if (annotation.anchor.type === 'region') return false
     if (annotation.anchor.frameId !== frameId) return false
@@ -346,6 +346,7 @@ export function buildCanvasLayoutData(
     activeSelection,
     annotationMode: uiAnnotationMode(),
     annotations: [...workspaceAnnotations],
+    fixProgress: getFixProgress(),
     viewMode,
     activeBrowserTabId:
       viewMode === 'browser'

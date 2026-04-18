@@ -1,7 +1,6 @@
-import type {
-  Annotation,
-  DevtoolsPanelData,
-} from '../../shared/types'
+import type { DevtoolsPanelData } from '../../shared/types'
+
+export { isUnresolved } from '../../shared/annotation-utils'
 
 export const INITIAL_PANEL_DATA: DevtoolsPanelData = {
   activeTab: 'comments',
@@ -56,10 +55,6 @@ export function parseEditedValue(raw: string, original: unknown): unknown {
     }
   }
   return raw
-}
-
-export function isUnresolved(status: Annotation['status']): boolean {
-  return status === 'pending' || status === 'acknowledged'
 }
 
 export function formatCommentTime(value: string): string {

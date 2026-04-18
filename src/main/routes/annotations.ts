@@ -1,5 +1,5 @@
 import type { Route } from './types'
-import type { AnnotationStatus } from '../../shared/types'
+import type { AnnotationStatusFilter } from '../../shared/types'
 import {
   addAnnotationReply,
   createAnnotation,
@@ -8,6 +8,10 @@ import {
   getAnnotations,
   updateAnnotationStatus,
 } from '../workspace-annotations'
+import {
+  fixAnnotation,
+  fixPendingAnnotationsForOrigin,
+} from '../agent-fix/fix-orchestrator'
 import { writeJson } from '../app-control-server'
 
 export const annotationRoutes: Route[] = [
@@ -16,7 +20,7 @@ export const annotationRoutes: Route[] = [
     pattern: /^\/annotations(\/[^/?]+)?(\?.*)?$/,
     async handler({ response, url }) {
       const searchParams = new URL(url, 'http://localhost').searchParams
-      const status = searchParams.get('status') as AnnotationStatus | null
+      const status = searchParams.get('status') as AnnotationStatusFilter | null
       const annotationUrl = searchParams.get('url') ?? undefined
       const frameId = searchParams.get('frame_id') ?? undefined
       const id = url.match(/^\/annotations\/([^/?]+)$/)?.[1]
@@ -143,6 +147,24 @@ export const annotationRoutes: Route[] = [
         return
       }
       writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/annotations/fix',
+    async handler({ response, body }) {
+      const payload = body as { origin?: string; annotationId?: string }
+      if (payload.annotationId) {
+        const ok = fixAnnotation(payload.annotationId)
+        writeJson(response, 200, { ok, queued: ok ? 1 : 0 })
+        return
+      }
+      if (payload.origin) {
+        const queued = fixPendingAnnotationsForOrigin(payload.origin)
+        writeJson(response, 200, { ok: true, queued })
+        return
+      }
+      writeJson(response, 400, { error: 'origin or annotationId is required' })
     },
   },
 ]

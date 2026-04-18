@@ -1,5 +1,16 @@
-import { ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { AnnotationCreateRequest, EdgeEnd, EdgeSide } from '../../shared/types'
+import {
+  getOriginBinding,
+  removeOriginBinding,
+  setFixConfig,
+  setOriginBinding,
+} from '../runtime/preferences'
+import {
+  fixAnnotation,
+  fixPendingAnnotationsForOrigin,
+} from '../agent-fix/fix-orchestrator'
+import { notifyDevtoolsPanelData } from '../runtime/inspect-session'
 import {
   deleteEdge,
   updateEdge,
@@ -161,6 +172,80 @@ export function registerRightDetailsPanelIpc(): void {
       const annotationId = payload?.annotationId?.trim()
       if (!annotationId) return
       deleteAnnotation(annotationId)
+    },
+  )
+
+  ipcMain.on(
+    'right-details-panel-trigger-fix-comments',
+    (_event, payload: { origin?: string } | undefined) => {
+      const origin = payload?.origin?.trim()
+      if (!origin) return
+      fixPendingAnnotationsForOrigin(origin)
+    },
+  )
+
+  ipcMain.on(
+    'right-details-panel-fix-single-annotation',
+    (_event, payload: { annotationId?: string } | undefined) => {
+      const annotationId = payload?.annotationId?.trim()
+      if (!annotationId) return
+      fixAnnotation(annotationId)
+    },
+  )
+
+  ipcMain.on(
+    'right-details-panel-set-auto-fix',
+    (_event, payload: { origin?: string; enabled?: boolean } | undefined) => {
+      const origin = payload?.origin?.trim()
+      if (!origin) return
+      const existing = getOriginBinding(origin)
+      if (!existing) return
+      const enabled = !!payload?.enabled
+      setOriginBinding(origin, { ...existing, autoFix: enabled })
+      notifyDevtoolsPanelData()
+      if (enabled && !existing.autoFix) {
+        fixPendingAnnotationsForOrigin(origin)
+      }
+    },
+  )
+
+  ipcMain.on(
+    'right-details-panel-pick-repo-for-origin',
+    async (event, payload: { origin?: string } | undefined) => {
+      const origin = payload?.origin?.trim()
+      if (!origin) return
+      const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
+      const dialogOpts: Electron.OpenDialogOptions = { title: `Choose repo for ${origin}`, properties: ['openDirectory'] }
+      const result = win
+        ? await dialog.showOpenDialog(win, dialogOpts)
+        : await dialog.showOpenDialog(dialogOpts)
+      if (result.canceled || result.filePaths.length === 0) return
+      const repoPath = result.filePaths[0]
+      const existing = getOriginBinding(origin)
+      setOriginBinding(origin, {
+        repoPath,
+        autoFix: existing?.autoFix ?? false,
+      })
+      notifyDevtoolsPanelData()
+    },
+  )
+
+  ipcMain.on(
+    'right-details-panel-remove-origin-binding',
+    (_event, payload: { origin?: string } | undefined) => {
+      const origin = payload?.origin?.trim()
+      if (!origin) return
+      removeOriginBinding(origin)
+      notifyDevtoolsPanelData()
+    },
+  )
+
+  ipcMain.on(
+    'right-details-panel-set-fix-config',
+    (_event, payload: { model?: string; permissions?: string } | undefined) => {
+      if (!payload) return
+      setFixConfig(payload as { model?: 'opus' | 'sonnet' | 'haiku'; permissions?: 'dangerously' | 'default' })
+      notifyDevtoolsPanelData()
     },
   )
 

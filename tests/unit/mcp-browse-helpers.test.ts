@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { splitShellArgs, parseCommandArgs } from '../../src/main/mcp-browse'
+import {
+  splitShellArgs,
+  shellQuote,
+  splitChainedCommands,
+  parseCommandArgs,
+} from '../../src/main/mcp-browse'
 
 describe('splitShellArgs', () => {
   it('splits simple space-separated args', () => {
@@ -38,6 +43,52 @@ describe('splitShellArgs', () => {
       'fill', '@e1', "it's here",
     ])
   })
+})
+
+describe('splitChainedCommands', () => {
+  it('returns a single element when no unquoted && present', () => {
+    expect(splitChainedCommands('eval document.title')).toEqual(['eval document.title'])
+  })
+
+  it('splits on unquoted &&', () => {
+    expect(splitChainedCommands('click @e1 && wait --load networkidle && snapshot -i')).toEqual([
+      'click @e1',
+      'wait --load networkidle',
+      'snapshot -i',
+    ])
+  })
+
+  it('does not split on && inside double quotes', () => {
+    expect(splitChainedCommands('eval "a && b"')).toEqual(['eval "a && b"'])
+  })
+
+  it('does not split on && inside single quotes', () => {
+    expect(splitChainedCommands("eval 'a && b && c'")).toEqual(["eval 'a && b && c'"])
+  })
+
+  it('splits mixed: unquoted chain with a quoted && inside one part', () => {
+    expect(splitChainedCommands(`eval 'x && y' && snapshot -i`)).toEqual([
+      "eval 'x && y'",
+      'snapshot -i',
+    ])
+  })
+})
+
+describe('shellQuote + splitShellArgs round-trip', () => {
+  const cases: Array<{ label: string; argv: string[] }> = [
+    { label: 'bare tokens pass through', argv: ['eval', 'document.title'] },
+    { label: 'js string with double quotes', argv: ['eval', 'document.querySelectorAll("iframe").length'] },
+    { label: 'js with wildcards and spaces', argv: ['eval', 'Array.from(document.querySelectorAll("*")).filter(el => el.textContent === "Current Location")'] },
+    { label: 'single quote in content', argv: ['eval', "document.title + 'x'"] },
+    { label: 'mixed quotes + spaces', argv: ['eval', `el.getAttribute("data-foo") === 'bar baz'`] },
+    { label: 'selector with special chars', argv: ['get', 'styles', 'div.css-text-146c3p1 > span'] },
+  ]
+  for (const { label, argv } of cases) {
+    it(label, () => {
+      const joined = argv.map(shellQuote).join(' ')
+      expect(splitShellArgs(joined)).toEqual(argv)
+    })
+  }
 })
 
 describe('parseCommandArgs', () => {

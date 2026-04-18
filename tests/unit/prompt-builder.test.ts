@@ -1,0 +1,88 @@
+import { describe, expect, it } from 'vitest'
+import { buildFixPrompt } from '../../src/main/agent-fix/prompt-builder'
+import type { Annotation } from '../../src/shared/types'
+
+function baseAnnotation(overrides: Partial<Annotation> = {}): Annotation {
+  return {
+    id: 'ann-1',
+    anchor: { type: 'frame', frameId: 'frame-a', offsetX: 0, offsetY: 0 },
+    author: 'user',
+    text: 'Header padding is too big',
+    status: 'pending',
+    replies: [],
+    createdAt: new Date().toISOString(),
+    metadata: {
+      pageUrl: 'http://localhost:4321/garden',
+      frameName: 'Desktop 1280×800',
+    },
+    ...overrides,
+  }
+}
+
+describe('buildFixPrompt', () => {
+  it('includes page URL, frame name, and the thread', () => {
+    const prompt = buildFixPrompt(baseAnnotation())
+    expect(prompt).toContain('http://localhost:4321/garden')
+    expect(prompt).toContain('Desktop 1280×800')
+    expect(prompt).toContain('[User] Header padding is too big')
+  })
+
+  it('includes source location and react components when available', () => {
+    const prompt = buildFixPrompt(
+      baseAnnotation({
+        anchor: {
+          type: 'element',
+          frameId: 'frame-a',
+          selector: 'header.site-header',
+          elementPath: 'body > header',
+        },
+        metadata: {
+          pageUrl: 'http://localhost:4321/garden',
+          inspectContext: {
+            id: 'node-1',
+            nodeId: 'node-1',
+            timestamp: 0,
+            tagName: 'HEADER',
+            name: 'SiteHeader',
+            elementPath: 'body > header',
+            fullPath: 'body > header.site-header',
+            cssClasses: ['site-header'],
+            nearbyElements: [],
+            accessibility: [],
+            attributes: [],
+            computedStyles: [],
+            reactComponents: ['SiteHeader', 'Layout'],
+            sourceLocation: { file: 'src/components/SiteHeader.tsx', line: 42 },
+          },
+        },
+      }),
+    )
+    expect(prompt).toContain('Element source: src/components/SiteHeader.tsx:42')
+    expect(prompt).toContain('React components (inner to outer): SiteHeader > Layout')
+    expect(prompt).toContain('Element name: SiteHeader')
+  })
+
+  it('renders a multi-turn thread in order', () => {
+    const prompt = buildFixPrompt(
+      baseAnnotation({
+        replies: [
+          { author: 'agent', text: 'Reduced to 12px.', timestamp: '' },
+          { author: 'user', text: 'Make it 8px instead.', timestamp: '' },
+        ],
+      }),
+    )
+    const userIdx = prompt.indexOf('[User] Header padding is too big')
+    const agentIdx = prompt.indexOf('[Agent] Reduced to 12px.')
+    const followupIdx = prompt.indexOf('[User] Make it 8px instead.')
+    expect(userIdx).toBeGreaterThanOrEqual(0)
+    expect(agentIdx).toBeGreaterThan(userIdx)
+    expect(followupIdx).toBeGreaterThan(agentIdx)
+  })
+
+  it('ends with the reply-format instruction and marker guidance', () => {
+    const prompt = buildFixPrompt(baseAnnotation())
+    expect(prompt).toContain('<<RESOLVE>>')
+    expect(prompt).toContain('<<WAITING>>')
+    expect(prompt).toMatch(/Reply format — REQUIRED/)
+  })
+})

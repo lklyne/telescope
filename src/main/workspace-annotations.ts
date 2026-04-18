@@ -2,8 +2,11 @@ import type {
   Annotation,
   AnnotationCreateRequest,
   AnnotationMetadata,
+  AnnotationReply,
   AnnotationStatus,
+  AnnotationStatusFilter,
 } from '../shared/types'
+import { isUnresolved } from '../shared/annotation-utils'
 import {
   findPageById,
   getComponentAncestryByNodeId,
@@ -44,18 +47,27 @@ function resolveFramePageUrl(frameId: string): string | undefined {
   return canonicalAnnotationUrl(page.pageView.webContents.getURL())
 }
 
+function regionPrimaryFrameId(
+  metadata: AnnotationMetadata | undefined,
+): string | undefined {
+  return (
+    metadata?.regionComponents?.[0]?.frameId ??
+    metadata?.regionElements?.[0]?.frameId
+  )
+}
+
 function enrichedAnnotationMetadata(
   request: AnnotationCreateRequest,
 ): AnnotationMetadata | undefined {
   const anchor = request.anchor
-  const frameName =
+  const contextFrameId =
     anchor.type === 'frame' || anchor.type === 'element'
-      ? resolveFrameName(anchor.frameId)
-      : undefined
-  const pageUrl =
-    anchor.type === 'frame' || anchor.type === 'element'
-      ? resolveFramePageUrl(anchor.frameId)
-      : undefined
+      ? anchor.frameId
+      : anchor.type === 'region'
+        ? regionPrimaryFrameId(request.metadata)
+        : undefined
+  const frameName = contextFrameId ? resolveFrameName(contextFrameId) : undefined
+  const pageUrl = contextFrameId ? resolveFramePageUrl(contextFrameId) : undefined
 
   const metadata = request.metadata ? { ...request.metadata } : undefined
   const metadataWithContext: AnnotationMetadata = {
@@ -98,14 +110,18 @@ function enrichedAnnotationMetadata(
 }
 
 export function getAnnotations(filters?: {
-  status?: AnnotationStatus
+  status?: AnnotationStatusFilter
   url?: string
   frameId?: string
 }): Annotation[] {
   const targetUrl = canonicalAnnotationUrl(filters?.url)
   return workspaceAnnotations.filter((annotation) => {
-    if (filters?.status && annotation.status !== filters.status) {
-      return false
+    if (filters?.status && filters.status !== 'all') {
+      if (filters.status === 'unresolved') {
+        if (!isUnresolved(annotation.status)) return false
+      } else if (annotation.status !== filters.status) {
+        return false
+      }
     }
     if (filters?.frameId) {
       if (annotation.anchor.type === 'canvas') return false
@@ -130,6 +146,24 @@ export function getAnnotationById(id: string): Annotation | undefined {
   return workspaceAnnotations.find((a) => a.id === id)
 }
 
+let onAnnotationCreatedListener: ((annotation: Annotation) => void) | null = null
+
+export function setOnAnnotationCreated(
+  fn: ((annotation: Annotation) => void) | null,
+): void {
+  onAnnotationCreatedListener = fn
+}
+
+let onAnnotationReplyListener:
+  | ((annotation: Annotation, reply: AnnotationReply) => void)
+  | null = null
+
+export function setOnAnnotationReply(
+  fn: ((annotation: Annotation, reply: AnnotationReply) => void) | null,
+): void {
+  onAnnotationReplyListener = fn
+}
+
 export function createAnnotation(request: AnnotationCreateRequest): Annotation {
   const annotation: Annotation = {
     id: makeId('ann'),
@@ -146,6 +180,13 @@ export function createAnnotation(request: AnnotationCreateRequest): Annotation {
   markDirty('canvas', 'pages')
   requestLayout()
   scheduleWorkspaceAutosave()
+  if (onAnnotationCreatedListener) {
+    try {
+      onAnnotationCreatedListener(annotation)
+    } catch (error) {
+      console.error('onAnnotationCreated listener failed:', error)
+    }
+  }
   return annotation
 }
 
@@ -153,12 +194,24 @@ export function updateAnnotationStatus(
   id: string,
   status: AnnotationStatus,
   reason?: string,
+  resolvedBy?: 'user' | 'agent',
 ): Annotation | null {
   const annotation = workspaceAnnotations.find((a) => a.id === id)
   if (!annotation) return null
   annotation.status = status
+  const metadataPatch: AnnotationMetadata = { ...annotation.metadata }
   if (reason) {
-    annotation.metadata = { ...annotation.metadata, dismissReason: reason }
+    metadataPatch.dismissReason = reason
+  } else if (status !== 'dismissed') {
+    delete metadataPatch.dismissReason
+  }
+  if (status === 'resolved' && resolvedBy) {
+    metadataPatch.resolvedBy = resolvedBy
+  } else if (status !== 'resolved') {
+    delete metadataPatch.resolvedBy
+  }
+  if (Object.keys(metadataPatch).length) {
+    annotation.metadata = metadataPatch
   }
   markDirty('canvas', 'pages')
   requestLayout()
@@ -173,14 +226,24 @@ export function addAnnotationReply(
 ): Annotation | null {
   const annotation = workspaceAnnotations.find((a) => a.id === id)
   if (!annotation) return null
-  annotation.replies.push({
-    author,
-    text,
-    timestamp: new Date().toISOString(),
-  })
-  markDirty('canvas', 'pages')
-  requestLayout()
-  scheduleWorkspaceAutosave()
+  const reply: AnnotationReply = { author, text, timestamp: new Date().toISOString() }
+  annotation.replies = [...annotation.replies, reply]
+  const statusUpdated = author === 'user' && annotation.status === 'resolved'
+  if (statusUpdated) {
+    updateAnnotationStatus(id, 'pending')
+  }
+  if (!statusUpdated) {
+    markDirty('canvas', 'pages')
+    requestLayout()
+    scheduleWorkspaceAutosave()
+  }
+  if (onAnnotationReplyListener) {
+    try {
+      onAnnotationReplyListener(annotation, reply)
+    } catch (error) {
+      console.error('onAnnotationReply listener failed:', error)
+    }
+  }
   return annotation
 }
 

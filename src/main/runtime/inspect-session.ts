@@ -36,6 +36,9 @@ import {
   devtoolsHeaderView,
   toolbarView,
 } from './view-refs'
+import { getFixConfig, getOriginBindings } from './preferences'
+import { getInFlightCountByOrigin } from '../agent-fix/fix-tracker'
+import { getFixProgress } from '../agent-fix/fix-progress'
 import {
   findPageById,
   inspectActiveFrameId,
@@ -425,6 +428,10 @@ export function notifyDevtoolsPanelData(): void {
     inspect,
     annotations: [...workspaceAnnotations],
     frames,
+    originBindings: getOriginBindings(),
+    fixInProgress: getInFlightCountByOrigin(),
+    fixProgress: getFixProgress(),
+    fixConfig: getFixConfig(),
     ...buildEntityDetails(panelMode),
     emptyState: _mcpEmptyState(),
   })

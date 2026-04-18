@@ -5,7 +5,13 @@
 import { app, nativeTheme } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import type { DevtoolsPanelTab, OnboardingState } from '../../shared/types'
+import type {
+  DevtoolsPanelTab,
+  FixConfig,
+  OnboardingState,
+  OriginBinding,
+  OriginBindings,
+} from '../../shared/types'
 import {
   bgView,
   aboveView,
@@ -44,6 +50,8 @@ type PreferencesFile = {
   devtoolsWidth?: number
   devtoolsPanelTab?: DevtoolsPanelTab | 'elements' | 'devtools'
   onboarding?: OnboardingState
+  originBindings?: OriginBindings
+  fixConfig?: Omit<FixConfig, 'configured'>
 }
 
 function readPreferencesFile(): PreferencesFile {
@@ -101,6 +109,11 @@ export function clampDevtoolsWidth(value: number): number {
   )
 }
 
+let originBindings: OriginBindings = {}
+
+const DEFAULT_FIX_CONFIG: FixConfig = { model: 'opus', permissions: 'dangerously', configured: false }
+let fixConfig: FixConfig = { ...DEFAULT_FIX_CONFIG }
+
 export function loadPreferences(): void {
   const parsed = readPreferencesFile()
   if (typeof parsed.devtoolsWidth === 'number') {
@@ -110,6 +123,12 @@ export function loadPreferences(): void {
   if (normalizedTab) {
     setUiDevtoolsPanelTab(normalizedTab)
   }
+  if (parsed.originBindings && typeof parsed.originBindings === 'object') {
+    originBindings = parsed.originBindings
+  }
+  if (parsed.fixConfig && typeof parsed.fixConfig === 'object') {
+    fixConfig = { ...DEFAULT_FIX_CONFIG, ...parsed.fixConfig, configured: true }
+  }
 }
 
 export function savePreferences(): void {
@@ -118,7 +137,39 @@ export function savePreferences(): void {
     ...parsed,
     devtoolsWidth: uiDevtoolsWidth(),
     devtoolsPanelTab: uiDevtoolsPanelTab(),
+    originBindings,
+    fixConfig: { model: fixConfig.model, permissions: fixConfig.permissions },
   })
+}
+
+export function getOriginBindings(): OriginBindings {
+  return originBindings
+}
+
+export function getOriginBinding(origin: string): OriginBinding | undefined {
+  return originBindings[origin]
+}
+
+export function setOriginBinding(origin: string, binding: OriginBinding): void {
+  originBindings = { ...originBindings, [origin]: binding }
+  savePreferences()
+}
+
+export function removeOriginBinding(origin: string): void {
+  if (!(origin in originBindings)) return
+  const next = { ...originBindings }
+  delete next[origin]
+  originBindings = next
+  savePreferences()
+}
+
+export function getFixConfig(): FixConfig {
+  return fixConfig
+}
+
+export function setFixConfig(patch: { model?: FixConfig['model']; permissions?: FixConfig['permissions'] }): void {
+  fixConfig = { ...fixConfig, ...patch, configured: true }
+  savePreferences()
 }
 
 export function isDark(): boolean {

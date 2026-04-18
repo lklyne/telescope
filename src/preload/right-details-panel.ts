@@ -29,6 +29,18 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('right-details-panel-delete-annotation', { annotationId }),
   openAnnotationThread: (annotationId) =>
     ipcRenderer.send('annotation-open-thread', { annotationId }),
+  triggerFixComments: (origin: string) =>
+    ipcRenderer.send('right-details-panel-trigger-fix-comments', { origin }),
+  fixSingleAnnotation: (annotationId: string) =>
+    ipcRenderer.send('right-details-panel-fix-single-annotation', { annotationId }),
+  setAutoFix: (origin: string, enabled: boolean) =>
+    ipcRenderer.send('right-details-panel-set-auto-fix', { origin, enabled }),
+  pickRepoForOrigin: (origin: string) =>
+    ipcRenderer.send('right-details-panel-pick-repo-for-origin', { origin }),
+  removeOriginBinding: (origin: string) =>
+    ipcRenderer.send('right-details-panel-remove-origin-binding', { origin }),
+  setFixConfig: (config: { model: string; permissions: string }) =>
+    ipcRenderer.send('right-details-panel-set-fix-config', config),
   updateTextEntity: (id: string, patch: { color?: string }) =>
     ipcRenderer.send('canvas-update-text-entity', { id, patch }),
   duplicateTextEntity: (id: string) =>

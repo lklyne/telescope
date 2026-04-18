@@ -3,9 +3,8 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { createHash } from 'crypto'
 import {
-  copyFileSync,
+  cpSync,
   existsSync,
-  mkdirSync,
   readFileSync,
 } from 'fs'
 
@@ -88,13 +87,13 @@ export interface SkillInstallResult {
 }
 
 export function installSkill(skillId: SkillId): SkillInstallResult {
-  const src = bundledSkillPath(skillId)
-  if (!existsSync(src)) {
-    return { success: false, message: `Bundled skill source missing at ${src}` }
+  const srcDir = bundledSkillDir(skillId)
+  const srcFile = bundledSkillPath(skillId)
+  if (!existsSync(srcFile)) {
+    return { success: false, message: `Bundled skill source missing at ${srcFile}` }
   }
   try {
-    mkdirSync(installedSkillDir(skillId), { recursive: true })
-    copyFileSync(src, installedSkillPath(skillId))
+    cpSync(srcDir, installedSkillDir(skillId), { recursive: true })
     return {
       success: true,
       message: `${skillId} skill installed at ${installedSkillPath(skillId)}.`,

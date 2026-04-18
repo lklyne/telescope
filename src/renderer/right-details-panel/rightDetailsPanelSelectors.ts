@@ -1,11 +1,11 @@
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type {
   Annotation,
-  DevtoolsPanelData,
   DevtoolsPanelFrameSummary,
   InspectNodeDetail,
   InspectPanelState,
 } from '../../shared/types'
+import { annotationOrigin } from '../../shared/annotation-utils'
 import { isUnresolved } from './rightDetailsPanelHelpers'
 
 type AnnotationGroup = {
@@ -16,16 +16,6 @@ type AnnotationGroup = {
   frameHeight?: number
   unresolved: Annotation[]
   resolved: Annotation[]
-}
-
-export function isMcpConnected(
-  mcpSetup: DevtoolsPanelData['emptyState'] | null,
-): boolean {
-  return Boolean(
-    mcpSetup?.status.appServerRunning &&
-      mcpSetup.status.discoveryFilePresent &&
-      mcpSetup.status.mcpClientConnected,
-  )
 }
 
 export function resolveFrameDimensions(frame: DevtoolsPanelFrameSummary): {
@@ -95,6 +85,27 @@ export function groupAnnotationsByFrame(
     group.resolved.sort(sortByCreatedAt)
   }
   return groups
+}
+
+type OriginGroup = {
+  origin: string
+  unresolvedCount: number
+  annotations: Annotation[]
+}
+
+export function groupAnnotationsByOrigin(
+  annotations: Annotation[],
+): OriginGroup[] {
+  const grouped = new Map<string, OriginGroup>()
+  for (const annotation of annotations) {
+    const origin = annotationOrigin(annotation)
+    if (!origin) continue
+    const existing = grouped.get(origin) ?? { origin, unresolvedCount: 0, annotations: [] }
+    existing.annotations.push(annotation)
+    if (isUnresolved(annotation.status)) existing.unresolvedCount++
+    grouped.set(origin, existing)
+  }
+  return Array.from(grouped.values()).sort((a, b) => a.origin.localeCompare(b.origin))
 }
 
 export function buildUnresolvedCountsByNodeId(

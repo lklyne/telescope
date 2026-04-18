@@ -278,6 +278,7 @@ export interface LayoutUpdateData {
   activeSelection: ActiveCanvasEntitySelection | null
   annotationMode: AnnotationMode
   annotations: Annotation[]
+  fixProgress: Record<string, FixProgressEntry>
   viewMode: WorkspaceViewMode
   activeBrowserTabId: string | null
   activeBrowserFrameId: string | null
@@ -637,6 +638,10 @@ export interface DevtoolsPanelData {
   inspect?: InspectPanelState
   annotations?: Annotation[]
   frames?: DevtoolsPanelFrameSummary[]
+  originBindings?: OriginBindings
+  fixInProgress?: Record<string, number>
+  fixProgress?: Record<string, FixProgressEntry>
+  fixConfig?: FixConfig
   textEntity?: PanelTextEntityDetail
   fileEntity?: PanelFileEntityDetail
   drawingEntity?: PanelDrawingEntityDetail
@@ -1408,6 +1413,9 @@ export interface CanvasBgElectronAPI {
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
   getInitialData: () => Promise<CanvasLayoutBootstrapData>
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
+  onFixProgressUpdate: (
+    callback: (data: LayoutUpdateData['fixProgress']) => void,
+  ) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 
@@ -1508,6 +1516,12 @@ export interface DevtoolsPanelElectronAPI {
   resolveAnnotation: (annotationId: string) => void
   deleteAnnotation: (annotationId: string) => void
   openAnnotationThread: (annotationId: string) => void
+  triggerFixComments: (origin: string) => void
+  fixSingleAnnotation: (annotationId: string) => void
+  setAutoFix: (origin: string, enabled: boolean) => void
+  pickRepoForOrigin: (origin: string) => void
+  removeOriginBinding: (origin: string) => void
+  setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
   updateTextEntity: (id: string, patch: { color?: string }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
@@ -1549,6 +1563,7 @@ export type AnnotationAnchor =
   | { type: 'region'; canvasRect: WorkspaceBounds }
 
 export type AnnotationStatus = 'pending' | 'acknowledged' | 'resolved' | 'dismissed'
+export type AnnotationStatusFilter = AnnotationStatus | 'unresolved' | 'all'
 export type AnnotationKind = 'comment' | 'region_select'
 
 export interface AnnotationReply {
@@ -1636,6 +1651,59 @@ export interface AnnotationMetadata extends Record<string, unknown> {
   regionComponents?: RegionComponentGroup[]
   /** DOM elements found within the selected region, grouped by frame. */
   regionElements?: RegionElementGroup[]
+  /** Who resolved this annotation, when status === 'resolved'. */
+  resolvedBy?: 'user' | 'agent'
+}
+
+// --- Origin bindings (repo hookups for local dev URLs) ---
+
+export interface OriginBinding {
+  repoPath: string
+  autoFix: boolean
+}
+
+export type OriginBindings = Record<string, OriginBinding>
+
+// --- Fix config (model + permissions for the Claude subprocess) ---
+
+export type FixModel = 'opus' | 'sonnet' | 'haiku'
+export type FixPermissions = 'dangerously' | 'default'
+
+export interface FixConfig {
+  model: FixModel
+  permissions: FixPermissions
+  configured: boolean
+}
+
+// --- Fix progress (live stream of `claude -p` events per annotation) ---
+
+export type FixProgressEventKind =
+  | 'system'
+  | 'text'
+  | 'tool_use'
+  | 'tool_result'
+  | 'result'
+  | 'stderr'
+  | 'error'
+
+export interface FixProgressEvent {
+  kind: FixProgressEventKind
+  text: string
+  timestamp: string
+}
+
+export type FixProgressStatus = 'running' | 'completed' | 'failed'
+
+export interface FixProgressEntry {
+  annotationId: string
+  origin: string
+  startedAt: string
+  updatedAt: string
+  status: FixProgressStatus
+  events: FixProgressEvent[]
+  summary?: string
+  shouldResolve?: boolean
+  error?: string
 }
 
 export interface Annotation {

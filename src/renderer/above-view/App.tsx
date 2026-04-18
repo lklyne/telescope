@@ -47,6 +47,9 @@ export default function App({
   const threadInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
   const [layoutData, setLayoutData] = useState<LayoutUpdateData>(initialLayoutData)
+  const [fixProgress, setFixProgress] = useState<LayoutUpdateData['fixProgress']>(
+    initialLayoutData.fixProgress,
+  )
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayPayload | null>(null)
   const [captureMode, setCaptureMode] = useState(false)
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
@@ -60,9 +63,12 @@ export default function App({
     const cleanup = api.onLayoutUpdate((data) => {
       layoutRef.current = data
       setLayoutData(data)
+      setFixProgress(data.fixProgress)
     })
     return cleanup
   }, [])
+
+  useEffect(() => api.onFixProgressUpdate(setFixProgress), [])
 
   const {
     clearDraft,
@@ -540,6 +546,7 @@ export default function App({
             drawInteractionEnabled={drawInteractionEnabled}
             openThread={openThread}
             openThreadMenu={openThreadMenu}
+            progress={openThread ? fixProgress[openThread.id] : undefined}
             replyText={replyText}
             setOpenThreadMenu={setOpenThreadMenu}
             setReplyText={setReplyText}

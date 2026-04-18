@@ -1,19 +1,26 @@
-import { Collapsible } from '@base-ui/react/collapsible'
+import { useMemo } from 'react'
 import { Popover } from '@base-ui/react/popover'
-import { ChevronRight, MessageCircle } from 'lucide-react'
-import type { Annotation, DevtoolsPanelFrameSummary } from '../../../shared/types'
+import { Info, Loader2, MessageCircle, RotateCw } from 'lucide-react'
+import type {
+  Annotation,
+  DevtoolsPanelFrameSummary,
+  FixProgressEntry,
+} from '../../../shared/types'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import {
   authorLabel,
   formatCommentTime,
 } from '../rightDetailsPanelHelpers'
-import { groupAnnotationsByFrame } from '../rightDetailsPanelSelectors'
+import {
+  groupAnnotationsByFrame,
+} from '../rightDetailsPanelSelectors'
 import { useFocusedAnnotationScroll } from '../useFocusedAnnotationScroll'
 import {
   CircleCheckIcon,
   MoreVerticalIcon,
   TrashIcon,
 } from '../../shared/PanelIcons'
+import { FixEventList, fixStatusLabel } from '../../shared/FixEventList'
 
 export function CommentRow({
   annotation,
@@ -23,6 +30,7 @@ export function CommentRow({
   focusRowClass,
   focusedAnnotationId,
   registerAnnotationElement,
+  progress,
 }: {
   annotation: Annotation
   isDark: boolean
@@ -31,8 +39,12 @@ export function CommentRow({
   focusRowClass: string
   focusedAnnotationId?: string | null
   registerAnnotationElement: (id: string, element: HTMLElement | null) => void
+  progress?: FixProgressEntry
 }) {
   const hasScreenshot = !!annotation.metadata?.regionScreenshot
+  const progressButton = progress ? (
+    <FixProgressButton progress={progress} isDark={isDark} mutedClass={mutedClass} />
+  ) : null
   const moreMenu = (
     <Popover.Root>
       <Popover.Trigger
@@ -131,7 +143,106 @@ export function CommentRow({
           </div>
         ) : null}
       </button>
+      {progressButton ? (
+        <div className="px-1 pb-0.5">{progressButton}</div>
+      ) : null}
     </div>
+  )
+}
+
+function FixProgressButton({
+  progress,
+  isDark,
+  mutedClass,
+}: {
+  progress: FixProgressEntry
+  isDark: boolean
+  mutedClass: string
+}) {
+  const lastEvent = progress.events[progress.events.length - 1]
+  const label = progress.status === 'running'
+    ? (lastEvent ? lastEvent.text : 'Starting…')
+    : progress.status === 'failed'
+      ? (progress.error ?? 'Fix failed')
+      : 'Fix log'
+  const Icon = progress.status === 'running' ? Loader2 : Info
+  const tone = progress.status === 'failed'
+    ? (isDark ? 'text-red-300 hover:bg-zinc-700/70' : 'text-red-700 hover:bg-red-50')
+    : progress.status === 'running'
+      ? (isDark ? 'text-blue-300 hover:bg-zinc-700/70' : 'text-blue-700 hover:bg-blue-50')
+      : (isDark ? 'text-zinc-300 hover:bg-zinc-700/70' : 'text-zinc-600 hover:bg-zinc-100')
+
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        render={
+          <button
+            type="button"
+            className={`-ml-1.5 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] ${tone}`}
+            aria-label="Show fix log"
+            title="Show fix log"
+          />
+        }
+      >
+        <Icon
+          size={11}
+          className={progress.status === 'running' ? 'animate-spin shrink-0' : 'shrink-0'}
+        />
+        <span className="truncate">{label}</span>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={4} align="start">
+          <Popover.Popup
+            className={`z-30 flex max-h-[320px] w-[340px] flex-col overflow-hidden rounded-md border shadow-xl ${
+              isDark ? 'border-zinc-600 bg-zinc-900 text-zinc-200' : 'border-zinc-200 bg-white text-zinc-900'
+            }`}
+          >
+            <div className={`flex items-center justify-between border-b px-2 py-1.5 text-[11px] ${
+              isDark ? 'border-zinc-700 bg-zinc-800/50' : 'border-zinc-200 bg-zinc-50'
+            }`}>
+              <span className="font-medium">{fixStatusLabel(progress.status)}</span>
+              <span className={mutedClass}>{progress.events.length} events</span>
+            </div>
+            {progress.events.length === 0 ? (
+              <div className={`px-2 py-3 text-[11px] ${mutedClass}`}>Waiting for output…</div>
+            ) : (
+              <FixEventList events={progress.events} className="flex-1 px-2 py-1.5" />
+            )}
+            {progress.error ? (
+              <div className={`border-t px-2 py-1.5 text-[11px] ${
+                isDark ? 'border-zinc-700 bg-red-900/20 text-red-300' : 'border-zinc-200 bg-red-50 text-red-700'
+              }`}>
+                {progress.error}
+              </div>
+            ) : null}
+            {progress.status !== 'running' ? (
+              <div
+                className={`flex items-center justify-end border-t px-2 py-1.5 ${
+                  isDark ? 'border-zinc-700 bg-zinc-800/50' : 'border-zinc-200 bg-zinc-50'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => rightDetailsPanelApi.fixSingleAnnotation(progress.annotationId)}
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium ${
+                    progress.status === 'failed'
+                      ? isDark
+                        ? 'border-blue-500/70 bg-blue-600/80 text-white hover:bg-blue-600'
+                        : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      : isDark
+                        ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
+                        : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
+                  }`}
+                >
+                  <RotateCw size={11} />
+                  <span>{progress.status === 'failed' ? 'Retry' : 'Run again'}</span>
+                </button>
+              </div>
+            ) : null}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
 
@@ -142,6 +253,7 @@ export function CommentsPane({
   focusedAnnotationId,
   annotateEnabled,
   annotateAvailable,
+  fixProgress,
 }: {
   isDark: boolean
   annotations: Annotation[]
@@ -149,12 +261,13 @@ export function CommentsPane({
   focusedAnnotationId?: string | null
   annotateEnabled: boolean
   annotateAvailable: boolean
+  fixProgress: Record<string, FixProgressEntry>
 }) {
   const mutedClass = isDark ? 'text-zinc-400' : 'text-zinc-500'
   const dividerClass = isDark ? 'border-zinc-700/50' : 'border-zinc-200/80'
   const rowHoverClass = isDark ? 'hover:bg-zinc-700/55' : 'hover:border-zinc-300'
   const focusRowClass = isDark ? 'bg-blue-500/20' : 'bg-blue-500/10'
-  const groups = groupAnnotationsByFrame(annotations, frames)
+  const groups = useMemo(() => groupAnnotationsByFrame(annotations, frames), [annotations, frames])
   const { registerAnnotationElement } = useFocusedAnnotationScroll(
     focusedAnnotationId,
     annotations,
@@ -205,6 +318,7 @@ export function CommentsPane({
                       focusRowClass={focusRowClass}
                       focusedAnnotationId={focusedAnnotationId}
                       registerAnnotationElement={registerAnnotationElement}
+                      progress={fixProgress[annotation.id]}
                     />
                   ))}
                 </div>
@@ -216,3 +330,4 @@ export function CommentsPane({
     </section>
   )
 }
+

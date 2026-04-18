@@ -14,7 +14,8 @@ import {
   handleNodeDetailResponse,
   pages,
 } from '../runtime/page-runtime'
-import { setPendingFocus } from '../runtime/runtime-context'
+import { getZoom, setPendingFocus } from '../runtime/runtime-context'
+import { setZoom } from '../runtime/viewport-control'
 import {
   focusCanvasBounds,
   getSelectedEntityIds,
@@ -54,6 +55,7 @@ function forwardOverrideToFrame(
 }
 
 const POINT_FOCUS_SIZE = 100
+const FOCUS_MIN_ZOOM = 0.8
 
 function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null {
   const { anchor } = annotation
@@ -67,12 +69,23 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
       }
     case 'region':
       return anchor.canvasRect
-    case 'frame':
     case 'element': {
       const page = findPageById(anchor.frameId)
       if (!page) return null
-      const fb = pageCanvasBounds(page)
-      return fb
+      if (anchor.boundingBox) {
+        return {
+          x: page.canvasX + anchor.boundingBox.x,
+          y: page.canvasY + anchor.boundingBox.y,
+          width: anchor.boundingBox.width,
+          height: anchor.boundingBox.height,
+        }
+      }
+      return pageCanvasBounds(page)
+    }
+    case 'frame': {
+      const page = findPageById(anchor.frameId)
+      if (!page) return null
+      return pageCanvasBounds(page)
     }
   }
 }
@@ -102,6 +115,7 @@ export function registerAnnotationInspectionIpc(): void {
       if (annotation.anchor.type !== 'canvas' && annotation.anchor.type !== 'region') {
         selectPageById(annotation.anchor.frameId)
       }
+      if (getZoom() < FOCUS_MIN_ZOOM) setZoom(1.0)
       const bounds = annotationCanvasBounds(annotation)
       if (bounds) focusCanvasBounds(bounds)
       focusAnnotation(annotationId)

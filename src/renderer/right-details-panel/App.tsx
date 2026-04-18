@@ -13,14 +13,11 @@ import { MultiEntityPane } from './components/MultiEntityPane'
 import { PaneHeader } from './components/PaneHeader'
 import { TextEntityPane } from './components/TextEntityPane'
 import { rightDetailsPanelApi } from './rightDetailsPanelApi'
-import { isMcpConnected } from './rightDetailsPanelSelectors'
-import { useInstallCommandCopy } from './useInstallCommandCopy'
 import { useRightDetailsPanelData } from './useRightDetailsPanelData'
 
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()
   const isDark = useTheme(initialTheme, rightDetailsPanelApi.onThemeChanged)
-  const { copiedInstall, copyInstallCommand } = useInstallCommandCopy()
 
   useAnnotateToggleShortcut({
     clearToolMode: rightDetailsPanelApi.clearToolMode,
@@ -34,8 +31,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     : 'h-screen w-screen overflow-hidden border-l border-[var(--surface-panel-border)] bg-[var(--surface-panel)] text-zinc-900'
   const frames = panelData.frames ?? []
   const annotations = panelData.annotations ?? []
-  const mcpSetup = panelData.emptyState?.kind === 'mcp_setup' ? panelData.emptyState : null
-  const mcpConnected = isMcpConnected(mcpSetup)
   const { panelMode } = panelData
 
   if (panelData.activeTab === 'browser-devtools') {
@@ -76,6 +71,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             annotations={annotations}
             selection={panelData.selection}
             frames={frames}
+            fixProgress={panelData.fixProgress ?? {}}
           />
         ) : null
 
@@ -119,10 +115,10 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             focusedAnnotationId={panelData.focusedAnnotationId}
             annotateEnabled={Boolean(panelData.annotateEnabled)}
             annotateAvailable={Boolean(panelData.annotateAvailable)}
-            mcpSetup={mcpSetup}
-            mcpConnected={mcpConnected}
-            copiedInstall={copiedInstall}
-            copyInstallCommand={copyInstallCommand}
+            originBindings={panelData.originBindings ?? {}}
+            fixInProgress={panelData.fixInProgress ?? {}}
+            fixProgress={panelData.fixProgress ?? {}}
+            fixConfig={panelData.fixConfig ?? { model: 'opus', permissions: 'dangerously', configured: false }}
           />
         )
     }

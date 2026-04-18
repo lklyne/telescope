@@ -1,7 +1,6 @@
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type {
   Annotation,
-  DevtoolsPanelData,
   DevtoolsPanelFrameSummary,
   InspectNodeDetail,
   InspectPanelState,
@@ -17,16 +16,6 @@ type AnnotationGroup = {
   frameHeight?: number
   unresolved: Annotation[]
   resolved: Annotation[]
-}
-
-export function isMcpConnected(
-  mcpSetup: DevtoolsPanelData['emptyState'] | null,
-): boolean {
-  return Boolean(
-    mcpSetup?.status.appServerRunning &&
-      mcpSetup.status.discoveryFilePresent &&
-      mcpSetup.status.mcpClientConnected,
-  )
 }
 
 export function resolveFrameDimensions(frame: DevtoolsPanelFrameSummary): {

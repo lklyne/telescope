@@ -1560,6 +1560,7 @@ export type AnnotationAnchor =
   | { type: 'region'; canvasRect: WorkspaceBounds }
 
 export type AnnotationStatus = 'pending' | 'acknowledged' | 'resolved' | 'dismissed'
+export type AnnotationStatusFilter = AnnotationStatus | 'unresolved' | 'all'
 export type AnnotationKind = 'comment' | 'region_select'
 
 export interface AnnotationReply {

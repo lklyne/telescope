@@ -1,5 +1,5 @@
 import type { Route } from './types'
-import type { AnnotationStatus } from '../../shared/types'
+import type { AnnotationStatusFilter } from '../../shared/types'
 import {
   addAnnotationReply,
   createAnnotation,
@@ -20,7 +20,7 @@ export const annotationRoutes: Route[] = [
     pattern: /^\/annotations(\/[^/?]+)?(\?.*)?$/,
     async handler({ response, url }) {
       const searchParams = new URL(url, 'http://localhost').searchParams
-      const status = searchParams.get('status') as AnnotationStatus | 'unresolved' | 'all' | null
+      const status = searchParams.get('status') as AnnotationStatusFilter | null
       const annotationUrl = searchParams.get('url') ?? undefined
       const frameId = searchParams.get('frame_id') ?? undefined
       const id = url.match(/^\/annotations\/([^/?]+)$/)?.[1]

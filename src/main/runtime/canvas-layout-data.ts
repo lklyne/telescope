@@ -20,6 +20,7 @@ import type {
   ToolbarSelectionData,
 } from '../../shared/types'
 import { resolvePresenceFramePoint } from '../../shared/presence-targeting'
+import { isUnresolved } from '../../shared/annotation-utils'
 import {
   aboveView,
   cursorOverlayWindow,
@@ -198,9 +199,7 @@ export function annotationsForPage(frameId: string): Annotation[] {
   const page = findPageById(frameId)
   const currentPageUrl = canonicalAnnotationUrl(page?.pageView.webContents.getURL() ?? null)
   return workspaceAnnotations.filter((annotation) => {
-    if (!(annotation.status === 'pending' || annotation.status === 'acknowledged')) {
-      return false
-    }
+    if (!isUnresolved(annotation.status)) return false
     if (annotation.anchor.type === 'canvas') return false
     if (annotation.anchor.type === 'region') return false
     if (annotation.anchor.frameId !== frameId) return false

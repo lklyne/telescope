@@ -1,5 +1,11 @@
 import { Fragment, useEffect, useRef } from 'react'
-import type { FixProgressEvent } from '../../shared/types'
+import type { FixProgressEntry, FixProgressEvent } from '../../shared/types'
+
+export function fixStatusLabel(status: FixProgressEntry['status']): string {
+  if (status === 'running') return 'Running'
+  if (status === 'failed') return 'Failed'
+  return 'Completed'
+}
 
 const kindColor: Record<FixProgressEvent['kind'], string> = {
   system: 'text-zinc-500',

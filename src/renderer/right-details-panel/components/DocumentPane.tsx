@@ -4,7 +4,6 @@ import { ChevronDown, ChevronRight, FolderOpen, Loader2, Play, Settings, Zap } f
 import { useMemo, useState } from 'react'
 import type {
   Annotation,
-  DevtoolsPanelData,
   DevtoolsPanelFrameSummary,
   FixConfig,
   FixModel,
@@ -18,7 +17,6 @@ import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import { useFocusedAnnotationScroll } from '../useFocusedAnnotationScroll'
 import { CommentRow, CommentsPane } from './CommentsPane'
 import { PaneHeader } from './PaneHeader'
-import { SettingsPane } from './SettingsPane'
 
 export function DocumentPane({
   isDark,
@@ -31,10 +29,6 @@ export function DocumentPane({
   fixInProgress,
   fixProgress,
   fixConfig,
-  mcpSetup,
-  mcpConnected,
-  copiedInstall,
-  copyInstallCommand,
 }: {
   isDark: boolean
   annotations: Annotation[]
@@ -46,12 +40,7 @@ export function DocumentPane({
   fixInProgress: Record<string, number>
   fixProgress: Record<string, FixProgressEntry>
   fixConfig: FixConfig
-  mcpSetup: DevtoolsPanelData['emptyState'] | null
-  mcpConnected: boolean
-  copiedInstall: 'idle' | 'ok' | 'err'
-  copyInstallCommand: (command: string) => Promise<void>
 }) {
-  const muted = mutedClass(isDark)
   const divider = dividerClass(isDark)
   const originGroups = useMemo(() => groupAnnotationsByOrigin(annotations), [annotations])
 
@@ -99,38 +88,6 @@ export function DocumentPane({
         divider={divider}
         fixProgress={fixProgress}
       />
-
-      {/* MCP Server section hidden — using CLI instead
-      {mcpSetup ? (
-        <Collapsible.Root defaultOpen={false}>
-          <Collapsible.Trigger
-            className={`group flex w-full items-center gap-1.5 border-t px-3 py-2 text-[12px] font-medium ${divider}`}
-          >
-            MCP Server
-            <ChevronRight size={10} className="transition-all ease-out group-data-[panel-open]:rotate-90" />
-            <span className="ml-auto flex items-center gap-1.5 text-xs font-normal text-zinc-700 dark:text-zinc-100">
-              <span
-                className={`inline-block size-2 rounded-full ${
-                  mcpConnected ? 'bg-emerald-400' : 'bg-zinc-500'
-                }`}
-              />
-              {mcpConnected ? 'Connected' : 'Disconnected'}
-            </span>
-          </Collapsible.Trigger>
-          <Collapsible.Panel className="h-[var(--collapsible-panel-height)] overflow-hidden transition-all ease-out data-[ending-style]:h-0 data-[starting-style]:h-0 duration-150 [&[hidden]:not([hidden='until-found'])]:hidden">
-            <section className="px-2 pb-2">
-              <SettingsPane
-                copiedInstall={copiedInstall}
-                copyInstallCommand={copyInstallCommand}
-                isDark={isDark}
-                mcpSetup={mcpSetup}
-                mutedClass={muted}
-              />
-            </section>
-          </Collapsible.Panel>
-        </Collapsible.Root>
-      ) : null}
-      */}
     </div>
   )
 }

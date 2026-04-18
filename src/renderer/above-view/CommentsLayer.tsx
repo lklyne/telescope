@@ -3,7 +3,7 @@ import type { Annotation, FixProgressEntry, LayoutUpdateData, WorkspaceBounds } 
 import { canvasRectToScreenRect, type PendingAnnotation } from './annotationMath'
 import { CircleCheckIcon, MoreVerticalIcon, TrashIcon } from '../shared/PanelIcons'
 import { CommentBubble, CommentInput } from '../shared/CommentPrimitives'
-import { FixEventList } from '../shared/FixEventList'
+import { FixEventList, fixStatusLabel } from '../shared/FixEventList'
 
 export function PendingCommentComposer({
   clearDraft,
@@ -270,12 +270,7 @@ export function AnnotationThreadPopover({
 function ThreadFixProgress({ progress }: { progress: FixProgressEntry }) {
   const eventCount = progress.events.length
 
-  const statusLabel =
-    progress.status === 'running'
-      ? 'Running'
-      : progress.status === 'failed'
-        ? 'Failed'
-        : 'Completed'
+  const statusLabel = fixStatusLabel(progress.status)
 
   const statusColor =
     progress.status === 'running'

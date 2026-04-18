@@ -4,7 +4,9 @@ import type {
   AnnotationMetadata,
   AnnotationReply,
   AnnotationStatus,
+  AnnotationStatusFilter,
 } from '../shared/types'
+import { isUnresolved } from '../shared/annotation-utils'
 import {
   findPageById,
   getComponentAncestryByNodeId,
@@ -108,7 +110,7 @@ function enrichedAnnotationMetadata(
 }
 
 export function getAnnotations(filters?: {
-  status?: AnnotationStatus | 'unresolved' | 'all'
+  status?: AnnotationStatusFilter
   url?: string
   frameId?: string
 }): Annotation[] {
@@ -116,9 +118,7 @@ export function getAnnotations(filters?: {
   return workspaceAnnotations.filter((annotation) => {
     if (filters?.status && filters.status !== 'all') {
       if (filters.status === 'unresolved') {
-        if (annotation.status !== 'pending' && annotation.status !== 'acknowledged') {
-          return false
-        }
+        if (!isUnresolved(annotation.status)) return false
       } else if (annotation.status !== filters.status) {
         return false
       }

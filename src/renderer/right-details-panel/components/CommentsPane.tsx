@@ -20,7 +20,7 @@ import {
   MoreVerticalIcon,
   TrashIcon,
 } from '../../shared/PanelIcons'
-import { FixEventList } from '../../shared/FixEventList'
+import { FixEventList, fixStatusLabel } from '../../shared/FixEventList'
 
 export function CommentRow({
   annotation,
@@ -200,9 +200,7 @@ function FixProgressButton({
             <div className={`flex items-center justify-between border-b px-2 py-1.5 text-[11px] ${
               isDark ? 'border-zinc-700 bg-zinc-800/50' : 'border-zinc-200 bg-zinc-50'
             }`}>
-              <span className="font-medium">
-                {progress.status === 'running' ? 'Running' : progress.status === 'failed' ? 'Failed' : 'Completed'}
-              </span>
+              <span className="font-medium">{fixStatusLabel(progress.status)}</span>
               <span className={mutedClass}>{progress.events.length} events</span>
             </div>
             {progress.events.length === 0 ? (

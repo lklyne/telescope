@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron'
 import type { Annotation } from '../shared/types'
+import { isUnresolved } from '../shared/annotation-utils'
 
 const COMMENT_BADGE_DEBUG = process.env.CANVAS_DEBUG_COMMENT_BADGES === '1'
 
@@ -217,7 +218,7 @@ function annotationViewportRect(annotation: Annotation): { left: number; top: nu
 
 function pageCommentBadgeData(): PageCommentBadge[] {
   const unresolved = pageAnnotations
-    .filter((annotation) => annotation.status === 'pending' || annotation.status === 'acknowledged')
+    .filter((annotation) => isUnresolved(annotation.status))
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
   const grouped = new Map<
     string,

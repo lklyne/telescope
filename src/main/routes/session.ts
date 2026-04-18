@@ -29,6 +29,15 @@ import { selectNone as clearSelection } from '../runtime/selection-controller'
 import { sendInteractiveState } from '../runtime/overlay-manager'
 import { setCanvasMode as setUiCanvasMode } from '../ui-state'
 import { writeJson, notifyStatusListeners } from '../app-control-server'
+import { emitNarration } from '../narration/event-bus'
+import {
+  narrateBrowseVerb,
+  narrateBrowseScanPlaceholder,
+  narrateBrowseScanResult,
+  narrateCanvasVerb,
+} from '../narration/verb-narration'
+import { setSessionIntent } from '../narration/director'
+import type { CanvasRect } from '../../shared/narration-event'
 
 function resetSmokeTestState(): void {
   resetPresenceState()
@@ -242,6 +251,144 @@ export const sessionRoutes: Route[] = [
       })
 
       scheduleThinkingState(request)
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    /**
+     * Narration event emit — the CLI posts verb-level intent here and main
+     * builds a NarrationEvent with resolved rects via verb-narration.ts,
+     * then pushes onto the director's queue. Fire-and-forget: the CLI does
+     * not wait on director state.
+     */
+    method: 'POST',
+    pattern: '/session/narration/verb',
+    async handler({ request, response, body }) {
+      const payload = body as Record<string, unknown>
+      const resolved = resolveSession(request, payload)
+      if (!resolved) {
+        writeJson(response, 400, { error: 'session required' })
+        return
+      }
+
+      const verb = typeof payload.verb === 'string' ? payload.verb : null
+      if (!verb) {
+        writeJson(response, 400, { error: 'verb is required' })
+        return
+      }
+
+      const kind =
+        payload.kind === 'browse' || payload.kind === 'canvas' || payload.kind === 'scan_result'
+          ? payload.kind
+          : 'canvas'
+
+      const intent =
+        payload.intent === null
+          ? null
+          : typeof payload.intent === 'string'
+            ? payload.intent
+            : undefined
+      if (intent !== undefined) setSessionIntent(resolved.sessionId, intent)
+
+      const frameId = typeof payload.frameId === 'string' ? payload.frameId : null
+      const targetRef = typeof payload.targetRef === 'string' ? payload.targetRef : null
+      const targetName = typeof payload.targetName === 'string' ? payload.targetName : null
+      const targetRole = typeof payload.targetRole === 'string' ? payload.targetRole : null
+      const targetValue = typeof payload.targetValue === 'string' ? payload.targetValue : null
+      const errorHint =
+        payload.errorHint === 'retry' || payload.errorHint === 'hard_fail'
+          ? payload.errorHint
+          : null
+      const bridgeFrom = typeof payload.bridgeFrom === 'string' ? payload.bridgeFrom : null
+      const bridgeTo = typeof payload.bridgeTo === 'string' ? payload.bridgeTo : null
+      const entityIds = Array.isArray(payload.entityIds)
+        ? payload.entityIds.filter((v): v is string => typeof v === 'string')
+        : undefined
+
+      const ctxBase = {
+        sessionId: resolved.sessionId,
+        clientName: resolved.session.clientName ?? 'agent',
+      }
+
+      let event: Parameters<typeof emitNarration>[0] | null = null
+
+      if (kind === 'browse') {
+        event = narrateBrowseVerb({
+          ...ctxBase,
+          verb,
+          frameId,
+          targetRef,
+          targetName,
+          targetRole,
+          targetValue,
+          errorHint,
+        })
+      } else if (kind === 'scan_result') {
+        const rects = Array.isArray(payload.rects)
+          ? (payload.rects as unknown[]).filter(
+              (r): r is CanvasRect =>
+                !!r &&
+                typeof r === 'object' &&
+                typeof (r as CanvasRect).x === 'number' &&
+                typeof (r as CanvasRect).y === 'number' &&
+                typeof (r as CanvasRect).width === 'number' &&
+                typeof (r as CanvasRect).height === 'number',
+            )
+          : []
+        event = narrateBrowseScanResult(
+          {
+            ...ctxBase,
+            verb,
+            frameId,
+            targetRef,
+            targetName,
+            targetRole,
+            targetValue,
+          },
+          rects,
+        )
+      } else {
+        event = narrateCanvasVerb({
+          ...ctxBase,
+          verb,
+          entityIds,
+          bridgeFrom: bridgeFrom ?? undefined,
+          bridgeTo: bridgeTo ?? undefined,
+          errorHint,
+        })
+      }
+
+      if (event) {
+        if (intent !== undefined) event.intent = intent
+        emitNarration(event)
+      }
+
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/session/narration/placeholder',
+    async handler({ request, response, body }) {
+      const payload = body as Record<string, unknown>
+      const resolved = resolveSession(request, payload)
+      if (!resolved) {
+        writeJson(response, 400, { error: 'session required' })
+        return
+      }
+      const verb = typeof payload.verb === 'string' ? payload.verb : null
+      const frameId = typeof payload.frameId === 'string' ? payload.frameId : null
+      if (!verb) {
+        writeJson(response, 400, { error: 'verb is required' })
+        return
+      }
+      const event = narrateBrowseScanPlaceholder({
+        sessionId: resolved.sessionId,
+        clientName: resolved.session.clientName ?? 'agent',
+        verb,
+        frameId,
+      })
+      if (event) emitNarration(event)
       writeJson(response, 200, { ok: true })
     },
   },

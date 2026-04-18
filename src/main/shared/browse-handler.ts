@@ -288,7 +288,6 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   // Parse first command for presence animation
   const firstCmd = isChained ? chainedParts[0] : rawCommand
   const { verb, ref } = parseCommandArgs(firstCmd)
-  const labelKey = verb ? COMMAND_LABELS[verb] ?? null : null
 
   const clientName = getClientName()
 
@@ -296,20 +295,31 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(frameId)
     const abPath = resolveAgentBrowserPath()
 
-    // Fire presence intent (non-blocking)
-    if (labelKey) {
-      callApp('/session/presence/intent', {
-        method: 'POST',
-        body: JSON.stringify({
-          sessionId,
-          clientName,
-          command: verb,
-          labelKey,
-          labelHint: verb === 'fill' || verb === 'type' ? 'editing control' : null,
-          targetRef: ref,
-          targetRefSource: ref ? 'agent-browser' : null,
-        }),
-      }).catch(() => {})
+    // Fire narration intent (non-blocking). Main builds the NarrationEvent
+    // with a resolved rect and pushes it to the director's queue. For scan
+    // verbs we use the placeholder variant so the cursor drifts on the frame
+    // while agent-browser runs.
+    if (verb) {
+      const scanVerbs = new Set(['snapshot', 'query-elements', 'get', 'console', 'errors'])
+      const narrationBody = {
+        sessionId,
+        clientName,
+        verb,
+        kind: 'browse' as const,
+        frameId,
+        targetRef: ref ?? null,
+      }
+      if (scanVerbs.has(verb)) {
+        callApp('/session/narration/placeholder', {
+          method: 'POST',
+          body: JSON.stringify(narrationBody),
+        }).catch(() => {})
+      } else {
+        callApp('/session/narration/verb', {
+          method: 'POST',
+          body: JSON.stringify(narrationBody),
+        }).catch(() => {})
+      }
     }
 
     // Previously, each browse command sent eventType:'done' in a finally block,

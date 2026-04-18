@@ -4,7 +4,7 @@ import { handleBrowse, shellQuote } from './shared/browse-handler'
 import { upsertEntities, type UpsertOptions, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
-import { emitPresenceForVerb } from './cli-presence'
+import { emitNarrationIntent, emitPresenceForVerb } from './cli-presence'
 
 // ---------------------------------------------------------------------------
 // Verb handlers
@@ -533,10 +533,44 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Unknown verbs are passed to agent-browser as raw commands.')
     return 0
   }
-  emitPresenceForVerb(args.verb)
+  // Narration: browse verbs emit their own richer intent from handleBrowse
+  // (they know frameId + targetRef). Everything else fires here with the
+  // verb + optional --intent subtitle.
+  const browseVerbs = new Set([
+    'snapshot',
+    'click',
+    'fill',
+    'type',
+    'select',
+    'hover',
+    'screenshot',
+    'scroll',
+    'wait',
+    'get',
+    'console',
+    'errors',
+    'query-elements',
+    'navigate',
+    'back',
+    'forward',
+    'reload',
+  ])
+  if (!browseVerbs.has(args.verb)) {
+    emitNarrationIntent({
+      verb: args.verb,
+      kind: 'canvas',
+      intent: args.flags.intent ?? undefined,
+    })
+  } else if (args.flags.intent !== undefined) {
+    // Browse verbs: emit just the intent (main sets it on the session). The
+    // real verb-narration fires from handleBrowse with richer context.
+    emitNarrationIntent({ verb: args.verb, intent: args.flags.intent })
+  }
   const handler = VERBS[args.verb] ?? browsePassthrough
   return handler(args)
 }
+// emitPresenceForVerb is kept as a back-compat export for now; removed in step 9.
+void emitPresenceForVerb
 
 // ---------------------------------------------------------------------------
 // Stdin helper

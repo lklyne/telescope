@@ -1,47 +1,73 @@
 import { callApp, sessionId, getClientName } from './shared/app-client'
 
 // ---------------------------------------------------------------------------
-// Presence mapping for canvas verbs
+// Narration intent — replaces the old presence event firing.
 // ---------------------------------------------------------------------------
-// Browse verbs already emit presence via handleBrowse — this covers canvas ops.
+// Every CLI verb fires a single narration intent at dispatch time. Main
+// constructs the NarrationEvent server-side (with resolved rects) and pushes
+// it onto the director's queue. Fire-and-forget: never blocks the CLI.
 
-const VERB_PRESENCE: Record<string, { labelKey: string; surface: string }> = {
-  workspace:        { labelKey: 'scan_workspace', surface: 'canvas' },
-  selection:        { labelKey: 'scan_workspace', surface: 'canvas' },
-  'find-placement': { labelKey: 'scan_workspace', surface: 'canvas' },
-  create:           { labelKey: 'create_entity',  surface: 'canvas' },
-  update:           { labelKey: 'update_entity',  surface: 'canvas' },
-  delete:           { labelKey: 'delete_entity',  surface: 'canvas' },
-  upsert:           { labelKey: 'update_entity',  surface: 'canvas' },
-  focus:            { labelKey: 'focus_camera',   surface: 'canvas' },
-  group:            { labelKey: 'update_entity',  surface: 'canvas' },
-  ungroup:          { labelKey: 'update_entity',  surface: 'canvas' },
-  link:             { labelKey: 'update_entity',  surface: 'canvas' },
-  unlink:           { labelKey: 'update_entity',  surface: 'canvas' },
-  breakpoints:      { labelKey: 'create_entity',  surface: 'canvas' },
-  annotate:         { labelKey: 'create_entity',  surface: 'canvas' },
-  annotations:      { labelKey: 'scan_workspace', surface: 'canvas' },
-  annotation:       { labelKey: 'scan_workspace', surface: 'canvas' },
-  ack:              { labelKey: 'update_entity',  surface: 'canvas' },
-  resolve:          { labelKey: 'update_entity',  surface: 'canvas' },
-  dismiss:          { labelKey: 'update_entity',  surface: 'canvas' },
-  reply:            { labelKey: 'update_entity',  surface: 'canvas' },
-  record:           { labelKey: 'update_entity',  surface: 'canvas' },
+/** Verbs that dispatch to agent-browser run the `browse` narration path. */
+const BROWSE_VERBS = new Set<string>([
+  'snapshot',
+  'click',
+  'fill',
+  'type',
+  'select',
+  'hover',
+  'screenshot',
+  'scroll',
+  'wait',
+  'get',
+  'console',
+  'errors',
+  'query-elements',
+  'navigate',
+  'back',
+  'forward',
+  'reload',
+])
+
+/**
+ * Emit a narration intent for the given verb. For browse verbs we expect
+ * `handleBrowse` to supply the frameId + targetRef directly (so we get a
+ * richer narration). For canvas verbs the `entityIds`/`bridge*` fields drive
+ * rect extraction on the server.
+ */
+export interface NarrationIntentPayload {
+  verb: string
+  kind?: 'browse' | 'canvas' | 'scan_result'
+  frameId?: string | null
+  targetRef?: string | null
+  targetName?: string | null
+  targetRole?: string | null
+  targetValue?: string | null
+  errorHint?: 'retry' | 'hard_fail' | null
+  intent?: string | null
+  entityIds?: string[]
+  bridgeFrom?: string
+  bridgeTo?: string
+  rects?: Array<{ x: number; y: number; width: number; height: number }>
 }
 
-export function emitPresenceForVerb(verb: string): void {
-  const entry = VERB_PRESENCE[verb]
-  if (!entry) return
-  // Fire-and-forget — don't block the command on presence
-  callApp('/session/presence', {
+export function emitNarrationIntent(payload: NarrationIntentPayload): void {
+  const kind = payload.kind ?? (BROWSE_VERBS.has(payload.verb) ? 'browse' : 'canvas')
+  callApp('/session/narration/verb', {
     method: 'POST',
     body: JSON.stringify({
       sessionId,
       clientName: getClientName(),
-      eventType: 'act',
-      surface: entry.surface,
-      phase: 'acting',
-      labelKey: entry.labelKey,
+      kind,
+      ...payload,
     }),
-  }).catch(() => {})
+  }).catch(() => {
+    /* fire-and-forget */
+  })
+}
+
+/** Back-compat shim — the canvas verb dispatch loop previously called
+ * `emitPresenceForVerb`. We keep the name so the call site in cli-commands.ts
+ * doesn't need to change; the implementation now emits a narration intent. */
+export function emitPresenceForVerb(verb: string): void {
+  emitNarrationIntent({ verb })
 }

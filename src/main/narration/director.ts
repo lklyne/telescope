@@ -27,6 +27,7 @@ import type {
 import { rectCenter } from '../../shared/narration-event'
 import type { CatmullRomSpline } from '../../shared/cursor-spline'
 import { foldSpline } from '../../shared/cursor-spline'
+import { composeLabel } from '../../shared/narration-grammar'
 import { deriveMood, paramsForMood } from './mood'
 import { drainSession } from './event-bus'
 
@@ -266,6 +267,15 @@ function applyEvents(state: SessionState, events: readonly NarrationEvent[]): vo
       setPhase(state, 'idle', now)
     }
     state.mood = nextMood
+
+    // Compose the label from grammar. This is deterministic per session so
+    // the same session always picks the same synonym.
+    state.label = composeLabel(
+      event.verb,
+      event.target ?? null,
+      state.mood,
+      state.sessionId,
+    )
 
     // Fold new waypoints onto the active spline. We capture current state
     // right here so tangent preservation is exact.

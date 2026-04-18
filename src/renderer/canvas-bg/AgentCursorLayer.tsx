@@ -1,21 +1,30 @@
-import { type CSSProperties, useMemo, useEffect, useRef, useState } from 'react'
+/**
+ * Agent cursor rendering — pure playback of director narration frames.
+ *
+ * The renderer has no animation opinions of its own. The director in the main
+ * process tells it where the cursor is at every tick and what phase/mood it
+ * is in; the renderer just paints.
+ *
+ * The only renderer-local state is the ripple and error-tint pulses, which
+ * trigger on `commitKey` and `errorKey` monotonic counters sent by the
+ * director — the renderer never decides *when* to ripple, only *how*.
+ */
+
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
 import type {
-  AgentPresenceCursor,
   CanvasSceneFrameEntity,
-  CursorMotionParams,
-  PresenceActivity,
-  Vec2,
+  LayoutPresenceFrame,
 } from '../../shared/types'
-import { labelForPresenceCursor } from '../../shared/agent-presence'
-import { framePointMatchesTargetRect } from '../../shared/presence-targeting'
-import { PRESENCE_STEP_DELAY_MS } from '../../shared/presence-timing'
-import {
-  DEFAULT_CURSOR_MOTION,
-  cubicBezierPoint,
-  deriveControlPoints,
-  easeAt,
-  effectiveDurationMs,
-} from '../../shared/cursor-motion'
+import { MOOD_VISUALS } from '../../shared/narration-visuals'
+
+// Short CSS transition smooths subpixel jitter between director ticks. The
+// director runs at 16 ms; a ~100 ms transition means visual changes always
+// look smooth even under slight scheduler variance.
+const POSITION_TRANSITION_MS = 100
+
+const RIPPLE_SIZE = 96
+const RIPPLE_DURATION_MS = 260
+const ERROR_TINT_MS = 800
 
 export function FilledCursorIcon({
   color,
@@ -41,70 +50,6 @@ export function FilledCursorIcon({
   )
 }
 
-function activityStyle(activity: PresenceActivity): CSSProperties {
-  switch (activity) {
-    case 'traveling':
-      return { opacity: 1, transform: 'scale(1)', filter: 'saturate(1.1)' }
-    case 'acting':
-      return { opacity: 1, transform: 'scale(1.02)', filter: 'saturate(1.15)' }
-    case 'waiting':
-      return {
-        opacity: 0.95,
-        transform: 'scale(1)',
-        animation: 'agent-presence-pulse 1.3s ease-in-out infinite',
-      }
-    case 'thinking':
-      return { opacity: 1, transform: 'scale(0.98)' }
-    case 'idle':
-      return { opacity: 0.38, transform: 'scale(0.96)' }
-    case 'departing':
-      return { opacity: 0.7, transform: 'scale(0.96)' }
-  }
-}
-
-function TargetHalo({
-  cursor,
-  frame,
-  overlayOffsetY,
-}: {
-  cursor: AgentPresenceCursor
-  frame: CanvasSceneFrameEntity | null
-  overlayOffsetY: number
-}) {
-  if (
-    !frame ||
-    !cursor.targetRect ||
-    !framePointMatchesTargetRect(
-      cursor.frameX,
-      cursor.frameY,
-      cursor.targetRect,
-    )
-  ) {
-    return null
-  }
-  const scaleX = frame.screenWidth / Math.max(frame.width, 1)
-  const scaleY = frame.screenHeight / Math.max(frame.height, 1)
-  return (
-    <div
-      className="absolute rounded-xl border"
-      style={{
-        left: frame.screenX + cursor.targetRect.x * scaleX - 6,
-        top: frame.screenY + cursor.targetRect.y * scaleY - overlayOffsetY - 6,
-        width: cursor.targetRect.width * scaleX + 12,
-        height: cursor.targetRect.height * scaleY + 12,
-        borderColor: cursor.color,
-        boxShadow: `0 0 0 2px color-mix(in srgb, ${cursor.color} 32%, transparent)`,
-        background: `color-mix(in srgb, ${cursor.color} 14%, transparent)`,
-      }}
-    />
-  )
-}
-
-const RIPPLE_SIZE = 96
-const RIPPLE_DURATION_MS = 100
-
-const RIPPLE_DELAY_MS = PRESENCE_STEP_DELAY_MS - RIPPLE_DURATION_MS
-
 function ClickRipple({ color }: { color: string }) {
   return (
     <div
@@ -115,7 +60,7 @@ function ClickRipple({ color }: { color: string }) {
         left: -(RIPPLE_SIZE / 2),
         top: -(RIPPLE_SIZE / 2),
         background: `color-mix(in srgb, ${color} 40%, transparent)`,
-        animation: `agent-click-ripple ${RIPPLE_DURATION_MS}ms ease-out ${RIPPLE_DELAY_MS}ms forwards`,
+        animation: `agent-click-ripple ${RIPPLE_DURATION_MS}ms ease-out forwards`,
         opacity: 0,
         pointerEvents: 'none',
       }}
@@ -123,158 +68,138 @@ function ClickRipple({ color }: { color: string }) {
   )
 }
 
-type Animation = {
-  start: number
-  durationMs: number
-  p0: Vec2
-  p1: Vec2
-  p2: Vec2
-  p3: Vec2
-  params: CursorMotionParams
+function SplineViz({ frame }: { frame: LayoutPresenceFrame }) {
+  const viz = frame.splineViz
+  if (!viz || viz.polyline.length < 2) return null
+  const path = viz.polyline
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+    .join(' ')
+  return (
+    <svg
+      className="pointer-events-none fixed inset-0"
+      style={{ zIndex: 9998, width: '100vw', height: '100vh' }}
+    >
+      <path
+        d={path}
+        stroke={frame.color}
+        strokeWidth={2}
+        fill="none"
+        strokeDasharray="4 4"
+        opacity={0.4}
+      />
+      {viz.waypoints.map((r, i) => (
+        <rect
+          key={i}
+          x={r.x}
+          y={r.y}
+          width={r.width}
+          height={r.height}
+          stroke={frame.color}
+          strokeWidth={1.5}
+          fill="none"
+          opacity={0.5}
+          rx={3}
+          ry={3}
+        />
+      ))}
+    </svg>
+  )
 }
 
-function AgentCursor({
-  cursor,
-  frame,
-  overlayOffsetY,
-  motionParams,
-}: {
-  cursor: AgentPresenceCursor
-  frame: CanvasSceneFrameEntity | null
-  overlayOffsetY: number
-  motionParams: CursorMotionParams
-}) {
-  const label = labelForPresenceCursor(cursor)
+function AgentCursor({ frame }: { frame: LayoutPresenceFrame }) {
+  const visuals = MOOD_VISUALS[frame.mood]
+  const effectiveColor = visuals.tint ?? frame.color
+  const displayLabel = frame.label
+
   const [rippleKey, setRippleKey] = useState<number | null>(null)
-  const rippleCounterRef = useRef(0)
-  const prevActivity = useRef(cursor.activity)
-
-  const outerRef = useRef<HTMLDivElement | null>(null)
-  const posRef = useRef<Vec2 | null>(null)
-  const sequenceRef = useRef(0)
-  const animRef = useRef<Animation | null>(null)
-  const rafRef = useRef<number | null>(null)
+  const [errorKey, setErrorKey] = useState<number | null>(null)
+  const prevCommitKey = useRef(frame.commitKey)
+  const prevErrorKey = useRef(frame.errorKey)
 
   useEffect(() => {
-    const wasClick =
-      cursor.activity === 'acting' &&
-      cursor.labelKey === 'click_target' &&
-      prevActivity.current !== 'acting'
-    prevActivity.current = cursor.activity
-    if (wasClick) {
-      setRippleKey(++rippleCounterRef.current)
+    if (frame.commitKey !== prevCommitKey.current) {
+      prevCommitKey.current = frame.commitKey
+      setRippleKey(frame.commitKey)
     }
-  }, [cursor.activity, cursor.labelKey])
+  }, [frame.commitKey])
 
   useEffect(() => {
-    const target: Vec2 = {
-      x: cursor.screenX,
-      y: cursor.screenY - overlayOffsetY,
+    if (frame.errorKey !== prevErrorKey.current) {
+      prevErrorKey.current = frame.errorKey
+      setErrorKey(frame.errorKey)
+      const t = setTimeout(() => setErrorKey(null), ERROR_TINT_MS)
+      return () => clearTimeout(t)
     }
+  }, [frame.errorKey])
 
-    if (!posRef.current) {
-      posRef.current = target
-      if (outerRef.current) {
-        outerRef.current.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`
-      }
-      return
-    }
-
-    const p0 = posRef.current
-    const p3 = target
-    if (Math.hypot(p3.x - p0.x, p3.y - p0.y) < 0.5) {
-      posRef.current = target
-      if (outerRef.current) {
-        outerRef.current.style.transform = `translate3d(${target.x}px, ${target.y}px, 0)`
-      }
-      return
-    }
-
-    const seq = ++sequenceRef.current
-    const { p1, p2 } = deriveControlPoints(p0, p3, motionParams, seq)
-    const distance = Math.hypot(p3.x - p0.x, p3.y - p0.y)
-    animRef.current = {
-      start: performance.now(),
-      durationMs: effectiveDurationMs(motionParams, distance),
-      p0,
-      p1,
-      p2,
-      p3,
-      params: motionParams,
-    }
-
-    const tick = (now: number) => {
-      const a = animRef.current
-      if (!a || !outerRef.current) {
-        rafRef.current = null
-        return
-      }
-      const t = Math.min(1, (now - a.start) / Math.max(1, a.durationMs))
-      const easedT = easeAt(a.params.easing, t)
-      const pos = cubicBezierPoint(a.p0, a.p1, a.p2, a.p3, easedT)
-      posRef.current = pos
-      outerRef.current.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`
-      if (t < 1) {
-        rafRef.current = requestAnimationFrame(tick)
-      } else {
-        animRef.current = null
-        rafRef.current = null
-      }
-    }
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(tick)
-
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current)
-        rafRef.current = null
-      }
-    }
-  }, [cursor.screenX, cursor.screenY, overlayOffsetY, motionParams])
-
-  const initialPos = posRef.current
   const outerStyle: CSSProperties = {
     left: 0,
     top: 0,
+    transform: `translate3d(${frame.screenX}px, ${frame.screenY}px, 0)`,
+    transition: `transform ${POSITION_TRANSITION_MS}ms linear`,
     willChange: 'transform',
-    transform: initialPos
-      ? `translate3d(${initialPos.x}px, ${initialPos.y}px, 0)`
-      : `translate3d(${cursor.screenX}px, ${cursor.screenY - overlayOffsetY}px, 0)`,
+    opacity:
+      frame.activity === 'departing'
+        ? 0
+        : frame.activity === 'idle'
+          ? visuals.opacity * 0.6
+          : visuals.opacity,
+    ...(frame.activity === 'departing'
+      ? { transitionProperty: 'transform, opacity', transitionDuration: '600ms' }
+      : null),
   }
 
+  const pulseAnimation =
+    visuals.pulse === 'gentle'
+      ? 'agent-presence-pulse 1.4s ease-in-out infinite'
+      : visuals.pulse === 'strong'
+        ? 'agent-presence-pulse 0.9s ease-in-out infinite'
+        : undefined
+
   const innerStyle: CSSProperties = {
-    transition: 'opacity 800ms ease-out, transform 800ms ease-out, filter 800ms ease-out',
-    ...activityStyle(cursor.activity),
+    transform: `scale(${visuals.scale})`,
+    transition: 'transform 200ms ease-out, filter 400ms ease-out',
+    filter: errorKey != null ? 'saturate(1.6) hue-rotate(-15deg)' : 'saturate(1)',
+    animation: pulseAnimation,
   }
+
+  const labelBg = errorKey != null ? '#ef4444' : effectiveColor
 
   return (
     <>
-      <TargetHalo
-        cursor={cursor}
-        frame={frame}
-        overlayOffsetY={overlayOffsetY}
-      />
-      <div ref={outerRef} className="absolute" style={outerStyle}>
+      <div className="absolute" style={outerStyle}>
         <div style={innerStyle}>
           {rippleKey !== null && (
-            <ClickRipple key={rippleKey} color={cursor.color} />
+            <ClickRipple key={rippleKey} color={effectiveColor} />
           )}
-          <FilledCursorIcon color={cursor.color} size={24} />
-          {label ? (
+          <FilledCursorIcon color={effectiveColor} size={24} />
+          {displayLabel ? (
             <div
               className="ml-4 -mt-1.5 whitespace-nowrap rounded px-2 py-0.5"
               style={{
-                backgroundColor: cursor.color,
+                backgroundColor: `color-mix(in srgb, ${labelBg} ${visuals.labelBgAlpha * 100}%, transparent)`,
                 fontSize: 10,
                 lineHeight: '14px',
                 color: 'white',
                 boxShadow:
-                  cursor.activity === 'acting'
+                  frame.activity === 'committing'
                     ? '0 2px 8px rgba(0,0,0,0.28)'
                     : '0 1px 3px rgba(0,0,0,0.2)',
               }}
             >
-              {label}
+              {displayLabel}
+              {frame.intent ? (
+                <div
+                  style={{
+                    fontSize: 8.5,
+                    lineHeight: '11px',
+                    opacity: 0.8,
+                    fontStyle: 'italic',
+                  }}
+                >
+                  {frame.intent}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -283,22 +208,39 @@ function AgentCursor({
   )
 }
 
+/**
+ * Derives which frames contain at least one active cursor so callers can
+ * paint a soft outline. Canvas-space cursors mean "which frame am I in" is
+ * a simple bounds check.
+ */
 export function ActiveFrameHighlightLayer({
-  cursors,
   frames,
+  cursorFrames,
 }: {
-  cursors: AgentPresenceCursor[]
   frames: CanvasSceneFrameEntity[]
+  cursorFrames: LayoutPresenceFrame[]
 }) {
   const activeFrames = useMemo(() => {
     const map = new Map<string, string>()
-    for (const cursor of cursors) {
-      if (cursor.frameId && !map.has(cursor.frameId)) {
-        map.set(cursor.frameId, cursor.color)
+    for (const cursor of cursorFrames) {
+      for (const frame of frames) {
+        const fx = frame.screenX
+        const fy = frame.screenY
+        const fw = frame.screenWidth
+        const fh = frame.screenHeight
+        if (
+          cursor.screenX >= fx &&
+          cursor.screenX <= fx + fw &&
+          cursor.screenY >= fy &&
+          cursor.screenY <= fy + fh
+        ) {
+          if (!map.has(frame.id)) map.set(frame.id, cursor.color)
+          break
+        }
       }
     }
     return map
-  }, [cursors])
+  }, [cursorFrames, frames])
 
   if (activeFrames.size === 0) return null
   const inset = -4
@@ -325,18 +267,16 @@ export function ActiveFrameHighlightLayer({
 }
 
 export function AgentCursorLayer({
-  cursors,
-  frames,
-  overlayOffsetY = 0,
-  motionParams,
+  frames: cursorFrames,
 }: {
-  cursors: AgentPresenceCursor[]
-  frames: CanvasSceneFrameEntity[]
+  frames: LayoutPresenceFrame[]
+  /** Kept for compatibility; the canvas-layer consumers pass these but the
+   * renderer no longer needs frame geometry for positioning (canvas-space
+   * cursors project through the shared zoom/pan transform in main). */
+  sceneFrames?: CanvasSceneFrameEntity[]
   overlayOffsetY?: number
-  motionParams?: CursorMotionParams
 }) {
-  if (cursors.length === 0) return null
-  const params = motionParams ?? DEFAULT_CURSOR_MOTION
+  if (cursorFrames.length === 0) return null
 
   return (
     <div
@@ -345,21 +285,14 @@ export function AgentCursorLayer({
     >
       <style>
         {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-@keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(1); opacity: 0; } }`}
+@keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 70% { opacity: 0.3; } 100% { transform: scale(1); opacity: 0; } }`}
       </style>
-      {cursors.map((cursor) => (
-        <AgentCursor
-          key={cursor.sessionId}
-          cursor={cursor}
-          frame={
-            cursor.frameId
-              ? (frames.find((frame) => frame.id === cursor.frameId) ?? null)
-              : null
-          }
-          overlayOffsetY={overlayOffsetY}
-          motionParams={params}
-        />
+      {cursorFrames.map((frame) => (
+        <AgentCursor key={frame.sessionId} frame={frame} />
       ))}
+      {cursorFrames.map((frame) =>
+        frame.splineViz ? <SplineViz key={`viz-${frame.sessionId}`} frame={frame} /> : null,
+      )}
     </div>
   )
 }

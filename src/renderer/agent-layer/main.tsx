@@ -15,10 +15,7 @@ async function bootstrap() {
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App
-        initialLayoutData={initialData.layoutData}
-        initialCursorMotion={initialData.cursorMotion}
-      />
+      <App initialLayoutData={initialData.layoutData} />
     </StrictMode>,
   )
 }

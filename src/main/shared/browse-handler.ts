@@ -8,19 +8,6 @@ import { callApp, sessionId, getClientName } from './app-client'
 // Constants
 // ---------------------------------------------------------------------------
 
-export const COMMAND_LABELS: Record<string, string> = {
-  snapshot: 'inspect_page',
-  click: 'click_target',
-  fill: 'type_text',
-  type: 'type_text',
-  select: 'select_option',
-  wait: 'wait_page',
-  scroll: 'scroll_page',
-  get: 'read_content',
-  'query-elements': 'find_target',
-  screenshot: 'take_screenshot',
-}
-
 const VALUE_FLAGS = new Set([
   '--cdp', '--session', '--viewport', '--timeout', '--selector',
   '--format', '--depth', '--wait', '--attr',

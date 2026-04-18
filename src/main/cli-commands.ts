@@ -4,7 +4,7 @@ import { handleBrowse, shellQuote } from './shared/browse-handler'
 import { upsertEntities, type UpsertOptions, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
-import { emitNarrationIntent, emitPresenceForVerb } from './cli-presence'
+import { emitNarrationIntent } from './cli-presence'
 
 // ---------------------------------------------------------------------------
 // Verb handlers
@@ -569,8 +569,6 @@ export async function dispatch(argv: string[]): Promise<number> {
   const handler = VERBS[args.verb] ?? browsePassthrough
   return handler(args)
 }
-// emitPresenceForVerb is kept as a back-compat export for now; removed in step 9.
-void emitPresenceForVerb
 
 // ---------------------------------------------------------------------------
 // Stdin helper

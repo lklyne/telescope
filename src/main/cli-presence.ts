@@ -64,10 +64,3 @@ export function emitNarrationIntent(payload: NarrationIntentPayload): void {
     /* fire-and-forget */
   })
 }
-
-/** Back-compat shim — the canvas verb dispatch loop previously called
- * `emitPresenceForVerb`. We keep the name so the call site in cli-commands.ts
- * doesn't need to change; the implementation now emits a narration intent. */
-export function emitPresenceForVerb(verb: string): void {
-  emitNarrationIntent({ verb })
-}

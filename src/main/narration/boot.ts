@@ -12,7 +12,7 @@
 
 import { markDirty } from '../runtime/layout-dirty'
 import { requestLayout } from '../runtime/surface-layout'
-import { deriveColor } from '../presence-cursor'
+import { beginPresenceDeparture, deriveColor } from '../presence-cursor'
 import { getCursorSplineViz, getNarrationTuning } from '../runtime/preferences'
 import {
   configureDirector,
@@ -48,6 +48,11 @@ export function initializeNarrationDirector(): void {
 
   configureDirector({
     deriveColor,
+    // When the director retires an idle session, also fade out the toolbar
+    // presence cursor so the three visual cues (canvas cursor, pink frame
+    // highlight, toolbar icon) clear together instead of staggering by the
+    // MCP-session timeout.
+    onSessionRetired: beginPresenceDeparture,
   })
 
   setSplineVizEnabled(getCursorSplineViz())

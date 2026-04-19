@@ -36,6 +36,8 @@ import {
   distanceSpeedScale,
   type NarrationTuningParams,
 } from '../../shared/narration-tuning'
+/** Retire a narration session after this much continuous idle time. */
+const IDLE_RETIRE_MS = 3_000
 
 /** Error phase freeze duration. */
 const ERROR_FREEZE_MS = 800
@@ -118,6 +120,14 @@ interface SessionState {
   splineViz: SplineVizPayload | null
 
   departureScheduledAt: number | null
+
+  /**
+   * Wall-clock instant at which the director settled into its current idle
+   * span (null whenever the session is non-idle). The tick loop retires
+   * sessions that have been continuously idle beyond `IDLE_RETIRE_MS` so
+   * orphaned narration sessions don't hang on forever when the CLI returns.
+   */
+  idleSinceAt: number | null
 }
 
 type PhaseTransitionListener = (ev: PhaseTransition) => void
@@ -210,14 +220,23 @@ export interface DirectorDeriveColor {
 export interface DirectorOptions {
   clock?: DirectorClock
   deriveColor: DirectorDeriveColor
+  /**
+   * Fires when the tick's idle-retire check decides to tear down a session.
+   * The boot wiring hooks this to `beginPresenceDeparture` so the toolbar
+   * presence cursor fades alongside the canvas narration instead of waiting
+   * out the 15s MCP-session timeout.
+   */
+  onSessionRetired?: (sessionId: string) => void
 }
 
 let currentClock: DirectorClock = defaultClock
 let deriveColorFn: DirectorDeriveColor = (id) => `hsl(${(hashStr(id) % 360) + 0}, 70%, 55%)`
+let onSessionRetiredFn: ((sessionId: string) => void) | null = null
 
 export function configureDirector(opts: DirectorOptions): void {
   currentClock = opts.clock ?? defaultClock
   deriveColorFn = opts.deriveColor
+  onSessionRetiredFn = opts.onSessionRetired ?? null
 }
 
 function hashStr(s: string): number {
@@ -263,6 +282,7 @@ function ensureSession(sessionId: string, clientName: string): SessionState {
     retryCount: 0,
     splineViz: null,
     departureScheduledAt: null,
+    idleSinceAt: currentClock.now(),
   }
   sessions.set(sessionId, state)
   return state
@@ -397,6 +417,7 @@ function setPhase(state: SessionState, next: DirectorActivity, now: number): voi
   if (state.phase === next) return
   const prev = state.phase
   state.phase = next
+  state.idleSinceAt = next === 'idle' ? now : null
   notifyPhase({
     sessionId: state.sessionId,
     previous: prev,
@@ -551,6 +572,22 @@ function buildSplineViz(state: SessionState): SplineVizPayload | null {
   }
 }
 
+/**
+ * Retire a director session that has been continuously idle for longer than
+ * `IDLE_RETIRE_MS`. This is decoupled from `mcpSessions` liveness on purpose:
+ * the MCP heartbeat keeps `mcpSessions` entries fresh indefinitely, so tying
+ * retirement to it means the pink active-frame highlight and canvas cursor
+ * never clear between CLI calls. The right signal is "the director itself
+ * settled and nothing new arrived" — `idleSinceAt` captures exactly that,
+ * resetting to null on any phase transition away from `idle`.
+ */
+function shouldRetireIdleSession(state: SessionState, now: number): boolean {
+  if (state.phase !== 'idle') return false
+  if (state.departureScheduledAt != null) return false
+  if (state.idleSinceAt == null) return false
+  return now - state.idleSinceAt > IDLE_RETIRE_MS
+}
+
 /** One director tick: drain events, advance physics, broadcast. */
 export function tick(): void {
   const now = currentClock.now()
@@ -562,6 +599,11 @@ export function tick(): void {
     if (events.length > 0) applyEvents(state, events)
 
     advance(state, now)
+
+    if (shouldRetireIdleSession(state, now)) {
+      endNarration(sessionId)
+      onSessionRetiredFn?.(sessionId)
+    }
   }
   notifyFrameListeners()
 }

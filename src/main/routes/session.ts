@@ -44,6 +44,7 @@ import {
   narrateCanvasVerb,
 } from '../narration/verb-narration'
 import {
+  endNarration,
   getDirectorTuning,
   setSessionIntent,
   waitForNextCommit,
@@ -244,6 +245,13 @@ export const sessionRoutes: Route[] = [
       const activity = coercePresenceActivity(payload.phase)
       if (eventType === 'done') {
         clearActivePresenceTask(request, payload)
+        // Tear down the narration director's session too so the canvas-space
+        // cursor overlay and the active-frame highlight (both driven by
+        // getNarrationFrames()) fade out on the same signal that hides the
+        // toolbar presence icon. Without this they'd linger until the CLI
+        // session fully closes or the MCP timeout sweeps it.
+        const resolved = resolveSession(request, payload)
+        if (resolved) endNarration(resolved.sessionId)
         writeJson(response, 200, { ok: true })
         return
       }

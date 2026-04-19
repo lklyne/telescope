@@ -25,7 +25,12 @@ export default function App({
       className="pointer-events-none fixed inset-0 overflow-hidden bg-transparent"
       style={{ clipPath: `inset(${clipTop}px ${clipRight}px 0 ${clipLeft}px)` }}
     >
-      <AgentCursorLayer frames={layoutData.narrationFrames} />
+      <AgentCursorLayer
+        frames={layoutData.narrationFrames}
+        canvasOrigin={layoutData.canvasOrigin}
+        pan={layoutData.pan}
+        zoom={layoutData.zoom}
+      />
     </div>
   )
 }

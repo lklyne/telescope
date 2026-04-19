@@ -432,7 +432,7 @@ export function buildCanvasLayoutData(
       targetRect: c.targetRect,
       updatedAt: c.updatedAt,
     })),
-    narrationFrames: buildNarrationFrames(origin, zoom, pan, layoutCache.toolbarHeight),
+    narrationFrames: buildNarrationFrames(),
   } as LayoutUpdateData
 }
 
@@ -441,54 +441,25 @@ export function getCanvasLayoutData(): LayoutUpdateData {
 }
 
 /**
- * Project narration-director frames (canvas-space) into screen-space.
- * Canvas-only coordinate system — the director doesn't distinguish canvas vs.
- * frame surfaces; all positions are in canvas-space and the usual zoom/pan
- * transform applies.
+ * Emit narration-director frames in canvas-space. The renderer projects
+ * through the shared canvas transform so cursor motion tracks pan/zoom
+ * without IPC-lag rubber-banding.
  */
-function buildNarrationFrames(
-  origin: { x: number; y: number },
-  zoomLevel: number,
-  panOffset: { x: number; y: number },
-  toolbarHeight: number,
-): LayoutPresenceFrame[] {
-  const frames = getNarrationFrames()
-  const out: LayoutPresenceFrame[] = []
-  for (const f of frames) {
-    const screenX = origin.x + f.position.x * zoomLevel + panOffset.x
-    const screenY = toolbarHeight + f.position.y * zoomLevel + panOffset.y
-    out.push({
-      sessionId: f.sessionId,
-      clientName: f.clientName,
-      color: f.color,
-      position: f.position,
-      tangent: f.tangent,
-      screenX,
-      screenY,
-      activity: f.activity,
-      mood: f.mood,
-      label: f.label,
-      intent: f.intent,
-      commitKey: f.commitKey,
-      errorKey: f.errorKey,
-      splineViz: f.splineViz
-        ? {
-            eventId: f.splineViz.eventId,
-            polyline: f.splineViz.polyline.map((p) => ({
-              x: origin.x + p.x * zoomLevel + panOffset.x,
-              y: toolbarHeight + p.y * zoomLevel + panOffset.y,
-            })),
-            waypoints: f.splineViz.waypoints.map((r) => ({
-              x: origin.x + r.x * zoomLevel + panOffset.x,
-              y: toolbarHeight + r.y * zoomLevel + panOffset.y,
-              width: r.width * zoomLevel,
-              height: r.height * zoomLevel,
-            })),
-          }
-        : null,
-    })
-  }
-  return out
+function buildNarrationFrames(): LayoutPresenceFrame[] {
+  return getNarrationFrames().map((f) => ({
+    sessionId: f.sessionId,
+    clientName: f.clientName,
+    color: f.color,
+    position: f.position,
+    tangent: f.tangent,
+    activity: f.activity,
+    mood: f.mood,
+    label: f.label,
+    intent: f.intent,
+    commitKey: f.commitKey,
+    errorKey: f.errorKey,
+    splineViz: f.splineViz,
+  }))
 }
 
 // Re-export sidebar builders from their dedicated module

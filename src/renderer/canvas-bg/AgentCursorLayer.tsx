@@ -1,13 +1,16 @@
 /**
  * Agent cursor rendering — pure playback of director narration frames.
  *
- * The renderer has no animation opinions of its own. The director in the main
- * process tells it where the cursor is at every tick and what phase/mood it
- * is in; the renderer just paints.
+ * Cursors live in canvas space. A single transform wrapper projects all
+ * cursors through the shared canvas transform (canvasOrigin + pan + zoom),
+ * so pan/zoom changes track atomically with the canvas — no IPC-lag
+ * rubber-banding. Per-cursor counter-scale keeps icon and label at a
+ * constant screen size regardless of zoom.
  *
- * The only renderer-local state is the ripple and error-tint pulses, which
- * trigger on `commitKey` and `errorKey` monotonic counters sent by the
- * director — the renderer never decides *when* to ripple, only *how*.
+ * The director in main tells the renderer where each cursor is at every
+ * tick and what phase/mood it is in; the renderer paints. Only the ripple
+ * and error-tint pulses are renderer-local, keyed off `commitKey` /
+ * `errorKey` monotonic counters from the director.
  */
 
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
@@ -68,11 +71,28 @@ function ClickRipple({ color }: { color: string }) {
   )
 }
 
-function SplineViz({ frame }: { frame: LayoutPresenceFrame }) {
+function SplineViz({
+  frame,
+  canvasOrigin,
+  pan,
+  zoom,
+}: {
+  frame: LayoutPresenceFrame
+  canvasOrigin: { x: number; y: number }
+  pan: { x: number; y: number }
+  zoom: number
+}) {
   const viz = frame.splineViz
   if (!viz || viz.polyline.length < 2) return null
+  const project = (p: { x: number; y: number }) => ({
+    x: canvasOrigin.x + pan.x + p.x * zoom,
+    y: canvasOrigin.y + pan.y + p.y * zoom,
+  })
   const path = viz.polyline
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+    .map((p, i) => {
+      const sp = project(p)
+      return `${i === 0 ? 'M' : 'L'} ${sp.x} ${sp.y}`
+    })
     .join(' ')
   return (
     <svg
@@ -87,26 +107,35 @@ function SplineViz({ frame }: { frame: LayoutPresenceFrame }) {
         strokeDasharray="4 4"
         opacity={0.4}
       />
-      {viz.waypoints.map((r, i) => (
-        <rect
-          key={i}
-          x={r.x}
-          y={r.y}
-          width={r.width}
-          height={r.height}
-          stroke={frame.color}
-          strokeWidth={1.5}
-          fill="none"
-          opacity={0.5}
-          rx={3}
-          ry={3}
-        />
-      ))}
+      {viz.waypoints.map((r, i) => {
+        const tl = project({ x: r.x, y: r.y })
+        return (
+          <rect
+            key={i}
+            x={tl.x}
+            y={tl.y}
+            width={r.width * zoom}
+            height={r.height * zoom}
+            stroke={frame.color}
+            strokeWidth={1.5}
+            fill="none"
+            opacity={0.5}
+            rx={3}
+            ry={3}
+          />
+        )
+      })}
     </svg>
   )
 }
 
-function AgentCursor({ frame }: { frame: LayoutPresenceFrame }) {
+function AgentCursor({
+  frame,
+  zoom,
+}: {
+  frame: LayoutPresenceFrame
+  zoom: number
+}) {
   const visuals = MOOD_VISUALS[frame.mood]
   const effectiveColor = visuals.tint ?? frame.color
   const displayLabel = frame.label
@@ -132,10 +161,13 @@ function AgentCursor({ frame }: { frame: LayoutPresenceFrame }) {
     }
   }, [frame.errorKey])
 
-  const outerStyle: CSSProperties = {
+  // Position is in canvas units — the parent wrapper applies the canvas
+  // transform, so pan/zoom move this with the canvas atomically. Only
+  // director-driven motion triggers the CSS transition.
+  const positionStyle: CSSProperties = {
     left: 0,
     top: 0,
-    transform: `translate3d(${frame.screenX}px, ${frame.screenY}px, 0)`,
+    transform: `translate3d(${frame.position.x}px, ${frame.position.y}px, 0)`,
     transition: `transform ${POSITION_TRANSITION_MS}ms linear`,
     willChange: 'transform',
     opacity:
@@ -149,6 +181,13 @@ function AgentCursor({ frame }: { frame: LayoutPresenceFrame }) {
       : null),
   }
 
+  // Counter-scale keeps icon, label, and ripple at constant screen size
+  // regardless of canvas zoom. No transition — tracks zoom atomically.
+  const counterScaleStyle: CSSProperties = {
+    transform: `scale(${1 / zoom})`,
+    transformOrigin: 'top left',
+  }
+
   const pulseAnimation =
     visuals.pulse === 'gentle'
       ? 'agent-presence-pulse 1.4s ease-in-out infinite'
@@ -156,7 +195,7 @@ function AgentCursor({ frame }: { frame: LayoutPresenceFrame }) {
         ? 'agent-presence-pulse 0.9s ease-in-out infinite'
         : undefined
 
-  const innerStyle: CSSProperties = {
+  const moodStyle: CSSProperties = {
     transform: `scale(${visuals.scale})`,
     transition: 'transform 200ms ease-out, filter 400ms ease-out',
     filter: errorKey != null ? 'saturate(1.6) hue-rotate(-15deg)' : 'saturate(1)',
@@ -166,9 +205,9 @@ function AgentCursor({ frame }: { frame: LayoutPresenceFrame }) {
   const labelBg = errorKey != null ? '#ef4444' : effectiveColor
 
   return (
-    <>
-      <div className="absolute" style={outerStyle}>
-        <div style={innerStyle}>
+    <div className="absolute" style={positionStyle}>
+      <div style={counterScaleStyle}>
+        <div style={moodStyle}>
           {rippleKey !== null && (
             <ClickRipple key={rippleKey} color={effectiveColor} />
           )}
@@ -204,14 +243,14 @@ function AgentCursor({ frame }: { frame: LayoutPresenceFrame }) {
           ) : null}
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
 /**
  * Derives which frames contain at least one active cursor so callers can
- * paint a soft outline. Canvas-space cursors mean "which frame am I in" is
- * a simple bounds check.
+ * paint a soft outline. Canvas-space bounds check — cursor position and
+ * frame canvasX/Y/width/height are all in the same coordinate system.
  */
 export function ActiveFrameHighlightLayer({
   frames,
@@ -224,15 +263,11 @@ export function ActiveFrameHighlightLayer({
     const map = new Map<string, string>()
     for (const cursor of cursorFrames) {
       for (const frame of frames) {
-        const fx = frame.screenX
-        const fy = frame.screenY
-        const fw = frame.screenWidth
-        const fh = frame.screenHeight
         if (
-          cursor.screenX >= fx &&
-          cursor.screenX <= fx + fw &&
-          cursor.screenY >= fy &&
-          cursor.screenY <= fy + fh
+          cursor.position.x >= frame.canvasX &&
+          cursor.position.x <= frame.canvasX + frame.width &&
+          cursor.position.y >= frame.canvasY &&
+          cursor.position.y <= frame.canvasY + frame.height
         ) {
           if (!map.has(frame.id)) map.set(frame.id, cursor.color)
           break
@@ -268,13 +303,14 @@ export function ActiveFrameHighlightLayer({
 
 export function AgentCursorLayer({
   frames: cursorFrames,
+  canvasOrigin,
+  pan,
+  zoom,
 }: {
   frames: LayoutPresenceFrame[]
-  /** Kept for compatibility; the canvas-layer consumers pass these but the
-   * renderer no longer needs frame geometry for positioning (canvas-space
-   * cursors project through the shared zoom/pan transform in main). */
-  sceneFrames?: CanvasSceneFrameEntity[]
-  overlayOffsetY?: number
+  canvasOrigin: { x: number; y: number }
+  pan: { x: number; y: number }
+  zoom: number
 }) {
   if (cursorFrames.length === 0) return null
 
@@ -287,12 +323,27 @@ export function AgentCursorLayer({
         {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 @keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 70% { opacity: 0.3; } 100% { transform: scale(1); opacity: 0; } }`}
       </style>
-      {cursorFrames.map((frame) => (
-        <AgentCursor key={frame.sessionId} frame={frame} />
-      ))}
       {cursorFrames.map((frame) =>
-        frame.splineViz ? <SplineViz key={`viz-${frame.sessionId}`} frame={frame} /> : null,
+        frame.splineViz ? (
+          <SplineViz
+            key={`viz-${frame.sessionId}`}
+            frame={frame}
+            canvasOrigin={canvasOrigin}
+            pan={pan}
+            zoom={zoom}
+          />
+        ) : null,
       )}
+      <div
+        className="absolute left-0 top-0 origin-top-left"
+        style={{
+          transform: `translate(${canvasOrigin.x + pan.x}px, ${canvasOrigin.y + pan.y}px) scale(${zoom})`,
+        }}
+      >
+        {cursorFrames.map((frame) => (
+          <AgentCursor key={frame.sessionId} frame={frame} zoom={zoom} />
+        ))}
+      </div>
     </div>
   )
 }

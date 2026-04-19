@@ -309,9 +309,9 @@ export interface LayoutUpdateData {
   groups?: CanvasSceneGroupEntity[]
   presenceCursors: AgentPresenceCursor[]
   /**
-   * New narration-director frames projected into screen space. Rendered by the
-   * refreshed AgentCursorLayer in step 5; the legacy presenceCursors array is
-   * still emitted alongside until the sweep commit removes it.
+   * Narration-director frames in canvas-space. The renderer projects through
+   * the shared canvas transform (canvasOrigin + pan + zoom) so cursors track
+   * pan/zoom atomically without IPC-lag rubber-banding.
    */
   narrationFrames: LayoutPresenceFrame[]
 }
@@ -322,8 +322,6 @@ export interface LayoutPresenceFrame {
   color: string
   position: { x: number; y: number }
   tangent: { x: number; y: number }
-  screenX: number
-  screenY: number
   activity:
     | 'traveling'
     | 'dwelling'
@@ -343,6 +341,8 @@ export interface LayoutPresenceFrame {
   intent: string | null
   commitKey: number
   errorKey: number
+  /** Canvas-space polyline and waypoints; renderer projects through the
+   * shared canvas transform. */
   splineViz: {
     eventId: string
     polyline: Array<{ x: number; y: number }>

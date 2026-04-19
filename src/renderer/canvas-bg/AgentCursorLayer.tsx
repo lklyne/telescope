@@ -76,8 +76,8 @@ function SplineViz({ frame }: { frame: LayoutPresenceFrame }) {
     .join(' ')
   return (
     <svg
-      className="pointer-events-none fixed inset-0"
-      style={{ zIndex: 9998, width: '100vw', height: '100vh' }}
+      className="pointer-events-none absolute inset-0"
+      style={{ zIndex: 9998, width: '100%', height: '100%' }}
     >
       <path
         d={path}

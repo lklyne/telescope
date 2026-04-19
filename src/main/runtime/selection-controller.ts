@@ -21,6 +21,8 @@ import { clearInspectTargets, notifyDevtoolsPanelData, syncInspectionState } fro
 import { layoutAllViews } from './layout-engine'
 import { sendInteractiveState } from './overlay-manager'
 import { savePreferences } from './preferences'
+import { animateCameraTo, computeFocusCamera } from './viewport-control'
+import { setFocus as setUiFocusState } from '../ui-state'
 import { drawingEntities } from './drawing-entity-state'
 import { fileEntities } from './file-entity-state'
 import { textEntities } from './text-entity-state'
@@ -118,9 +120,27 @@ function commitSelection(
   const shouldSyncInspection = options?.syncInspection ?? true
   const shouldNotifyDevtools = options?.notifyDevtools ?? true
 
-  // If focus is active and selection changes to multi/none, exit focus
-  if (uiFocusedEntity(currentUi) && !focusAllowed(nextSelection)) {
-    setUiClearFocus()
+  // Focus follows selection when a single entity (edges excluded) is chosen.
+  // Multi / none / edge selections exit focus entirely.
+  const existingFocus = uiFocusedEntity(currentUi)
+  if (existingFocus) {
+    if (
+      nextSelection.kind === 'single-entity' &&
+      nextSelection.entityKind !== 'edge' &&
+      nextSelection.entityId !== existingFocus.entityId
+    ) {
+      // Switch focus to the newly-selected entity, preserving the original priorCamera
+      setUiFocusState({
+        entityId: nextSelection.entityId,
+        entityKind: nextSelection.entityKind,
+        priorCamera: existingFocus.priorCamera,
+      })
+      const target = computeFocusCamera(nextSelection.entityId, nextSelection.entityKind)
+      if (target) animateCameraTo(target)
+    } else if (!focusAllowed(nextSelection) || (nextSelection.kind === 'single-entity' && nextSelection.entityKind === 'edge')) {
+      setUiClearFocus()
+      animateCameraTo(existingFocus.priorCamera)
+    }
   }
 
   if (selectionEquals(getUiState().selection, nextSelection)) {

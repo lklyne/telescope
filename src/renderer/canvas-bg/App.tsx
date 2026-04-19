@@ -279,6 +279,7 @@ export default function App({
             onGoForwardFrame={api.goForwardFrame}
             onReloadFrame={api.reloadFrame}
             onShowContextMenu={api.showFrameContextMenu}
+            onSetFocus={(frameId) => api.setFocus(frameId, 'frame')}
           />
         ) : null}
 
@@ -296,6 +297,7 @@ export default function App({
               onEndDragEntity: api.endDragEntity,
               onRenameFileEntity: api.renameFileEntity,
               onWriteFile: api.writeNoteFile,
+              onSetFocus: (entityId) => api.setFocus(entityId, 'file'),
               onJsonModeChange: (entityId, jsonMode) => {
                 setFileJsonModeMap((prev) => {
                   const next = new Map(prev)
@@ -319,6 +321,7 @@ export default function App({
             selectedIdSet={selectedEntityIdSet}
             marqueePreviewIds={marqueePreviewIds}
             hoveredEntityId={hoveredEntityId}
+            focusedEntityId={layoutData.focusedEntityId}
             onFrameMouseDown={handleChromeMouseDown}
             onResizeFrame={(id, patch) => api.updateFrameBounds(id, patch)}
             onResizeTextEntity={(id, patch) => api.updateTextEntity(id, patch)}

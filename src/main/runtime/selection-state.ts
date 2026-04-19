@@ -24,7 +24,7 @@ import {
 } from './selection-controller'
 import { cancelActive as cancelActiveInteraction } from './interaction-controller'
 import { layoutAllViews } from './layout-engine'
-import { setPan, setZoom } from './viewport-control'
+import { setPan, setZoom, animateCameraTo, cancelCameraAnimation, computeFocusCamera } from './viewport-control'
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
@@ -91,7 +91,16 @@ export function setFocus(entityId: string, entityKind?: CanvasEntityKind): boole
   }
 
   setUiFocus({ entityId, entityKind: resolvedKind, priorCamera })
-  layoutAllViews()
+
+  // Animate camera to frame the focused entity. For fill-mode frames,
+  // geometry overrides the on-screen position regardless of zoom/pan,
+  // so the animation is just a visual lead-in.
+  const target = computeFocusCamera(entityId, resolvedKind)
+  if (target) {
+    animateCameraTo(target)
+  } else {
+    layoutAllViews()
+  }
   return true
 }
 
@@ -105,9 +114,6 @@ export function clearFocus(): boolean {
   cancelActiveInteraction('external')
   setHoverTarget(null)
 
-  // Restore stashed camera before clearing focus
-  setZoom(existing.priorCamera.zoom)
-  setPan(existing.priorCamera.pan.x, existing.priorCamera.pan.y)
   setUiClearFocus()
 
   // browser-devtools panel tab no longer valid outside focus
@@ -115,7 +121,8 @@ export function clearFocus(): boolean {
     setUiDevtoolsPanelTab('comments')
   }
 
-  layoutAllViews()
+  // Animate back to the stashed camera.
+  animateCameraTo(existing.priorCamera)
   return true
 }
 

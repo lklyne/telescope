@@ -92,20 +92,33 @@ export function splitShellArgs(cmd: string): string[] {
   return tokens
 }
 
-export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | null; ref: string | null } {
+export function parseCommandArgs(cmd: string): {
+  argv: string[]
+  verb: string | null
+  ref: string | null
+  /**
+   * First non-flag positional argument after the verb — the target the verb
+   * operates on. Unlike `ref`, this doesn't filter to `@eN` shape; CSS and
+   * XPath selectors also pass through, which is what `agent-browser get box`
+   * accepts.
+   */
+  selector: string | null
+} {
   const argv = splitShellArgs(cmd)
   let verb: string | null = null
   let ref: string | null = null
+  let selector: string | null = null
   let i = 0
   while (i < argv.length) {
     const arg = argv[i]
     if (VALUE_FLAGS.has(arg)) { i += 2; continue }
     if (arg.startsWith('-')) { i++; continue }
     if (!verb) { verb = arg; i++; continue }
+    if (selector === null) selector = arg
     if (!ref && /^@e\d+$/.test(arg)) ref = arg
     i++
   }
-  return { argv, verb, ref }
+  return { argv, verb, ref, selector }
 }
 
 // ---------------------------------------------------------------------------
@@ -260,12 +273,19 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     | { type: 'image'; data: string; mimeType: string }
   >
 }> {
-  // Resolve frame — default to selected frame
+  // Resolve frame: explicit -f wins, otherwise ask main for the session's
+  // automation target (set via `telescope target`) with a selection fallback.
   let frameId = args.frame_id as string | undefined
   if (!frameId) {
-    const sel = await callApp<{ selectedEntityId?: string; selectedEntityIds?: string[] }>('/selection')
-    frameId = sel.selectedEntityId ?? sel.selectedEntityIds?.[0]
-    if (!frameId) throw new Error('No frame specified and nothing is selected.')
+    const r = await callApp<{ frameId: string | null; source: string | null }>(
+      '/automation/resolve-frame',
+    )
+    frameId = r.frameId ?? undefined
+    if (!frameId) {
+      throw new Error(
+        'No frame specified. Use `telescope target <frameId>` or `-f <frameId>`, or select a frame on the canvas.',
+      )
+    }
   }
 
   const rawCommand = (args.command as string).trim()
@@ -274,7 +294,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
   // Parse first command for presence animation
   const firstCmd = isChained ? chainedParts[0] : rawCommand
-  const { verb, ref } = parseCommandArgs(firstCmd)
+  const { verb, ref, selector } = parseCommandArgs(firstCmd)
 
   const clientName = getClientName()
 
@@ -298,6 +318,40 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     if (verb) {
       const scanVerbs = new Set(['snapshot', 'query-elements', 'get', 'console', 'errors'])
       const passiveVerbs = new Set(['wait', 'screenshot', 'scroll', 'scrollintoview', 'navigate', 'back', 'forward', 'reload', 'hover'])
+      // Resolve the target's frame-local bounds before narration fires.
+      // Agent-browser's ref namespace is opaque to main, so we ask
+      // agent-browser itself for the box and ship frame-local coords in the
+      // narration body; main converts to canvas-space (keeping browse-
+      // handler CLI-safe, no electron imports). Without this the cursor
+      // would steer to frame center (see rect-extraction.ts guard).
+      //
+      // `get box` accepts any selector agent-browser understands (CSS, XPath,
+      // @eN ref), so we gate on the first positional token — not just the
+      // @e-ref shape. That's what agents actually type for Wikipedia-style
+      // clicks and fills.
+      let targetRectLocal: { x: number; y: number; width: number; height: number } | null = null
+      let boxResolveError: string | null = null
+      if (selector && MUTATION_VERBS.has(verb)) {
+        try {
+          const { stdout } = await spawnAsync(
+            abPath,
+            [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, '--json', 'get', 'box', selector],
+            { timeout: 1500 },
+          )
+          const parsed = JSON.parse(stdout) as {
+            success?: boolean
+            data?: { x: number; y: number; width: number; height: number }
+            error?: string
+          }
+          if (parsed?.success && parsed.data) {
+            targetRectLocal = parsed.data
+          } else {
+            boxResolveError = parsed?.error ?? 'no data'
+          }
+        } catch (err) {
+          boxResolveError = err instanceof Error ? err.message : String(err)
+        }
+      }
       const narrationBody = {
         sessionId,
         clientName,
@@ -305,6 +359,9 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
         kind: 'browse' as const,
         frameId,
         targetRef: ref ?? null,
+        targetSelector: selector ?? null,
+        ...(targetRectLocal ? { targetRectLocal } : null),
+        ...(boxResolveError ? { boxResolveError } : null),
       }
       if (scanVerbs.has(verb)) {
         callApp('/session/narration/placeholder', {

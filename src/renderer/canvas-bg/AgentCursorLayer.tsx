@@ -170,12 +170,7 @@ function AgentCursor({
     transform: `translate3d(${frame.position.x}px, ${frame.position.y}px, 0)`,
     transition: `transform ${POSITION_TRANSITION_MS}ms linear`,
     willChange: 'transform',
-    opacity:
-      frame.activity === 'departing'
-        ? 0
-        : frame.activity === 'idle'
-          ? visuals.opacity * 0.6
-          : visuals.opacity,
+    opacity: frame.activity === 'departing' ? 0 : 1,
     ...(frame.activity === 'departing'
       ? { transitionProperty: 'transform, opacity', transitionDuration: '600ms' }
       : null),
@@ -188,18 +183,10 @@ function AgentCursor({
     transformOrigin: 'top left',
   }
 
-  const pulseAnimation =
-    visuals.pulse === 'gentle'
-      ? 'agent-presence-pulse 1.4s ease-in-out infinite'
-      : visuals.pulse === 'strong'
-        ? 'agent-presence-pulse 0.9s ease-in-out infinite'
-        : undefined
-
   const moodStyle: CSSProperties = {
     transform: `scale(${visuals.scale})`,
     transition: 'transform 200ms ease-out, filter 400ms ease-out',
     filter: errorKey != null ? 'saturate(1.6) hue-rotate(-15deg)' : 'saturate(1)',
-    animation: pulseAnimation,
   }
 
   const labelBg = errorKey != null ? '#ef4444' : effectiveColor
@@ -320,8 +307,7 @@ export function AgentCursorLayer({
       style={{ zIndex: 9999 }}
     >
       <style>
-        {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-@keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 70% { opacity: 0.3; } 100% { transform: scale(1); opacity: 0; } }`}
+        {`@keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 70% { opacity: 0.3; } 100% { transform: scale(1); opacity: 0; } }`}
       </style>
       {cursorFrames.map((frame) =>
         frame.splineViz ? (

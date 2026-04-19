@@ -12,7 +12,6 @@ import {
   pageCanvasBounds,
   pageOuterCanvasBounds,
 } from '../runtime/runtime-geometry'
-import { frameBoundsById } from '../workspace-entities'
 import {
   getTextEntities,
   getFileEntities,
@@ -34,12 +33,17 @@ const CANVAS_FALLBACK_RECT: CanvasRect = {
 export function rectForFrame(frameId: string): CanvasRect | null {
   const page = pages.find((p) => p.id === frameId)
   if (!page) return null
-  const bounds = pageCanvasBounds(page)
+  const inner = pageCanvasBounds(page)
+  // `pageCanvasBounds` anchors at `canvasY` (top of the chrome band) with
+  // content-only dimensions — a legacy quirk. For narration waypoints we
+  // want the full visible frame (chrome + content) so the cursor drifts
+  // across what the user perceives as "the site". Device-shell insets are
+  // excluded; those belong to `rectForFrameOuter`.
   return {
-    x: bounds.x,
-    y: bounds.y,
-    width: bounds.width,
-    height: bounds.height,
+    x: inner.x,
+    y: inner.y,
+    width: inner.width,
+    height: inner.height + page.chromeHeight,
   }
 }
 
@@ -67,9 +71,6 @@ export function rectForBrowseTarget(
   source: PresenceTargetRefSource | null = 'agent-browser',
 ): CanvasRect | null {
   if (!frameId || !targetRef) return null
-  const frameBounds = frameBoundsById(frameId)
-  if (!frameBounds) return null
-
   const page = pages.find((p) => p.id === frameId)
   if (!page) return null
 
@@ -81,11 +82,35 @@ export function rectForBrowseTarget(
     return rectForFrame(frameId)
   }
 
-  // local is frame-local (0,0 = top-left of page content). Offset by frame
-  // position + chrome height so rects project into canvas space.
+  // `local` is viewport-local (0,0 = top-left of the webview content). The
+  // webview content sits at `(canvasX, canvasY + chromeHeight)` regardless of
+  // whether the device shell is on — shell insets expand the *outer* bounds
+  // outward from the content, they don't shift the content itself. So anchor
+  // off the page directly, not `frameBoundsById` (which returns outer).
   return {
-    x: frameBounds.x + local.x,
-    y: frameBounds.y + page.chromeHeight + local.y,
+    x: page.canvasX + local.x,
+    y: page.canvasY + page.chromeHeight + local.y,
+    width: local.width,
+    height: local.height,
+  }
+}
+
+/**
+ * Convert a frame-local rect (e.g. from agent-browser `get box --json`,
+ * which returns viewport-local pixel coords inside the webview) into a
+ * canvas-space rect. Webview content is always at `(canvasX, canvasY +
+ * chromeHeight)` — device-shell insets grow the outer bounds, not the
+ * content, so don't pull through `frameBoundsById` here.
+ */
+export function frameLocalRectToCanvas(
+  frameId: string,
+  local: { x: number; y: number; width: number; height: number },
+): CanvasRect | null {
+  const page = pages.find((p) => p.id === frameId)
+  if (!page) return null
+  return {
+    x: page.canvasX + local.x,
+    y: page.canvasY + page.chromeHeight + local.y,
     width: local.width,
     height: local.height,
   }

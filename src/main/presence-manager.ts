@@ -33,6 +33,7 @@ export {
   MCP_SESSION_TIMEOUT_MS,
   activeSessions,
   resolveSession,
+  releaseSessionAutomationFrame,
 } from './presence-session'
 
 // --- Re-exports from presence-cursor ---

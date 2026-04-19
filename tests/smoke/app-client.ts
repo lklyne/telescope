@@ -55,6 +55,21 @@ async function post<T = unknown>(path: string, body?: unknown): Promise<T> {
   return res.json() as Promise<T>
 }
 
+async function postWithSession<T = unknown>(
+  path: string,
+  body?: unknown,
+  sessionId?: string,
+  clientName?: string,
+): Promise<T> {
+  const res = await fetch(`${baseUrl()}${path}`, {
+    method: 'POST',
+    headers: headersWithSession(sessionId, clientName),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  if (!res.ok) throw new Error(`POST ${path} → ${res.status}: ${await res.text()}`)
+  return res.json() as Promise<T>
+}
+
 async function del<T = unknown>(path: string): Promise<T> {
   const res = await fetch(`${baseUrl()}${path}`, {
     method: 'DELETE',
@@ -192,6 +207,33 @@ export function closeMcpSession(sessionId: string) {
 
 export function resetSmokeState() {
   return post<{ ok: true }>('/test/reset-state')
+}
+
+// --- Automation target ---
+
+export function setAutomationTarget(frameId: string | null, sessionId?: string, clientName?: string) {
+  return postWithSession<{ frameId: string | null; error?: string }>(
+    '/automation/target',
+    { frameId },
+    sessionId,
+    clientName,
+  )
+}
+
+export function getAutomationTarget(sessionId?: string, clientName?: string) {
+  return getWithSession<{ frameId: string | null }>(
+    '/automation/target',
+    sessionId,
+    clientName,
+  )
+}
+
+export function resolveAutomationFrame(sessionId?: string, clientName?: string) {
+  return getWithSession<{ frameId: string | null; source: string | null }>(
+    '/automation/resolve-frame',
+    sessionId,
+    clientName,
+  )
 }
 
 export function findFrameTarget(body: unknown) {

@@ -216,6 +216,22 @@ const deleteEntities: VerbHandler = async (args) => {
   return 0
 }
 
+const target: VerbHandler = async (args) => {
+  const arg = args.positional[0]
+  if (!arg) {
+    printJson(await callApp('/automation/target'))
+    return 0
+  }
+  const frameId = arg === 'clear' ? null : arg
+  printJson(
+    await callApp('/automation/target', {
+      method: 'POST',
+      body: JSON.stringify({ frameId }),
+    }),
+  )
+  return 0
+}
+
 const focus: VerbHandler = async (args) => {
   if (args.positional.length === 0) { printError('usage: telescope focus <frameId> [frameId...]'); return 1 }
   // Cursor lands on the target frame(s) before the camera pan fires, so the
@@ -560,6 +576,7 @@ const VERBS: Record<string, VerbHandler> = {
   update,
   delete: deleteEntities,
   focus,
+  target,
   link,
   unlink,
   group,
@@ -597,6 +614,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('usage: telescope <verb> [args...] [--flag value]')
     printText('')
     printText('Canvas: workspace, create, update, delete, focus, group, ungroup')
+    printText('Automation: target <frameId|clear> — set active frame for browse verbs')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')

@@ -16,6 +16,7 @@ export type NarrationDebugKind =
   | 'cli:emit'
   | 'cli:sync-wait'
   | 'cli:sync-resolve'
+  | 'cli:box-resolve'
   | 'dir:apply'
   | 'dir:phase'
   | 'dir:drop'

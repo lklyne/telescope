@@ -1,9 +1,16 @@
 import type { IncomingMessage } from 'http'
+import { endAutomationInteractiveFrame } from './runtime/overlay-manager'
 
 export interface McpClientSession {
   id: string
   clientName: string
   lastSeenAt: number
+  /**
+   * Frame this session is driving via the automation API. Decoupled from UI
+   * selection so CLI-driven agents don't trample on what the user is clicking.
+   * Set via `POST /automation/target`; cleared on session close or timeout.
+   */
+  activeAutomationFrameId?: string | null
 }
 
 // --- State ---
@@ -13,12 +20,20 @@ export const MCP_SESSION_TIMEOUT_MS = 15_000
 
 // --- Session management ---
 
+export function releaseSessionAutomationFrame(session: McpClientSession): void {
+  if (session.activeAutomationFrameId) {
+    endAutomationInteractiveFrame(session.activeAutomationFrameId)
+    session.activeAutomationFrameId = null
+  }
+}
+
 export function activeSessions(now = Date.now()): McpClientSession[] {
   const sessions: McpClientSession[] = []
   for (const session of mcpSessions.values()) {
     if (now - session.lastSeenAt <= MCP_SESSION_TIMEOUT_MS) {
       sessions.push(session)
     } else {
+      releaseSessionAutomationFrame(session)
       mcpSessions.delete(session.id)
     }
   }

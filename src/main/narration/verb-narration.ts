@@ -55,6 +55,10 @@ export interface BrowseVerbContext extends NarrationContext {
   targetRole?: string | null
   targetValue?: string | null
   errorHint?: 'retry' | 'hard_fail' | null
+  /** Canvas-space rect of the target element when the caller has resolved
+   * bounds up front (e.g. via `agent-browser get box`). Bypasses the
+   * frame-center fallback that kicks in for opaque agent-browser refs. */
+  explicitRect?: CanvasRect
 }
 
 const BROWSE_COMMIT_VERBS = new Set([
@@ -125,7 +129,9 @@ export function narrateBrowseVerb(ctx: BrowseVerbContext): NarrationEvent | null
   let waypoints: Waypoint[]
   if (idiom === 'atomic' && ctx.targetRef) {
     const targetRect =
-      rectForBrowseTarget(ctx.frameId, ctx.targetRef, 'agent-browser') ?? frameRect
+      ctx.explicitRect
+      ?? rectForBrowseTarget(ctx.frameId, ctx.targetRef, 'agent-browser')
+      ?? frameRect
     waypoints = [{ rect: targetRect, commit: true, pauseMs: 150 }]
   } else if (idiom === 'atomic') {
     // Commit verb without a ref — rare; animate to frame center.

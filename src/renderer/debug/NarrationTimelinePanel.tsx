@@ -3,9 +3,12 @@
  * on the right, positioned vertically by wall-clock time. Newest at the bottom
  * so the column scrolls upward like a live log.
  *
- * Vertical distance between entries reflects real elapsed time — quiet periods
- * leave visible gaps. The pxPerMs slider retargets the scale so bursty work is
- * legible and long idle periods don't dominate the view.
+ * Vertical distance between entries reflects real elapsed time for short gaps,
+ * but idle stretches longer than GAP_THRESHOLD_MS are collapsed to a fixed
+ * band with a labelled break, so bursty work stays legible.
+ *
+ * Faint horizontal gridlines span both columns at every event Y so CLI and
+ * director rows on the same wall-clock moment line up visually.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -16,6 +19,8 @@ const MIN_ROW_PX = 18
 const ROW_HEIGHT_PX = 22
 const TOP_PAD_PX = 12
 const BOTTOM_PAD_PX = 32
+const GAP_THRESHOLD_MS = 800
+const COMPRESSED_GAP_MS = 160
 
 export function NarrationTimelinePanel({
   initialEntries,
@@ -40,7 +45,7 @@ export function NarrationTimelinePanel({
 
   // Compute y-positions from timestamps. Each row clamps to MIN_ROW_PX above
   // the previous so bursts of same-millisecond events remain readable.
-  const { layout, totalHeight } = useMemo(
+  const { layout, totalHeight, gridYs, gapBreaks } = useMemo(
     () => layoutEntries(entries, pxPerMs),
     [entries, pxPerMs],
   )
@@ -82,6 +87,16 @@ export function NarrationTimelinePanel({
         className="relative min-h-0 flex-1 overflow-y-auto"
       >
         <div className="relative" style={{ height: totalHeight }}>
+          {gridYs.map((y) => (
+            <div
+              key={`grid-${y}`}
+              className="pointer-events-none absolute left-0 right-0 border-t border-[var(--surface-popover-border)] opacity-30"
+              style={{ top: y }}
+            />
+          ))}
+          {gapBreaks.map((gb, i) => (
+            <GapBreak key={`gap-${i}`} topY={gb.topY} bottomY={gb.bottomY} dt={gb.dt} />
+          ))}
           <div
             className="pointer-events-none absolute bottom-0 top-0 border-r border-[var(--surface-popover-border)]"
             style={{ left: '50%' }}
@@ -149,27 +164,118 @@ function Toolbar({
 }
 
 type PositionedEntry = { entry: NarrationDebugEntry; y: number }
+type GapBreakRange = { topY: number; bottomY: number; dt: number }
 
 function layoutEntries(
   entries: NarrationDebugEntry[],
   pxPerMs: number,
-): { layout: PositionedEntry[]; totalHeight: number } {
+): {
+  layout: PositionedEntry[]
+  totalHeight: number
+  gridYs: number[]
+  gapBreaks: GapBreakRange[]
+} {
   if (entries.length === 0) {
-    return { layout: [], totalHeight: TOP_PAD_PX + BOTTOM_PAD_PX }
+    return {
+      layout: [],
+      totalHeight: TOP_PAD_PX + BOTTOM_PAD_PX,
+      gridYs: [],
+      gapBreaks: [],
+    }
   }
-  const t0 = entries[0].t
+
+  // Merge-sort by time. Events share a compressed-time slot per distinct t,
+  // so a CLI and director event at the same wall-clock t start on the same Y.
+  const sorted = [...entries].sort((a, b) =>
+    a.t === b.t ? a.id - b.id : a.t - b.t,
+  )
+
+  // Build a map t → cumulative compressed-ms. Gaps over GAP_THRESHOLD_MS
+  // collapse to COMPRESSED_GAP_MS so quiet stretches don't dominate.
+  const tToCompressed = new Map<number, number>()
+  const compressedSpans: { beforeT: number; afterT: number; dt: number }[] = []
+  let cumulative = 0
+  let prevT: number | null = null
+  for (const entry of sorted) {
+    if (tToCompressed.has(entry.t)) continue
+    if (prevT !== null) {
+      const dt = entry.t - prevT
+      if (dt > GAP_THRESHOLD_MS) {
+        compressedSpans.push({ beforeT: prevT, afterT: entry.t, dt })
+        cumulative += COMPRESSED_GAP_MS
+      } else {
+        cumulative += dt
+      }
+    }
+    tToCompressed.set(entry.t, cumulative)
+    prevT = entry.t
+  }
+
   const lastCliY = { y: -Infinity }
   const lastDirY = { y: -Infinity }
   const layout: PositionedEntry[] = []
   for (const entry of entries) {
-    const rawY = TOP_PAD_PX + (entry.t - t0) * pxPerMs
+    const rawY = TOP_PAD_PX + (tToCompressed.get(entry.t) ?? 0) * pxPerMs
     const guard = entry.side === 'cli' ? lastCliY : lastDirY
     const y = Math.max(rawY, guard.y + MIN_ROW_PX)
     guard.y = y
     layout.push({ entry, y })
   }
+
+  // For each compressed span, locate the visible Y range it occupies: from
+  // the bottom of the latest event at beforeT to the top of the earliest
+  // event at afterT.
+  const gapBreaks: GapBreakRange[] = compressedSpans.map((span) => {
+    let topY = -Infinity
+    let bottomY = Infinity
+    for (const { entry, y } of layout) {
+      if (entry.t === span.beforeT) topY = Math.max(topY, y + ROW_HEIGHT_PX)
+      if (entry.t === span.afterT) bottomY = Math.min(bottomY, y)
+    }
+    return { topY, bottomY, dt: span.dt }
+  })
+
+  const uniqueYs = new Set<number>()
+  for (const { y } of layout) uniqueYs.add(Math.round(y))
+  const gridYs = [...uniqueYs].sort((a, b) => a - b)
+
   const maxY = layout.reduce((m, e) => Math.max(m, e.y), TOP_PAD_PX)
-  return { layout, totalHeight: maxY + ROW_HEIGHT_PX + BOTTOM_PAD_PX }
+  return {
+    layout,
+    totalHeight: maxY + ROW_HEIGHT_PX + BOTTOM_PAD_PX,
+    gridYs,
+    gapBreaks,
+  }
+}
+
+function GapBreak({
+  topY,
+  bottomY,
+  dt,
+}: {
+  topY: number
+  bottomY: number
+  dt: number
+}) {
+  const height = Math.max(0, bottomY - topY)
+  if (height <= 0) return null
+  return (
+    <div
+      className="pointer-events-none absolute left-0 right-0 flex items-center justify-center"
+      style={{ top: topY, height }}
+    >
+      <div className="absolute left-0 right-0 top-1/2 border-t border-dashed border-[var(--surface-popover-border)] opacity-60" />
+      <span className="relative rounded bg-[var(--surface-panel)] px-1.5 text-[9px] uppercase tracking-wider opacity-70">
+        {formatGap(dt)} idle
+      </span>
+    </div>
+  )
+}
+
+function formatGap(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  if (ms < 10_000) return `${(ms / 1000).toFixed(1)}s`
+  return `${Math.round(ms / 1000)}s`
 }
 
 function TimelineRow({ entry, y }: { entry: NarrationDebugEntry; y: number }) {
@@ -210,6 +316,8 @@ function toneFor(kind: NarrationDebugEntry['kind']): {
       return { dot: '#f59e0b', text: '#b45309' }
     case 'cli:sync-resolve':
       return { dot: '#16a34a', text: '#15803d' }
+    case 'cli:box-resolve':
+      return { dot: '#0ea5e9', text: '#0369a1' }
     case 'dir:apply':
       return { dot: '#8b5cf6', text: 'inherit' }
     case 'dir:phase':

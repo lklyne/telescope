@@ -19,15 +19,22 @@ import {
   scheduleThinkingState,
   invalidateAgentSnapshot,
   beginPresenceDeparture,
+  releaseSessionAutomationFrame,
   resetPresenceState,
 } from '../presence-manager'
 import { cdpProxyRegistrations, resetCdpProxyState } from '../cdp-proxy'
 import {
   clearAutomationInteractiveFrameIds,
+  findPageById,
 } from '../runtime/runtime-context'
 import { selectNone as clearSelection } from '../runtime/selection-controller'
-import { sendInteractiveState } from '../runtime/overlay-manager'
+import {
+  beginAutomationInteractiveFrame,
+  endAutomationInteractiveFrame,
+  sendInteractiveState,
+} from '../runtime/overlay-manager'
 import { setCanvasMode as setUiCanvasMode } from '../ui-state'
+import { getSelectionState } from '../workspace-entities'
 import { writeJson, notifyStatusListeners } from '../app-control-server'
 import { emitNarration } from '../narration/event-bus'
 import {
@@ -42,6 +49,7 @@ import {
   waitForNextCommit,
 } from '../narration/director'
 import { pushDebugEntry } from '../narration/debug-timeline'
+import { frameLocalRectToCanvas } from '../narration/rect-extraction'
 import type {
   CanvasRect,
   NarrationEvent,
@@ -88,9 +96,35 @@ function buildAndEmitVerbEvent(
   const entityIds = Array.isArray(payload.entityIds)
     ? payload.entityIds.filter((v): v is string => typeof v === 'string')
     : undefined
-  const explicitRect = isCanvasRect(payload.explicitRect)
-    ? (payload.explicitRect as CanvasRect)
-    : undefined
+  // Frame-local rect from browse-handler's `agent-browser get box` call.
+  // Converted to canvas-space here (main has page geometry; browse-handler
+  // stays CLI-safe without electron imports).
+  const targetRectLocal = isCanvasRect(payload.targetRectLocal)
+    ? (payload.targetRectLocal as CanvasRect)
+    : null
+  const boxResolveError =
+    typeof payload.boxResolveError === 'string' ? payload.boxResolveError : null
+  const targetSelector =
+    typeof payload.targetSelector === 'string' ? payload.targetSelector : null
+  const explicitRect: CanvasRect | undefined =
+    (isCanvasRect(payload.explicitRect) ? (payload.explicitRect as CanvasRect) : undefined)
+    ?? (frameId && targetRectLocal
+      ? frameLocalRectToCanvas(frameId, targetRectLocal) ?? undefined
+      : undefined)
+
+  // Surface box-resolve outcomes in the debug timeline so we can see whether
+  // the cursor steered to the element or fell back to frame-center.
+  if (targetSelector && (targetRectLocal || boxResolveError)) {
+    pushDebugEntry({
+      side: 'cli',
+      kind: 'cli:box-resolve',
+      sessionId: resolvedSessionId,
+      label: targetRectLocal ? 'box ok' : 'box fail',
+      detail: targetRectLocal
+        ? `${targetSelector} · ${Math.round(targetRectLocal.width)}x${Math.round(targetRectLocal.height)}`
+        : `${targetSelector} · ${boxResolveError}`,
+    })
+  }
 
   const ctxBase = {
     sessionId: resolvedSessionId,
@@ -109,6 +143,7 @@ function buildAndEmitVerbEvent(
       targetRole,
       targetValue,
       errorHint,
+      explicitRect,
     })
   } else if (kind === 'scan_result') {
     const rects = Array.isArray(payload.rects)
@@ -491,10 +526,66 @@ export const sessionRoutes: Route[] = [
         writeJson(response, 400, { error: 'sessionId is required' })
         return
       }
+      const existing = mcpSessions.get(payload.sessionId)
+      if (existing) releaseSessionAutomationFrame(existing)
       mcpSessions.delete(payload.sessionId)
       notifyStatusListeners()
       beginPresenceDeparture(payload.sessionId)
       writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/automation/target',
+    async handler({ request, response, body }) {
+      const payload = (body ?? {}) as { frameId?: string | null }
+      const resolved = resolveSession(request, payload as Record<string, unknown>)
+      if (!resolved) {
+        writeJson(response, 400, { error: 'no session; send x-telescope-session-id or sessionId in body' })
+        return
+      }
+      const next = typeof payload.frameId === 'string' ? payload.frameId : null
+      const prev = resolved.session.activeAutomationFrameId ?? null
+
+      if (next) {
+        const page = findPageById(next)
+        if (!page) {
+          writeJson(response, 404, { error: `frame not found: ${next}` })
+          return
+        }
+      }
+      if (prev && prev !== next) endAutomationInteractiveFrame(prev)
+      if (next && next !== prev) beginAutomationInteractiveFrame(next)
+      resolved.session.activeAutomationFrameId = next
+      writeJson(response, 200, { frameId: next })
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/automation/target',
+    async handler({ request, response }) {
+      const resolved = resolveSession(request)
+      writeJson(response, 200, {
+        frameId: resolved?.session.activeAutomationFrameId ?? null,
+      })
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/automation/resolve-frame',
+    async handler({ request, response }) {
+      const resolved = resolveSession(request)
+      const target = resolved?.session.activeAutomationFrameId ?? null
+      if (target) {
+        writeJson(response, 200, { frameId: target, source: 'target' })
+        return
+      }
+      const sel = getSelectionState()
+      const fromSel = sel.selectedEntityId ?? sel.selectedEntityIds?.[0] ?? null
+      writeJson(response, 200, {
+        frameId: fromSel,
+        source: fromSel ? 'selection' : null,
+      })
     },
   },
   {

@@ -85,27 +85,18 @@ const create: VerbHandler = async (args) => {
     if (!url) { printError('usage: telescope create frame <url>'); return 1 }
     const item: Record<string, unknown> = { kind: 'frame', url }
     item.presetIndex = args.flags.preset ? Number(args.flags.preset) : 6 // default to Laptop
-    let atPoint: { x: number; y: number } | null = null
     if (args.flags.at) {
       const [x, y] = args.flags.at.split(',').map(Number)
       if (!isNaN(x)) item.canvasX = x
       if (!isNaN(y)) item.canvasY = y
-      if (!isNaN(x) && !isNaN(y)) atPoint = { x, y }
     }
     if (args.boolFlags.has('landscape')) item.orientation = 'landscape'
     if (args.boolFlags.has('no-device-frame')) item.showDeviceFrame = false
-    // Move-then-act: cursor travels to the placement rect before the frame
-    // is inserted, so the entity appears to drop into the spot the cursor
-    // just arrived at. When --at is omitted, the cursor falls back to the
-    // current selection / workspace center via verb-narration's defaults.
-    await emitNarrationIntentSync({
-      verb: 'create',
-      kind: 'canvas',
-      explicitRect: atPoint
-        ? { x: atPoint.x, y: atPoint.y, width: 800, height: 600 }
-        : undefined,
-      intent: args.flags.intent,
-    })
+    // Move-then-act narration is emitted server-side in /frames/create once
+    // placement is resolved (matters when --at is omitted and canvasX/Y come
+    // from /layout/batch-placement rather than the CLI). `--intent` is not
+    // threaded through this path yet — re-add via a dedicated endpoint if
+    // that becomes needed.
     printJson(await upsertEntities([item]))
     return 0
   }

@@ -91,9 +91,8 @@ export function useCanvasGlobalShortcuts(input: {
       if (!shouldHijackClipboard(event)) return
       const layout = layoutRef.current
       const rightInset = layout.devtoolsOpen ? layout.devtoolsWidth : 0
-      const centerX =
-        layout.canvasOrigin.x +
-        (window.innerWidth - rightInset - layout.canvasOrigin.x) / 2
+      const leftInset = layout.leftChromeWidth
+      const centerX = leftInset + (window.innerWidth - rightInset - leftInset) / 2
       const centerY =
         layout.canvasOrigin.y + (window.innerHeight - layout.canvasOrigin.y) / 2
       const point = screenPointToCanvasPoint(centerX, centerY, layout)

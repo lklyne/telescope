@@ -17,7 +17,7 @@ export default function App({
   useEffect(() => api.onLayoutUpdate(setLayoutData), [])
 
   const clipTop = layoutData.canvasOrigin.y
-  const clipLeft = layoutData.canvasOrigin.x
+  const clipLeft = layoutData.leftChromeWidth
   const clipRight = layoutData.devtoolsOpen ? layoutData.devtoolsWidth : 0
 
   return (

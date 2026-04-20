@@ -110,11 +110,10 @@ export function computeCanvasOrigin(input: {
   currentViewMode: () => string
   toolbarHeight: number
   browserHeaderHeight: number
-  leftSidebarWidth: number
 }): { x: number; y: number } {
   const viewMode = input.currentViewMode()
   return {
-    x: input.leftSidebarWidth,
+    x: 0,
     y: input.toolbarHeight + (viewMode === 'browser' ? input.browserHeaderHeight : 0),
   }
 }
@@ -231,7 +230,7 @@ export function computeScreenBoundsForPage(input: {
     ? isFillBrowserActive
       ? viewport.x
       : Math.round(viewport.x + (viewport.width - w * input.zoom) / 2)
-    : Math.round(viewport.x + input.page.canvasX * input.zoom + input.pan.x)
+    : Math.round(input.page.canvasX * input.zoom + input.pan.x)
   const browserMinPageY = browserViewportTop
   const centeredBrowserPageY = Math.round(
     browserViewportTop + (browserViewportHeight - pageH) / 2,
@@ -386,7 +385,6 @@ export function boundCanvasOrigin(): { x: number; y: number } {
     currentViewMode: uiWorkspaceViewMode,
     toolbarHeight: layoutCache.toolbarHeight,
     browserHeaderHeight: BROWSER_HEADER_HEIGHT,
-    leftSidebarWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
   })
 }
 

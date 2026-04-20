@@ -15,6 +15,7 @@ export const EMPTY_LAYOUT: LayoutUpdateData = {
   zoom: 1,
   pan: { x: 0, y: 0 },
   canvasOrigin: { x: 0, y: 44 },
+  leftChromeWidth: 0,
   entities: [],
   browserTabs: [],
   browserFillViewport: { width: 0, height: 0 },

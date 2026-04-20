@@ -18,10 +18,10 @@ import {
   normalizeCursorMotion,
 } from '../../shared/cursor-motion'
 import {
-  DEFAULT_NARRATION_TUNING,
-  normalizeNarrationTuning,
-  type NarrationTuningParams,
-} from '../../shared/narration-tuning'
+  DEFAULT_CURSOR_TUNING,
+  normalizeCursorTuning,
+  type CursorTuningParams,
+} from '../../shared/cursor-tuning'
 import {
   bgView,
   aboveView,
@@ -65,13 +65,13 @@ type PreferencesFile = {
   debug?: {
     cursorMotion?: CursorMotionParams
     cursorSplineViz?: boolean
-    narrationTuning?: NarrationTuningParams
+    cursorTuning?: CursorTuningParams
   }
 }
 
 let currentCursorMotion: CursorMotionParams = DEFAULT_CURSOR_MOTION
 let currentCursorSplineViz = false
-let currentNarrationTuning: NarrationTuningParams = { ...DEFAULT_NARRATION_TUNING }
+let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -150,7 +150,7 @@ export function loadPreferences(): void {
   }
   currentCursorMotion = normalizeCursorMotion(parsed.debug?.cursorMotion)
   currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
-  currentNarrationTuning = normalizeNarrationTuning(parsed.debug?.narrationTuning)
+  currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
 }
 
 export function getCursorMotion(): CursorMotionParams {
@@ -179,16 +179,16 @@ export function saveCursorMotion(next: CursorMotionParams): void {
   })
 }
 
-export function getNarrationTuning(): NarrationTuningParams {
-  return currentNarrationTuning
+export function getCursorTuning(): CursorTuningParams {
+  return currentCursorTuning
 }
 
-export function saveNarrationTuning(next: NarrationTuningParams): void {
-  currentNarrationTuning = normalizeNarrationTuning(next)
+export function saveCursorTuning(next: CursorTuningParams): void {
+  currentCursorTuning = normalizeCursorTuning(next)
   const parsed = readPreferencesFile()
   writePreferencesFile({
     ...parsed,
-    debug: { ...parsed.debug, narrationTuning: currentNarrationTuning },
+    debug: { ...parsed.debug, cursorTuning: currentCursorTuning },
   })
 }
 

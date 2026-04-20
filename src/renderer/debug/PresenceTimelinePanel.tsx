@@ -1,5 +1,5 @@
 /**
- * Two-column narration timeline: CLI dispatches on the left, director activity
+ * Two-column presence timeline: CLI dispatches on the left, director activity
  * on the right, positioned vertically by wall-clock time. Newest at the bottom
  * so the column scrolls upward like a live log.
  *
@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { NarrationDebugEntry } from '../../shared/types'
+import type { PresenceDebugEntry } from '../../shared/types'
 
 const DEFAULT_PX_PER_MS = 0.12
 const MIN_ROW_PX = 18
@@ -22,14 +22,14 @@ const BOTTOM_PAD_PX = 32
 const GAP_THRESHOLD_MS = 800
 const COMPRESSED_GAP_MS = 160
 
-export function NarrationTimelinePanel({
+export function PresenceTimelinePanel({
   initialEntries,
   subscribe,
 }: {
-  initialEntries: NarrationDebugEntry[]
-  subscribe: (cb: (entry: NarrationDebugEntry) => void) => () => void
+  initialEntries: PresenceDebugEntry[]
+  subscribe: (cb: (entry: PresenceDebugEntry) => void) => () => void
 }) {
-  const [entries, setEntries] = useState<NarrationDebugEntry[]>(initialEntries)
+  const [entries, setEntries] = useState<PresenceDebugEntry[]>(initialEntries)
   const [pxPerMs, setPxPerMs] = useState<number>(DEFAULT_PX_PER_MS)
   const [follow, setFollow] = useState(true)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
@@ -163,11 +163,11 @@ function Toolbar({
   )
 }
 
-type PositionedEntry = { entry: NarrationDebugEntry; y: number }
+type PositionedEntry = { entry: PresenceDebugEntry; y: number }
 type GapBreakRange = { topY: number; bottomY: number; dt: number }
 
 function layoutEntries(
-  entries: NarrationDebugEntry[],
+  entries: PresenceDebugEntry[],
   pxPerMs: number,
 ): {
   layout: PositionedEntry[]
@@ -278,7 +278,7 @@ function formatGap(ms: number): string {
   return `${Math.round(ms / 1000)}s`
 }
 
-function TimelineRow({ entry, y }: { entry: NarrationDebugEntry; y: number }) {
+function TimelineRow({ entry, y }: { entry: PresenceDebugEntry; y: number }) {
   const isCli = entry.side === 'cli'
   const tone = toneFor(entry.kind)
   return (
@@ -305,7 +305,7 @@ function TimelineRow({ entry, y }: { entry: NarrationDebugEntry; y: number }) {
   )
 }
 
-function toneFor(kind: NarrationDebugEntry['kind']): {
+function toneFor(kind: PresenceDebugEntry['kind']): {
   dot: string
   text: string
 } {

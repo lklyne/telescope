@@ -7,7 +7,7 @@
  * visual language without duplicating.
  */
 
-import type { Mood } from './narration-event'
+import type { Mood } from './agent-action'
 
 export interface MoodVisual {
   /** Optional tint override for cursor + label. Null = use session color. */

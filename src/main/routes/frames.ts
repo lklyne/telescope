@@ -3,7 +3,7 @@ import type { IncomingMessage } from 'http'
 import { nativeImage } from 'electron'
 import type { Route } from './types'
 import type { CreateFramesRequest, DeleteFramesRequest, PageConfig } from '../../shared/types'
-import type { CanvasRect } from '../../shared/narration-event'
+import type { CanvasRect } from '../../shared/agent-action'
 import {
   LAPTOP_PRESET_INDEX,
   VIEWPORT_PRESETS,
@@ -41,10 +41,10 @@ import {
   findPresenceTarget,
   resolveSession,
 } from '../presence-manager'
-import { narrateCanvasVerb } from '../narration/verb-narration'
-import { emitNarration, hasCommit } from '../narration/event-bus'
-import { waitForNextCommit } from '../narration/director'
-import { pushDebugEntry } from '../narration/debug-timeline'
+import { buildCanvasAction } from '../presence/verb-action'
+import { emitAction, hasCommit } from '../presence/event-bus'
+import { waitForNextCommit } from '../presence/director'
+import { pushDebugEntry } from '../presence/debug-timeline'
 import { writeJson, getServerAddress } from '../app-control-server'
 
 /**
@@ -58,9 +58,9 @@ const CREATE_FRAME_SYNC_CAP_MS = 1500
 
 /**
  * Compute the canvas-space rect of a frame-to-be-created from its preset +
- * orientation. Narration uses this to steer the cursor to the exact spot the
- * frame will land BEFORE the frame is rendered — the "move-then-act" cue.
- * Returns null if canvasX/Y aren't set (caller should skip narration).
+ * orientation. The CursorDirector uses this to steer the cursor to the exact
+ * spot the frame will land BEFORE the frame is rendered — the "move-then-act"
+ * cue. Returns null if canvasX/Y aren't set (caller should skip).
  */
 function frameRectFromCreate(f: PageConfig): CanvasRect | null {
   if (typeof f.canvasX !== 'number' || typeof f.canvasY !== 'number') return null
@@ -77,27 +77,27 @@ function frameRectFromCreate(f: PageConfig): CanvasRect | null {
 }
 
 /**
- * Emit an atomic create narration with the resolved placement rect and wait
+ * Emit an atomic create action with the resolved placement rect and wait
  * for the director's commit waypoint (bounded by the director's syncCapMs).
  * The wait lets the cursor animate to the drop point before the frame is
  * actually inserted into the workspace.
  */
-async function narrateFrameCreate(
+async function emitFrameCreateAction(
   request: IncomingMessage,
   rect: CanvasRect,
 ): Promise<void> {
   const resolved = resolveSession(request)
   if (!resolved) return
-  const event = narrateCanvasVerb({
+  const event = buildCanvasAction({
     sessionId: resolved.sessionId,
     clientName: resolved.session.clientName ?? 'agent',
     verb: 'create',
     explicitRect: rect,
   })
   if (!event) return
-  emitNarration(event)
+  emitAction(event)
   // Pair with the cli:emit / cli:sync-wait / cli:sync-resolve entries that
-  // the /session/narration/verb-sync handler writes, so the create path is
+  // the /session/presence/verb-sync handler writes, so the create path is
   // visible in the debug timeline's left column.
   pushDebugEntry({
     side: 'cli',
@@ -178,12 +178,12 @@ export const frameRoutes: Route[] = [
         // commit the create. Single-frame path blocks the HTTP response so
         // the CLI's wall-clock reflects the cursor arrival.
         const rect = frameRectFromCreate(frames[0])
-        if (rect) await narrateFrameCreate(request, rect)
+        if (rect) await emitFrameCreateAction(request, rect)
         writeJson(response, 200, createFrames(payload))
         return
       }
       // Batch: assign IDs up-front so the client gets them immediately, then
-      // narrate + create one frame at a time in the background. Each frame's
+      // emit the action + create one frame at a time in the background. Each frame's
       // cursor animation completes (or caps) before the next insert fires.
       const frameIds = frames.map((f) => f.id ?? `frame_${randomUUID()}`)
       frames.forEach((f, i) => { f.id = frameIds[i] })
@@ -191,7 +191,7 @@ export const frameRoutes: Route[] = [
       void (async () => {
         for (const frame of frames) {
           const rect = frameRectFromCreate(frame)
-          if (rect) await narrateFrameCreate(request, rect)
+          if (rect) await emitFrameCreateAction(request, rect)
           createFrames({ frames: [frame] })
         }
       })()

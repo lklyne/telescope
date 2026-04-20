@@ -1,26 +1,25 @@
 /**
- * Verb → NarrationEvent mapping.
+ * Verb → AgentAction mapping.
  *
- * Replaces `VERB_PRESENCE` in cli-presence.ts and `COMMAND_LABELS` in
- * browse-handler.ts. Each CLI verb maps to one of the five narration idioms
- * with waypoint rects pulled from the main-process runtime.
+ * Each CLI verb maps to one of the five idioms with waypoint rects pulled from
+ * the main-process runtime.
  *
  * Callers:
- *  - Browse HTTP handler (main): `narrateBrowseVerb` before and after the
- *    actual agent-browser call. Scan verbs use `narrateBrowseScanPlaceholder`
- *    at start and `narrateBrowseScanResult` once rects arrive.
- *  - Canvas HTTP handlers (main): `narrateCanvasVerb` after mutation.
- *  - Debugging: the narration event carries the raw verb so unknown verbs
- *    are renderable as "Running {verb}" without a code change.
+ *  - Browse HTTP handler (main): `buildBrowseAction` before and after the
+ *    actual agent-browser call. Scan verbs use `buildBrowseScanPlaceholder`
+ *    at start and `buildBrowseScanResult` once rects arrive.
+ *  - Canvas HTTP handlers (main): `buildCanvasAction` after mutation.
+ *  - Debugging: the AgentAction carries the raw verb so unknown verbs are
+ *    renderable as "Running {verb}" without a code change.
  */
 
 import type {
+  AgentAction,
+  ActionTarget,
   CanvasRect,
   Idiom,
-  NarrationEvent,
-  NarrationTarget,
   Waypoint,
-} from '../../shared/narration-event'
+} from '../../shared/agent-action'
 import {
   rectForBrowseTarget,
   rectForEntity,
@@ -37,7 +36,7 @@ function nextEventId(sessionId: string): string {
   return `${sessionId}:${Date.now()}:${eventCounter}`
 }
 
-export interface NarrationContext {
+export interface ActionContext {
   sessionId: string
   clientName?: string
   timestamp?: number
@@ -47,7 +46,7 @@ export interface NarrationContext {
 // Browse (agent-browser) verbs
 // ---------------------------------------------------------------------------
 
-export interface BrowseVerbContext extends NarrationContext {
+export interface BrowseVerbContext extends ActionContext {
   verb: string
   frameId: string | null
   targetRef?: string | null
@@ -99,7 +98,7 @@ function browseIdiom(verb: string): Idiom {
   return 'passive'
 }
 
-function browseTarget(ctx: BrowseVerbContext): NarrationTarget | undefined {
+function browseTarget(ctx: BrowseVerbContext): ActionTarget | undefined {
   if (!ctx.targetRef && !ctx.targetName && !ctx.targetValue) return undefined
   return {
     role: ctx.targetRole ?? null,
@@ -109,18 +108,18 @@ function browseTarget(ctx: BrowseVerbContext): NarrationTarget | undefined {
 }
 
 /**
- * Build the narration event for a browse verb before the child process is
+ * Build the AgentAction for a browse verb before the child process is
  * spawned. For commit verbs we already know the target ref (from CLI args);
  * the rect is resolved from the snapshot cache if available, else from the
  * frame bounds (the cursor still moves toward the right frame).
  */
-export function narrateBrowseVerb(ctx: BrowseVerbContext): NarrationEvent | null {
+export function buildBrowseAction(ctx: BrowseVerbContext): AgentAction | null {
   if (!ctx.frameId) return null
 
   const idiom = browseIdiom(ctx.verb)
 
   if (idiom === 'scan') {
-    return narrateBrowseScanPlaceholder(ctx)
+    return buildBrowseScanPlaceholder(ctx)
   }
 
   const frameRect = rectForFrame(ctx.frameId)
@@ -156,11 +155,11 @@ export function narrateBrowseVerb(ctx: BrowseVerbContext): NarrationEvent | null
 
 /**
  * Placeholder event fired at scan start. The cursor drifts on the frame
- * while agent-browser runs. The real rects arrive via `narrateBrowseScanResult`.
+ * while agent-browser runs. The real rects arrive via `buildBrowseScanResult`.
  */
-export function narrateBrowseScanPlaceholder(
+export function buildBrowseScanPlaceholder(
   ctx: BrowseVerbContext,
-): NarrationEvent | null {
+): AgentAction | null {
   if (!ctx.frameId) return null
   const frameRect = rectForFrame(ctx.frameId)
   if (!frameRect) return null
@@ -181,10 +180,10 @@ export function narrateBrowseScanPlaceholder(
  * folds these onto the current spline, so the placeholder's drift smoothly
  * becomes a chain of waypoint hops.
  */
-export function narrateBrowseScanResult(
+export function buildBrowseScanResult(
   ctx: BrowseVerbContext,
   rects: CanvasRect[],
-): NarrationEvent | null {
+): AgentAction | null {
   if (!ctx.frameId) return null
   if (rects.length === 0) return null
   return {
@@ -203,7 +202,7 @@ export function narrateBrowseScanResult(
 // Canvas verbs
 // ---------------------------------------------------------------------------
 
-export interface CanvasVerbContext extends NarrationContext {
+export interface CanvasVerbContext extends ActionContext {
   verb: string
   /** Entity ids the verb operates on. */
   entityIds?: string[]
@@ -258,7 +257,7 @@ function canvasIdiom(verb: string): Idiom | null {
   return null
 }
 
-export function narrateCanvasVerb(ctx: CanvasVerbContext): NarrationEvent | null {
+export function buildCanvasAction(ctx: CanvasVerbContext): AgentAction | null {
   const idiom = canvasIdiom(ctx.verb)
   if (!idiom) return null
 
@@ -334,6 +333,6 @@ export function narrateCanvasVerb(ctx: CanvasVerbContext): NarrationEvent | null
 // Test-only helpers
 // ---------------------------------------------------------------------------
 
-export function __resetVerbNarrationForTest(): void {
+export function __resetVerbActionForTest(): void {
   eventCounter = 0
 }

@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import type {
   CursorMotionParams,
+  CursorTuningParams,
   DebugBootstrapData,
   DebugElectronAPI,
-  NarrationDebugEntry,
-  NarrationTuningParams,
+  PresenceDebugEntry,
 } from '../../shared/types'
-import { DEFAULT_NARRATION_TUNING } from '../../shared/narration-tuning'
+import { DEFAULT_CURSOR_TUNING } from '../../shared/cursor-tuning'
 import { useTheme } from '../shared/hooks/useTheme'
 import { CursorMotionSection } from './CursorMotionSection'
-import { NarrationSection } from './NarrationSection'
+import { PresenceSection } from './PresenceSection'
 
-type SectionId = 'cursor-motion' | 'narration'
+type SectionId = 'cursor-motion' | 'presence'
 
 const SECTIONS: Array<{ id: SectionId; label: string }> = [
   { id: 'cursor-motion', label: 'Cursor motion (legacy)' },
-  { id: 'narration', label: 'Narration' },
+  { id: 'presence', label: 'Presence' },
 ]
 
 export default function App({
@@ -26,21 +26,21 @@ export default function App({
   initialData: DebugBootstrapData
 }) {
   useTheme(initialData.theme, api.onThemeChanged)
-  const [activeSection, setActiveSection] = useState<SectionId>('narration')
+  const [activeSection, setActiveSection] = useState<SectionId>('presence')
   const [cursorMotion, setCursorMotion] = useState<CursorMotionParams>(
     initialData.cursorMotion,
   )
   const [splineViz, setSplineViz] = useState<boolean>(initialData.cursorSplineViz)
-  const [narrationTuning, setNarrationTuning] = useState<NarrationTuningParams>(
-    initialData.narrationTuning,
+  const [cursorTuning, setCursorTuning] = useState<CursorTuningParams>(
+    initialData.cursorTuning,
   )
 
   useEffect(() => api.onCursorMotionChanged(setCursorMotion), [api])
   useEffect(() => api.onCursorSplineVizChanged(setSplineViz), [api])
 
   const subscribeTimeline = useCallback(
-    (cb: (entry: NarrationDebugEntry) => void) =>
-      api.onNarrationTimelineAppend(cb),
+    (cb: (entry: PresenceDebugEntry) => void) =>
+      api.onPresenceTimelineAppend(cb),
     [api],
   )
 
@@ -54,14 +54,14 @@ export default function App({
     api.updateCursorSplineViz(next)
   }
 
-  const commitNarrationTuning = (next: NarrationTuningParams) => {
-    setNarrationTuning(next)
-    api.updateNarrationTuning(next)
+  const commitCursorTuning = (next: CursorTuningParams) => {
+    setCursorTuning(next)
+    api.updateCursorTuning(next)
   }
 
-  const resetNarrationTuning = () => {
-    api.resetNarrationTuning()
-    setNarrationTuning(DEFAULT_NARRATION_TUNING)
+  const resetCursorTuning = () => {
+    api.resetCursorTuning()
+    setCursorTuning(DEFAULT_CURSOR_TUNING)
   }
 
   return (
@@ -97,14 +97,14 @@ export default function App({
               onChange={commitCursorMotion}
               onReset={api.resetCursorMotion}
             />
-          ) : activeSection === 'narration' ? (
-            <NarrationSection
+          ) : activeSection === 'presence' ? (
+            <PresenceSection
               splineViz={splineViz}
               onSplineVizChange={commitSplineViz}
-              tuning={narrationTuning}
-              onTuningChange={commitNarrationTuning}
-              onTuningReset={resetNarrationTuning}
-              initialTimeline={initialData.narrationTimeline}
+              tuning={cursorTuning}
+              onTuningChange={commitCursorTuning}
+              onTuningReset={resetCursorTuning}
+              initialTimeline={initialData.presenceTimeline}
               subscribeTimeline={subscribeTimeline}
             />
           ) : null}

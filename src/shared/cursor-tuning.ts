@@ -1,8 +1,8 @@
 /**
- * Narration director tuning — pure defaults + normalization.
+ * CursorDirector tuning — pure defaults + normalization.
  *
  * These knobs drive the live agent-cursor pacing model in
- * `src/main/narration/director.ts`. The debug window writes them via
+ * `src/main/presence/director.ts`. The debug window writes them via
  * preferences IPC; the director reads them every tick.
  *
  * Distance scaling mirrors the legacy cursor-motion model: the director is
@@ -19,7 +19,7 @@
 
 import { type EasingSpec, normalizeEasing } from './cursor-motion'
 
-export interface NarrationTuningParams {
+export interface CursorTuningParams {
   /** Base arc-length speed before mood + distance scale, in px/s. */
   baseSpeedPxS: number
   /**
@@ -31,7 +31,7 @@ export interface NarrationTuningParams {
   /**
    * 0..1 exponent. 1 = constant speed (duration grows with distance).
    * 0 = constant duration regardless of distance.
-   * Applied per-spline at creation time against `NARRATION_DISTANCE_REFERENCE_PX`.
+   * Applied per-spline at creation time against `CURSOR_DISTANCE_REFERENCE_PX`.
    */
   distanceScaling: number
   /**
@@ -42,7 +42,7 @@ export interface NarrationTuningParams {
    */
   easing: EasingSpec
   /**
-   * Upper bound on the move-then-act wait in `/session/narration/verb-sync`.
+   * Upper bound on the move-then-act wait in `/session/presence/verb-sync`.
    * If the cursor arrives at its commit waypoint sooner, the mutation fires
    * immediately. If it takes longer, the cap fires and the mutation proceeds.
    */
@@ -53,7 +53,7 @@ export interface NarrationTuningParams {
   commitDwellMs: number
 }
 
-export const DEFAULT_NARRATION_TUNING: NarrationTuningParams = {
+export const DEFAULT_CURSOR_TUNING: CursorTuningParams = {
   baseSpeedPxS: 600,
   moodSpeedEnabled: true,
   distanceScaling: 1,
@@ -64,16 +64,16 @@ export const DEFAULT_NARRATION_TUNING: NarrationTuningParams = {
 }
 
 /** Reference path length at which distanceScaling is a no-op. */
-export const NARRATION_DISTANCE_REFERENCE_PX = 400
+export const CURSOR_DISTANCE_REFERENCE_PX = 400
 
 function clamp(n: number, lo: number, hi: number, fallback: number): number {
   if (!Number.isFinite(n)) return fallback
   return Math.max(lo, Math.min(hi, n))
 }
 
-export function normalizeNarrationTuning(raw: unknown): NarrationTuningParams {
+export function normalizeCursorTuning(raw: unknown): CursorTuningParams {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  const d = DEFAULT_NARRATION_TUNING
+  const d = DEFAULT_CURSOR_TUNING
   return {
     baseSpeedPxS: clamp(Number(r.baseSpeedPxS ?? d.baseSpeedPxS), 50, 2000, d.baseSpeedPxS),
     moodSpeedEnabled:
@@ -98,11 +98,11 @@ export function normalizeNarrationTuning(raw: unknown): NarrationTuningParams {
  * always 1, so the base-speed slider maintains intuitive meaning.
  */
 export function distanceSpeedScale(
-  tuning: NarrationTuningParams,
+  tuning: CursorTuningParams,
   totalLengthPx: number,
 ): number {
   const exp = Math.max(0, Math.min(1, tuning.distanceScaling))
   if (exp >= 1 || totalLengthPx <= 0) return 1
-  const ratio = totalLengthPx / NARRATION_DISTANCE_REFERENCE_PX
+  const ratio = totalLengthPx / CURSOR_DISTANCE_REFERENCE_PX
   return Math.pow(ratio, 1 - exp)
 }

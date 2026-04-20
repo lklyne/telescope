@@ -1,10 +1,11 @@
 /**
- * Narration protocol — shared between main (director) and renderer (playback).
+ * Agent action protocol — shared between main (CursorDirector) and renderer
+ * (playback).
  *
- * The narration layer is a trailing queue: CLI handlers fire-and-forget
- * `NarrationEvent`s as they dispatch real work, and a per-session director
+ * The presence layer is a trailing queue: CLI handlers fire-and-forget
+ * `AgentAction`s as they dispatch real work, and a per-session CursorDirector
  * consumes them at presentation speed to drive the cursor. Execution never
- * waits on narration.
+ * waits on the cursor.
  */
 
 import type { Vec2 } from './cursor-motion'
@@ -49,13 +50,13 @@ export interface Waypoint {
   commit?: boolean
 }
 
-export interface NarrationTarget {
+export interface ActionTarget {
   role?: string | null
   name?: string | null
   value?: string | null
 }
 
-export interface NarrationEvent {
+export interface AgentAction {
   version: 1
   sessionId: string
   /** Stable id; useful for dedupe, spline-viz tagging, and replay logs. */
@@ -67,7 +68,7 @@ export interface NarrationEvent {
   idiom: Idiom
   /** 1..N canvas-space waypoints. Single waypoint = atomic move. */
   waypoints: Waypoint[]
-  target?: NarrationTarget
+  target?: ActionTarget
   /** Optional mood override. If absent, director derives from signals. */
   mood?: Mood
   /**
@@ -84,7 +85,7 @@ export interface NarrationEvent {
  * Position/tangent are canvas-space; the layout broadcast layer adds screen
  * coordinates before shipping to the cursor overlay.
  */
-export interface NarrationFramePayload {
+export interface CursorFramePayload {
   sessionId: string
   clientName: string
   color: string

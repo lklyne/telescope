@@ -1,5 +1,5 @@
 /**
- * Narration debug timeline ring buffer.
+ * Presence debug timeline ring buffer.
  *
  * Accumulates CLI + director entries in insertion order. The debug window
  * fetches a snapshot on mount and listens for appends. When the debug window
@@ -7,19 +7,19 @@
  * useful history.
  */
 
-import type { NarrationDebugEntry } from '../../shared/narration-debug'
+import type { PresenceDebugEntry } from '../../shared/presence-debug'
 
 const MAX_ENTRIES = 500
 
 let nextId = 1
-const buffer: NarrationDebugEntry[] = []
-type Listener = (entry: NarrationDebugEntry) => void
+const buffer: PresenceDebugEntry[] = []
+type Listener = (entry: PresenceDebugEntry) => void
 const listeners = new Set<Listener>()
 
 export function pushDebugEntry(
-  entry: Omit<NarrationDebugEntry, 'id' | 't'>,
-): NarrationDebugEntry {
-  const full: NarrationDebugEntry = {
+  entry: Omit<PresenceDebugEntry, 'id' | 't'>,
+): PresenceDebugEntry {
+  const full: PresenceDebugEntry = {
     ...entry,
     id: nextId++,
     t: Date.now(),
@@ -32,7 +32,7 @@ export function pushDebugEntry(
   return full
 }
 
-export function snapshotDebugTimeline(): NarrationDebugEntry[] {
+export function snapshotDebugTimeline(): PresenceDebugEntry[] {
   return buffer.slice()
 }
 

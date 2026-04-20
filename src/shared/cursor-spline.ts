@@ -1,7 +1,7 @@
 /**
  * Centripetal Catmull-Rom spline with arc-length reparameterization.
  *
- * Used by the narration director to sweep the cursor continuously across
+ * Used by the CursorDirector to sweep the cursor continuously across
  * chained waypoints. Two features matter:
  *
  *  1. Arc-length sampling — `sample(s)` takes a distance along the spline,

@@ -20,7 +20,7 @@ import type {
   PendingPlacement,
   ToolbarSelectionData,
 } from '../../shared/types'
-import { getNarrationFrames } from '../narration/director'
+import { getCursorFrames } from '../presence/director'
 import { resolvePresenceFramePoint } from '../../shared/presence-targeting'
 import { isUnresolved } from '../../shared/annotation-utils'
 import {
@@ -432,7 +432,7 @@ export function buildCanvasLayoutData(
       targetRect: c.targetRect,
       updatedAt: c.updatedAt,
     })),
-    narrationFrames: buildNarrationFrames(),
+    cursorFrames: buildCursorFrames(),
   } as LayoutUpdateData
 }
 
@@ -441,12 +441,12 @@ export function getCanvasLayoutData(): LayoutUpdateData {
 }
 
 /**
- * Emit narration-director frames in canvas-space. The renderer projects
- * through the shared canvas transform so cursor motion tracks pan/zoom
- * without IPC-lag rubber-banding.
+ * Emit CursorDirector frames in canvas-space. The renderer projects through
+ * the shared canvas transform so cursor motion tracks pan/zoom without IPC-
+ * lag rubber-banding.
  */
-function buildNarrationFrames(): LayoutPresenceFrame[] {
-  return getNarrationFrames().map((f) => ({
+function buildCursorFrames(): LayoutPresenceFrame[] {
+  return getCursorFrames().map((f) => ({
     sessionId: f.sessionId,
     clientName: f.clientName,
     color: f.color,

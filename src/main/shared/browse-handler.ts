@@ -302,8 +302,8 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(frameId)
     const abPath = resolveAgentBrowserPath()
 
-    // Fire narration intent. Main builds the NarrationEvent with a resolved
-    // target rect and pushes it to the director's queue.
+    // Fire an action intent. Main builds the AgentAction with a resolved
+    // target rect and pushes it to the CursorDirector's queue.
     //
     // Two paths:
     //  - Scan verbs (snapshot, query-elements, get, console, errors): fire-
@@ -318,12 +318,12 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     if (verb) {
       const scanVerbs = new Set(['snapshot', 'query-elements', 'get', 'console', 'errors'])
       const passiveVerbs = new Set(['wait', 'screenshot', 'scroll', 'scrollintoview', 'navigate', 'back', 'forward', 'reload', 'hover'])
-      // Resolve the target's frame-local bounds before narration fires.
+      // Resolve the target's frame-local bounds before the action fires.
       // Agent-browser's ref namespace is opaque to main, so we ask
       // agent-browser itself for the box and ship frame-local coords in the
-      // narration body; main converts to canvas-space (keeping browse-
-      // handler CLI-safe, no electron imports). Without this the cursor
-      // would steer to frame center (see rect-extraction.ts guard).
+      // action body; main converts to canvas-space (keeping browse-handler
+      // CLI-safe, no electron imports). Without this the cursor would steer
+      // to frame center (see rect-extraction.ts guard).
       //
       // `get box` accepts any selector agent-browser understands (CSS, XPath,
       // @eN ref), so we gate on the first positional token — not just the
@@ -352,7 +352,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           boxResolveError = err instanceof Error ? err.message : String(err)
         }
       }
-      const narrationBody = {
+      const actionBody = {
         sessionId,
         clientName,
         verb,
@@ -364,24 +364,24 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
         ...(boxResolveError ? { boxResolveError } : null),
       }
       if (scanVerbs.has(verb)) {
-        callApp('/session/narration/placeholder', {
+        callApp('/session/presence/placeholder', {
           method: 'POST',
-          body: JSON.stringify(narrationBody),
+          body: JSON.stringify(actionBody),
         }).catch(() => {})
       } else if (passiveVerbs.has(verb)) {
         // Passive verbs don't have a commit waypoint, so sync would just
         // return 'no-commit' immediately. Fire-and-forget is cheaper.
-        callApp('/session/narration/verb', {
+        callApp('/session/presence/verb', {
           method: 'POST',
-          body: JSON.stringify(narrationBody),
+          body: JSON.stringify(actionBody),
         }).catch(() => {})
       } else {
         // Commit verbs: await arrival (capped server-side) before the CDP
-        // call runs. Errors are swallowed — a narration hiccup must not
+        // call runs. Errors are swallowed — a presence hiccup must not
         // break the real action.
-        await callApp('/session/narration/verb-sync', {
+        await callApp('/session/presence/verb-sync', {
           method: 'POST',
-          body: JSON.stringify(narrationBody),
+          body: JSON.stringify(actionBody),
         }).catch(() => undefined)
       }
     }

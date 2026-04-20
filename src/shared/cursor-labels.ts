@@ -1,8 +1,8 @@
 /**
- * Label grammar — composes cursor labels from structured narration context.
+ * Cursor label grammar — composes the text shown under an agent cursor from
+ * structured action context.
  *
- * Replaces the closed `PresenceLabelKey` enum in agent-presence.ts. Takes
- * (verb, target, mood, sessionId) and produces the text shown under the
+ * Takes (verb, target, mood, sessionId) and produces the text shown under the
  * cursor. Synonym rotation is deterministic per session so the same session
  * always uses the same phrase for the same verb.
  *
@@ -10,7 +10,7 @@
  * gracefully without a code change here.
  */
 
-import type { Mood, NarrationTarget } from './narration-event'
+import type { Mood, ActionTarget } from './agent-action'
 
 interface VerbEntry {
   /** 1..N synonyms; picked deterministically per session. */
@@ -95,7 +95,7 @@ function truncateValue(value: string, max = 24): string {
 
 export function composeLabel(
   verb: string,
-  target: NarrationTarget | null | undefined,
+  target: ActionTarget | null | undefined,
   mood: Mood,
   sessionId: string,
 ): string | null {

@@ -36,28 +36,28 @@ import {
 import { setCanvasMode as setUiCanvasMode } from '../ui-state'
 import { getSelectionState } from '../workspace-entities'
 import { writeJson, notifyStatusListeners } from '../app-control-server'
-import { emitNarration } from '../narration/event-bus'
+import { emitAction } from '../presence/event-bus'
 import {
-  narrateBrowseVerb,
-  narrateBrowseScanPlaceholder,
-  narrateBrowseScanResult,
-  narrateCanvasVerb,
-} from '../narration/verb-narration'
+  buildBrowseAction,
+  buildBrowseScanPlaceholder,
+  buildBrowseScanResult,
+  buildCanvasAction,
+} from '../presence/verb-action'
 import {
-  endNarration,
+  endPresenceSession,
   getDirectorTuning,
   setSessionIntent,
   waitForNextCommit,
-} from '../narration/director'
-import { pushDebugEntry } from '../narration/debug-timeline'
-import { frameLocalRectToCanvas } from '../narration/rect-extraction'
+} from '../presence/director'
+import { pushDebugEntry } from '../presence/debug-timeline'
+import { frameLocalRectToCanvas } from '../presence/rect-extraction'
 import type {
+  AgentAction,
   CanvasRect,
-  NarrationEvent,
-} from '../../shared/narration-event'
+} from '../../shared/agent-action'
 
 /**
- * Shared helper: build a NarrationEvent from a verb-sync / verb payload and
+ * Shared helper: build an AgentAction from a verb-sync / verb payload and
  * push it onto the director queue. Returns the event so the sync handler
  * can decide whether a commit-wait is worthwhile (non-commit events short-
  * circuit the wait).
@@ -66,7 +66,7 @@ function buildAndEmitVerbEvent(
   resolvedSessionId: string,
   resolvedClientName: string,
   payload: Record<string, unknown>,
-): NarrationEvent | null {
+): AgentAction | null {
   const verb = typeof payload.verb === 'string' ? payload.verb : null
   if (!verb) return null
 
@@ -132,10 +132,10 @@ function buildAndEmitVerbEvent(
     clientName: resolvedClientName,
   }
 
-  let event: NarrationEvent | null = null
+  let event: AgentAction | null = null
 
   if (kind === 'browse') {
-    event = narrateBrowseVerb({
+    event = buildBrowseAction({
       ...ctxBase,
       verb,
       frameId,
@@ -150,7 +150,7 @@ function buildAndEmitVerbEvent(
     const rects = Array.isArray(payload.rects)
       ? (payload.rects as unknown[]).filter(isCanvasRect) as CanvasRect[]
       : []
-    event = narrateBrowseScanResult(
+    event = buildBrowseScanResult(
       {
         ...ctxBase,
         verb,
@@ -163,7 +163,7 @@ function buildAndEmitVerbEvent(
       rects,
     )
   } else {
-    event = narrateCanvasVerb({
+    event = buildCanvasAction({
       ...ctxBase,
       verb,
       entityIds,
@@ -176,7 +176,7 @@ function buildAndEmitVerbEvent(
 
   if (event) {
     if (intent !== undefined) event.intent = intent
-    emitNarration(event)
+    emitAction(event)
   }
   return event
 }
@@ -192,12 +192,12 @@ function isCanvasRect(r: unknown): r is CanvasRect {
   )
 }
 
-function hasCommitWaypoint(event: NarrationEvent | null): boolean {
+function hasCommitWaypoint(event: AgentAction | null): boolean {
   return !!event && event.waypoints.some((w) => w.commit === true)
 }
 
 function summarizeEventForDebug(
-  event: NarrationEvent | null,
+  event: AgentAction | null,
   opts: { kind?: string; sync: boolean; capMs?: number },
 ): string {
   const bits: string[] = []
@@ -245,13 +245,13 @@ export const sessionRoutes: Route[] = [
       const activity = coercePresenceActivity(payload.phase)
       if (eventType === 'done') {
         clearActivePresenceTask(request, payload)
-        // Tear down the narration director's session too so the canvas-space
+        // Tear down the CursorDirector's session too so the canvas-space
         // cursor overlay and the active-frame highlight (both driven by
-        // getNarrationFrames()) fade out on the same signal that hides the
+        // getCursorFrames()) fade out on the same signal that hides the
         // toolbar presence icon. Without this they'd linger until the CLI
         // session fully closes or the MCP timeout sweeps it.
         const resolved = resolveSession(request, payload)
-        if (resolved) endNarration(resolved.sessionId)
+        if (resolved) endPresenceSession(resolved.sessionId)
         writeJson(response, 200, { ok: true })
         return
       }
@@ -344,14 +344,14 @@ export const sessionRoutes: Route[] = [
   },
   {
     /**
-     * Narration event emit — fire-and-forget. The CLI posts verb-level intent
-     * here and main builds a NarrationEvent with resolved rects via
-     * verb-narration.ts, then pushes onto the director's queue. The CLI
-     * does NOT wait on director state; this is the default path for reads,
+     * Agent-action event emit — fire-and-forget. The CLI posts verb-level
+     * intent here and main builds an AgentAction with resolved rects via
+     * verb-action.ts, then pushes onto the director's queue. The CLI does
+     * NOT wait on director state; this is the default path for reads,
      * scans, and anything where move-then-act isn't needed.
      */
     method: 'POST',
-    pattern: '/session/narration/verb',
+    pattern: '/session/presence/verb',
     async handler({ request, response, body }) {
       const payload = body as Record<string, unknown>
       const resolved = resolveSession(request, payload)
@@ -383,11 +383,11 @@ export const sessionRoutes: Route[] = [
   },
   {
     /**
-     * Move-then-act narration. Emits the NarrationEvent exactly like /verb,
-     * then awaits the director's next commit phase (up to `capMs`) before
-     * returning. The CLI handler that calls this will block on the HTTP
-     * response, which is exactly what we want for verbs that want "cursor
-     * moves to target, then mutation fires."
+     * Move-then-act. Emits the AgentAction exactly like /verb, then awaits
+     * the director's next commit phase (up to `capMs`) before returning.
+     * The CLI handler that calls this will block on the HTTP response,
+     * which is exactly what we want for verbs that want "cursor moves to
+     * target, then mutation fires."
      *
      * The cap (default 300ms) keeps the wait bounded: if the cursor is far
      * away or the mood is 'stuck', the mutation proceeds anyway rather than
@@ -398,7 +398,7 @@ export const sessionRoutes: Route[] = [
      * Response shape: `{ ok: true, arrival: 'arrived' | 'capped' | 'no-commit' | 'no-session' }`
      */
     method: 'POST',
-    pattern: '/session/narration/verb-sync',
+    pattern: '/session/presence/verb-sync',
     async handler({ request, response, body }) {
       const payload = body as Record<string, unknown>
       const resolved = resolveSession(request, payload)
@@ -464,7 +464,7 @@ export const sessionRoutes: Route[] = [
   },
   {
     method: 'POST',
-    pattern: '/session/narration/placeholder',
+    pattern: '/session/presence/placeholder',
     async handler({ request, response, body }) {
       const payload = body as Record<string, unknown>
       const resolved = resolveSession(request, payload)
@@ -478,13 +478,13 @@ export const sessionRoutes: Route[] = [
         writeJson(response, 400, { error: 'verb is required' })
         return
       }
-      const event = narrateBrowseScanPlaceholder({
+      const event = buildBrowseScanPlaceholder({
         sessionId: resolved.sessionId,
         clientName: resolved.session.clientName ?? 'agent',
         verb,
         frameId,
       })
-      if (event) emitNarration(event)
+      if (event) emitAction(event)
       writeJson(response, 200, { ok: true })
     },
   },

@@ -1,13 +1,12 @@
 import { callApp, sessionId, getClientName } from './shared/app-client'
 
 // ---------------------------------------------------------------------------
-// Narration intent — replaces the old presence event firing.
+// Agent-action intent — fired from every CLI verb at dispatch time.
 // ---------------------------------------------------------------------------
-// Every CLI verb fires a single narration intent at dispatch time. Main
-// constructs the NarrationEvent server-side (with resolved rects) and pushes
-// it onto the director's queue. Fire-and-forget: never blocks the CLI.
+// Main constructs the AgentAction server-side (with resolved rects) and pushes
+// it onto the CursorDirector's queue. Fire-and-forget: never blocks the CLI.
 
-/** Verbs that dispatch to agent-browser run the `browse` narration path. */
+/** Verbs that dispatch to agent-browser run the `browse` action path. */
 const BROWSE_VERBS = new Set<string>([
   'snapshot',
   'click',
@@ -29,12 +28,12 @@ const BROWSE_VERBS = new Set<string>([
 ])
 
 /**
- * Emit a narration intent for the given verb. For browse verbs we expect
+ * Emit an action intent for the given verb. For browse verbs we expect
  * `handleBrowse` to supply the frameId + targetRef directly (so we get a
- * richer narration). For canvas verbs the `entityIds`/`bridge*` fields drive
+ * richer AgentAction). For canvas verbs the `entityIds`/`bridge*` fields drive
  * rect extraction on the server.
  */
-export interface NarrationIntentPayload {
+export interface ActionIntentPayload {
   verb: string
   kind?: 'browse' | 'canvas' | 'scan_result'
   frameId?: string | null
@@ -52,9 +51,9 @@ export interface NarrationIntentPayload {
   explicitRect?: { x: number; y: number; width: number; height: number }
 }
 
-export function emitNarrationIntent(payload: NarrationIntentPayload): void {
+export function emitActionIntent(payload: ActionIntentPayload): void {
   const kind = payload.kind ?? (BROWSE_VERBS.has(payload.verb) ? 'browse' : 'canvas')
-  callApp('/session/narration/verb', {
+  callApp('/session/presence/verb', {
     method: 'POST',
     body: JSON.stringify({
       sessionId,
@@ -81,13 +80,13 @@ export function emitNarrationIntent(payload: NarrationIntentPayload): void {
  * the verb's completion over HTTP. We're inserting a bounded delay inside a
  * single verb's wall-clock, not gating the agent's thinking between verbs.
  */
-export function emitNarrationIntentSync(
-  payload: NarrationIntentPayload & { capMs?: number },
+export function emitActionIntentSync(
+  payload: ActionIntentPayload & { capMs?: number },
 ): Promise<void> {
   const kind = payload.kind ?? (BROWSE_VERBS.has(payload.verb) ? 'browse' : 'canvas')
   // capMs only goes through when the caller passed one explicitly; otherwise
   // the server defaults from the director's tuning (debug-adjustable).
-  return callApp('/session/narration/verb-sync', {
+  return callApp('/session/presence/verb-sync', {
     method: 'POST',
     body: JSON.stringify({
       sessionId,
@@ -97,8 +96,8 @@ export function emitNarrationIntentSync(
     }),
   })
     .catch(() => {
-      // Network failure → proceed without narration. Silent because we
-      // must never break the verb's actual work on a narration hiccup.
+      // Network failure → proceed without the cursor. Silent because we
+      // must never break the verb's actual work on a presence hiccup.
     })
     .then(() => undefined)
 }

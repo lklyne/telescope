@@ -4,7 +4,7 @@ import { handleBrowse, shellQuote } from './shared/browse-handler'
 import { upsertEntities, type UpsertOptions, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
-import { emitNarrationIntent, emitNarrationIntentSync } from './cli-presence'
+import { emitActionIntent, emitActionIntentSync } from './cli-presence'
 
 // ---------------------------------------------------------------------------
 // Verb handlers
@@ -92,7 +92,7 @@ const create: VerbHandler = async (args) => {
     }
     if (args.boolFlags.has('landscape')) item.orientation = 'landscape'
     if (args.boolFlags.has('no-device-frame')) item.showDeviceFrame = false
-    // Move-then-act narration is emitted server-side in /frames/create once
+    // Move-then-act action is emitted server-side in /frames/create once
     // placement is resolved (matters when --at is omitted and canvasX/Y come
     // from /layout/batch-placement rather than the CLI). `--intent` is not
     // threaded through this path yet — re-add via a dedicated endpoint if
@@ -111,7 +111,7 @@ const create: VerbHandler = async (args) => {
       if (!isNaN(y)) item.canvasY = y
       if (!isNaN(x) && !isNaN(y)) atPoint = { x, y }
     }
-    await emitNarrationIntentSync({
+    await emitActionIntentSync({
       verb: 'create',
       kind: 'canvas',
       explicitRect: atPoint
@@ -159,7 +159,7 @@ const update: VerbHandler = async (args) => {
   // Move-then-act: cursor flies to the entity being edited before the patch
   // is applied. For long moves the server caps the wait at 300 ms so the
   // agent never stalls.
-  await emitNarrationIntentSync({
+  await emitActionIntentSync({
     verb: 'update',
     kind: 'canvas',
     entityIds: [id],
@@ -177,7 +177,7 @@ function kindFromId(id: string): 'frame' | 'text' | 'file' | 'group' {
 }
 
 const deleteEntities: VerbHandler = async (args) => {
-  // Collect target ids first so we can narrate "cursor flies over the thing
+  // Collect target ids first so the cursor can fly over the thing
   // about to be removed" before the entity disappears. For --json input we
   // pull ids out of the parsed items for the same effect.
   let items: Array<{ id: string; kind: string }> = []
@@ -194,7 +194,7 @@ const deleteEntities: VerbHandler = async (args) => {
     printError('usage: telescope delete <id> [id...] or telescope delete --json')
     return 1
   }
-  await emitNarrationIntentSync({
+  await emitActionIntentSync({
     verb: 'delete',
     kind: 'canvas',
     entityIds: items.map((i) => i.id),
@@ -227,7 +227,7 @@ const focus: VerbHandler = async (args) => {
   if (args.positional.length === 0) { printError('usage: telescope focus <frameId> [frameId...]'); return 1 }
   // Cursor lands on the target frame(s) before the camera pan fires, so the
   // user sees the cursor "choose" the frame the camera is about to focus.
-  await emitNarrationIntentSync({
+  await emitActionIntentSync({
     verb: 'focus',
     kind: 'canvas',
     entityIds: args.positional,
@@ -262,7 +262,7 @@ const group: VerbHandler = async (args) => {
   if (args.positional.length === 0) { printError('usage: telescope group <entityId> [entityId...]'); return 1 }
   // Bridge idiom: cursor sweeps across the entities being grouped, commits
   // on the last one. Short circuit to atomic if only one id was passed.
-  await emitNarrationIntentSync({
+  await emitActionIntentSync({
     verb: 'group',
     kind: 'canvas',
     bridgeFrom: args.positional[0],
@@ -283,7 +283,7 @@ const group: VerbHandler = async (args) => {
 const ungroup: VerbHandler = async (args) => {
   const groupId = args.positional[0]
   if (!groupId) { printError('usage: telescope ungroup <groupId>'); return 1 }
-  await emitNarrationIntentSync({
+  await emitActionIntentSync({
     verb: 'ungroup',
     kind: 'canvas',
     entityIds: [groupId],
@@ -332,7 +332,7 @@ const annotate: VerbHandler = async (args) => {
   // Cursor lands on the frame being annotated before the annotation is
   // created. When the annotation is viewport-scoped there's nothing to
   // point at, so the waypoint falls through to the workspace default.
-  await emitNarrationIntentSync({
+  await emitActionIntentSync({
     verb: 'annotate',
     kind: 'canvas',
     entityIds: args.flags['frame-id'] ? [args.flags['frame-id']] : undefined,
@@ -614,13 +614,13 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Unknown verbs are passed to agent-browser as raw commands.')
     return 0
   }
-  // Narration is emitted by each individual handler so it can resolve real
-  // entity rects and use the sync "move-then-act" variant where it makes
-  // sense. For verbs that don't opt in (workspace/selection/scan reads,
-  // passthroughs, design-system etc.) we fire a fallback fire-and-forget
-  // intent here so the cursor still gets a label + mood update without a
-  // specific rect to move toward.
-  const HANDLER_OWNS_NARRATION = new Set([
+  // The action intent is emitted by each individual handler so it can
+  // resolve real entity rects and use the sync "move-then-act" variant where
+  // it makes sense. For verbs that don't opt in (workspace/selection/scan
+  // reads, passthroughs, design-system etc.) we fire a fallback
+  // fire-and-forget intent here so the cursor still gets a label + mood
+  // update without a specific rect to move toward.
+  const HANDLER_OWNS_ACTION = new Set([
     'create',
     'update',
     'upsert',
@@ -629,7 +629,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     'group',
     'ungroup',
     'annotate',
-    // Browse verbs narrate from handleBrowse with richer context.
+    // Browse verbs build their AgentAction from handleBrowse with richer context.
     'snapshot',
     'click',
     'fill',
@@ -648,16 +648,16 @@ export async function dispatch(argv: string[]): Promise<number> {
     'forward',
     'reload',
   ])
-  if (!HANDLER_OWNS_NARRATION.has(args.verb)) {
-    emitNarrationIntent({
+  if (!HANDLER_OWNS_ACTION.has(args.verb)) {
+    emitActionIntent({
       verb: args.verb,
       kind: 'canvas',
       intent: args.flags.intent ?? undefined,
     })
   } else if (args.flags.intent !== undefined) {
-    // Handler-owned narration still needs the --intent propagated so the
+    // Handler-owned actions still need the --intent propagated so the
     // session-scoped subtitle is set before the handler's own emit.
-    emitNarrationIntent({ verb: args.verb, intent: args.flags.intent })
+    emitActionIntent({ verb: args.verb, intent: args.flags.intent })
   }
   const handler = VERBS[args.verb] ?? browsePassthrough
   return handler(args)

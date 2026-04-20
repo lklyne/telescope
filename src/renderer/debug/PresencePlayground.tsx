@@ -1,5 +1,5 @@
 /**
- * Narration playground — a local mirror of the director's advance loop, run
+ * Presence playground — a local mirror of the director's advance loop, run
  * entirely in the renderer against the current tuning. Click anywhere to set
  * a new waypoint; the cursor folds onto a fresh spline from its current
  * (position, tangent), then advances at the director's speed model:
@@ -14,8 +14,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import type { Mood } from '../../shared/narration-event'
-import type { NarrationTuningParams } from '../../shared/narration-tuning'
+import type { Mood } from '../../shared/agent-action'
+import type { CursorTuningParams } from '../../shared/cursor-tuning'
 import { easeAt, type Vec2 } from '../../shared/cursor-motion'
 import {
   foldSpline,
@@ -23,9 +23,9 @@ import {
 } from '../../shared/cursor-spline'
 import {
   distanceSpeedScale,
-  NARRATION_DISTANCE_REFERENCE_PX,
-} from '../../shared/narration-tuning'
-import { paramsForMood } from '../../shared/narration-mood-params'
+  CURSOR_DISTANCE_REFERENCE_PX,
+} from '../../shared/cursor-tuning'
+import { paramsForMood } from '../../shared/cursor-mood-params'
 import { FilledCursorIcon } from '../canvas-bg/AgentCursorLayer'
 
 const MOODS: Mood[] = [
@@ -58,10 +58,10 @@ interface ActiveRun {
   target: Vec2
 }
 
-export function NarrationPlayground({
+export function PresencePlayground({
   tuning,
 }: {
-  tuning: NarrationTuningParams
+  tuning: CursorTuningParams
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const cursorRef = useRef<HTMLDivElement | null>(null)
@@ -325,7 +325,7 @@ function StatsOverlay({
   mood,
   stats,
 }: {
-  tuning: NarrationTuningParams
+  tuning: CursorTuningParams
   mood: Mood
   stats: { length: number; speedPxS: number; durationMs: number } | null
 }) {
@@ -343,7 +343,7 @@ function StatsOverlay({
         mood {mood} ×
         {(tuning.moodSpeedEnabled ? paramsForMood(mood).speedMultiplier : 1).toFixed(2)}
       </div>
-      <div>ref {NARRATION_DISTANCE_REFERENCE_PX} px</div>
+      <div>ref {CURSOR_DISTANCE_REFERENCE_PX} px</div>
       {stats ? (
         <div className="mt-1 border-t border-black/10 pt-1 dark:border-white/10">
           <div>length {stats.length.toFixed(0)} px</div>

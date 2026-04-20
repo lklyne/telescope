@@ -26,7 +26,7 @@ const CLI_VALUE_FLAGS = new Set([
   '--output', '--fps', '--quality',
   '--min-idle', '--speed-factor',
   '--kind',
-  // Narration
+  // Agent-action intent
   '--intent',
   // agent-browser passthrough flags
   '-s', '-d', '-p',

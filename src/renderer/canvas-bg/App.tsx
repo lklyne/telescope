@@ -233,9 +233,9 @@ export default function App({
           />
         ) : null}
 
-        {layoutData.viewMode === 'canvas' && layoutData.narrationFrames.length > 0 ? (
+        {layoutData.viewMode === 'canvas' && layoutData.cursorFrames.length > 0 ? (
           <ActiveFrameHighlightLayer
-            cursorFrames={layoutData.narrationFrames}
+            cursorFrames={layoutData.cursorFrames}
             frames={frameEntities}
           />
         ) : null}

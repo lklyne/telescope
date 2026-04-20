@@ -8,13 +8,13 @@ export type {
   Vec2,
 } from './cursor-motion'
 
-export type { NarrationTuningParams } from './narration-tuning'
+export type { CursorTuningParams } from './cursor-tuning'
 
 import type { CursorMotionParams } from './cursor-motion'
-import type { NarrationTuningParams } from './narration-tuning'
-import type { NarrationDebugEntry } from './narration-debug'
+import type { CursorTuningParams } from './cursor-tuning'
+import type { PresenceDebugEntry } from './presence-debug'
 
-export type { NarrationDebugEntry } from './narration-debug'
+export type { PresenceDebugEntry } from './presence-debug'
 
 
 export interface ViewportPreset {
@@ -309,11 +309,11 @@ export interface LayoutUpdateData {
   groups?: CanvasSceneGroupEntity[]
   presenceCursors: AgentPresenceCursor[]
   /**
-   * Narration-director frames in canvas-space. The renderer projects through
+   * CursorDirector frames in canvas-space. The renderer projects through
    * the shared canvas transform (canvasOrigin + pan + zoom) so cursors track
    * pan/zoom atomically without IPC-lag rubber-banding.
    */
-  narrationFrames: LayoutPresenceFrame[]
+  cursorFrames: LayoutPresenceFrame[]
 }
 
 export interface LayoutPresenceFrame {
@@ -606,8 +606,8 @@ export interface OnboardingElectronAPI {
 export interface DebugBootstrapData extends ThemeBootstrapData {
   cursorMotion: CursorMotionParams
   cursorSplineViz: boolean
-  narrationTuning: NarrationTuningParams
-  narrationTimeline: NarrationDebugEntry[]
+  cursorTuning: CursorTuningParams
+  presenceTimeline: PresenceDebugEntry[]
 }
 
 export interface DebugElectronAPI {
@@ -621,10 +621,10 @@ export interface DebugElectronAPI {
   onCursorSplineVizChanged: (
     callback: (on: boolean) => void,
   ) => () => void
-  updateNarrationTuning: (params: NarrationTuningParams) => void
-  resetNarrationTuning: () => void
-  onNarrationTimelineAppend: (
-    callback: (entry: NarrationDebugEntry) => void,
+  updateCursorTuning: (params: CursorTuningParams) => void
+  resetCursorTuning: () => void
+  onPresenceTimelineAppend: (
+    callback: (entry: PresenceDebugEntry) => void,
   ) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }

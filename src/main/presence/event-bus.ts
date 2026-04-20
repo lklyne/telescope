@@ -1,23 +1,23 @@
 /**
- * Per-session narration event bus.
+ * Per-session agent-action event bus.
  *
- * Narration events are fire-and-forget pushes from CLI handlers onto a FIFO
+ * AgentActions are fire-and-forget pushes from CLI handlers onto a FIFO
  * queue per session. The director drains a session's queue each tick. The
  * bus is bounded: at the soft cap, non-commit passive/scan events are dropped
  * first so that ordering and commits are preserved under bursty load.
  */
 
-import type { NarrationEvent } from '../../shared/narration-event'
+import type { AgentAction } from '../../shared/agent-action'
 import { pushDebugEntry } from './debug-timeline'
 
 const MAX_QUEUE_DEPTH = 200
 
 type Listener = (sessionId: string) => void
 
-const queues = new Map<string, NarrationEvent[]>()
+const queues = new Map<string, AgentAction[]>()
 const listeners = new Set<Listener>()
 
-export function emitNarration(event: NarrationEvent): void {
+export function emitAction(event: AgentAction): void {
   const queue = queues.get(event.sessionId) ?? []
   if (queue.length >= MAX_QUEUE_DEPTH) {
     dropNonCritical(queue, event.sessionId)
@@ -29,14 +29,14 @@ export function emitNarration(event: NarrationEvent): void {
   }
 }
 
-export function drainSession(sessionId: string): NarrationEvent[] {
+export function drainSession(sessionId: string): AgentAction[] {
   const queue = queues.get(sessionId)
   if (!queue || queue.length === 0) return []
   queues.delete(sessionId)
   return queue
 }
 
-export function peekSession(sessionId: string): readonly NarrationEvent[] {
+export function peekSession(sessionId: string): readonly AgentAction[] {
   return queues.get(sessionId) ?? []
 }
 
@@ -64,7 +64,7 @@ export function subscribe(listener: Listener): () => void {
  * more than preserving every commit. In practice the cap of 200 is generous
  * enough that this rarely triggers.
  */
-function dropNonCritical(queue: NarrationEvent[], sessionId: string): void {
+function dropNonCritical(queue: AgentAction[], sessionId: string): void {
   const idx = queue.findIndex((e) => !hasCommit(e))
   if (idx >= 0) {
     const [dropped] = queue.splice(idx, 1)
@@ -89,7 +89,7 @@ function dropNonCritical(queue: NarrationEvent[], sessionId: string): void {
   }
 }
 
-export function hasCommit(event: NarrationEvent): boolean {
+export function hasCommit(event: AgentAction): boolean {
   return event.waypoints.some((w) => w.commit === true)
 }
 

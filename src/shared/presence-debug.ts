@@ -10,9 +10,9 @@
  * fetches a snapshot on mount and subscribes to appends.
  */
 
-export type NarrationDebugSide = 'cli' | 'director'
+export type PresenceDebugSide = 'cli' | 'director'
 
-export type NarrationDebugKind =
+export type PresenceDebugKind =
   | 'cli:emit'
   | 'cli:sync-wait'
   | 'cli:sync-resolve'
@@ -21,11 +21,11 @@ export type NarrationDebugKind =
   | 'dir:phase'
   | 'dir:drop'
 
-export interface NarrationDebugEntry {
+export interface PresenceDebugEntry {
   id: number
   t: number
-  side: NarrationDebugSide
-  kind: NarrationDebugKind
+  side: PresenceDebugSide
+  kind: PresenceDebugKind
   sessionId: string
   label: string
   detail?: string

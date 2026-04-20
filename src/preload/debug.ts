@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   CursorMotionParams,
   DebugElectronAPI,
-  NarrationDebugEntry,
+  PresenceDebugEntry,
   ThemeData,
 } from '../shared/types'
 
@@ -25,16 +25,16 @@ const api: DebugElectronAPI = {
     return () =>
       ipcRenderer.removeListener('cursor-spline-viz-changed', handler)
   },
-  updateNarrationTuning: (params) =>
-    ipcRenderer.send('debug:update-narration-tuning', params),
-  resetNarrationTuning: () =>
-    ipcRenderer.send('debug:reset-narration-tuning'),
-  onNarrationTimelineAppend: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, entry: NarrationDebugEntry) =>
+  updateCursorTuning: (params) =>
+    ipcRenderer.send('debug:update-cursor-tuning', params),
+  resetCursorTuning: () =>
+    ipcRenderer.send('debug:reset-cursor-tuning'),
+  onPresenceTimelineAppend: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, entry: PresenceDebugEntry) =>
       callback(entry)
-    ipcRenderer.on('narration-timeline-append', handler)
+    ipcRenderer.on('presence-timeline-append', handler)
     return () =>
-      ipcRenderer.removeListener('narration-timeline-append', handler)
+      ipcRenderer.removeListener('presence-timeline-append', handler)
   },
   onThemeChanged: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: ThemeData) =>

@@ -1,21 +1,21 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import type { NarrationEvent } from '../../src/shared/narration-event'
+import type { AgentAction } from '../../src/shared/agent-action'
 import {
   configureDirector,
   __resetDirectorForTest,
   __getSessionStateForTest,
   notifyEventPosted,
   tick,
-  getNarrationFrames,
+  getCursorFrames,
   setSplineVizEnabled,
   onPhaseTransition,
-  endNarration,
+  endPresenceSession,
   waitForNextCommit,
-} from '../../src/main/narration/director'
+} from '../../src/main/presence/director'
 import {
-  emitNarration,
+  emitAction,
   __resetEventBusForTest,
-} from '../../src/main/narration/event-bus'
+} from '../../src/main/presence/event-bus'
 
 const SESSION = 'sess-1'
 const CLIENT = 'agent-A'
@@ -28,7 +28,7 @@ class FakeClock {
   }
 }
 
-function mkEvent(overrides: Partial<NarrationEvent>): NarrationEvent {
+function mkEvent(overrides: Partial<AgentAction>): AgentAction {
   return {
     version: 1,
     sessionId: SESSION,
@@ -41,7 +41,7 @@ function mkEvent(overrides: Partial<NarrationEvent>): NarrationEvent {
   }
 }
 
-describe('NarrationDirector', () => {
+describe('CursorDirector', () => {
   let clock: FakeClock
 
   beforeEach(() => {
@@ -56,10 +56,10 @@ describe('NarrationDirector', () => {
 
   it('creates a session and emits a frame on first event', () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(mkEvent({}))
+    emitAction(mkEvent({}))
     tick()
 
-    const frames = getNarrationFrames()
+    const frames = getCursorFrames()
     expect(frames).toHaveLength(1)
     expect(frames[0].sessionId).toBe(SESSION)
     expect(frames[0].activity).toBe('traveling')
@@ -67,12 +67,12 @@ describe('NarrationDirector', () => {
 
   it('traveling → committing → idle on atomic click', () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(mkEvent({}))
+    emitAction(mkEvent({}))
 
     // First tick: applies event, sets phase = traveling.
     clock.advance(0)
     tick()
-    expect(getNarrationFrames()[0].activity).toBe('traveling')
+    expect(getCursorFrames()[0].activity).toBe('traveling')
 
     // Advance clock until cursor reaches waypoint.
     // Speed is base * 1.2 for committing mood; waypoint is ~141 px away.
@@ -81,14 +81,14 @@ describe('NarrationDirector', () => {
       clock.advance(16)
       tick()
     }
-    const afterTravel = getNarrationFrames()[0]
+    const afterTravel = getCursorFrames()[0]
     expect(['committing', 'idle']).toContain(afterTravel.activity)
     expect(afterTravel.commitKey).toBeGreaterThan(0)
   })
 
   it('mid-travel event folds spline from current position', () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(
+    emitAction(
       mkEvent({
         waypoints: [{ rect: { x: 500, y: 0, width: 10, height: 10 } }],
       }),
@@ -105,7 +105,7 @@ describe('NarrationDirector', () => {
     expect(midpoint.x).toBeLessThan(500)
 
     // Now emit a new event redirecting to a different point.
-    emitNarration(
+    emitAction(
       mkEvent({
         waypoints: [{ rect: { x: 0, y: 200, width: 10, height: 10 } }],
       }),
@@ -121,7 +121,7 @@ describe('NarrationDirector', () => {
 
   it('scan event with multi-waypoint non-commit passes through waypoints', () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(
+    emitAction(
       mkEvent({
         verb: 'snapshot',
         idiom: 'scan',
@@ -139,36 +139,36 @@ describe('NarrationDirector', () => {
       clock.advance(16)
       tick()
     }
-    const frame = getNarrationFrames()[0]
+    const frame = getCursorFrames()[0]
     expect(frame.commitKey).toBe(0)
   })
 
   it('error event bumps errorKey and freezes phase', () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(
+    emitAction(
       mkEvent({
         errorHint: 'hard_fail',
       }),
     )
     tick()
-    const frame = getNarrationFrames()[0]
+    const frame = getCursorFrames()[0]
     expect(frame.errorKey).toBe(1)
     expect(frame.mood).toBe('error')
   })
 
   it('intent undefined inherits; null clears; string sets', () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(mkEvent({ intent: 'logging in' }))
+    emitAction(mkEvent({ intent: 'logging in' }))
     tick()
-    expect(getNarrationFrames()[0].intent).toBe('logging in')
+    expect(getCursorFrames()[0].intent).toBe('logging in')
 
-    emitNarration(mkEvent({}))
+    emitAction(mkEvent({}))
     tick()
-    expect(getNarrationFrames()[0].intent).toBe('logging in')
+    expect(getCursorFrames()[0].intent).toBe('logging in')
 
-    emitNarration(mkEvent({ intent: null }))
+    emitAction(mkEvent({ intent: null }))
     tick()
-    expect(getNarrationFrames()[0].intent).toBeNull()
+    expect(getCursorFrames()[0].intent).toBeNull()
   })
 
   it('fires a phase-transition event on commit', () => {
@@ -178,7 +178,7 @@ describe('NarrationDirector', () => {
       transitions.push(`${t.previous}->${t.next}${t.commit ? '(commit)' : ''}`)
     })
 
-    emitNarration(mkEvent({}))
+    emitAction(mkEvent({}))
     tick()
     for (let i = 0; i < 40; i++) {
       clock.advance(16)
@@ -189,21 +189,21 @@ describe('NarrationDirector', () => {
 
   it('spline viz is null by default and populated when enabled', () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(mkEvent({}))
+    emitAction(mkEvent({}))
     tick()
-    expect(getNarrationFrames()[0].splineViz).toBeNull()
+    expect(getCursorFrames()[0].splineViz).toBeNull()
 
     setSplineVizEnabled(true)
-    emitNarration(mkEvent({}))
+    emitAction(mkEvent({}))
     tick()
-    const viz = getNarrationFrames()[0].splineViz
+    const viz = getCursorFrames()[0].splineViz
     expect(viz).not.toBeNull()
     expect(viz!.polyline.length).toBeGreaterThan(1)
   })
 
   it('waitForNextCommit resolves on the next commit', async () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(mkEvent({}))
+    emitAction(mkEvent({}))
     tick()
 
     // Kick off a wait with a generous cap.
@@ -221,7 +221,7 @@ describe('NarrationDirector', () => {
 
   it('waitForNextCommit caps at the requested timeout', async () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(
+    emitAction(
       mkEvent({
         // Long-distance waypoint so travel time exceeds the cap.
         waypoints: [{ rect: { x: 5_000, y: 5_000, width: 10, height: 10 }, commit: true }],
@@ -239,22 +239,22 @@ describe('NarrationDirector', () => {
     expect(arrival).toBe('no-session')
   })
 
-  it('endNarration transitions to departing', () => {
+  it('endPresenceSession transitions to departing', () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(mkEvent({}))
+    emitAction(mkEvent({}))
     tick()
-    endNarration(SESSION)
+    endPresenceSession(SESSION)
     tick()
-    const frame = getNarrationFrames()[0]
+    const frame = getCursorFrames()[0]
     expect(frame.activity).toBe('departing')
   })
 
-  it('endNarration resolves outstanding waitForNextCommit waiters as capped', async () => {
+  it('endPresenceSession resolves outstanding waitForNextCommit waiters as capped', async () => {
     notifyEventPosted(SESSION, CLIENT)
-    emitNarration(mkEvent({}))
+    emitAction(mkEvent({}))
     tick()
     const pending = waitForNextCommit(SESSION, 5_000)
-    endNarration(SESSION)
+    endPresenceSession(SESSION)
     const arrival = await pending
     expect(arrival).toBe('capped')
   })

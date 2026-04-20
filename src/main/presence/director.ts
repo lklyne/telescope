@@ -1,5 +1,5 @@
 /**
- * NarrationDirector — per-session state machine that consumes narration events
+ * CursorDirector — per-session state machine that consumes AgentActions
  * and produces per-frame payloads for the cursor overlay.
  *
  * Design contract:
@@ -17,26 +17,26 @@
 
 import { easeAt, type Vec2 } from '../../shared/cursor-motion'
 import type {
+  AgentAction,
+  CursorFramePayload,
   DirectorActivity,
   Mood,
-  NarrationEvent,
-  NarrationFramePayload,
   SplineVizPayload,
   Waypoint,
-} from '../../shared/narration-event'
-import { rectCenter } from '../../shared/narration-event'
+} from '../../shared/agent-action'
+import { rectCenter } from '../../shared/agent-action'
 import type { CatmullRomSpline } from '../../shared/cursor-spline'
 import { foldSpline } from '../../shared/cursor-spline'
-import { composeLabel } from '../../shared/narration-grammar'
+import { composeLabel } from '../../shared/cursor-labels'
 import { deriveMood, paramsForMood } from './mood'
 import { drainSession, hasCommit } from './event-bus'
 import { pushDebugEntry } from './debug-timeline'
 import {
-  DEFAULT_NARRATION_TUNING,
+  DEFAULT_CURSOR_TUNING,
   distanceSpeedScale,
-  type NarrationTuningParams,
-} from '../../shared/narration-tuning'
-/** Retire a narration session after this much continuous idle time. */
+  type CursorTuningParams,
+} from '../../shared/cursor-tuning'
+/** Retire a presence session after this much continuous idle time. */
 const IDLE_RETIRE_MS = 3_000
 
 /** Error phase freeze duration. */
@@ -46,13 +46,13 @@ const IDLE_TRANSITION_MS = 400
 /** Idle → departing removal grace. */
 const DEPARTURE_GRACE_MS = 1500
 
-let tuning: NarrationTuningParams = { ...DEFAULT_NARRATION_TUNING }
+let tuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 
-export function setNarrationTuning(next: NarrationTuningParams): void {
+export function setCursorTuning(next: CursorTuningParams): void {
   tuning = { ...next }
 }
 
-export function getDirectorTuning(): NarrationTuningParams {
+export function getDirectorTuning(): CursorTuningParams {
   return tuning
 }
 
@@ -100,7 +100,7 @@ interface SessionState {
   mood: Mood
   intent: string | null
   verb: string | null
-  target: NarrationEvent['target'] | null
+  target: AgentAction['target'] | null
   label: string | null
 
   commitKey: number
@@ -125,7 +125,7 @@ interface SessionState {
    * Wall-clock instant at which the director settled into its current idle
    * span (null whenever the session is non-idle). The tick loop retires
    * sessions that have been continuously idle beyond `IDLE_RETIRE_MS` so
-   * orphaned narration sessions don't hang on forever when the CLI returns.
+   * orphaned presence sessions don't hang on forever when the CLI returns.
    */
   idleSinceAt: number | null
 }
@@ -150,7 +150,7 @@ const frameListeners = new Set<() => void>()
  * Move-then-act arrival waiters.
  *
  * CLI handlers that want "cursor moves to target, then the mutation fires"
- * post their narration intent to /session/narration/verb-sync and await a
+ * post their action intent to /session/presence/verb-sync and await a
  * commit signal here. Each waiter has its own `capMs` timer so a slow or
  * long-distance travel never holds the agent indefinitely.
  *
@@ -198,7 +198,7 @@ export function onPhaseTransition(listener: PhaseTransitionListener): () => void
   }
 }
 
-export function onNarrationFrameChanged(listener: () => void): () => void {
+export function onCursorFrameChanged(listener: () => void): () => void {
   frameListeners.add(listener)
   return () => {
     frameListeners.delete(listener)
@@ -223,7 +223,7 @@ export interface DirectorOptions {
   /**
    * Fires when the tick's idle-retire check decides to tear down a session.
    * The boot wiring hooks this to `beginPresenceDeparture` so the toolbar
-   * presence cursor fades alongside the canvas narration instead of waiting
+   * presence cursor fades alongside the canvas cursor instead of waiting
    * out the 15s MCP-session timeout.
    */
   onSessionRetired?: (sessionId: string) => void
@@ -293,7 +293,7 @@ function ensureSession(sessionId: string, clientName: string): SessionState {
  * tick loop before advancing. Any number of events may be pending; they're
  * applied in order.
  */
-function applyEvents(state: SessionState, events: readonly NarrationEvent[]): void {
+function applyEvents(state: SessionState, events: readonly AgentAction[]): void {
   if (events.length === 0) return
   const now = currentClock.now()
 
@@ -601,7 +601,7 @@ export function tick(): void {
     advance(state, now)
 
     if (shouldRetireIdleSession(state, now)) {
-      endNarration(sessionId)
+      endPresenceSession(sessionId)
       onSessionRetiredFn?.(sessionId)
     }
   }
@@ -617,7 +617,7 @@ export function notifyEventPosted(sessionId: string, clientName: string): void {
   ensureSession(sessionId, clientName)
 }
 
-export function endNarration(sessionId: string): void {
+export function endPresenceSession(sessionId: string): void {
   const state = sessions.get(sessionId)
   if (!state) return
   // Wake any pending arrival waiters before tearing down — they should see
@@ -637,12 +637,12 @@ export function setSessionIntent(sessionId: string, intent: string | null): void
   state.intent = intent
 }
 
-export function hasNarrationSessions(): boolean {
+export function hasPresenceSessions(): boolean {
   return sessions.size > 0
 }
 
-export function getNarrationFrames(): NarrationFramePayload[] {
-  const out: NarrationFramePayload[] = []
+export function getCursorFrames(): CursorFramePayload[] {
+  const out: CursorFramePayload[] = []
   for (const state of sessions.values()) {
     out.push({
       sessionId: state.sessionId,
@@ -679,7 +679,7 @@ export function __resetDirectorForTest(): void {
   frameListeners.clear()
   splineVizEnabled = false
   currentClock = defaultClock
-  tuning = { ...DEFAULT_NARRATION_TUNING }
+  tuning = { ...DEFAULT_CURSOR_TUNING }
 }
 
 export function __getSessionStateForTest(sessionId: string): SessionState | undefined {

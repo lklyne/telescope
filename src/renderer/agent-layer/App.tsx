@@ -26,7 +26,7 @@ export default function App({
       style={{ clipPath: `inset(${clipTop}px ${clipRight}px 0 ${clipLeft}px)` }}
     >
       <AgentCursorLayer
-        frames={layoutData.narrationFrames}
+        frames={layoutData.cursorFrames}
         canvasOrigin={layoutData.canvasOrigin}
         pan={layoutData.pan}
         zoom={layoutData.zoom}

@@ -1,24 +1,24 @@
 /**
- * Narration director boot — called once from main's startup sequence.
+ * CursorDirector boot — called once from main's startup sequence.
  *
  * Responsibilities:
  *  - Configure the director's clock and color derivation.
  *  - Subscribe the event bus so event arrivals wake the session and trigger
  *    immediate tick scheduling.
  *  - Run the director tick on a ~16 ms interval whenever there is work.
- *  - Pipe the director's `onNarrationFrameChanged` signal into the existing
+ *  - Pipe the director's `onCursorFrameChanged` signal into the existing
  *    layout dirty/rebuild pipeline so cursor frames ship to the renderer.
  */
 
 import { markDirty } from '../runtime/layout-dirty'
 import { requestLayout } from '../runtime/surface-layout'
 import { beginPresenceDeparture, deriveColor } from '../presence-cursor'
-import { getCursorSplineViz, getNarrationTuning } from '../runtime/preferences'
+import { getCursorSplineViz, getCursorTuning } from '../runtime/preferences'
 import {
   configureDirector,
   notifyEventPosted,
-  onNarrationFrameChanged,
-  setNarrationTuning,
+  onCursorFrameChanged,
+  setCursorTuning,
   setSplineVizEnabled,
   tick,
 } from './director'
@@ -42,7 +42,7 @@ function ensureTicking(): void {
   }, TICK_INTERVAL_MS)
 }
 
-export function initializeNarrationDirector(): void {
+export function initializeCursorDirector(): void {
   if (booted) return
   booted = true
 
@@ -56,17 +56,17 @@ export function initializeNarrationDirector(): void {
   })
 
   setSplineVizEnabled(getCursorSplineViz())
-  setNarrationTuning(getNarrationTuning())
+  setCursorTuning(getCursorTuning())
 
   subscribe((sessionId) => {
-    // The event-bus subscription fires as soon as a narration event is
+    // The event-bus subscription fires as soon as an AgentAction is
     // enqueued. We make sure the director has a session record and kick the
     // tick loop so the event is drained within one frame.
     notifyEventPosted(sessionId, 'agent')
     ensureTicking()
   })
 
-  onNarrationFrameChanged(() => {
+  onCursorFrameChanged(() => {
     markDirty('canvas', 'toolbar')
     requestLayout()
   })

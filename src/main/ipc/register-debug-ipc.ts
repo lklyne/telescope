@@ -5,25 +5,25 @@ import {
   normalizeCursorMotion,
 } from '../../shared/cursor-motion'
 import {
-  DEFAULT_NARRATION_TUNING,
-  normalizeNarrationTuning,
-} from '../../shared/narration-tuning'
+  DEFAULT_CURSOR_TUNING,
+  normalizeCursorTuning,
+} from '../../shared/cursor-tuning'
 import {
   broadcastCursorMotion,
   broadcastCursorSplineViz,
   getCursorMotion,
   getCursorSplineViz,
-  getNarrationTuning,
+  getCursorTuning,
   isDark,
   saveCursorMotion,
   saveCursorSplineViz,
-  saveNarrationTuning,
+  saveCursorTuning,
 } from '../runtime/preferences'
-import { setNarrationTuning, setSplineVizEnabled } from '../narration/director'
+import { setCursorTuning, setSplineVizEnabled } from '../presence/director'
 import {
   snapshotDebugTimeline,
   subscribeDebugTimeline,
-} from '../narration/debug-timeline'
+} from '../presence/debug-timeline'
 import { getDebugWebContents } from '../debug-window'
 
 export function registerDebugIpc(): void {
@@ -31,14 +31,14 @@ export function registerDebugIpc(): void {
     theme: { isDark: isDark() },
     cursorMotion: getCursorMotion(),
     cursorSplineViz: getCursorSplineViz(),
-    narrationTuning: getNarrationTuning(),
-    narrationTimeline: snapshotDebugTimeline(),
+    cursorTuning: getCursorTuning(),
+    presenceTimeline: snapshotDebugTimeline(),
   }))
 
   subscribeDebugTimeline((entry) => {
     const wc = getDebugWebContents()
     if (wc && !wc.isDestroyed()) {
-      wc.send('narration-timeline-append', entry)
+      wc.send('presence-timeline-append', entry)
     }
   })
 
@@ -60,14 +60,14 @@ export function registerDebugIpc(): void {
     broadcastCursorSplineViz()
   })
 
-  ipcMain.on('debug:update-narration-tuning', (_event, raw: unknown) => {
-    const next = normalizeNarrationTuning(raw)
-    saveNarrationTuning(next)
-    setNarrationTuning(next)
+  ipcMain.on('debug:update-cursor-tuning', (_event, raw: unknown) => {
+    const next = normalizeCursorTuning(raw)
+    saveCursorTuning(next)
+    setCursorTuning(next)
   })
 
-  ipcMain.on('debug:reset-narration-tuning', () => {
-    saveNarrationTuning(DEFAULT_NARRATION_TUNING)
-    setNarrationTuning(DEFAULT_NARRATION_TUNING)
+  ipcMain.on('debug:reset-cursor-tuning', () => {
+    saveCursorTuning(DEFAULT_CURSOR_TUNING)
+    setCursorTuning(DEFAULT_CURSOR_TUNING)
   })
 }

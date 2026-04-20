@@ -1,14 +1,14 @@
 /**
- * Per-mood physics parameters consumed by the narration director and the
- * debug playground. Pure data — no signals, no state.
+ * Per-mood physics parameters consumed by the CursorDirector and the debug
+ * playground. Pure data — no signals, no state.
  *
  * `deriveMood` (the classifier that turns verb + retry + time signals into a
- * Mood) stays in `src/main/narration/mood.ts` because it's only relevant at
+ * Mood) stays in `src/main/presence/mood.ts` because it's only relevant at
  * event time. These params, however, are pure lookups the renderer-side
  * preview needs to mirror the director.
  */
 
-import type { Mood } from './narration-event'
+import type { Mood } from './agent-action'
 
 export interface MoodParams {
   speedMultiplier: number

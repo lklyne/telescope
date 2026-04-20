@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveMood, paramsForMood } from '../../src/main/narration/mood'
+import { deriveMood, paramsForMood } from '../../src/main/presence/mood'
 
 describe('deriveMood', () => {
   const base = {

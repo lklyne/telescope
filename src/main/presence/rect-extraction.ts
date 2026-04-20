@@ -1,12 +1,12 @@
 /**
- * Canvas-space rect helpers for narration waypoint construction.
+ * Canvas-space rect helpers for AgentAction waypoint construction.
  *
- * Every NarrationEvent carries rects in canvas space. The renderer projects
+ * Every AgentAction carries rects in canvas space. The renderer projects
  * them to screen via the current zoom/pan transform, which means canvas and
  * frame surfaces are unified — cursors curve through frame chrome naturally.
  */
 
-import type { CanvasRect } from '../../shared/narration-event'
+import type { CanvasRect } from '../../shared/agent-action'
 import { pages } from '../runtime/runtime-context'
 import {
   pageCanvasBounds,
@@ -35,7 +35,7 @@ export function rectForFrame(frameId: string): CanvasRect | null {
   if (!page) return null
   const inner = pageCanvasBounds(page)
   // `pageCanvasBounds` anchors at `canvasY` (top of the chrome band) with
-  // content-only dimensions — a legacy quirk. For narration waypoints we
+  // content-only dimensions — a legacy quirk. For cursor waypoints we
   // want the full visible frame (chrome + content) so the cursor drifts
   // across what the user perceives as "the site". Device-shell insets are
   // excluded; those belong to `rectForFrameOuter`.

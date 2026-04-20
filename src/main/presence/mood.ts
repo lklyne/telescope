@@ -6,14 +6,14 @@
  * the CLI + director already have.
  *
  * Per-mood physics parameters (`MoodParams`, `paramsForMood`) live in
- * `src/shared/narration-mood-params.ts` so the renderer-side debug playground
+ * `src/shared/cursor-mood-params.ts` so the renderer-side debug playground
  * can mirror director behavior without reaching into main.
  */
 
-import type { Mood } from '../../shared/narration-event'
+import type { Mood } from '../../shared/agent-action'
 
-export { paramsForMood } from '../../shared/narration-mood-params'
-export type { MoodParams } from '../../shared/narration-mood-params'
+export { paramsForMood } from '../../shared/cursor-mood-params'
+export type { MoodParams } from '../../shared/cursor-mood-params'
 
 export interface MoodSignals {
   verb: string

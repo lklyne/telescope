@@ -1,5 +1,5 @@
 /**
- * Narration debug panel — playground on the left, tuning controls on the right.
+ * Presence debug panel — playground on the left, tuning controls on the right.
  *
  * The playground mirrors the director's advance loop locally so the user can
  * retarget the cursor with a click and watch the speed model react to tuning
@@ -8,13 +8,13 @@
  */
 
 import type {
+  CursorTuningParams,
   EasingPreset,
   EasingSpec,
-  NarrationDebugEntry,
-  NarrationTuningParams,
+  PresenceDebugEntry,
 } from '../../shared/types'
-import { NarrationPlayground } from './NarrationPlayground'
-import { NarrationTimelinePanel } from './NarrationTimelinePanel'
+import { PresencePlayground } from './PresencePlayground'
+import { PresenceTimelinePanel } from './PresenceTimelinePanel'
 
 const EASING_PRESETS: EasingPreset[] = [
   'linear',
@@ -25,7 +25,7 @@ const EASING_PRESETS: EasingPreset[] = [
   'easeInOutSine',
 ]
 
-export function NarrationSection({
+export function PresenceSection({
   splineViz,
   onSplineVizChange,
   tuning,
@@ -36,20 +36,20 @@ export function NarrationSection({
 }: {
   splineViz: boolean
   onSplineVizChange: (on: boolean) => void
-  tuning: NarrationTuningParams
-  onTuningChange: (next: NarrationTuningParams) => void
+  tuning: CursorTuningParams
+  onTuningChange: (next: CursorTuningParams) => void
   onTuningReset: () => void
-  initialTimeline: NarrationDebugEntry[]
-  subscribeTimeline: (cb: (entry: NarrationDebugEntry) => void) => () => void
+  initialTimeline: PresenceDebugEntry[]
+  subscribeTimeline: (cb: (entry: PresenceDebugEntry) => void) => () => void
 }) {
   return (
     <div className="flex h-full w-full min-w-0">
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="relative min-h-0 flex-1 overflow-hidden">
-          <NarrationPlayground tuning={tuning} />
+          <PresencePlayground tuning={tuning} />
         </div>
         <div className="flex h-[45%] min-h-[160px] shrink-0 flex-col">
-          <NarrationTimelinePanel
+          <PresenceTimelinePanel
             initialEntries={initialTimeline}
             subscribe={subscribeTimeline}
           />
@@ -77,11 +77,11 @@ function TuningControls({
 }: {
   splineViz: boolean
   onSplineVizChange: (on: boolean) => void
-  tuning: NarrationTuningParams
-  onTuningChange: (next: NarrationTuningParams) => void
+  tuning: CursorTuningParams
+  onTuningChange: (next: CursorTuningParams) => void
   onTuningReset: () => void
 }) {
-  const patch = (p: Partial<NarrationTuningParams>) =>
+  const patch = (p: Partial<CursorTuningParams>) =>
     onTuningChange({ ...tuning, ...p })
 
   return (

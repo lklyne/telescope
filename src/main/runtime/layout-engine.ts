@@ -66,7 +66,7 @@ import {
 import { textEntityMenuViewBounds } from '../../shared/selectedFrameMenu'
 import { textEntities, buildTextEntitySceneEntity } from './text-entity-state'
 import { getPresenceCursors } from '../app-control-server'
-import { hasNarrationSessions } from '../narration/director'
+import { hasPresenceSessions } from '../presence/director'
 import {
   notifyDevtoolsPanelData,
   notifyInspectStateChanged,
@@ -300,7 +300,7 @@ export function layoutAllViews(): void {
   // bounds so cursor positions share the same window-top origin as
   // bgView and don't need a separate toolbar-inset transform.
   if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed() && win) {
-    const hasCursors = getPresenceCursors().length > 0 || hasNarrationSessions()
+    const hasCursors = getPresenceCursors().length > 0 || hasPresenceSessions()
     if (!hasCursors) {
       if (cursorOverlayWindow.isVisible()) cursorOverlayWindow.hide()
       layoutCache.lastCursorOverlayBoundsKey = null

@@ -1,5 +1,5 @@
 /**
- * Agent cursor rendering — pure playback of director narration frames.
+ * Agent cursor rendering — pure playback of CursorDirector frames.
  *
  * Cursors live in canvas space. A single transform wrapper projects all
  * cursors through the shared canvas transform (canvasOrigin + pan + zoom),
@@ -18,7 +18,7 @@ import type {
   CanvasSceneFrameEntity,
   LayoutPresenceFrame,
 } from '../../shared/types'
-import { MOOD_VISUALS } from '../../shared/narration-visuals'
+import { MOOD_VISUALS } from '../../shared/cursor-visuals'
 
 // Short CSS transition smooths subpixel jitter between director ticks. The
 // director runs at 16 ms; a ~100 ms transition means visual changes always

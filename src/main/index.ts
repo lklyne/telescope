@@ -19,7 +19,7 @@ import {
   stopAppControlServer,
 } from './app-control-server'
 import { markDirty } from './runtime/layout-dirty'
-import { initializeNarrationDirector } from './narration/boot'
+import { initializeCursorDirector } from './presence/boot'
 import { registerIpcHandlers } from './ipc-handlers'
 import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
 import { loadOnboardingState } from './runtime/preferences'
@@ -157,7 +157,7 @@ app.whenReady().then(async () => {
     markDirty('canvas', 'toolbar')
     requestLayout()
   })
-  initializeNarrationDirector()
+  initializeCursorDirector()
   setInterval(() => {
     setMcpConnectionStatus(getMcpConnectionStatus())
   }, 5_000)

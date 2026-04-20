@@ -7,6 +7,10 @@ export const CARD_BORDER_WIDTH = 1
 export const CARD_BORDER_RADIUS = 0
 export const CHROME_HEADER_HEIGHT = 44
 export const CHROME_PAGE_GAP = 0
+/** Pixels between the toolbar and the top of a focused entity's pinned chrome. */
+export const FOCUS_CHROME_TOP_OFFSET = 8
+/** Pixels between the pinned chrome bottom and the focused entity's content. */
+export const FOCUS_CHROME_BOTTOM_GAP = 8
 export { TOOLBAR_HEIGHT } from '../../shared/constants'
 export const TOOLBAR_BORDER_LIGHT = '#d4d4d8'
 export const TOOLBAR_BORDER_DARK = '#3f3f46'

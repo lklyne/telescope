@@ -11,6 +11,7 @@ import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOriginX as canvasOriginX,
   boundEffectivePageContentSize as effectivePageContentSize,
+  FOCUS_CHROME_INSET,
   pageContentSize,
 } from './runtime-geometry'
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
@@ -149,7 +150,9 @@ function entityCanvasBounds(
 
 /**
  * Compute target camera (zoom + pan) that fits the given entity into the
- * available viewport with a small padding.
+ * available viewport with a small padding. Reserves space at the top of the
+ * viewport for the pinned focus chrome so the entity centers in the region
+ * below it.
  */
 export function computeFocusCamera(
   entityId: string,
@@ -161,18 +164,22 @@ export function computeFocusCamera(
   const viewport = availableCanvasViewportRect()
   const padding = 64
 
+  // The pinned focus chrome eats `FOCUS_CHROME_INSET` at the top; content centers in the remainder.
   const availW = Math.max(100, viewport.width - padding * 2)
-  const availH = Math.max(100, viewport.height - padding * 2)
+  const availH = Math.max(100, viewport.height - padding - FOCUS_CHROME_INSET)
   const targetZoom = Math.max(
     0.1,
     Math.min(3.0, Math.min(availW / bounds.width, availH / bounds.height)),
   )
 
+  // Center of the content region (below the chrome) measured inside the viewport.
+  const contentRegionCenterY = FOCUS_CHROME_INSET + (viewport.height - FOCUS_CHROME_INSET) / 2
+
   const targetPanX = Math.round(
     viewport.x + viewport.width / 2 - canvasOriginX() - (bounds.x + bounds.width / 2) * targetZoom,
   )
   const targetPanY = Math.round(
-    viewport.height / 2 - (bounds.y + bounds.height / 2) * targetZoom,
+    contentRegionCenterY - (bounds.y + bounds.height / 2) * targetZoom,
   )
 
   return { zoom: targetZoom, pan: { x: targetPanX, y: targetPanY } }

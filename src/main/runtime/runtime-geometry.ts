@@ -4,10 +4,17 @@ import type { WorkspaceBounds } from '../../shared/types'
 import type { Page } from './runtime-entities'
 import {
   CARD_BORDER_WIDTH,
+  CHROME_HEADER_HEIGHT,
   CHROME_PAGE_GAP,
+  FOCUS_CHROME_BOTTOM_GAP,
+  FOCUS_CHROME_TOP_OFFSET,
   LEFT_SIDEBAR_WIDTH,
   devtoolsPanelDebug,
 } from './runtime-constants'
+
+/** Total vertical space reserved for the pinned focus chrome (offset + height + gap). */
+export const FOCUS_CHROME_INSET =
+  FOCUS_CHROME_TOP_OFFSET + CHROME_HEADER_HEIGHT + FOCUS_CHROME_BOTTOM_GAP
 import {
   frameCustomSizeFromMetadata,
   frameSizeModeFromMetadata,
@@ -193,6 +200,7 @@ export function computeScreenBoundsForPage(input: {
   toolbarHeight: number
   chromePageGap: number
   cardBorderWidth: number
+  focusChromeInset: number
 }): {
   frame: { x: number; y: number; width: number; height: number }
   chrome: { x: number; y: number; width: number; height: number }
@@ -210,16 +218,19 @@ export function computeScreenBoundsForPage(input: {
   const viewport = input.availableCanvasViewportRect()
   const viewportTop = input.toolbarHeight
   const viewportHeight = viewport.height
-  const maxPageH = Math.max(0, viewportHeight)
-  const pageH = isFocusFillActive ? maxPageH : fullPageH
+  // In focus-fill mode the pinned chrome sits between the toolbar and the
+  // content; content starts below the chrome inset and fills the remainder.
+  const fillContentTop = viewportTop + input.focusChromeInset
+  const fillContentHeight = Math.max(0, viewportHeight - input.focusChromeInset)
+  const pageH = isFocusFillActive ? fillContentHeight : fullPageH
   const rawChromeX = isFocusFillActive
     ? viewport.x
     : Math.round(viewport.x + input.page.canvasX * input.zoom + input.pan.x)
   const pageY = isFocusFillActive
-    ? viewportTop
+    ? fillContentTop
     : Math.round(input.page.canvasY * input.zoom + input.pan.y) + input.toolbarHeight + chromeH + gap
   const chromeY = isFocusFillActive
-    ? viewportTop
+    ? fillContentTop
     : Math.round(input.page.canvasY * input.zoom + input.pan.y) + input.toolbarHeight
   // Compute shell rect (device frame bezel) — skip in focus-fill mode
   const insets = pageShellInsets(input.page)
@@ -376,6 +387,7 @@ export function boundScreenBoundsForPage(page: Page) {
     toolbarHeight: layoutCache.toolbarHeight,
     chromePageGap: CHROME_PAGE_GAP,
     cardBorderWidth: CARD_BORDER_WIDTH,
+    focusChromeInset: FOCUS_CHROME_INSET,
   })
 }
 

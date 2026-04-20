@@ -20,6 +20,7 @@ import { DeviceShellLayer } from './DeviceShellLayer'
 import { FrameBorderLayer } from './FrameBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { FrameChromeLayer } from './FrameChromeLayer'
+import { FocusChromeLayer } from './FocusChromeLayer'
 import { TextBlockLayer } from './TextBlockLayer'
 import { FileBlockLayer, type FileJsonModeMap } from './FileBlockLayer'
 import { FileChromeLayer } from './FileChromeLayer'
@@ -264,47 +265,63 @@ export default function App({
           isDark={isDark}
         />
 
-        {!isFocusFilling ? (
-          <FrameChromeLayer
-            frames={frameEntities}
-            dragEnabled={frameInteractionsEnabled}
-            isDark={isDark}
-            selectedFrameId={layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null}
-            hoveredFrameId={hoveredEntityId}
-            isIdle={layoutData.interaction.kind === 'idle'}
-            handleChromeMouseDown={handleChromeMouseDown}
-            onHoverFrame={handleHoverEntity}
-            onNavigateFrame={api.navigateFrame}
-            onGoBackFrame={api.goBackFrame}
-            onGoForwardFrame={api.goForwardFrame}
-            onReloadFrame={api.reloadFrame}
-            onShowContextMenu={api.showFrameContextMenu}
-            onSetFocus={(frameId) => api.setFocus(frameId, 'frame')}
-          />
-        ) : null}
+        <FrameChromeLayer
+          frames={frameEntities.filter((f) => f.id !== layoutData.focusedEntityId)}
+          dragEnabled={frameInteractionsEnabled}
+          isDark={isDark}
+          selectedFrameId={layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null}
+          hoveredFrameId={hoveredEntityId}
+          isIdle={layoutData.interaction.kind === 'idle'}
+          handleChromeMouseDown={handleChromeMouseDown}
+          onHoverFrame={handleHoverEntity}
+          onNavigateFrame={api.navigateFrame}
+          onGoBackFrame={api.goBackFrame}
+          onGoForwardFrame={api.goForwardFrame}
+          onReloadFrame={api.reloadFrame}
+          onShowContextMenu={api.showFrameContextMenu}
+          onSetFocus={(frameId) => api.setFocus(frameId, 'frame')}
+        />
 
-        {!isFocusFilling ? (
-          <FileChromeLayer
-            entities={fileEntities}
+        <FileChromeLayer
+          entities={fileEntities.filter((e) => e.id !== layoutData.focusedEntityId)}
+          isDark={isDark}
+          selectedEntityId={layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null}
+          hoveredEntityId={hoveredEntityId}
+          isIdle={layoutData.interaction.kind === 'idle'}
+          callbacks={{
+            onHoverEntity: handleHoverEntity,
+            onStartDragEntity: api.startDragEntity,
+            onDragEntity: api.dragEntity,
+            onEndDragEntity: api.endDragEntity,
+            onRenameFileEntity: api.renameFileEntity,
+            onWriteFile: api.writeNoteFile,
+            onSetFocus: (entityId) => api.setFocus(entityId, 'file'),
+            onJsonModeChange: (entityId, jsonMode) => {
+              setFileJsonModeMap((prev) => {
+                const next = new Map(prev)
+                next.set(entityId, jsonMode)
+                return next
+              })
+            },
+          }}
+        />
+
+        {isFocused ? (
+          <FocusChromeLayer
+            layoutData={layoutData}
             isDark={isDark}
-            selectedEntityId={layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null}
-            hoveredEntityId={hoveredEntityId}
-            isIdle={layoutData.interaction.kind === 'idle'}
             callbacks={{
-              onHoverEntity: handleHoverEntity,
-              onStartDragEntity: api.startDragEntity,
-              onDragEntity: api.dragEntity,
-              onEndDragEntity: api.endDragEntity,
-              onRenameFileEntity: api.renameFileEntity,
-              onWriteFile: api.writeNoteFile,
-              onSetFocus: (entityId) => api.setFocus(entityId, 'file'),
-              onJsonModeChange: (entityId, jsonMode) => {
-                setFileJsonModeMap((prev) => {
-                  const next = new Map(prev)
-                  next.set(entityId, jsonMode)
-                  return next
-                })
+              onClearFocus: api.clearFocus,
+              onNavigateFrame: api.navigateFrame,
+              onGoBackFrame: api.goBackFrame,
+              onGoForwardFrame: api.goForwardFrame,
+              onReloadFrame: api.reloadFrame,
+              onShowFrameContextMenu: api.showFrameContextMenu,
+              onToggleFrameSizeMode: (frameId, currentMode) => {
+                const next = currentMode === 'fill' ? 'fit' : 'fill'
+                api.setFrameSizeMode(frameId, next)
               },
+              onRenameFileEntity: api.renameFileEntity,
             }}
           />
         ) : null}

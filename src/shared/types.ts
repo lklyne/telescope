@@ -1295,8 +1295,6 @@ export interface ToolbarElectronAPI {
   toggleAnnotateMode: () => void
   toggleDrawMode: () => void
   toggleRegionSelectMode: () => void
-  focusSelectedEntity: () => void
-  exitFocus: () => void
   dropdownOpen: () => void
   dropdownClose: () => void
   setTextEditing: (active: boolean) => void

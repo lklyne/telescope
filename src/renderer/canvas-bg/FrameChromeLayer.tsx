@@ -130,9 +130,12 @@ function FrameChromeItem({
 
   return (
     <EntityChrome.Root
-      screenX={frame.showDeviceFrame ? frame.screenX : (frame.contentScreenX ?? frame.screenX)}
-      screenY={frame.screenY}
-      screenWidth={frame.showDeviceFrame ? frame.screenWidth : (frame.contentScreenWidth ?? frame.screenWidth)}
+      positioning={{
+        mode: 'inline',
+        screenX: frame.showDeviceFrame ? frame.screenX : (frame.contentScreenX ?? frame.screenX),
+        screenY: frame.screenY,
+        screenWidth: frame.showDeviceFrame ? frame.screenWidth : (frame.contentScreenWidth ?? frame.screenWidth),
+      }}
       isDark={isDark}
       dragEnabled={dragEnabled}
       isActive={isActive}

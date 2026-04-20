@@ -151,9 +151,12 @@ const FileChromeItem = memo(function FileChromeItem({
 
   return (
     <EntityChrome.Root
-      screenX={entity.screenX}
-      screenY={entity.screenY}
-      screenWidth={entity.screenWidth}
+      positioning={{
+        mode: 'inline',
+        screenX: entity.screenX,
+        screenY: entity.screenY,
+        screenWidth: entity.screenWidth,
+      }}
       isDark={isDark}
       isActive={isActive}
       onMouseDown={!isRenaming ? handleChromeMouseDown : undefined}

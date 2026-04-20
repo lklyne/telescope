@@ -5,9 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Frame,
-  Maximize2,
   MessageCircle,
-  Minimize2,
   Moon,
   MousePointer2,
   PanelRight,
@@ -114,7 +112,6 @@ export function LeftActions({
 
 interface CenterActionsProps {
   isDark: boolean
-  isFocused: boolean
   defaultToolActive: boolean
   annotationMode: AnnotationMode
   annotateAvailable: boolean
@@ -139,7 +136,6 @@ interface CenterActionsProps {
 
 export function CenterActions({
   isDark,
-  isFocused,
   defaultToolActive,
   annotationMode,
   annotateAvailable,
@@ -184,7 +180,7 @@ export function CenterActions({
           <MousePointer2 size={14} />
         </button>
 
-        {!isFocused ? (
+        {true ? (
           <div className="flex items-center">
             <AddFramePresetMenu
               isDark={isDark}
@@ -194,7 +190,7 @@ export function CenterActions({
           </div>
         ) : null}
 
-        {!isFocused ? (
+        {true ? (
           <button
             onClick={onAddTextEntity}
             className={iconButtonClassName}
@@ -205,7 +201,7 @@ export function CenterActions({
           </button>
         ) : null}
 
-        {!isFocused ? (
+        {true ? (
           <button
             onClick={onAddNote}
             className={iconButtonClassName}
@@ -422,50 +418,19 @@ export function CenterAddressBar({
 interface RightPanelToggleProps {
   isDark: boolean
   devtoolsOpen: boolean
-  isFocused: boolean
-  hasSelection: boolean
-  hasFrames: boolean
   onToggleDevTools: () => void
-  onFocusSelectedEntity: () => void
-  onExitFocus: () => void
 }
 
 export function RightPanelToggle({
   isDark,
   devtoolsOpen,
-  isFocused,
-  hasSelection,
-  hasFrames: _hasFrames,
   onToggleDevTools,
-  onFocusSelectedEntity,
-  onExitFocus,
 }: RightPanelToggleProps) {
   const iconButtonClassName = toolbarIconBtnClass(isDark)
 
   return (
     <div className="flex min-w-0 items-center justify-end">
       <div className="flex w-fit items-center gap-1 [-webkit-app-region:no-drag]">
-        {isFocused ? (
-          <button
-            onClick={onExitFocus}
-            className={iconButtonClassName}
-            title="Exit focus (Esc)"
-            type="button"
-          >
-            <Minimize2 size={14} />
-          </button>
-        ) : (
-          <button
-            onClick={onFocusSelectedEntity}
-            disabled={!hasSelection}
-            className={iconButtonClassName}
-            title="Focus selected"
-            type="button"
-          >
-            <Maximize2 size={14} />
-          </button>
-        )}
-
         <button
           onClick={onToggleDevTools}
           className={iconButtonClassName}

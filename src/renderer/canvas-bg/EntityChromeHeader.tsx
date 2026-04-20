@@ -19,17 +19,34 @@ interface EntityChromeContext {
 
 const ChromeCtx = createContext<EntityChromeContext>({
   isDark: false,
-  showControls: false,
+  showControls: true,
 })
 
 // ---------------------------------------------------------------------------
-// EntityChrome.Root
+// EntityChrome.Root — two positioning modes:
+//   • inline: anchored at a canvas position, floats above its frame via translateY(-100%).
+//     No background; controls hidden until hover/active.
+//   • pinned: fixed at top of viewport for a focused entity. Opaque background,
+//             height matches toolbar (44px), controls always visible.
 // ---------------------------------------------------------------------------
 
+export type EntityChromePositioning =
+  | {
+      mode: 'inline'
+      screenX: number
+      screenY: number
+      screenWidth: number
+    }
+  | {
+      mode: 'pinned'
+      topY: number
+      leftX: number
+      width: number
+      height: number
+    }
+
 function Root({
-  screenX,
-  screenY,
-  screenWidth,
+  positioning,
   isDark,
   dragEnabled = true,
   isActive,
@@ -38,9 +55,7 @@ function Root({
   onMouseLeave,
   children,
 }: {
-  screenX: number
-  screenY: number
-  screenWidth: number
+  positioning: EntityChromePositioning
   isDark: boolean
   dragEnabled?: boolean
   isActive: boolean
@@ -50,12 +65,18 @@ function Root({
   children: ReactNode
 }) {
   const [isHovered, setIsHovered] = useState(false)
-  const [showControls, setShowControls] = useState(isActive)
+  const [showControls, setShowControls] = useState(isActive || positioning.mode === 'pinned')
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Pinned chrome always shows its controls. Inline chrome fades on hover/active.
+  const controlsAlwaysVisible = positioning.mode === 'pinned'
   const isHoveredOrActive = isActive || isHovered
 
   useEffect(() => {
+    if (controlsAlwaysVisible) {
+      setShowControls(true)
+      return
+    }
     if (isHoveredOrActive) {
       if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null }
       setShowControls(true)
@@ -63,7 +84,37 @@ function Root({
       hideTimerRef.current = setTimeout(() => setShowControls(false), 150)
     }
     return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
-  }, [isHoveredOrActive])
+  }, [isHoveredOrActive, controlsAlwaysVisible])
+
+  if (positioning.mode === 'pinned') {
+    return (
+      <ChromeCtx.Provider value={{ isDark, showControls: true }}>
+        <div
+          className={`pointer-events-auto absolute rounded-md border backdrop-blur-md ${
+            isDark
+              ? 'border-zinc-700 bg-zinc-900/85 text-zinc-100'
+              : 'border-zinc-200 bg-white/90 text-zinc-900'
+          }`}
+          data-overlay-ui
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+          style={{
+            left: positioning.leftX,
+            top: positioning.topY,
+            width: positioning.width,
+            height: positioning.height,
+          }}
+        >
+          <div
+            className="flex h-full w-full items-center gap-1 px-2"
+            onMouseDown={onMouseDown}
+          >
+            {children}
+          </div>
+        </div>
+      </ChromeCtx.Provider>
+    )
+  }
 
   return (
     <ChromeCtx.Provider value={{ isDark, showControls }}>
@@ -73,9 +124,9 @@ function Root({
         onMouseEnter={() => { setIsHovered(true); onMouseEnter?.() }}
         onMouseLeave={() => { setIsHovered(false); onMouseLeave?.() }}
         style={{
-          left: screenX,
-          top: screenY,
-          width: screenWidth,
+          left: positioning.screenX,
+          top: positioning.screenY,
+          width: positioning.screenWidth,
           transform: 'translateY(-100%)',
           pointerEvents: dragEnabled ? 'auto' : 'none',
         }}

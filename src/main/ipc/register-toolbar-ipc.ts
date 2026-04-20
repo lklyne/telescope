@@ -14,7 +14,6 @@ import {
   cancelPendingPlacement,
   clearFocus,
   clearToolMode,
-  focusSelectedEntity,
   focusSelectedPage,
   getSelectedEntityIds,
   openInspectPanel,
@@ -80,14 +79,6 @@ export function registerToolbarIpc(): void {
   ipcMain.on('toolbar-reload-selection', () => {
     if (!getSelectedEntityIds().length) return
     applyNavigationToSelectedPages({ type: 'reload', fallbackUrl: 'about:blank' })
-  })
-
-  ipcMain.on('toolbar-focus-selected-entity', () => {
-    focusSelectedEntity()
-  })
-
-  ipcMain.on('toolbar-exit-focus', () => {
-    clearFocus()
   })
 
   ipcMain.on('toolbar-toggle-inspect', () => {

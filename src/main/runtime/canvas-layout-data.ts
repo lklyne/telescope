@@ -45,12 +45,14 @@ import {
   annotationMode as uiAnnotationMode,
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsWidth as uiDevtoolsWidth,
+  leftSidebarOpen as uiLeftSidebarOpen,
   pendingPlacement as uiPendingPlacement,
   selectedCanvasTargets as uiSelectedCanvasTargets,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
+import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
 import {
   pageContentSize,
   boundEffectivePageContentSize as effectivePageContentSize,
@@ -326,6 +328,7 @@ export function buildCanvasLayoutData(
     zoom,
     pan,
     canvasOrigin: origin,
+    leftChromeWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
     entities: [
       ...frames,
       ...textEntities.map((te) =>

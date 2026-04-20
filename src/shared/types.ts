@@ -267,6 +267,13 @@ export interface LayoutUpdateData {
   zoom: number
   pan: { x: number; y: number }
   canvasOrigin: { x: number; y: number }
+  /**
+   * Width of left-edge chrome (sidebar) currently covering the canvas. 0 when
+   * the sidebar is closed. The canvas coordinate system is not shifted by the
+   * sidebar; surfaces that need to avoid occluded pixels (clipping, viewport
+   * centering, tab-bar insets) read this instead of canvasOrigin.x.
+   */
+  leftChromeWidth: number
   entities: CanvasSceneEntity[]
   browserTabs: WorkspaceTabFrameSummary[]
   browserFillViewport: {

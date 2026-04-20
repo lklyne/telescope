@@ -17,8 +17,15 @@ export default function App({
 
   useEffect(() => api.onLayoutUpdate(setLayoutData), [])
 
+  const clipTop = layoutData.canvasOrigin.y
+  const clipLeft = layoutData.leftChromeWidth
+  const clipRight = layoutData.devtoolsOpen ? layoutData.devtoolsWidth : 0
+
   return (
-    <div className="pointer-events-none fixed inset-0 overflow-hidden bg-transparent">
+    <div
+      className="pointer-events-none fixed inset-0 overflow-hidden bg-transparent"
+      style={{ clipPath: `inset(${clipTop}px ${clipRight}px 0 ${clipLeft}px)` }}
+    >
       <AgentCursorLayer
         cursors={layoutData.presenceCursors}
         frames={layoutData.entities.filter(

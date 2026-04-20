@@ -31,6 +31,9 @@ export default function App({
         frames={layoutData.entities.filter(
           (entity): entity is CanvasSceneFrameEntity => entity.kind === 'frame',
         )}
+        canvasOrigin={layoutData.canvasOrigin}
+        pan={layoutData.pan}
+        zoom={layoutData.zoom}
         overlayOffsetY={layoutData.canvasOrigin.y}
       />
     </div>

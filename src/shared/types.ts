@@ -360,8 +360,6 @@ export interface AgentPresenceCursor {
   sessionId: string
   clientName: string
   color: string
-  screenX: number
-  screenY: number
   canvasX: number
   canvasY: number
   surface: PresenceSurface

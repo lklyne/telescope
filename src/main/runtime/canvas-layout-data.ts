@@ -389,8 +389,8 @@ export function buildCanvasLayoutData(
             const clampedX = Math.max(0, Math.min(point.x, frame.width))
             const clampedY = Math.max(0, Math.min(point.y, frame.height))
             return {
-              screenX: frame.screenX + (clampedX / Math.max(frame.width, 1)) * frame.screenWidth,
-              screenY: frame.screenY + (clampedY / Math.max(frame.height, 1)) * frame.screenHeight,
+              canvasX: frame.canvasX + clampedX,
+              canvasY: frame.canvasY + clampedY,
             }
           }
         }
@@ -403,21 +403,16 @@ export function buildCanvasLayoutData(
             : null
           if (frame) {
             return {
-              screenX: frame.screenX + frame.screenWidth / 2,
-              screenY: frame.screenY + frame.screenHeight / 2,
+              canvasX: frame.canvasX + frame.width / 2,
+              canvasY: frame.canvasY + frame.height / 2,
             }
           }
         }
-        return {
-          screenX: origin.x + c.canvasX * zoom + pan.x,
-          screenY: layoutCache.toolbarHeight + c.canvasY * zoom + pan.y,
-        }
+        return { canvasX: c.canvasX, canvasY: c.canvasY }
       })(),
       sessionId: c.sessionId,
       clientName: c.clientName,
       color: c.color,
-      canvasX: c.canvasX,
-      canvasY: c.canvasY,
       surface: c.surface,
       activity: c.activity,
       frameId: c.frameId,

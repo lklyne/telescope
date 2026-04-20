@@ -489,6 +489,18 @@ async function browseRaw(args: ParsedArgs, command: string): Promise<number> {
   return 0
 }
 
+const BROWSE_VERBS = new Set([
+  'snapshot', 'click', 'fill', 'type', 'select', 'hover',
+  'screenshot', 'scroll', 'wait',
+  'get', 'console', 'errors', 'query-elements',
+  'navigate', 'back', 'forward', 'reload',
+])
+
+function printBrowseVerbHelp(verb: string): void {
+  printText(`usage: telescope ${verb} [-f <frameId>] [options]\n`)
+  printText(`Forwards to agent-browser. For the full option list run:\n  agent-browser ${verb} --help`)
+}
+
 const snapshot: VerbHandler = async (args) => {
   // Reconstruct agent-browser snapshot command from flags
   let cmd = 'snapshot'
@@ -663,6 +675,13 @@ export async function dispatch(argv: string[]): Promise<number> {
     'forward',
     'reload',
   ])
+  // Browse verbs forward --help/-h to agent-browser's own help, without
+  // requiring a frame. Must run before the handler's positional-arg checks
+  // (which would otherwise short-circuit with "usage: ...missing ref").
+  if (BROWSE_VERBS.has(args.verb) && (args.boolFlags.has('help') || args.boolFlags.has('h'))) {
+    printBrowseVerbHelp(args.verb)
+    return 0
+  }
   if (!HANDLER_OWNS_ACTION.has(args.verb)) {
     emitActionIntent({
       verb: args.verb,

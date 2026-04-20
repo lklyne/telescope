@@ -68,7 +68,7 @@ export function useCanvasGlobalShortcuts(input: {
       if (isTypingTarget(event.target)) return false
       const sel = window.getSelection()
       if (sel && sel.toString().length > 0) return false
-      return layoutRef.current.viewMode === 'canvas'
+      return layoutRef.current.focusedEntityId === null
     }
 
     const handleCopy = (event: ClipboardEvent) => {

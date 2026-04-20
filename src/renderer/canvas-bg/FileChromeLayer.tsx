@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from 'react'
 import { Popover } from '@base-ui/react/popover'
-import { EllipsisVertical, FileText } from 'lucide-react'
+import { EllipsisVertical, FileText, Maximize2 } from 'lucide-react'
 import type { CanvasSceneFileEntity } from '../../shared/types'
 import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from './entityConstants'
 import { EntityChrome } from './EntityChromeHeader'
@@ -17,6 +17,7 @@ interface FileChromeCallbacks {
   onWriteFile: (path: string, content: string) => Promise<boolean>
   /** Notify the card content that jsonMode changed. */
   onJsonModeChange: (entityId: string, jsonMode: boolean) => void
+  onSetFocus: (entityId: string) => void
 }
 
 export function FileChromeLayer({
@@ -150,9 +151,12 @@ const FileChromeItem = memo(function FileChromeItem({
 
   return (
     <EntityChrome.Root
-      screenX={entity.screenX}
-      screenY={entity.screenY}
-      screenWidth={entity.screenWidth}
+      positioning={{
+        mode: 'inline',
+        screenX: entity.screenX,
+        screenY: entity.screenY,
+        screenWidth: entity.screenWidth,
+      }}
       isDark={isDark}
       isActive={isActive}
       onMouseDown={!isRenaming ? handleChromeMouseDown : undefined}
@@ -178,8 +182,11 @@ const FileChromeItem = memo(function FileChromeItem({
         />
       </EntityChrome.DragTrigger>
 
-      {isWireframe && (
-        <EntityChrome.Actions>
+      <EntityChrome.Actions>
+        <EntityChrome.Button title="Focus this file" onClick={() => callbacks.onSetFocus(entity.id)}>
+          <Maximize2 size={11} />
+        </EntityChrome.Button>
+        {isWireframe && (
           <Popover.Root onOpenChange={(open) => { if (open) readTheme() }}>
             <Popover.Trigger
               render={<EntityChrome.Button title="Wireframe settings" />}
@@ -240,8 +247,8 @@ const FileChromeItem = memo(function FileChromeItem({
               </Popover.Positioner>
             </Popover.Portal>
           </Popover.Root>
-        </EntityChrome.Actions>
-      )}
+        )}
+      </EntityChrome.Actions>
     </EntityChrome.Root>
   )
 })

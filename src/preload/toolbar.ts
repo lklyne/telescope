@@ -24,7 +24,6 @@ const api: ToolbarElectronAPI = {
   toggleAnnotateMode: () => ipcRenderer.send('toolbar-toggle-annotate'),
   toggleDrawMode: () => ipcRenderer.send('toolbar-toggle-draw'),
   toggleRegionSelectMode: () => ipcRenderer.send('toolbar-toggle-region-select'),
-  toggleBrowserMode: () => ipcRenderer.send('toolbar-toggle-browser-mode'),
   dropdownOpen: () => ipcRenderer.send('toolbar-dropdown-open'),
   dropdownClose: () => ipcRenderer.send('toolbar-dropdown-close'),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),

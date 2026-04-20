@@ -1,17 +1,14 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { Select } from '@base-ui/react/select'
-import { Tabs } from '@base-ui/react/tabs'
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Frame,
-  LayoutTemplate,
   MessageCircle,
   Moon,
   MousePointer2,
   PanelRight,
-  PanelTop,
   PencilLine,
   Pipette,
   RotateCw,
@@ -115,7 +112,6 @@ export function LeftActions({
 
 interface CenterActionsProps {
   isDark: boolean
-  isBrowserMode: boolean
   defaultToolActive: boolean
   annotationMode: AnnotationMode
   annotateAvailable: boolean
@@ -140,7 +136,6 @@ interface CenterActionsProps {
 
 export function CenterActions({
   isDark,
-  isBrowserMode,
   defaultToolActive,
   annotationMode,
   annotateAvailable,
@@ -185,7 +180,7 @@ export function CenterActions({
           <MousePointer2 size={14} />
         </button>
 
-        {!isBrowserMode ? (
+        {true ? (
           <div className="flex items-center">
             <AddFramePresetMenu
               isDark={isDark}
@@ -195,7 +190,7 @@ export function CenterActions({
           </div>
         ) : null}
 
-        {!isBrowserMode ? (
+        {true ? (
           <button
             onClick={onAddTextEntity}
             className={iconButtonClassName}
@@ -206,7 +201,7 @@ export function CenterActions({
           </button>
         ) : null}
 
-        {!isBrowserMode ? (
+        {true ? (
           <button
             onClick={onAddNote}
             className={iconButtonClassName}
@@ -423,50 +418,19 @@ export function CenterAddressBar({
 interface RightPanelToggleProps {
   isDark: boolean
   devtoolsOpen: boolean
-  isBrowserMode: boolean
-  hasFrames: boolean
   onToggleDevTools: () => void
-  onToggleBrowserMode: () => void
 }
 
 export function RightPanelToggle({
   isDark,
   devtoolsOpen,
-  isBrowserMode,
-  hasFrames,
   onToggleDevTools,
-  onToggleBrowserMode,
 }: RightPanelToggleProps) {
   const iconButtonClassName = toolbarIconBtnClass(isDark)
-
-  const modeTabClassName = isDark
-    ? 'toolbar-squircle-btn relative z-10 flex items-center justify-center rounded-[8px] border-0 bg-transparent p-1.5 text-zinc-300 opacity-60 outline-none transition-[color,opacity] select-none hover:text-zinc-100 hover:opacity-100 data-[active]:text-zinc-100 data-[active]:opacity-100 disabled:pointer-events-none disabled:opacity-45'
-    : 'toolbar-squircle-btn relative z-10 flex items-center justify-center rounded-[8px] border-0 bg-transparent p-1.5 text-zinc-600 opacity-60 outline-none transition-[color,opacity] select-none hover:text-zinc-900 hover:opacity-100 data-[active]:text-zinc-900 data-[active]:opacity-100 disabled:pointer-events-none disabled:opacity-45'
-  const modeTabIndicatorClassName =
-    'absolute top-1/2 left-0 z-[-1] h-[var(--active-tab-height)] w-[var(--active-tab-width)] -translate-y-1/2 translate-x-[var(--active-tab-left)] rounded-[8px] bg-[var(--surface-interactive)] transition-all duration-200 ease-in-out'
 
   return (
     <div className="flex min-w-0 items-center justify-end">
       <div className="flex w-fit items-center gap-1 [-webkit-app-region:no-drag]">
-        <Tabs.Root
-          value={isBrowserMode ? 'browser' : 'canvas'}
-          onValueChange={(value) => {
-            if ((value === 'browser') !== isBrowserMode) {
-              onToggleBrowserMode()
-            }
-          }}
-        >
-          <Tabs.List className="relative z-0 flex items-center gap-1" aria-label="View mode">
-            <Tabs.Tab className={modeTabClassName} value="canvas" title="Canvas">
-              <LayoutTemplate size={14} />
-            </Tabs.Tab>
-            <Tabs.Tab className={modeTabClassName} disabled={!hasFrames} value="browser" title="Browser">
-              <PanelTop size={14} />
-            </Tabs.Tab>
-            <Tabs.Indicator className={modeTabIndicatorClassName} />
-          </Tabs.List>
-        </Tabs.Root>
-
         <button
           onClick={onToggleDevTools}
           className={iconButtonClassName}

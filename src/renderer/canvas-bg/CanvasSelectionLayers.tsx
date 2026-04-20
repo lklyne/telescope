@@ -1,4 +1,4 @@
-import { useContext, useMemo } from 'react'
+import { useContext, useMemo, useState } from 'react'
 import type {
   CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
@@ -36,15 +36,19 @@ function FrameSelectionOverlay({
   interactionsEnabled,
   isDark,
   showResizeHandles,
+  hiddenUntilHover,
   onResize,
 }: {
   frame: CanvasSceneFrameEntity
   interactionsEnabled: boolean
   isDark: boolean
   showResizeHandles: boolean
+  /** When true, outline is opacity 0 and fades in on hover (used for focused entities). */
+  hiddenUntilHover?: boolean
   onResize: (id: string, patch: EntityResizePatch) => void
 }) {
   const zoom = frame.width > 0 ? frame.screenWidth / frame.width : 1
+  const [hoverRevealed, setHoverRevealed] = useState(false)
 
   return (
     <div
@@ -56,8 +60,12 @@ function FrameSelectionOverlay({
         height: frame.screenHeight + 12,
         borderColor: selectionColor(isDark),
         pointerEvents: interactionsEnabled && showResizeHandles ? 'auto' : 'none',
+        opacity: hiddenUntilHover && !hoverRevealed ? 0 : undefined,
+        transition: hiddenUntilHover ? 'opacity 150ms ease' : undefined,
       }}
       data-overlay-ui
+      onMouseEnter={hiddenUntilHover ? () => setHoverRevealed(true) : undefined}
+      onMouseLeave={hiddenUntilHover ? () => setHoverRevealed(false) : undefined}
     >
       {interactionsEnabled && showResizeHandles ? (
         <SelectionResizeGrid
@@ -271,6 +279,7 @@ export function CanvasSelectionOutlineLayer({
   selectedIdSet,
   marqueePreviewIds,
   hoveredEntityId,
+  focusedEntityId,
   onFrameMouseDown,
   onResizeFrame,
   onResizeTextEntity,
@@ -288,10 +297,10 @@ export function CanvasSelectionOutlineLayer({
   zoom: number
   selectedIdSet: Set<string>
   marqueePreviewIds: Set<string> | null
-  /** Main-authoritative hover id from layoutData.hover. Used as a fallback
-   *  when SelectableEntityShell's mouseenter/leave can't fire (e.g. when
-   *  above-view is covering the canvas because saved drawings are visible). */
   hoveredEntityId: string | null
+  /** When set, the entity with this id renders its outline with opacity 0
+   *  (revealed on hover) so focused frames don't have a persistent border. */
+  focusedEntityId: string | null
   onFrameMouseDown: (frameId: string, event: React.MouseEvent) => void
   onResizeFrame: (id: string, patch: EntityResizePatch) => void
   onResizeTextEntity: (id: string, patch: EntityResizePatch) => void
@@ -340,6 +349,7 @@ export function CanvasSelectionOutlineLayer({
       ) : null}
       {frames.map((frame) => {
         const isSelected = selectedIdSet.has(frame.id)
+        const isFocusedFrame = focusedEntityId === frame.id
         if (isSelected) {
           return (
             <FrameSelectionOverlay
@@ -348,6 +358,7 @@ export function CanvasSelectionOutlineLayer({
               interactionsEnabled={frameInteractionsEnabled}
               isDark={isDark}
               showResizeHandles={!isMultiSelect}
+              hiddenUntilHover={isFocusedFrame}
               onResize={onResizeFrame}
             />
           )

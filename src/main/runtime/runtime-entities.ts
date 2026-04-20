@@ -115,26 +115,29 @@ export function clearCustomFrameSizeMetadata(
 }
 
 // ---------------------------------------------------------------------------
-// Browser size mode metadata (per-frame fill vs device in browser mode)
+// Frame size mode metadata (per-frame fill / fit / device when focused)
 // ---------------------------------------------------------------------------
 
-export type BrowserSizeMode = 'fill' | 'device'
+import type { FrameSizeMode } from '../../shared/types'
 
-export function frameBrowserSizeModeFromMetadata(
+export function frameSizeModeFromMetadata(
   metadata: Record<string, unknown> | undefined,
-): BrowserSizeMode {
-  if (!metadata) return 'device'
-  const mode = metadata.browserSizeMode
-  return mode === 'fill' ? 'fill' : 'device'
+): FrameSizeMode {
+  if (!metadata) return 'fit'
+  // Prefer the new key; fall back to legacy 'browserSizeMode' for older files
+  const raw = metadata.sizeMode ?? metadata.browserSizeMode
+  if (raw === 'fill' || raw === 'fit' || raw === 'device') return raw
+  return 'fit'
 }
 
-export function setFrameBrowserSizeMode(
+export function setFrameSizeMode(
   metadata: Record<string, unknown> | undefined,
-  mode: BrowserSizeMode,
+  mode: FrameSizeMode,
 ): Record<string, unknown> {
+  const { browserSizeMode: _legacy, ...rest } = (metadata ?? {}) as Record<string, unknown>
   return {
-    ...(metadata ?? {}),
-    browserSizeMode: mode,
+    ...rest,
+    sizeMode: mode,
   }
 }
 

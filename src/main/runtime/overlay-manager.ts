@@ -18,10 +18,10 @@ import {
 } from './runtime-context'
 import { workspaceGroups } from './workspace-model'
 import {
+  focusedEntityId as uiFocusedEntityId,
   getUiState,
   isSelectionMarqueeVisible as uiSelectionMarqueeVisible,
   setSelectionMarqueeVisible as setUiSelectionMarqueeVisible,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import { selectionDebug } from './runtime-constants'
 import { boundEffectivePageContentSize } from './runtime-geometry'
@@ -83,7 +83,7 @@ export function sendInteractiveState(): void {
     const wc = pages[i].pageView.webContents
     safeSend(wc, 'set-interactive', isSelected)
     safeSend(wc, 'set-multi-selected', isMultiSelected)
-    safeSend(wc, 'set-workspace-view-mode', uiWorkspaceViewMode())
+    safeSend(wc, 'set-focused-entity-id', uiFocusedEntityId())
   }
 }
 

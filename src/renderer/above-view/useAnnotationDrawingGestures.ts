@@ -70,7 +70,7 @@ export function useAnnotationDrawingGestures({
         if (event.pointerType === 'mouse' && event.button !== 0) return
         if (event.clientY < layoutData.canvasOrigin.y) return
         if (
-          layoutData.viewMode === 'canvas' &&
+          layoutData.focusedEntityId === null &&
           event.clientX < layoutData.canvasOrigin.x
         ) {
           return
@@ -125,7 +125,7 @@ export function useAnnotationDrawingGestures({
       layoutData.canvasOrigin.x,
       layoutData.canvasOrigin.y,
       layoutData.selectedEntityIds,
-      layoutData.viewMode,
+      layoutData.focusedEntityId,
       layoutRef,
       pendingAnnotation,
       setDrawingSession,

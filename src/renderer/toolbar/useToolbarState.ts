@@ -20,7 +20,7 @@ const EMPTY_SELECTION: ToolbarSelectionData = {
   loadingPhase: 'idle',
   activeTabId: null,
   activeTabName: null,
-  viewMode: 'canvas',
+  focusedEntityId: null,
   pendingPlacementActive: false,
 }
 
@@ -39,7 +39,7 @@ export interface ToolbarState {
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
   hasSelection: boolean
   hasFrames: boolean
-  isBrowserMode: boolean
+  isFocused: boolean
   defaultToolActive: boolean
   agentCursors: AgentPresenceCursor[]
 }
@@ -105,7 +105,7 @@ export function useToolbarState(): ToolbarState {
     : null
   const hasSelection = selection.selectionCount > 0
   const hasFrames = selection.availableFrameCount > 0
-  const isBrowserMode = selection.viewMode === 'browser'
+  const isFocused = selection.focusedEntityId !== null
   const defaultToolActive = !inspectEnabled && annotationMode === 'off'
 
   return {
@@ -123,7 +123,7 @@ export function useToolbarState(): ToolbarState {
     currentPresetValue,
     hasSelection,
     hasFrames,
-    isBrowserMode,
+    isFocused,
     defaultToolActive,
     agentCursors,
   }

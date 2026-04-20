@@ -17,7 +17,7 @@ import type { CanvasEntityKind } from '../../shared/types'
 export type GateInputs = {
   interactionKind: InteractionMode['kind']
   toolMode: 'select' | 'inspect' | 'annotate-comment' | 'annotate-draw' | 'annotate-region-select'
-  viewMode: 'canvas' | 'browser'
+  isFocused: boolean
   /** Imperative override set by IPC handlers that open annotation/comment UI. */
   commentOverlayActive: boolean
   selectionMarqueeVisible: boolean
@@ -53,7 +53,7 @@ function toolModeOpensGate(toolMode: GateInputs['toolMode']): boolean {
 }
 
 function hasFloatingMenu(inputs: GateInputs): boolean {
-  if (inputs.viewMode !== 'canvas') return false
+  if (inputs.isFocused) return false
   if (inputs.selectedEntityIds.length !== 1) return false
   const kind = inputs.selectedEntityKinds[0]
   return kind === 'text' || kind === 'drawing'

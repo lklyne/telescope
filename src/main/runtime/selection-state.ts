@@ -1,18 +1,21 @@
+import type { CanvasEntityKind } from '../../shared/types'
 import {
   pages,
+  pan,
   setHoverTarget,
+  zoom,
 } from './runtime-context'
 import { activeWorkspaceTabId, workspaceTabs } from './workspace-model'
 import {
+  clearFocus as setUiClearFocus,
   devtoolsPanelTab as uiDevtoolsPanelTab,
+  focusedEntity as uiFocusedEntity,
   pendingPlacement as uiPendingPlacement,
   selectedEntityIds as uiSelectedEntityIds,
   selectedPageIndex as uiSelectedPageIndex,
-  setBrowserMode as setUiBrowserMode,
-  setCanvasMode as setUiCanvasMode,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
+  setFocus as setUiFocus,
   setPendingPlacement as setUiPendingPlacement,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   selectFrames,
@@ -21,6 +24,11 @@ import {
 } from './selection-controller'
 import { cancelActive as cancelActiveInteraction } from './interaction-controller'
 import { layoutAllViews } from './layout-engine'
+import { setPan, setZoom, animateCameraTo, cancelCameraAnimation, computeFocusCamera } from './viewport-control'
+import { textEntities } from './text-entity-state'
+import { fileEntities } from './file-entity-state'
+import { drawingEntities } from './drawing-entity-state'
+import { workspaceGroups } from './workspace-model'
 
 type ArrowDirection = 'left' | 'right' | 'up' | 'down'
 
@@ -41,64 +49,90 @@ export function deselectAll(): void {
   void selectNone()
 }
 
+function lookupEntityKind(entityId: string): CanvasEntityKind | null {
+  if (pages.some((page) => page.id === entityId)) return 'frame'
+  if (textEntities.some((entity) => entity.id === entityId)) return 'text'
+  if (fileEntities.some((entity) => entity.id === entityId)) return 'file'
+  if (drawingEntities.some((entity) => entity.id === entityId)) return 'drawing'
+  if (workspaceGroups.some((group) => group.id === entityId)) return 'group'
+  return null
+}
+
 /**
- * Single gate for all view-mode transitions. Clears transient state
- * (interaction, hover, pending placement) so nothing leaks across modes.
+ * Enter or switch focus to an entity. Stashes the prior camera on first entry
+ * so exitFocus() can restore it. Edges cannot be focused.
  */
-function transitionViewMode(target: 'canvas' | 'browser', frameId?: string): boolean {
-  // 1. Clear transient interaction state
+export function setFocus(entityId: string, entityKind?: CanvasEntityKind): boolean {
+  const resolvedKind = entityKind ?? lookupEntityKind(entityId)
+  if (!resolvedKind || resolvedKind === 'edge') return false
+
+  // Clear transient state — nothing leaks across focus transitions
   cancelActiveInteraction('external')
   setHoverTarget(null)
   if (uiPendingPlacement()) {
     setUiPendingPlacement(null)
   }
 
-  // 2. Perform the mode-specific transition
-  if (target === 'browser') {
-    const selectedFrameIds = uiSelectedEntityIds()
-    const selectedIdx = uiSelectedPageIndex(pages.map((p) => p.id))
-    const currentSelectedPageId =
-      selectedIdx !== null && selectedIdx >= 0 && selectedIdx < pages.length
-        ? pages[selectedIdx].id
-        : null
-    const targetId =
-      frameId ?? currentSelectedPageId ?? selectedFrameIds[0] ?? pages[0]?.id ?? null
-    if (!targetId) return false
-    const page = pages.find((p) => p.id === targetId)
+  const existing = uiFocusedEntity()
+  // First entry stashes camera; subsequent switches keep the original stash
+  const priorCamera = existing?.priorCamera ?? {
+    zoom,
+    pan: { x: pan.x, y: pan.y },
+  }
+
+  // Frame focus selects the page so navigation/keyboard work transparently
+  if (resolvedKind === 'frame') {
+    const page = pages.find((p) => p.id === entityId)
     if (!page) return false
-    if (currentSelectedPageId !== targetId || selectedFrameIds.length !== 1 || selectedFrameIds[0] !== targetId) {
-      selectPageById(targetId)
+    const selectedFrameIds = uiSelectedEntityIds()
+    if (selectedFrameIds.length !== 1 || selectedFrameIds[0] !== entityId) {
+      selectPageById(entityId)
     }
-    setUiBrowserMode({ frameId: targetId })
+  }
+
+  setUiFocus({ entityId, entityKind: resolvedKind, priorCamera })
+
+  // Animate camera to frame the focused entity. For fill-mode frames,
+  // geometry overrides the on-screen position regardless of zoom/pan,
+  // so the animation is just a visual lead-in.
+  const target = computeFocusCamera(entityId, resolvedKind)
+  if (target) {
+    animateCameraTo(target)
   } else {
-    if (uiWorkspaceViewMode() === 'canvas') return false
-    setUiCanvasMode()
+    layoutAllViews()
   }
-
-  // 3. Validate devtools panel tab — browser-devtools only valid in browser mode
-  if (target === 'canvas' && uiDevtoolsPanelTab() === 'browser-devtools') {
-    setUiDevtoolsPanelTab('comments')
-  }
-
-  // 4. One layout pass at the end
-  layoutAllViews()
   return true
 }
 
-export function setBrowserMode(frameId?: string): boolean {
-  return transitionViewMode('browser', frameId)
-}
+/**
+ * Exit focus and restore the camera stashed at entry.
+ */
+export function clearFocus(): boolean {
+  const existing = uiFocusedEntity()
+  if (!existing) return false
 
-export function setCanvasMode(): void {
-  transitionViewMode('canvas')
-}
+  cancelActiveInteraction('external')
+  setHoverTarget(null)
 
-export function toggleBrowserMode(): boolean {
-  if (uiWorkspaceViewMode() === 'browser') {
-    setCanvasMode()
-    return false
+  setUiClearFocus()
+
+  // browser-devtools panel tab no longer valid outside focus
+  if (uiDevtoolsPanelTab() === 'browser-devtools') {
+    setUiDevtoolsPanelTab('comments')
   }
-  return setBrowserMode()
+
+  // Animate back to the stashed camera.
+  animateCameraTo(existing.priorCamera)
+  return true
+}
+
+/**
+ * Focus the selected entity, or no-op if selection is empty/multi/edge.
+ */
+export function focusSelectedEntity(): boolean {
+  const selectedIds = uiSelectedEntityIds()
+  if (selectedIds.length !== 1) return false
+  return setFocus(selectedIds[0])
 }
 
 export function selectAdjacentPage(direction: ArrowDirection): boolean {

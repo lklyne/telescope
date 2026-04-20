@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, EllipsisVertical, RotateCw, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, EllipsisVertical, Maximize2, RotateCw, Search } from 'lucide-react'
 import type { CanvasSceneFrameEntity } from '../../shared/types'
 import { normalizeUserUrl } from '../../shared/url'
 import { EntityChrome } from './EntityChromeHeader'
@@ -19,6 +19,7 @@ export function FrameChromeLayer({
   onGoForwardFrame,
   onReloadFrame,
   onShowContextMenu,
+  onSetFocus,
 }: {
   frames: CanvasSceneFrameEntity[]
   dragEnabled: boolean
@@ -33,6 +34,7 @@ export function FrameChromeLayer({
   onGoForwardFrame: (frameId: string) => void
   onReloadFrame: (frameId: string) => void
   onShowContextMenu: (frameId: string) => void
+  onSetFocus: (frameId: string) => void
 }) {
   return (
     <>
@@ -54,6 +56,7 @@ export function FrameChromeLayer({
             onGoForwardFrame={onGoForwardFrame}
             onReloadFrame={onReloadFrame}
             onShowContextMenu={onShowContextMenu}
+            onSetFocus={onSetFocus}
           />
         )
       })}
@@ -74,6 +77,7 @@ function FrameChromeItem({
   onGoForwardFrame,
   onReloadFrame,
   onShowContextMenu,
+  onSetFocus,
 }: {
   frame: CanvasSceneFrameEntity
   isDark: boolean
@@ -87,6 +91,7 @@ function FrameChromeItem({
   onGoForwardFrame: (frameId: string) => void
   onReloadFrame: (frameId: string) => void
   onShowContextMenu: (frameId: string) => void
+  onSetFocus: (frameId: string) => void
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [pendingUrl, setPendingUrl] = useState<string | null>(null)
@@ -125,9 +130,12 @@ function FrameChromeItem({
 
   return (
     <EntityChrome.Root
-      screenX={frame.showDeviceFrame ? frame.screenX : (frame.contentScreenX ?? frame.screenX)}
-      screenY={frame.screenY}
-      screenWidth={frame.showDeviceFrame ? frame.screenWidth : (frame.contentScreenWidth ?? frame.screenWidth)}
+      positioning={{
+        mode: 'inline',
+        screenX: frame.showDeviceFrame ? frame.screenX : (frame.contentScreenX ?? frame.screenX),
+        screenY: frame.screenY,
+        screenWidth: frame.showDeviceFrame ? frame.screenWidth : (frame.contentScreenWidth ?? frame.screenWidth),
+      }}
       isDark={isDark}
       dragEnabled={dragEnabled}
       isActive={isActive}
@@ -168,6 +176,9 @@ function FrameChromeItem({
           </EntityChrome.Button>
           <EntityChrome.Button title={frame.isLoading ? 'Loading…' : 'Reload'} onClick={() => onReloadFrame(frame.id)}>
             <RotateCw size={11} className={frame.isLoading ? 'animate-spin' : ''} />
+          </EntityChrome.Button>
+          <EntityChrome.Button title="Focus this frame" onClick={() => onSetFocus(frame.id)}>
+            <Maximize2 size={11} />
           </EntityChrome.Button>
           <EntityChrome.Button title="Frame actions" onClick={() => onShowContextMenu(frame.id)}>
             <EllipsisVertical size={13} />

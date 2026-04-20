@@ -12,7 +12,6 @@ import {
   selectedPageIndex as uiSelectedPageIndex,
   setCommentOverlayVisible as setUiCommentOverlayVisible,
   setDevtoolsWidth as setUiDevtoolsWidth,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import type {
   DevtoolsPanelData,
@@ -43,9 +42,6 @@ import {
   notifyDevtoolsPanelData,
 } from './inspect-session'
 import type { Page } from './runtime-entities'
-import {
-  setBrowserMode,
-} from './selection-state'
 import {
   selectEntities as commitSelectedEntities,
   selectEntity as commitSelectEntity,
@@ -219,9 +215,6 @@ function collapseSelectionForBrowserMode(frameId?: string): boolean {
   }
   return true
 }
-export function selectBrowserTab(frameId: string): boolean {
-  return setBrowserMode(frameId)
-}
 export function removePage(senderWebContents: WebContents): void {
   if (!win) return
   const idx = pages.findIndex(
@@ -260,10 +253,6 @@ export function setDevtoolsWidthFromScreenX(screenX: number): void {
   const bounds = win.getContentBounds()
   setDevtoolsWidth(bounds.x + bounds.width - screenX)
   requestLayout()
-}
-
-function currentViewMode(): string {
-  return uiWorkspaceViewMode()
 }
 
 function currentDevtoolsOpen(): boolean {

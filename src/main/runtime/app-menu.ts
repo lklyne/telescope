@@ -1,8 +1,8 @@
 import { app, dialog, Menu } from 'electron'
 import { deleteFrames } from '../workspace-entities'
 import { pages, selectedPageId } from './runtime-context'
-import { workspaceViewMode } from '../ui-state'
-import { selectBrowserTab } from './runtime-core'
+import { focusedFrameId } from '../ui-state'
+import { setFocus } from './selection-state'
 import { checkForUpdatesManually } from '../auto-updater'
 import { showOnboardingWindow } from '../onboarding-window'
 import {
@@ -81,19 +81,19 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
             const frameId = selectedPageId()
             if (!frameId) return
 
-            const isBrowser = workspaceViewMode() === 'browser'
-            let nextTabId: string | null = null
-
-            if (isBrowser) {
+            // If we're focused on this frame, find a neighbor so we can switch focus after delete
+            const isFocusedOnThisFrame = focusedFrameId() === frameId
+            let nextFrameId: string | null = null
+            if (isFocusedOnThisFrame) {
               const idx = pages.findIndex((p) => p.id === frameId)
               const next = pages[idx + 1] ?? pages[idx - 1] ?? null
-              nextTabId = next?.id ?? null
+              nextFrameId = next?.id ?? null
             }
 
             deleteFrames({ frameIds: [frameId] })
 
-            if (isBrowser && nextTabId) {
-              selectBrowserTab(nextTabId)
+            if (isFocusedOnThisFrame && nextFrameId) {
+              setFocus(nextFrameId, 'frame')
             }
           },
         },

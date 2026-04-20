@@ -6,7 +6,7 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
     interactionMode: 'idle',
     editingTextEntityId: null,
     selectedPageId: null,
-    workspaceViewMode: 'canvas',
+    focusedFrameId: null,
     commentOverlayActive: false,
     pendingFocus: null,
     ...overrides,
@@ -14,17 +14,17 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
 }
 
 describe('expectedFocus', () => {
-  it('defaults to bgView in idle canvas mode', () => {
+  it('defaults to bgView with no focus', () => {
     expect(expectedFocus(state())).toEqual({ kind: 'bgView' })
   })
 
-  it('returns the selected page in browser mode', () => {
-    expect(expectedFocus(state({ workspaceViewMode: 'browser', selectedPageId: 'p1' })))
+  it('returns the focused page when a frame is focused', () => {
+    expect(expectedFocus(state({ focusedFrameId: 'p1', selectedPageId: 'p1' })))
       .toEqual({ kind: 'page', id: 'p1' })
   })
 
-  it('falls back to bgView in browser mode without a selected page', () => {
-    expect(expectedFocus(state({ workspaceViewMode: 'browser' })))
+  it('falls back to bgView when focus is on a non-frame entity', () => {
+    expect(expectedFocus(state({ focusedFrameId: null })))
       .toEqual({ kind: 'bgView' })
   })
 
@@ -47,7 +47,7 @@ describe('expectedFocus', () => {
     expect(expectedFocus(state({ pendingFocus: { kind: 'toolbar' } })))
       .toEqual({ kind: 'toolbar' })
     expect(expectedFocus(state({
-      workspaceViewMode: 'browser',
+      focusedFrameId: 'p1',
       selectedPageId: 'p1',
       pendingFocus: { kind: 'bgView' },
     }))).toEqual({ kind: 'bgView' })

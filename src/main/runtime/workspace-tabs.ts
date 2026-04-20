@@ -25,7 +25,6 @@ import {
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
   devtoolsOpen as uiDevtoolsOpen,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   buildWorkspaceTabSummary,
@@ -88,7 +87,6 @@ export function workspaceSnapshot(): WorkspaceSnapshot {
     devtoolsOpen: uiDevtoolsOpen(),
     devtoolsPanelTab: uiDevtoolsPanelTab(),
     devtoolsWidth: uiDevtoolsWidth(),
-    browserTabMode: 'frame',
     groups: workspaceGroups,
     edges: workspaceEdges,
   })
@@ -191,7 +189,6 @@ export function buildPersistedWorkspaceRecord(): PersistedWorkspaceRecord {
   return createPersistedWorkspaceRecord({
     workspaceTabs,
     activeWorkspaceTabId: activeWorkspaceTabId ?? workspaceTabs[0]!.id,
-    viewMode: uiWorkspaceViewMode(),
   })
 }
 

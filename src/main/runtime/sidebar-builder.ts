@@ -20,10 +20,11 @@ import {
 import { activeWorkspaceTabId, workspaceGroups } from './workspace-model'
 import { leftSidebarView } from './view-refs'
 import {
+  focusedEntityId as uiFocusedEntityId,
   leftSidebarOpen as uiLeftSidebarOpen,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
-  workspaceViewMode as uiWorkspaceViewMode,
+  sidebarFilter as uiSidebarFilter,
 } from '../ui-state'
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
@@ -207,16 +208,37 @@ export function buildSidebarItems(): SidebarCanvasItem[] {
   return sortSidebarItems([...rootLeafItems, ...rootGroupItems])
 }
 
+function applySidebarFilter(
+  items: SidebarCanvasItem[],
+  filter: ReturnType<typeof uiSidebarFilter>,
+): SidebarCanvasItem[] {
+  if (filter.kind === 'all') return items
+  const keep = (item: SidebarCanvasItem): SidebarCanvasItem | null => {
+    if (item.kind === 'group') {
+      const filteredChildren = item.children
+        .map(keep)
+        .filter((c): c is SidebarCanvasItem => c !== null)
+      if (filteredChildren.length === 0) return null
+      return { ...item, children: filteredChildren, entityCount: filteredChildren.length }
+    }
+    return item.kind === filter.entityKind ? item : null
+  }
+  return items.map(keep).filter((item): item is SidebarCanvasItem => item !== null)
+}
+
 export function buildLeftSidebarData(): LeftSidebarData {
+  const filter = uiSidebarFilter()
+  const items = applySidebarFilter(buildSidebarItems(), filter)
   return {
     width: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
     selectedEntityIds: uiSelectedEntityIds(),
     selectedGroupId: uiSelectedGroupId(),
     tabs: workspaceTabSummaries(),
     activeTabId: activeWorkspaceTabId,
-    viewMode: uiWorkspaceViewMode(),
+    focusedEntityId: uiFocusedEntityId(),
+    filter,
     hasFrames: pages.length > 0,
-    items: buildSidebarItems(),
+    items,
   }
 }
 

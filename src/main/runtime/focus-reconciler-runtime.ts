@@ -10,7 +10,7 @@ import type { FocusTarget } from '../../shared/interaction-types'
 import { expectedFocus, focusKey, type FocusState } from './focus-reconciler'
 import { aboveView, bgView, toolbarView, leftSidebarView, win } from './view-refs'
 import { pages, interactionState, pendingFocus, setPendingFocus } from './runtime-context'
-import { isCommentOverlayVisible, selectedPageIndex, workspaceViewMode } from '../ui-state'
+import { focusedFrameId, isCommentOverlayVisible, selectedPageIndex } from '../ui-state'
 
 function interactionModeKey(): FocusState['interactionMode'] {
   switch (interactionState.kind) {
@@ -31,7 +31,7 @@ function currentFocusState(): FocusState {
     interactionMode: interactionModeKey(),
     editingTextEntityId: interactionState.kind === 'editing-text' ? interactionState.entityId : null,
     selectedPageId: selectedPage?.id ?? null,
-    workspaceViewMode: workspaceViewMode(),
+    focusedFrameId: focusedFrameId(),
     commentOverlayActive: isCommentOverlayVisible(),
     pendingFocus,
   }

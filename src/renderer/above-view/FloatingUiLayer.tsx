@@ -53,7 +53,7 @@ export function FloatingUiLayer({
 
   const [delayedTextMenuId, setDelayedTextMenuId] = useState<string | null>(null)
   const shouldQueueTextMenu =
-    layoutData.viewMode === 'canvas' &&
+    layoutData.focusedEntityId === null &&
     layoutData.interaction.kind === 'idle' &&
     selectedTextEntity !== null
 
@@ -116,7 +116,7 @@ export function FloatingUiLayer({
 
 /** Predicate for whether the floating UI should be visible (drives overlayActive). */
 export function hasFloatingMenu(layoutData: LayoutUpdateData): boolean {
-  if (layoutData.viewMode !== 'canvas') return false
+  if (layoutData.focusedEntityId !== null) return false
   if (layoutData.selectedEntityIds.length !== 1) return false
   const [id] = layoutData.selectedEntityIds
   return layoutData.entities.some(

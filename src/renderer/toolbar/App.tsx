@@ -32,7 +32,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     currentPresetValue,
     hasSelection,
     hasFrames,
-    isBrowserMode,
     defaultToolActive,
     agentCursors,
   } = useToolbarState()
@@ -53,8 +52,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
         isPlainShortcutKey(event, 'escape') &&
         (selection.pendingPlacementActive ||
           annotationMode !== 'off' ||
-          inspectEnabled ||
-          selection.viewMode === 'browser')
+          inspectEnabled)
       ) {
         event.preventDefault()
         if (document.activeElement instanceof HTMLElement) {
@@ -63,9 +61,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
         toolbarApi.cancelPendingPlacement()
         if (annotationMode !== 'off' || inspectEnabled) {
           toolbarApi.clearToolMode()
-        }
-        if (selection.viewMode === 'browser') {
-          toolbarApi.toggleBrowserMode()
         }
         return
       }
@@ -77,11 +72,10 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [annotationMode, inspectEnabled, selection.viewMode])
+  }, [annotationMode, inspectEnabled])
   const isMac = navigator.userAgent.includes('Mac')
   const showMultiFrameAddressBar = selection.selectionCount > 1
-  const showTabsModeAddressBar = isBrowserMode && hasSelection
-  const showCenterActionsOnly = !showMultiFrameAddressBar && !showTabsModeAddressBar
+  const showCenterActionsOnly = !showMultiFrameAddressBar
 
   return (
     <>
@@ -133,56 +127,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           onToggleLeftSidebar={toolbarApi.toggleLeftSidebar}
         />
 
-        {showTabsModeAddressBar ? (
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <ToolbarDivider isDark={isDark} />
-            <div className="min-w-0 flex-1">
-              <CenterAddressBar
-                isDark={isDark}
-                hasSelection={hasSelection}
-                selection={selection}
-                addressValue={addressValue}
-                setAddressValue={setAddressValue}
-                addressBarRef={addressBarRef}
-                align="left"
-                onGoBackSelection={toolbarApi.goBackSelection}
-                onGoForwardSelection={toolbarApi.goForwardSelection}
-                onReloadSelection={toolbarApi.reloadSelection}
-                onNavigateSelection={toolbarApi.navigateSelection}
-              />
-            </div>
-            <ToolbarDivider isDark={isDark} />
-            <div className="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag]">
-              <CenterActions
-                isDark={isDark}
-                isBrowserMode={isBrowserMode}
-                defaultToolActive={defaultToolActive}
-                annotationMode={annotationMode}
-                annotateAvailable={annotateAvailable}
-                drawingEnabled={DRAWING_FEATURE_ENABLED}
-                hasSelection={hasSelection}
-                inspectEnabled={inspectEnabled}
-                inspectAvailable={inspectAvailable}
-                zoomPercent={zoomPercent}
-                currentPresetValue={currentPresetValue}
-                onAddPage={toolbarApi.addPage}
-                onAddTextEntity={toolbarApi.addTextEntity}
-                onAddNote={toolbarApi.addNote}
-                onDropdownOpenChange={(open) => {
-                  if (open) toolbarApi.dropdownOpen()
-                  else toolbarApi.dropdownClose()
-                }}
-                onClearToolMode={toolbarApi.clearToolMode}
-                onToggleAnnotateMode={toolbarApi.toggleAnnotateMode}
-                onToggleDrawMode={toolbarApi.toggleDrawMode}
-                onToggleRegionSelectMode={toolbarApi.toggleRegionSelectMode}
-                onToggleInspectMode={toolbarApi.toggleInspectMode}
-                onToggleTheme={toolbarApi.toggleTheme}
-                onZoomSet={(value) => toolbarApi.zoomSet(value / 100)}
-              />
-            </div>
-          </div>
-        ) : showMultiFrameAddressBar ? (
+        {showMultiFrameAddressBar ? (
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <ToolbarDivider isDark={isDark} />
             <div className="min-w-0 flex-1">
@@ -204,7 +149,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             <div className="flex min-w-0 max-w-full items-center gap-2 [-webkit-app-region:no-drag]">
               <CenterActions
                 isDark={isDark}
-                isBrowserMode={isBrowserMode}
                 defaultToolActive={defaultToolActive}
                 annotationMode={annotationMode}
                 annotateAvailable={annotateAvailable}
@@ -242,10 +186,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           <RightPanelToggle
             isDark={isDark}
             devtoolsOpen={devtoolsOpen}
-            isBrowserMode={isBrowserMode}
-            hasFrames={hasFrames}
             onToggleDevTools={toolbarApi.toggleDevTools}
-            onToggleBrowserMode={toolbarApi.toggleBrowserMode}
           />
         </div>
       </div>

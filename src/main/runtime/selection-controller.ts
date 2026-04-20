@@ -1,13 +1,13 @@
 import type { CanvasEntityKind, UiState } from '../../shared/types'
 import {
+  clearFocus as setUiClearFocus,
   devtoolsPanelTab as uiDevtoolsPanelTab,
+  focusedEntity as uiFocusedEntity,
   getUiState,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
-  setCanvasMode as setUiCanvasMode,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
   setSelection as setUiSelection,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   findPageById,
@@ -21,6 +21,8 @@ import { clearInspectTargets, notifyDevtoolsPanelData, syncInspectionState } fro
 import { layoutAllViews } from './layout-engine'
 import { sendInteractiveState } from './overlay-manager'
 import { savePreferences } from './preferences'
+import { animateCameraTo, computeFocusCamera } from './viewport-control'
+import { setFocus as setUiFocusState } from '../ui-state'
 import { drawingEntities } from './drawing-entity-state'
 import { fileEntities } from './file-entity-state'
 import { textEntities } from './text-entity-state'
@@ -69,8 +71,8 @@ export function resolveEntityKind(entityId: string): CanvasEntityKind {
   return 'frame'
 }
 
-function browserSelectionAllowed(nextSelection: SelectionCommand): boolean {
-  return nextSelection.kind === 'single-entity' && nextSelection.entityKind === 'frame'
+function focusAllowed(nextSelection: SelectionCommand): boolean {
+  return nextSelection.kind === 'single-entity'
 }
 
 function describeSelection(selection: SelectionCommand): Record<string, unknown> | undefined {
@@ -118,8 +120,27 @@ function commitSelection(
   const shouldSyncInspection = options?.syncInspection ?? true
   const shouldNotifyDevtools = options?.notifyDevtools ?? true
 
-  if (uiWorkspaceViewMode(currentUi) === 'browser' && !browserSelectionAllowed(nextSelection)) {
-    setUiCanvasMode()
+  // Focus follows selection when a single entity (edges excluded) is chosen.
+  // Multi / none / edge selections exit focus entirely.
+  const existingFocus = uiFocusedEntity(currentUi)
+  if (existingFocus) {
+    if (
+      nextSelection.kind === 'single-entity' &&
+      nextSelection.entityKind !== 'edge' &&
+      nextSelection.entityId !== existingFocus.entityId
+    ) {
+      // Switch focus to the newly-selected entity, preserving the original priorCamera
+      setUiFocusState({
+        entityId: nextSelection.entityId,
+        entityKind: nextSelection.entityKind,
+        priorCamera: existingFocus.priorCamera,
+      })
+      const target = computeFocusCamera(nextSelection.entityId, nextSelection.entityKind)
+      if (target) animateCameraTo(target)
+    } else if (!focusAllowed(nextSelection) || (nextSelection.kind === 'single-entity' && nextSelection.entityKind === 'edge')) {
+      setUiClearFocus()
+      animateCameraTo(existingFocus.priorCamera)
+    }
   }
 
   if (selectionEquals(getUiState().selection, nextSelection)) {
@@ -138,7 +159,7 @@ function commitSelection(
   setUiSelection(nextSelection)
   breadcrumb('selection', nextSelection.kind, describeSelection(nextSelection))
 
-  if (!browserSelectionAllowed(nextSelection) && uiDevtoolsPanelTab() === 'browser-devtools') {
+  if (!focusAllowed(nextSelection) && uiDevtoolsPanelTab() === 'browser-devtools') {
     setUiDevtoolsPanelTab('comments')
     savePreferences()
   }

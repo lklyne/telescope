@@ -5,7 +5,7 @@ function base(): GateInputs {
   return {
     interactionKind: 'idle',
     toolMode: 'select',
-    viewMode: 'canvas',
+    isFocused: false,
     commentOverlayActive: false,
     selectionMarqueeVisible: false,
     spaceHeld: false,
@@ -102,11 +102,11 @@ describe('shouldGateBeOpen', () => {
     ).toBe(false)
   })
 
-  it('closed in browser viewMode even with text selection', () => {
+  it('closed when focused, even with text selection', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
-        viewMode: 'browser',
+        isFocused: true,
         selectedEntityIds: ['t1'],
         selectedEntityKinds: ['text'],
       }),

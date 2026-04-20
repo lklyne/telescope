@@ -14,8 +14,6 @@ import {
   devtoolsPanelTab as uiDevtoolsPanelTab,
   devtoolsWidth as uiDevtoolsWidth,
   setDevtoolsOpen as setUiDevtoolsOpen,
-  setBrowserMode as setUiBrowserMode,
-  setCanvasMode as setUiCanvasMode,
 } from '../ui-state'
 import { withSuppressedDocSync } from './workspace-doc'
 import {
@@ -64,10 +62,7 @@ export function applyTabState(tab: PersistedWorkspaceTab): void {
       ...getUiState(),
       selection: { kind: 'none' },
       toolMode: 'select',
-      viewMode:
-        tab.snapshot.browserTabMode === 'frame' && tab.snapshot.selectedFrameId
-          ? { kind: 'browser', frameId: tab.snapshot.selectedFrameId }
-          : { kind: 'canvas' },
+      focus: null,
       devtools: {
         ...getUiState().devtools,
         open: false,

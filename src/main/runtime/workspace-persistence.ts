@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileS
 import { join } from 'path'
 import type {
   Annotation,
-  BrowserTabMode,
   DevtoolsPanelTab,
   LegacyPersistedWorkspaceStore,
   PersistedCanvasEntity,
@@ -17,7 +16,6 @@ import type {
   WorkspacePageSnapshot,
   WorkspaceSnapshot,
   WorkspaceTabSummary,
-  WorkspaceViewMode,
 } from '../../shared/types'
 import {
   cloneAnnotationsForPersistence,
@@ -95,14 +93,12 @@ export function buildWorkspaceTabSummary(
 export function buildPersistedWorkspaceRecord(params: {
   workspaceTabs: PersistedWorkspaceTab[]
   activeWorkspaceTabId: string
-  viewMode: WorkspaceViewMode
 }): PersistedWorkspaceRecord {
   return {
     id: DEFAULT_WORKSPACE_ID,
     name: DEFAULT_WORKSPACE_NAME,
     updatedAt: new Date().toISOString(),
     activeTabId: params.activeWorkspaceTabId,
-    viewMode: params.viewMode,
     tabs: params.workspaceTabs.map((tab) => ({
       ...tab,
       expanded: tab.expanded ?? true,
@@ -220,7 +216,6 @@ export function makeEmptyWorkspaceSnapshot(params: {
     devtoolsOpen: false,
     devtoolsPanelTab: params.devtoolsPanelTab,
     devtoolsWidth: params.devtoolsWidth,
-    browserTabMode: 'frame',
     groups: [],
     edges: [],
   }
@@ -342,7 +337,6 @@ export function buildWorkspaceSnapshot(params: {
   devtoolsOpen: boolean
   devtoolsPanelTab: DevtoolsPanelTab
   devtoolsWidth: number
-  browserTabMode: BrowserTabMode
   groups: WorkspaceGroup[]
   edges: WorkspaceEdge[]
 }): WorkspaceSnapshot {
@@ -361,7 +355,6 @@ export function buildWorkspaceSnapshot(params: {
     devtoolsOpen: params.devtoolsOpen,
     devtoolsPanelTab: params.devtoolsPanelTab,
     devtoolsWidth: params.devtoolsWidth,
-    browserTabMode: params.browserTabMode,
     groups: cloneWorkspaceGroupsForSnapshot(params.groups),
     edges: cloneWorkspaceEdgesForSnapshot(params.edges),
   }
@@ -471,7 +464,6 @@ export function writeWorkspaceMetaSync(
   workspaceId: string,
   meta: {
     activeTabId: string
-    viewMode?: string
     tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }>
   },
 ): void {
@@ -485,11 +477,15 @@ export function writeWorkspaceMetaSync(
 export function readWorkspaceMeta(
   userDataPath: string,
   workspaceId: string,
-): { activeTabId: string; viewMode?: string; tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }> } | null {
+): { activeTabId: string; tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }> } | null {
   const filePath = join(workspaceDir(userDataPath, workspaceId), 'workspace-meta.json')
   if (!existsSync(filePath)) return null
   try {
-    return JSON.parse(readFileSync(filePath, 'utf8'))
+    const raw = JSON.parse(readFileSync(filePath, 'utf8')) as {
+      activeTabId: string
+      tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }>
+    }
+    return { activeTabId: raw.activeTabId, tabs: raw.tabs }
   } catch {
     return null
   }
@@ -510,7 +506,6 @@ export function migrateWorkspaceStoreToCanvasFiles(
     // Write workspace metadata
     writeWorkspaceMetaSync(userDataPath, workspace.id, {
       activeTabId: workspace.activeTabId,
-      viewMode: workspace.viewMode,
       tabs: workspace.tabs.map((t) => ({
         id: t.id,
         name: t.name,
@@ -559,7 +554,6 @@ export function loadWorkspaceFromCanvasFiles(
     name: DEFAULT_WORKSPACE_NAME,
     updatedAt: new Date().toISOString(),
     activeTabId: meta.activeTabId,
-    viewMode: meta.viewMode as WorkspaceViewMode | undefined,
     tabs,
   }
 }

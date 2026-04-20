@@ -24,7 +24,8 @@ export type FocusState = {
   interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'dragging-edge' | 'editing-text'
   editingTextEntityId: string | null
   selectedPageId: string | null
-  workspaceViewMode: 'canvas' | 'browser'
+  /** Frame id currently focused (any entity kind other than frame → null). */
+  focusedFrameId: string | null
   commentOverlayActive: boolean
   /** Explicit intent set by a subsystem (overrides derivation). Cleared after reconcile. */
   pendingFocus: FocusTarget | null
@@ -54,13 +55,12 @@ export function expectedFocus(state: FocusState): FocusTarget {
     return { kind: 'aboveView' }
   }
 
-  // Browser mode with a live page — the page should be focused so
-  // keyboard input reaches the web content.
-  if (state.workspaceViewMode === 'browser' && state.selectedPageId) {
-    return { kind: 'page', id: state.selectedPageId }
+  // Focus-on-frame — the page should be focused so keyboard input reaches the web content.
+  if (state.focusedFrameId) {
+    return { kind: 'page', id: state.focusedFrameId }
   }
 
-  // Canvas mode default: bgView (canvas keyboard shortcuts, undo).
+  // Default: bgView (canvas keyboard shortcuts, undo).
   return { kind: 'bgView' }
 }
 

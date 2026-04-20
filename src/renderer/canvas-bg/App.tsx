@@ -15,12 +15,12 @@ import { DRAW_CURSOR } from './canvasBgConstants'
 import { buildSelectedFrameIdSet } from './canvasBgSelectors'
 import { EntityHoverProvider } from './EntityHoverProvider'
 import { CanvasDebugBadge, CanvasGridSurface, PlacementPreviewLayer, DragCopyPreviewLayer, CanvasEntityViewportLayer } from './CanvasGridSurface'
-import { BrowserTabBar } from './BrowserTabBar'
 import { CanvasSelectionOutlineLayer, GroupSelectionOverlayLayer } from './CanvasSelectionLayers'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { FrameBorderLayer } from './FrameBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { FrameChromeLayer } from './FrameChromeLayer'
+import { FocusChromeLayer } from './FocusChromeLayer'
 import { TextBlockLayer } from './TextBlockLayer'
 import { FileBlockLayer, type FileJsonModeMap } from './FileBlockLayer'
 import { FileChromeLayer } from './FileChromeLayer'
@@ -103,12 +103,24 @@ export default function App({
     () => layoutData.entities.filter((e): e is CanvasSceneDrawingEntity => e.kind === 'drawing'),
     [layoutData.entities],
   )
-  const borderFrames = useMemo(
-    () => layoutData.viewMode === 'browser'
-      ? frameEntities.filter((f) => f.id === layoutData.activeBrowserTabId)
-      : frameEntities,
-    [frameEntities, layoutData.viewMode, layoutData.activeBrowserTabId],
+  const focusedFrameId =
+    layoutData.focusedEntityId && frameEntities.some((f) => f.id === layoutData.focusedEntityId)
+      ? layoutData.focusedEntityId
+      : null
+  // When focused on a frame with 'fill' sizeMode, only the focused frame renders
+  // (mirrors the old browser-mode behavior where siblings were hidden).
+  const focusedFrameSizeMode = useMemo(
+    () => focusedFrameId ? frameEntities.find((f) => f.id === focusedFrameId)?.sizeMode ?? null : null,
+    [focusedFrameId, frameEntities],
   )
+  const isFocusFilling = focusedFrameSizeMode === 'fill'
+  const borderFrames = useMemo(
+    () => isFocusFilling
+      ? frameEntities.filter((f) => f.id === focusedFrameId)
+      : frameEntities,
+    [frameEntities, isFocusFilling, focusedFrameId],
+  )
+  const isFocused = layoutData.focusedEntityId !== null
   const selectedEntityIdSet = useMemo(
     () => buildSelectedFrameIdSet(layoutData.selectedEntityIds),
     [layoutData.selectedEntityIds],
@@ -119,7 +131,7 @@ export default function App({
   }, [layoutData.groups, layoutData.selectedGroupId])
   const [delayedSelectedGroupMenuId, setDelayedSelectedGroupMenuId] = useState<string | null>(null)
   const shouldQueueSelectedGroupMenu =
-    layoutData.viewMode === 'canvas' &&
+    !isFocused &&
     layoutData.interaction.kind === 'idle' &&
     selectedGroupEntity !== null
   useEffect(() => {
@@ -170,7 +182,7 @@ export default function App({
         </>
       ) : null}
 
-      {layoutData.viewMode === 'canvas' && (layoutData.groups?.length ?? 0) > 0 ? (
+      {!isFocused && (layoutData.groups?.length ?? 0) > 0 ? (
         <CanvasEntityViewportLayer
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}
@@ -191,7 +203,7 @@ export default function App({
         </CanvasEntityViewportLayer>
       ) : null}
 
-      {layoutData.viewMode === 'canvas' ? (
+      {!isFocused ? (
         <EdgeLayer
           edges={layoutData.edges}
           entities={layoutData.entities}
@@ -210,21 +222,20 @@ export default function App({
         />
       ) : null}
 
-      {layoutData.viewMode === 'browser' ? (
-        <BrowserTabBar
-          activeBrowserTabId={layoutData.activeBrowserTabId}
-          leftInset={layoutData.canvasOrigin.x}
-          browserTabs={layoutData.browserTabs}
-          isDark={isDark}
-          onAddBrowserFrame={api.addBrowserFrame}
-          onDeleteFrame={api.deleteFrame}
-          onRenameFrame={api.renameFrame}
-          onSelectBrowserTab={api.selectBrowserTab}
+      {isFocused ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: 'rgba(0,0,0,0.25)',
+            transition: 'opacity 220ms ease',
+            zIndex: 1,
+          }}
         />
       ) : null}
 
       <div className="pointer-events-none absolute inset-0">
-        {layoutData.viewMode === 'canvas' && !captureMode ? (
+        {!isFocused && !captureMode ? (
           <GroupSelectionOverlayLayer
             groups={layoutData.groups ?? []}
             isDark={isDark}
@@ -233,7 +244,7 @@ export default function App({
           />
         ) : null}
 
-        {layoutData.viewMode === 'canvas' && layoutData.presenceCursors.length > 0 ? (
+        {!isFocused && layoutData.presenceCursors.length > 0 ? (
           <ActiveFrameHighlightLayer
             cursors={layoutData.presenceCursors}
             frames={frameEntities}
@@ -242,11 +253,11 @@ export default function App({
 
         <FrameBorderLayer
           frames={borderFrames}
-          fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
+          fileEntities={isFocusFilling ? [] : fileEntities}
         />
         <DeviceShellLayer
           frames={borderFrames.filter((f) => !f.useSvgDeviceShell)}
-          fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
+          fileEntities={isFocusFilling ? [] : fileEntities}
           isDark={isDark}
         />
         <SvgDeviceShellLayer
@@ -254,50 +265,68 @@ export default function App({
           isDark={isDark}
         />
 
-        {layoutData.viewMode === 'canvas' ? (
-          <FrameChromeLayer
-            frames={frameEntities}
-            dragEnabled={frameInteractionsEnabled}
-            isDark={isDark}
-            selectedFrameId={layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null}
-            hoveredFrameId={hoveredEntityId}
-            isIdle={layoutData.interaction.kind === 'idle'}
-            handleChromeMouseDown={handleChromeMouseDown}
-            onHoverFrame={handleHoverEntity}
-            onNavigateFrame={api.navigateFrame}
-            onGoBackFrame={api.goBackFrame}
-            onGoForwardFrame={api.goForwardFrame}
-            onReloadFrame={api.reloadFrame}
-            onShowContextMenu={api.showFrameContextMenu}
-          />
-        ) : null}
+        <FrameChromeLayer
+          frames={frameEntities.filter((f) => f.id !== layoutData.focusedEntityId)}
+          dragEnabled={frameInteractionsEnabled}
+          isDark={isDark}
+          selectedFrameId={layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null}
+          hoveredFrameId={hoveredEntityId}
+          isIdle={layoutData.interaction.kind === 'idle'}
+          handleChromeMouseDown={handleChromeMouseDown}
+          onHoverFrame={handleHoverEntity}
+          onNavigateFrame={api.navigateFrame}
+          onGoBackFrame={api.goBackFrame}
+          onGoForwardFrame={api.goForwardFrame}
+          onReloadFrame={api.reloadFrame}
+          onShowContextMenu={api.showFrameContextMenu}
+          onSetFocus={(frameId) => api.setFocus(frameId, 'frame')}
+        />
 
-        {layoutData.viewMode === 'canvas' ? (
-          <FileChromeLayer
-            entities={fileEntities}
+        <FileChromeLayer
+          entities={fileEntities.filter((e) => e.id !== layoutData.focusedEntityId)}
+          isDark={isDark}
+          selectedEntityId={layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null}
+          hoveredEntityId={hoveredEntityId}
+          isIdle={layoutData.interaction.kind === 'idle'}
+          callbacks={{
+            onHoverEntity: handleHoverEntity,
+            onStartDragEntity: api.startDragEntity,
+            onDragEntity: api.dragEntity,
+            onEndDragEntity: api.endDragEntity,
+            onRenameFileEntity: api.renameFileEntity,
+            onWriteFile: api.writeNoteFile,
+            onSetFocus: (entityId) => api.setFocus(entityId, 'file'),
+            onJsonModeChange: (entityId, jsonMode) => {
+              setFileJsonModeMap((prev) => {
+                const next = new Map(prev)
+                next.set(entityId, jsonMode)
+                return next
+              })
+            },
+          }}
+        />
+
+        {isFocused ? (
+          <FocusChromeLayer
+            layoutData={layoutData}
             isDark={isDark}
-            selectedEntityId={layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null}
-            hoveredEntityId={hoveredEntityId}
-            isIdle={layoutData.interaction.kind === 'idle'}
             callbacks={{
-              onHoverEntity: handleHoverEntity,
-              onStartDragEntity: api.startDragEntity,
-              onDragEntity: api.dragEntity,
-              onEndDragEntity: api.endDragEntity,
-              onRenameFileEntity: api.renameFileEntity,
-              onWriteFile: api.writeNoteFile,
-              onJsonModeChange: (entityId, jsonMode) => {
-                setFileJsonModeMap((prev) => {
-                  const next = new Map(prev)
-                  next.set(entityId, jsonMode)
-                  return next
-                })
+              onClearFocus: api.clearFocus,
+              onNavigateFrame: api.navigateFrame,
+              onGoBackFrame: api.goBackFrame,
+              onGoForwardFrame: api.goForwardFrame,
+              onReloadFrame: api.reloadFrame,
+              onShowFrameContextMenu: api.showFrameContextMenu,
+              onToggleFrameSizeMode: (frameId, currentMode) => {
+                const next = currentMode === 'fill' ? 'fit' : 'fill'
+                api.setFrameSizeMode(frameId, next)
               },
+              onRenameFileEntity: api.renameFileEntity,
             }}
           />
         ) : null}
 
-        {layoutData.viewMode === 'canvas' && !captureMode ? (
+        {!isFocusFilling && !captureMode ? (
           <CanvasSelectionOutlineLayer
             frames={frameEntities.filter((e) => selectedEntityIdSet.has(e.id) || e.id === hoveredEntityId || marqueePreviewIds?.has(e.id))}
             allTextEntities={textEntities}
@@ -309,6 +338,7 @@ export default function App({
             selectedIdSet={selectedEntityIdSet}
             marqueePreviewIds={marqueePreviewIds}
             hoveredEntityId={hoveredEntityId}
+            focusedEntityId={layoutData.focusedEntityId}
             onFrameMouseDown={handleChromeMouseDown}
             onResizeFrame={(id, patch) => api.updateFrameBounds(id, patch)}
             onResizeTextEntity={(id, patch) => api.updateTextEntity(id, patch)}
@@ -357,7 +387,7 @@ export default function App({
 
       {/* Selected frame menu now renders in the floating-ui view (above frames) */}
 
-      {layoutData.viewMode === 'canvas' ? (
+      {!isFocusFilling ? (
         <CanvasEntityViewportLayer
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}
@@ -381,7 +411,7 @@ export default function App({
         </CanvasEntityViewportLayer>
       ) : null}
 
-      {layoutData.viewMode === 'canvas' ? (
+      {!isFocusFilling ? (
         <CanvasEntityViewportLayer
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}

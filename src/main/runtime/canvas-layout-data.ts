@@ -456,7 +456,6 @@ function buildCursorFrames(): LayoutPresenceFrame[] {
     position: f.position,
     tangent: f.tangent,
     activity: f.activity,
-    mood: f.mood,
     label: f.label,
     intent: f.intent,
     commitKey: f.commitKey,

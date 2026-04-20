@@ -92,6 +92,7 @@ async function emitFrameCreateAction(
     sessionId: resolved.sessionId,
     clientName: resolved.session.clientName ?? 'agent',
     verb: 'create',
+    entityKind: 'frame',
     explicitRect: rect,
   })
   if (!event) return

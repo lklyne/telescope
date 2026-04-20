@@ -14,7 +14,7 @@
  *
  * Centripetal parameterization (α = 0.5) prevents cusps and self-intersections
  * when waypoints cluster. Tension can be adjusted per-fit (α up to 1 = chordal,
- * tighter/less round curves; used by `correcting` mood).
+ * tighter/less round curves).
  */
 
 import type { Vec2 } from './cursor-motion'

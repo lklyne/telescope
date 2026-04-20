@@ -103,11 +103,14 @@ export function parseCommandArgs(cmd: string): {
    * accepts.
    */
   selector: string | null
+  /** All positional args after the verb, flag values skipped. */
+  positionals: string[]
 } {
   const argv = splitShellArgs(cmd)
   let verb: string | null = null
   let ref: string | null = null
   let selector: string | null = null
+  const positionals: string[] = []
   let i = 0
   while (i < argv.length) {
     const arg = argv[i]
@@ -116,9 +119,36 @@ export function parseCommandArgs(cmd: string): {
     if (!verb) { verb = arg; i++; continue }
     if (selector === null) selector = arg
     if (!ref && /^@e\d+$/.test(arg)) ref = arg
+    positionals.push(arg)
     i++
   }
-  return { argv, verb, ref, selector }
+  return { argv, verb, ref, selector, positionals }
+}
+
+/** Pull a human-readable target name/value from argv for verbs whose
+ * arguments already describe the target (navigate url, scroll direction,
+ * fill value). Agent-browser doesn't need to be called for these. */
+function targetsFromArgv(
+  verb: string,
+  positionals: string[],
+): { targetName: string | null; targetValue: string | null } {
+  if (verb === 'fill' || verb === 'type') {
+    return { targetName: null, targetValue: positionals[1] ?? null }
+  }
+  if (verb === 'navigate' || verb === 'scroll' || verb === 'press') {
+    return { targetName: positionals[0] ?? null, targetValue: null }
+  }
+  return { targetName: null, targetValue: null }
+}
+
+function parseAgentBrowserJson<T>(stdout: string): T | null {
+  try {
+    const parsed = JSON.parse(stdout) as { success?: boolean; data?: T }
+    if (parsed?.success && parsed.data !== undefined) return parsed.data as T
+  } catch {
+    // fall through
+  }
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -217,7 +247,14 @@ export function spawnAsync(
     const child = spawn(cmd, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: opts.cwd,
-      env: { ...process.env, NO_COLOR: '1' },
+      // Auto-shutdown per-frame daemons after 60s of inactivity. We spin one
+      // daemon per frame (via --session <frameId>) so without an idle timeout
+      // they'd accumulate for the app's lifetime. User override still wins.
+      env: {
+        AGENT_BROWSER_IDLE_TIMEOUT_MS: '60000',
+        ...process.env,
+        NO_COLOR: '1',
+      },
     })
     const maxBuf = opts.maxBuffer ?? 10 * 1024 * 1024
     const stdoutChunks: Buffer[] = []
@@ -294,13 +331,19 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
   // Parse first command for presence animation
   const firstCmd = isChained ? chainedParts[0] : rawCommand
-  const { verb, ref, selector } = parseCommandArgs(firstCmd)
+  const { verb, ref, selector, positionals } = parseCommandArgs(firstCmd)
 
   const clientName = getClientName()
 
   return withFrameLock(frameId, async () => {
     const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(frameId)
     const abPath = resolveAgentBrowserPath()
+    // One agent-browser daemon per frame. Without --session, a single daemon
+    // pins the first --cdp URL it saw and silently ignores subsequent --cdp
+    // values — upstream bug in vercel-labs/agent-browser (CLI skips `launch`
+    // when daemon is already running; daemon's relaunch check doesn't compare
+    // cdp_url). Keying by frameId sidesteps both gates.
+    const sessionFlags = ['--session', frameId]
 
     // Fire an action intent. Main builds the AgentAction with a resolved
     // target rect and pushes it to the CursorDirector's queue.
@@ -331,25 +374,46 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       // clicks and fills.
       let targetRectLocal: { x: number; y: number; width: number; height: number } | null = null
       let boxResolveError: string | null = null
+      // Free-from-argv targets (fill value, navigate URL, scroll direction).
+      const argvTargets = targetsFromArgv(verb, positionals)
+      let targetName: string | null = argvTargets.targetName
+      const targetValue: string | null = argvTargets.targetValue
       if (selector && MUTATION_VERBS.has(verb)) {
-        try {
-          const { stdout } = await spawnAsync(
+        // Run `get box` (for rect) and `get text` (for human-readable name)
+        // in parallel. The box is what `commit verbs` need to steer the
+        // cursor to the element; the text is pure garnish for the label.
+        // Either can fail independently without breaking the mutation.
+        const [boxSettled, textSettled] = await Promise.allSettled([
+          spawnAsync(
             abPath,
-            [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, '--json', 'get', 'box', selector],
+            [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, '--json', 'get', 'box', selector],
             { timeout: 1500 },
-          )
-          const parsed = JSON.parse(stdout) as {
-            success?: boolean
-            data?: { x: number; y: number; width: number; height: number }
-            error?: string
-          }
-          if (parsed?.success && parsed.data) {
-            targetRectLocal = parsed.data
+          ),
+          spawnAsync(
+            abPath,
+            [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, '--json', 'get', 'text', selector],
+            { timeout: 1500 },
+          ),
+        ])
+        if (boxSettled.status === 'fulfilled') {
+          const data = parseAgentBrowserJson<{ x: number; y: number; width: number; height: number }>(boxSettled.value.stdout)
+          if (data) {
+            targetRectLocal = data
           } else {
-            boxResolveError = parsed?.error ?? 'no data'
+            boxResolveError = 'no data'
           }
-        } catch (err) {
-          boxResolveError = err instanceof Error ? err.message : String(err)
+        } else {
+          boxResolveError =
+            boxSettled.reason instanceof Error
+              ? boxSettled.reason.message
+              : String(boxSettled.reason)
+        }
+        if (textSettled.status === 'fulfilled') {
+          const data = parseAgentBrowserJson<string>(textSettled.value.stdout)
+          if (typeof data === 'string') {
+            const clean = data.trim().replace(/\s+/g, ' ').slice(0, 60)
+            if (clean && !targetName) targetName = clean
+          }
         }
       }
       const actionBody = {
@@ -360,6 +424,8 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
         frameId,
         targetRef: ref ?? null,
         targetSelector: selector ?? null,
+        ...(targetName ? { targetName } : null),
+        ...(targetValue ? { targetValue } : null),
         ...(targetRectLocal ? { targetRectLocal } : null),
         ...(boxResolveError ? { boxResolveError } : null),
       }
@@ -414,7 +480,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
       const { stdout } = await spawnAsync(
         abPath,
-        [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, 'batch', '--json', '--bail'],
+        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'batch', '--json', '--bail'],
         { timeout: timeoutMs, input: batchInput },
       )
 
@@ -486,7 +552,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     if (verb && MUTATION_VERBS.has(verb) && ref) {
       await spawnAsync(
         abPath,
-        [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, 'scrollintoview', ref],
+        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'scrollintoview', ref],
         { timeout: 5_000 },
       ).catch(() => {}) // Best-effort — don't fail the click if scroll fails
     }
@@ -497,7 +563,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
     const { stdout, stderr } = await spawnAsync(
       abPath,
-      [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, ...extraFlags, ...argv],
+      [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, ...extraFlags, ...argv],
       { timeout: timeoutMs },
     )
 
@@ -532,7 +598,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       try {
         const { stdout: urlOut } = await spawnAsync(
           abPath,
-          [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, 'get', 'url'],
+          [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'get', 'url'],
           { timeout: 5_000 },
         )
         output += `\nurl: ${urlOut.trim()}`

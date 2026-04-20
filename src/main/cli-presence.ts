@@ -44,6 +44,10 @@ export interface ActionIntentPayload {
   errorHint?: 'retry' | 'hard_fail' | null
   intent?: string | null
   entityIds?: string[]
+  /** Entity kind hint for brand-new entities that don't yet exist in the
+   * runtime. Drives phrase sub-pools (e.g. "dropping in frame" vs
+   * "jotting note"). */
+  entityKind?: 'frame' | 'text' | 'file' | 'group' | 'drawing' | 'edge'
   bridgeFrom?: string
   bridgeTo?: string
   rects?: Array<{ x: number; y: number; width: number; height: number }>

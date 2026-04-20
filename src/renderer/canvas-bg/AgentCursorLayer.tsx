@@ -8,9 +8,10 @@
  * constant screen size regardless of zoom.
  *
  * The director in main tells the renderer where each cursor is at every
- * tick and what phase/mood it is in; the renderer paints. Only the ripple
- * and error-tint pulses are renderer-local, keyed off `commitKey` /
- * `errorKey` monotonic counters from the director.
+ * tick; the renderer paints. Ripple, error tint, and an idle drift wobble
+ * are renderer-local — the ripple + error fire on `commitKey` / `errorKey`
+ * monotonic counters from the director, the drift is a subtle sin/cos wobble
+ * seeded per session so idle cursors feel alive rather than frozen.
  */
 
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
@@ -18,7 +19,6 @@ import type {
   CanvasSceneFrameEntity,
   LayoutPresenceFrame,
 } from '../../shared/types'
-import { MOOD_VISUALS } from '../../shared/cursor-visuals'
 
 // Short CSS transition smooths subpixel jitter between director ticks. The
 // director runs at 16 ms; a ~100 ms transition means visual changes always
@@ -28,6 +28,12 @@ const POSITION_TRANSITION_MS = 100
 const RIPPLE_SIZE = 96
 const RIPPLE_DURATION_MS = 260
 const ERROR_TINT_MS = 800
+
+/** Idle drift amplitude in screen pixels. */
+const DRIFT_RADIUS_PX = 1.75
+/** Two frequencies for the lissajous wobble; coprime-ish so the loop is long. */
+const DRIFT_FREQ_X_HZ = 0.42
+const DRIFT_FREQ_Y_HZ = 0.27
 
 export function FilledCursorIcon({
   color,
@@ -129,6 +135,55 @@ function SplineViz({
   )
 }
 
+function hashSession(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) {
+    h = ((h << 5) - h + id.charCodeAt(i)) | 0
+  }
+  return (h >>> 0) / 0xffffffff
+}
+
+/**
+ * Idle drift — a small sin/cos wobble applied when the cursor isn't
+ * actively traveling, seeded per session so cursors desynchronize. Uses a
+ * ref + rAF to avoid triggering React re-renders every frame.
+ */
+function useIdleDrift(
+  active: boolean,
+  sessionId: string,
+  elRef: React.RefObject<HTMLDivElement | null>,
+  zoom: number,
+) {
+  const phaseRef = useRef(hashSession(sessionId) * Math.PI * 2)
+  const zoomRef = useRef(zoom)
+  useEffect(() => {
+    zoomRef.current = zoom
+  }, [zoom])
+  useEffect(() => {
+    const el = elRef.current
+    if (!el) return
+    if (!active) {
+      el.style.transform = 'translate3d(0, 0, 0)'
+      return
+    }
+    let raf = 0
+    const start = performance.now()
+    const phase = phaseRef.current
+    const loop = () => {
+      const t = (performance.now() - start) / 1000
+      const z = Math.max(0.05, zoomRef.current)
+      const dx = Math.sin(t * Math.PI * 2 * DRIFT_FREQ_X_HZ + phase) * DRIFT_RADIUS_PX
+      const dy = Math.sin(t * Math.PI * 2 * DRIFT_FREQ_Y_HZ + phase * 1.37) * DRIFT_RADIUS_PX
+      // Drift is in screen pixels; the wrapper lives in canvas space, so
+      // scale down by zoom to keep the wobble constant on-screen.
+      el.style.transform = `translate3d(${dx / z}px, ${dy / z}px, 0)`
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [active, elRef])
+}
+
 function AgentCursor({
   frame,
   zoom,
@@ -136,9 +191,8 @@ function AgentCursor({
   frame: LayoutPresenceFrame
   zoom: number
 }) {
-  const visuals = MOOD_VISUALS[frame.mood]
-  const effectiveColor = visuals.tint ?? frame.color
   const displayLabel = frame.label
+  const driftRef = useRef<HTMLDivElement | null>(null)
 
   const [rippleKey, setRippleKey] = useState<number | null>(null)
   const [errorKey, setErrorKey] = useState<number | null>(null)
@@ -160,6 +214,10 @@ function AgentCursor({
       return () => clearTimeout(t)
     }
   }, [frame.errorKey])
+
+  const driftActive =
+    frame.activity !== 'traveling' && frame.activity !== 'departing'
+  useIdleDrift(driftActive, frame.sessionId, driftRef, zoom)
 
   // Position is in canvas units — the parent wrapper applies the canvas
   // transform, so pan/zoom move this with the canvas atomically. Only
@@ -183,51 +241,53 @@ function AgentCursor({
     transformOrigin: 'top left',
   }
 
-  const moodStyle: CSSProperties = {
-    transform: `scale(${visuals.scale})`,
-    transition: 'transform 200ms ease-out, filter 400ms ease-out',
+  const tintStyle: CSSProperties = {
+    transition: 'filter 400ms ease-out',
     filter: errorKey != null ? 'saturate(1.6) hue-rotate(-15deg)' : 'saturate(1)',
   }
 
-  const labelBg = errorKey != null ? '#ef4444' : effectiveColor
+  const labelBg = errorKey != null ? '#ef4444' : frame.color
 
   return (
     <div className="absolute" style={positionStyle}>
-      <div style={counterScaleStyle}>
-        <div style={moodStyle}>
-          {rippleKey !== null && (
-            <ClickRipple key={rippleKey} color={effectiveColor} />
-          )}
-          <FilledCursorIcon color={effectiveColor} size={24} />
-          {displayLabel ? (
-            <div
-              className="ml-4 -mt-1.5 whitespace-nowrap rounded px-2 py-0.5"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${labelBg} ${visuals.labelBgAlpha * 100}%, transparent)`,
-                fontSize: 10,
-                lineHeight: '14px',
-                color: 'white',
-                boxShadow:
-                  frame.activity === 'committing'
-                    ? '0 2px 8px rgba(0,0,0,0.28)'
-                    : '0 1px 3px rgba(0,0,0,0.2)',
-              }}
-            >
-              {displayLabel}
-              {frame.intent ? (
-                <div
-                  style={{
-                    fontSize: 8.5,
-                    lineHeight: '11px',
-                    opacity: 0.8,
-                    fontStyle: 'italic',
-                  }}
-                >
-                  {frame.intent}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+      {/* Drift wrapper — imperative transform updates via rAF, no transition. */}
+      <div ref={driftRef} style={{ willChange: 'transform' }}>
+        <div style={counterScaleStyle}>
+          <div style={tintStyle}>
+            {rippleKey !== null && (
+              <ClickRipple key={rippleKey} color={frame.color} />
+            )}
+            <FilledCursorIcon color={frame.color} size={24} />
+            {displayLabel ? (
+              <div
+                className="ml-4 -mt-1.5 whitespace-nowrap rounded px-2 py-0.5"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${labelBg} 90%, transparent)`,
+                  fontSize: 10,
+                  lineHeight: '14px',
+                  color: 'white',
+                  boxShadow:
+                    frame.activity === 'committing'
+                      ? '0 2px 8px rgba(0,0,0,0.28)'
+                      : '0 1px 3px rgba(0,0,0,0.2)',
+                }}
+              >
+                {displayLabel}
+                {frame.intent ? (
+                  <div
+                    style={{
+                      fontSize: 8.5,
+                      lineHeight: '11px',
+                      opacity: 0.8,
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    {frame.intent}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

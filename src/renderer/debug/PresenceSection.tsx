@@ -91,7 +91,7 @@ function TuningControls({
       <Field
         label="Base speed"
         value={`${tuning.baseSpeedPxS} px/s`}
-        help="Arc-length travel rate before mood + distance scaling."
+        help="Arc-length travel rate before distance scaling."
       >
         <input
           type="range"
@@ -102,34 +102,6 @@ function TuningControls({
           onChange={(e) => patch({ baseSpeedPxS: Number(e.target.value) })}
           className="w-full accent-blue-600"
         />
-      </Field>
-
-      <Field
-        label="Mood speed multiplier"
-        help="When off, mood classification (waiting / stuck / error → 0) no longer stalls the cursor. Useful when debugging why a verb never reaches its target."
-      >
-        <div className="mt-1 flex gap-1">
-          {[
-            { key: true, label: 'On' },
-            { key: false, label: 'Off' },
-          ].map((opt) => {
-            const active = tuning.moodSpeedEnabled === opt.key
-            return (
-              <button
-                key={String(opt.key)}
-                type="button"
-                onClick={() => patch({ moodSpeedEnabled: opt.key })}
-                className={`flex-1 rounded border px-2 py-1 text-[11px] ${
-                  active
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-300'
-                    : 'border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800'
-                }`}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
       </Field>
 
       <Field

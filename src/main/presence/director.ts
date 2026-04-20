@@ -20,15 +20,13 @@ import type {
   AgentAction,
   CursorFramePayload,
   DirectorActivity,
-  Mood,
   SplineVizPayload,
   Waypoint,
 } from '../../shared/agent-action'
 import { rectCenter } from '../../shared/agent-action'
 import type { CatmullRomSpline } from '../../shared/cursor-spline'
 import { foldSpline } from '../../shared/cursor-spline'
-import { composeLabel } from '../../shared/cursor-labels'
-import { deriveMood, paramsForMood } from './mood'
+import { composeLabel, poolSizeFor } from '../../shared/cursor-phrases'
 import { drainSession, hasCommit } from './event-bus'
 import { pushDebugEntry } from './debug-timeline'
 import {
@@ -37,14 +35,16 @@ import {
   type CursorTuningParams,
 } from '../../shared/cursor-tuning'
 /** Retire a presence session after this much continuous idle time. */
-const IDLE_RETIRE_MS = 3_000
+const IDLE_RETIRE_MS = 15_000
 
-/** Error phase freeze duration. */
-const ERROR_FREEZE_MS = 800
 /** After settling, how long before the cursor transitions to idle. */
 const IDLE_TRANSITION_MS = 400
 /** Idle → departing removal grace. */
 const DEPARTURE_GRACE_MS = 1500
+/** How long a phrase sticks before rotating to the next pool entry. */
+const PHRASE_ROTATION_MS = 1500
+/** Default tension for the Catmull-Rom fit. */
+const SPLINE_ALPHA = 0.5
 
 let tuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 
@@ -87,8 +87,7 @@ interface SessionState {
   splineSpeedScale: number
   /**
    * Total ease-duration for the active spline, frozen at fold time from
-   * baseSpeed × mood × distance scale. Infinity when the effective speed is
-   * zero (e.g. waiting/stuck/error moods).
+   * baseSpeed × distance scale.
    */
   splineDurationMs: number
   /** Accumulated traveling-phase time along the active spline. */
@@ -97,11 +96,15 @@ interface SessionState {
   phase: DirectorActivity
   phaseUntil: number
 
-  mood: Mood
   intent: string | null
   verb: string | null
   target: AgentAction['target'] | null
+  entityKind: AgentAction['entityKind'] | null
   label: string | null
+
+  /** Phrase rotation: advances every PHRASE_ROTATION_MS while the cursor is active. */
+  phraseIndex: number
+  phraseRotatedAt: number
 
   commitKey: number
   errorKey: number
@@ -110,11 +113,6 @@ interface SessionState {
   lastSettlePos: Vec2
   lastEventAt: number
   lastProgressAt: number
-
-  /** Retry detection: last emit fingerprint + retry count. */
-  lastFingerprint: string | null
-  lastFingerprintAt: number
-  retryCount: number
 
   /** Debug spline viz cache for the current spline. Only populated when on. */
   splineViz: SplineVizPayload | null
@@ -136,7 +134,6 @@ export interface PhaseTransition {
   sessionId: string
   previous: DirectorActivity
   next: DirectorActivity
-  mood: Mood
   verb: string | null
   commit: boolean
   timestamp: number
@@ -253,6 +250,7 @@ function ensureSession(sessionId: string, clientName: string): SessionState {
     state.clientName = clientName
     return state
   }
+  const now = currentClock.now()
   state = {
     sessionId,
     clientName,
@@ -267,25 +265,38 @@ function ensureSession(sessionId: string, clientName: string): SessionState {
     splineElapsedMs: 0,
     phase: 'idle',
     phaseUntil: 0,
-    mood: 'exploring',
     intent: null,
     verb: null,
     target: null,
+    entityKind: null,
     label: null,
+    phraseIndex: 0,
+    phraseRotatedAt: now,
     commitKey: 0,
     errorKey: 0,
     lastSettlePos: { x: 0, y: 0 },
     lastEventAt: 0,
     lastProgressAt: 0,
-    lastFingerprint: null,
-    lastFingerprintAt: 0,
-    retryCount: 0,
     splineViz: null,
     departureScheduledAt: null,
-    idleSinceAt: currentClock.now(),
+    idleSinceAt: now,
   }
   sessions.set(sessionId, state)
   return state
+}
+
+function rebuildLabel(state: SessionState): void {
+  if (!state.verb) {
+    state.label = null
+    return
+  }
+  state.label = composeLabel({
+    verb: state.verb,
+    entityKind: state.entityKind ?? null,
+    targetName: state.target?.name ?? null,
+    targetValue: state.target?.value ?? null,
+    phraseIndex: state.phraseIndex,
+  })
 }
 
 /**
@@ -302,47 +313,23 @@ function applyEvents(state: SessionState, events: readonly AgentAction[]): void 
     if (event.intent === null) state.intent = null
     else if (typeof event.intent === 'string') state.intent = event.intent
 
+    const verbChanged = state.verb !== event.verb
     state.verb = event.verb
     state.target = event.target ?? null
+    state.entityKind = event.entityKind ?? null
 
-    // Retry detection: same (verb, target.ref) within 3 s.
-    const fingerprint = `${event.verb}:${event.target?.name ?? ''}:${event.target?.role ?? ''}`
-    if (
-      state.lastFingerprint === fingerprint &&
-      now - state.lastFingerprintAt < 3_000
-    ) {
-      state.retryCount += 1
-    } else {
-      state.retryCount = 0
+    if (event.errorHint != null) state.errorKey += 1
+
+    // Reset rotation on verb change so the new phrase starts fresh.
+    if (verbChanged) {
+      // Seed with a session-hash offset so parallel sessions don't
+      // synchronize on the same phrase.
+      const poolSize = Math.max(1, poolSizeFor(event.verb, event.entityKind ?? null))
+      state.phraseIndex = hashStr(state.sessionId + ':' + event.verb) % poolSize
+      state.phraseRotatedAt = now
     }
-    state.lastFingerprint = fingerprint
-    state.lastFingerprintAt = now
 
-    // Mood: explicit override wins, else derive from signals.
-    const derivedMood = deriveMood({
-      verb: event.verb,
-      retryCount: state.retryCount,
-      timeSinceProgress: now - state.lastProgressAt,
-      hasError: event.errorHint != null,
-      isWait: event.idiom === 'passive' || event.verb === 'wait',
-    })
-    const nextMood = event.mood ?? derivedMood
-
-    if (nextMood === 'error' && state.mood !== 'error') {
-      state.errorKey += 1
-      state.phaseUntil = now + ERROR_FREEZE_MS
-      setPhase(state, 'idle', now)
-    }
-    state.mood = nextMood
-
-    // Compose the label from grammar. This is deterministic per session so
-    // the same session always picks the same synonym.
-    state.label = composeLabel(
-      event.verb,
-      event.target ?? null,
-      state.mood,
-      state.sessionId,
-    )
+    rebuildLabel(state)
 
     // Fold new waypoints onto the active spline. We capture current state
     // right here so tangent preservation is exact.
@@ -372,16 +359,11 @@ function applyEvents(state: SessionState, events: readonly AgentAction[]): void 
       continue
     }
 
-    // Use mood alpha for tension.
-    const moodParams = paramsForMood(state.mood)
-    state.spline = foldSpline(currentPos, currentTangent, allAnchors, moodParams.splineAlpha)
+    state.spline = foldSpline(currentPos, currentTangent, allAnchors, SPLINE_ALPHA)
     state.splineProgress = 0
     state.legs = []
     state.splineSpeedScale = distanceSpeedScale(tuning, state.spline.totalLength)
-    // Freeze the ease duration at fold time — mood changes only take effect
-    // on the next event (which also refits), matching legacy behavior.
-    const moodMul = tuning.moodSpeedEnabled ? moodParams.speedMultiplier : 1
-    const effectiveSpeed = tuning.baseSpeedPxS * moodMul * state.splineSpeedScale
+    const effectiveSpeed = tuning.baseSpeedPxS * state.splineSpeedScale
     state.splineDurationMs =
       effectiveSpeed > 0 ? (state.spline.totalLength / effectiveSpeed) * 1000 : Infinity
     state.splineElapsedMs = 0
@@ -406,7 +388,7 @@ function applyEvents(state: SessionState, events: readonly AgentAction[]): void 
       kind: 'dir:apply',
       sessionId: state.sessionId,
       label: `apply ${event.verb}`,
-      detail: `${event.waypoints.length} wp · ${hasCommit(event) ? 'commit' : 'no-commit'} · mood ${state.mood}`,
+      detail: `${event.waypoints.length} wp · ${hasCommit(event) ? 'commit' : 'no-commit'}`,
     })
   }
 
@@ -422,7 +404,6 @@ function setPhase(state: SessionState, next: DirectorActivity, now: number): voi
     sessionId: state.sessionId,
     previous: prev,
     next,
-    mood: state.mood,
     verb: state.verb,
     commit: next === 'committing',
     timestamp: now,
@@ -432,7 +413,7 @@ function setPhase(state: SessionState, next: DirectorActivity, now: number): voi
     kind: 'dir:phase',
     sessionId: state.sessionId,
     label: `${prev} → ${next}`,
-    detail: state.verb ? `${state.verb} · mood ${state.mood}` : `mood ${state.mood}`,
+    detail: state.verb ?? '',
   })
   // Wake any move-then-act waiters when the cursor reaches its commit phase.
   if (next === 'committing') {
@@ -490,6 +471,14 @@ export function waitForNextCommit(
 }
 
 function advance(state: SessionState, now: number): void {
+  // Rotate the phrase periodically regardless of phase — gives the "alive"
+  // feel during long scans and during commit-hold pauses alike.
+  if (state.verb && now - state.phraseRotatedAt >= PHRASE_ROTATION_MS) {
+    state.phraseIndex = (state.phraseIndex + 1) | 0
+    state.phraseRotatedAt = now
+    rebuildLabel(state)
+  }
+
   // If a phase has a fixed end time, check for completion first.
   if (state.phase === 'dwelling' || state.phase === 'committing') {
     if (now >= state.phaseUntil) {
@@ -519,7 +508,7 @@ function advance(state: SessionState, now: number): void {
 
   const dur = state.splineDurationMs
   if (!Number.isFinite(dur) || dur <= 0) {
-    // Effective speed is zero (waiting/stuck/error). Hold in place.
+    // Effective speed is zero (rare). Hold in place.
     return
   }
   state.splineElapsedMs = Math.min(dur, state.splineElapsedMs + dtMs)
@@ -651,7 +640,6 @@ export function getCursorFrames(): CursorFramePayload[] {
       position: { ...state.position },
       tangent: { ...state.tangent },
       activity: state.phase,
-      mood: state.mood,
       label: state.label,
       intent: state.intent,
       commitKey: state.commitKey,

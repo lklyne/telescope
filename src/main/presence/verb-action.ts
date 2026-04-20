@@ -10,7 +10,7 @@
  *    at start and `buildBrowseScanResult` once rects arrive.
  *  - Canvas HTTP handlers (main): `buildCanvasAction` after mutation.
  *  - Debugging: the AgentAction carries the raw verb so unknown verbs are
- *    renderable as "Running {verb}" without a code change.
+ *    renderable via the bin-based composer or falling back to the verb.
  */
 
 import type {
@@ -20,6 +20,8 @@ import type {
   Idiom,
   Waypoint,
 } from '../../shared/agent-action'
+import type { CanvasEntityKind } from '../../shared/types'
+import { resolveEntityKind } from '../runtime/selection-controller'
 import {
   rectForBrowseTarget,
   rectForEntity,
@@ -215,6 +217,12 @@ export interface CanvasVerbContext extends ActionContext {
    * has placement coordinates but no entity id to look up.
    */
   explicitRect?: CanvasRect
+  /**
+   * Override for entity kind when the caller knows it but can't resolve
+   * from runtime (e.g. create verbs before the entity exists). Takes
+   * precedence over the entityIds[0] lookup.
+   */
+  entityKind?: CanvasEntityKind | null
   errorHint?: 'retry' | 'hard_fail' | null
 }
 
@@ -255,6 +263,19 @@ function canvasIdiom(verb: string): Idiom | null {
   if (CANVAS_COMMIT_VERBS.has(verb)) return 'atomic'
   if (CANVAS_PASSIVE_VERBS.has(verb)) return 'passive'
   return null
+}
+
+function resolveFirstEntityKind(
+  ctx: CanvasVerbContext,
+): CanvasEntityKind | null {
+  if (ctx.entityKind !== undefined) return ctx.entityKind
+  const firstId = ctx.entityIds?.[0] ?? ctx.bridgeFrom ?? ctx.bridgeTo ?? null
+  if (!firstId) return null
+  try {
+    return resolveEntityKind(firstId)
+  } catch {
+    return null
+  }
 }
 
 export function buildCanvasAction(ctx: CanvasVerbContext): AgentAction | null {
@@ -325,6 +346,7 @@ export function buildCanvasAction(ctx: CanvasVerbContext): AgentAction | null {
     verb: ctx.verb,
     idiom,
     waypoints,
+    entityKind: resolveFirstEntityKind(ctx),
     errorHint: ctx.errorHint ?? null,
   }
 }

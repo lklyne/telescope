@@ -9,6 +9,7 @@
  */
 
 import type { Vec2 } from './cursor-motion'
+import type { CanvasEntityKind } from './types'
 
 export type Idiom =
   | 'atomic' // focus → locate → commit → settle (click, select, delete)
@@ -16,14 +17,6 @@ export type Idiom =
   | 'scan' // focus → locate₁…ₙ → settle (snapshot, query-elements, workspace)
   | 'bridge' // focus(A) → arc → commit(B) → settle (link, group)
   | 'passive' // focus → dwell with drift → settle (wait, screenshot, scroll)
-
-export type Mood =
-  | 'exploring'
-  | 'committing'
-  | 'correcting'
-  | 'waiting'
-  | 'stuck'
-  | 'error'
 
 export type DirectorActivity =
   | 'traveling'
@@ -63,14 +56,14 @@ export interface AgentAction {
   eventId: string
   /** Monotonic ms from main's clock when the CLI handler emitted. */
   timestamp: number
-  /** Raw CLI verb; used as fallback label when no grammar entry is known. */
+  /** Raw CLI verb; used as fallback label when no phrase bin is known. */
   verb: string
   idiom: Idiom
   /** 1..N canvas-space waypoints. Single waypoint = atomic move. */
   waypoints: Waypoint[]
   target?: ActionTarget
-  /** Optional mood override. If absent, director derives from signals. */
-  mood?: Mood
+  /** Canvas entity kind for create/update/delete verbs. Drives phrase sub-pools. */
+  entityKind?: CanvasEntityKind | null
   /**
    * Session-level subtitle. `undefined` inherits the current intent.
    * `null` clears the intent. A string sets/replaces it.
@@ -92,7 +85,6 @@ export interface CursorFramePayload {
   position: Vec2
   tangent: Vec2
   activity: DirectorActivity
-  mood: Mood
   label: string | null
   intent: string | null
   /** Monotonic counter; renderer triggers ripple when value changes. */

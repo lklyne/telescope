@@ -80,6 +80,64 @@ Commands can be chained with `&&` for atomic sequences:
 telescope create frame http://localhost:3000 && telescope snapshot -i
 ```
 
+## Switching the active frame
+
+> **Assumed current behavior — validate on first use.** This describes how
+> `target` is supposed to work after recent fixes; it has not been re-verified
+> end-to-end. If `target` doesn't persist as described, fall back to `-f` and
+> flag the discrepancy.
+
+Browse verbs (`snapshot`, `click`, `fill`, `scroll`, `screenshot`) run against
+one active frame per session. Two ways to set it:
+
+- `telescope target <frameId>` — bind the session's active frame. Persists
+  across calls until you run `telescope target clear` or the session goes idle
+  (~15s).
+- `-f <frameId>` on any browse verb — one-shot override that doesn't change
+  the bound target.
+
+`telescope focus <id>` does **not** set the active frame — it only scrolls the
+canvas viewport. Use `target` for that.
+
+## Useful verbs
+
+> **Assumed — verify when you first use each.** `telescope back` has been
+> confirmed once; `forward` and `reload` are inferred from the CLI help and
+> have not been directly tested.
+
+- `telescope back` / `telescope forward` / `telescope reload` — browser history
+  navigation inside the active frame. Handy after `click` navigates you away
+  and you want to return.
+
+## Known CLI limitations
+
+> **Treat this list as known assumptions, not ground truth.** Entries reflect
+> behavior observed at the time they were added. Codepaths change, and some
+> items here may already be fixed or may present differently in your session.
+> If something behaves unexpectedly, re-test before trusting the list — and
+> update it (remove the entry, or tighten its wording) when you confirm a
+> change. A stale warning is worse than no warning.
+
+When you encounter new gaps, append them to the tracking issue (see below).
+
+- **`upsert --json` silently drops frames** — use `telescope create frame <url>` individually; `upsert` only works for `text` and `file` entities.
+- **`telescope update <id> --url` does not navigate** — it updates the workspace record only. Use `telescope click` on a link, or recreate the frame, to navigate.
+- **Search box `fill` + `click` may not trigger navigation** — `fill` may not fire input events. If a click on Search fails, re-fill and retry, or click an autocomplete option ref instead.
+
+## Tracking issue (localhost sessions)
+
+When running against a local Telescope app (`http://localhost:*`), you are working in a development context. If you hit a new CLI gap not listed above:
+
+1. Add it to the list above in this skill file.
+2. Append it as a comment to **[lklyne/telescope#7](https://github.com/lklyne/telescope/issues/7)** using:
+   ```bash
+   gh issue comment 7 --repo lklyne/telescope --body "..."
+   ```
+
+Keep entries terse: one-line description, observed behavior, expected behavior. No need to comment for known issues already tracked.
+
+When a limitation is fixed (confirmed by testing, not just by a closed issue), **remove it from the "Known CLI limitations" list above** and close or note it on the GitHub issue. A stale warning is worse than no warning.
+
 ## See also
 
 - `agent-browser` skill — deeper browser-automation reference (invoked via

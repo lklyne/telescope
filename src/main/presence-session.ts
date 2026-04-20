@@ -47,8 +47,12 @@ export function resolveSession(
   const headerId = request.headers['x-telescope-session-id'] as string | undefined
   const headerClientName = request.headers['x-telescope-client-name'] as string | undefined
   if (headerId) {
-    const session = mcpSessions.get(headerId)
-    if (session) return { sessionId: headerId, session }
+    const existing = mcpSessions.get(headerId)
+    if (existing) {
+      existing.lastSeenAt = Date.now()
+      if (headerClientName) existing.clientName = headerClientName
+      return { sessionId: headerId, session: existing }
+    }
     const nextSession = {
       id: headerId,
       clientName: headerClientName ?? headerId,
@@ -60,6 +64,12 @@ export function resolveSession(
   const bodySessionId = typeof body?.sessionId === 'string' ? body.sessionId : undefined
   const bodyClientName = typeof body?.clientName === 'string' ? body.clientName : undefined
   if (bodySessionId) {
+    const existing = mcpSessions.get(bodySessionId)
+    if (existing) {
+      existing.lastSeenAt = Date.now()
+      if (bodyClientName) existing.clientName = bodyClientName
+      return { sessionId: bodySessionId, session: existing }
+    }
     const nextSession = {
       id: bodySessionId,
       clientName: bodyClientName ?? bodySessionId,

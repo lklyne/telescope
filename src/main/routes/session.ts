@@ -97,6 +97,15 @@ function buildAndEmitVerbEvent(
   const entityIds = Array.isArray(payload.entityIds)
     ? payload.entityIds.filter((v): v is string => typeof v === 'string')
     : undefined
+  const entityKind =
+    payload.entityKind === 'frame' ||
+    payload.entityKind === 'text' ||
+    payload.entityKind === 'file' ||
+    payload.entityKind === 'group' ||
+    payload.entityKind === 'drawing' ||
+    payload.entityKind === 'edge'
+      ? payload.entityKind
+      : undefined
   // Frame-local rect from browse-handler's `agent-browser get box` call.
   // Converted to canvas-space here (main has page geometry; browse-handler
   // stays CLI-safe without electron imports).
@@ -167,6 +176,7 @@ function buildAndEmitVerbEvent(
       ...ctxBase,
       verb,
       entityIds,
+      entityKind,
       bridgeFrom: bridgeFrom ?? undefined,
       bridgeTo: bridgeTo ?? undefined,
       explicitRect,
@@ -390,10 +400,9 @@ export const sessionRoutes: Route[] = [
      * target, then mutation fires."
      *
      * The cap (default 300ms) keeps the wait bounded: if the cursor is far
-     * away or the mood is 'stuck', the mutation proceeds anyway rather than
-     * holding the agent. Events without any `commit: true` waypoint (scans
-     * and passive idioms) short-circuit and return immediately — there's
-     * nothing to wait for.
+     * away, the mutation proceeds anyway rather than holding the agent.
+     * Events without any `commit: true` waypoint (scans and passive idioms)
+     * short-circuit and return immediately — there's nothing to wait for.
      *
      * Response shape: `{ ok: true, arrival: 'arrived' | 'capped' | 'no-commit' | 'no-session' }`
      */
@@ -497,11 +506,21 @@ export const sessionRoutes: Route[] = [
         writeJson(response, 400, { error: 'sessionId is required' })
         return
       }
-      mcpSessions.set(payload.sessionId, {
-        id: payload.sessionId,
-        clientName: payload.clientName ?? 'telescope-mcp',
-        lastSeenAt: Date.now(),
-      })
+      // Every CLI invocation pings open, so this handler is on the hot path.
+      // Preserve existing session state (notably activeAutomationFrameId set
+      // via `telescope target`); replacing the object would drop state that
+      // the next CLI call expects to still be there.
+      const existing = mcpSessions.get(payload.sessionId)
+      if (existing) {
+        existing.lastSeenAt = Date.now()
+        if (payload.clientName) existing.clientName = payload.clientName
+      } else {
+        mcpSessions.set(payload.sessionId, {
+          id: payload.sessionId,
+          clientName: payload.clientName ?? 'telescope-mcp',
+          lastSeenAt: Date.now(),
+        })
+      }
       notifyStatusListeners()
       writeJson(response, 200, { ok: true })
     },
@@ -516,11 +535,16 @@ export const sessionRoutes: Route[] = [
         return
       }
       const existing = mcpSessions.get(payload.sessionId)
-      mcpSessions.set(payload.sessionId, {
-        id: payload.sessionId,
-        clientName: payload.clientName ?? existing?.clientName ?? 'telescope-mcp',
-        lastSeenAt: Date.now(),
-      })
+      if (existing) {
+        existing.lastSeenAt = Date.now()
+        if (payload.clientName) existing.clientName = payload.clientName
+      } else {
+        mcpSessions.set(payload.sessionId, {
+          id: payload.sessionId,
+          clientName: payload.clientName ?? 'telescope-mcp',
+          lastSeenAt: Date.now(),
+        })
+      }
       notifyStatusListeners()
       writeJson(response, 200, { ok: true })
     },

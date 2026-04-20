@@ -337,13 +337,6 @@ export interface LayoutPresenceFrame {
     | 'thinking'
     | 'idle'
     | 'departing'
-  mood:
-    | 'exploring'
-    | 'committing'
-    | 'correcting'
-    | 'waiting'
-    | 'stuck'
-    | 'error'
   label: string | null
   intent: string | null
   commitKey: number

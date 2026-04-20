@@ -75,8 +75,8 @@ describe('CursorDirector', () => {
     expect(getCursorFrames()[0].activity).toBe('traveling')
 
     // Advance clock until cursor reaches waypoint.
-    // Speed is base * 1.2 for committing mood; waypoint is ~141 px away.
-    // That's about 200 ms.
+    // Speed is baseSpeedPxS (600 px/s); waypoint is ~141 px away.
+    // That's about 240 ms.
     for (let i = 0; i < 40; i++) {
       clock.advance(16)
       tick()
@@ -143,7 +143,7 @@ describe('CursorDirector', () => {
     expect(frame.commitKey).toBe(0)
   })
 
-  it('error event bumps errorKey and freezes phase', () => {
+  it('error event bumps errorKey', () => {
     notifyEventPosted(SESSION, CLIENT)
     emitAction(
       mkEvent({
@@ -153,7 +153,6 @@ describe('CursorDirector', () => {
     tick()
     const frame = getCursorFrames()[0]
     expect(frame.errorKey).toBe(1)
-    expect(frame.mood).toBe('error')
   })
 
   it('intent undefined inherits; null clears; string sets', () => {

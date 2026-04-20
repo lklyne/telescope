@@ -114,6 +114,7 @@ const create: VerbHandler = async (args) => {
     await emitActionIntentSync({
       verb: 'create',
       kind: 'canvas',
+      entityKind: 'text',
       explicitRect: atPoint
         ? { x: atPoint.x, y: atPoint.y, width: 240, height: 120 }
         : undefined,
@@ -241,6 +242,20 @@ const focus: VerbHandler = async (args) => {
 }
 
 const link: VerbHandler = async (args) => {
+  if (args.positional.length >= 2) {
+    const [fromEntityId, toEntityId] = args.positional
+    const edge: Record<string, unknown> = { fromEntityId, toEntityId, kind: 'connection' }
+    if (args.flags.label) edge.label = args.flags.label
+    printJson(await callApp('/edges/create', {
+      method: 'POST',
+      body: JSON.stringify({ edges: [edge] }),
+    }))
+    return 0
+  }
+  if (args.positional.length === 1 || (args.positional.length === 0 && process.stdin.isTTY)) {
+    printError('usage: telescope link <fromId> <toId> [--label <text>]  (or pipe a JSON edges array on stdin)')
+    return 1
+  }
   const input = await readStdin()
   printJson(await callApp('/edges/create', {
     method: 'POST',
@@ -618,8 +633,8 @@ export async function dispatch(argv: string[]): Promise<number> {
   // resolve real entity rects and use the sync "move-then-act" variant where
   // it makes sense. For verbs that don't opt in (workspace/selection/scan
   // reads, passthroughs, design-system etc.) we fire a fallback
-  // fire-and-forget intent here so the cursor still gets a label + mood
-  // update without a specific rect to move toward.
+  // fire-and-forget intent here so the cursor still gets a label update
+  // without a specific rect to move toward.
   const HANDLER_OWNS_ACTION = new Set([
     'create',
     'update',

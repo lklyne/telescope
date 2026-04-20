@@ -4,17 +4,14 @@
  * a new waypoint; the cursor folds onto a fresh spline from its current
  * (position, tangent), then advances at the director's speed model:
  *
- *   speed = baseSpeedPxS * moodMul * distanceSpeedScale(length)
+ *   speed = baseSpeedPxS * distanceSpeedScale(length)
  *
  * If this playground feels snappy but the real agent cursor feels slow, the
- * gap is somewhere outside the director's math — likely the session/mood
- * classification, HTTP verb latency, or a waypoint rect that's farther from
- * the cursor than expected. Conversely, if the playground matches the real
- * experience, the tuning is the lever to pull.
+ * gap is somewhere outside the director's math — likely HTTP verb latency
+ * or a waypoint rect that's farther from the cursor than expected.
  */
 
 import { useEffect, useRef, useState } from 'react'
-import type { Mood } from '../../shared/agent-action'
 import type { CursorTuningParams } from '../../shared/cursor-tuning'
 import { easeAt, type Vec2 } from '../../shared/cursor-motion'
 import {
@@ -25,23 +22,14 @@ import {
   distanceSpeedScale,
   CURSOR_DISTANCE_REFERENCE_PX,
 } from '../../shared/cursor-tuning'
-import { paramsForMood } from '../../shared/cursor-mood-params'
 import { FilledCursorIcon } from '../canvas-bg/AgentCursorLayer'
-
-const MOODS: Mood[] = [
-  'exploring',
-  'committing',
-  'correcting',
-  'waiting',
-  'stuck',
-  'error',
-]
 
 const TRAIL_LIMIT = 6
 const CURSOR_COLOR = '#2563eb'
 const ACTIVE_STROKE = '#16a34a'
 const GHOST_STROKE = '#64748b'
 const SPLINE_SAMPLES = 48
+const SPLINE_ALPHA = 0.5
 
 type Trail = {
   id: number
@@ -69,7 +57,6 @@ export function PresencePlayground({
   const tangentRef = useRef<Vec2>({ x: 1, y: 0 })
   const activeRef = useRef<ActiveRun | null>(null)
   const tuningRef = useRef(tuning)
-  const moodRef = useRef<Mood>('committing')
   const rafRef = useRef<number | null>(null)
   const lastTickRef = useRef<number>(0)
   const seqRef = useRef(0)
@@ -78,7 +65,6 @@ export function PresencePlayground({
   const [activeSplinePolyline, setActiveSplinePolyline] = useState<Vec2[] | null>(
     null,
   )
-  const [mood, setMood] = useState<Mood>('committing')
   const [stats, setStats] = useState<{
     length: number
     speedPxS: number
@@ -88,10 +74,6 @@ export function PresencePlayground({
   useEffect(() => {
     tuningRef.current = tuning
   }, [tuning])
-
-  useEffect(() => {
-    moodRef.current = mood
-  }, [mood])
 
   useEffect(() => {
     applyCursorTransform(cursorRef.current, positionRef.current)
@@ -151,13 +133,9 @@ export function PresencePlayground({
     if (distance < 1) return
 
     const t = tuningRef.current
-    const alpha = paramsForMood(moodRef.current).splineAlpha
-    const spline = foldSpline(from, tangentRef.current, [target], alpha)
+    const spline = foldSpline(from, tangentRef.current, [target], SPLINE_ALPHA)
     const splineSpeedScale = distanceSpeedScale(t, spline.totalLength)
-    const moodMul = t.moodSpeedEnabled
-      ? paramsForMood(moodRef.current).speedMultiplier
-      : 1
-    const effectiveSpeed = t.baseSpeedPxS * moodMul * splineSpeedScale
+    const effectiveSpeed = t.baseSpeedPxS * splineSpeedScale
     const durationMs =
       effectiveSpeed > 0 ? (spline.totalLength / effectiveSpeed) * 1000 : Infinity
 
@@ -207,26 +185,7 @@ export function PresencePlayground({
           <FilledCursorIcon color={CURSOR_COLOR} size={24} />
         </div>
         <InstructionHint />
-        <StatsOverlay tuning={tuning} mood={mood} stats={stats} />
-      </div>
-      <div className="flex items-center gap-3 border-t border-[var(--surface-popover-border)] px-4 py-2 text-[11px]">
-        <label className="font-medium opacity-70">Mood</label>
-        <select
-          value={mood}
-          onChange={(e) => setMood(e.target.value as Mood)}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          {MOODS.map((m) => (
-            <option key={m} value={m}>
-              {m} (×{paramsForMood(m).speedMultiplier})
-            </option>
-          ))}
-        </select>
-        <span className="opacity-55">
-          {tuning.moodSpeedEnabled
-            ? 'Mood multiplier applied'
-            : 'Mood multiplier disabled — using 1.0'}
-        </span>
+        <StatsOverlay tuning={tuning} stats={stats} />
       </div>
     </div>
   )
@@ -322,11 +281,9 @@ function InstructionHint() {
 
 function StatsOverlay({
   tuning,
-  mood,
   stats,
 }: {
   tuning: CursorTuningParams
-  mood: Mood
   stats: { length: number; speedPxS: number; durationMs: number } | null
 }) {
   return (
@@ -338,10 +295,6 @@ function StatsOverlay({
     >
       <div>
         base {tuning.baseSpeedPxS} px/s · scale {tuning.distanceScaling.toFixed(2)}
-      </div>
-      <div>
-        mood {mood} ×
-        {(tuning.moodSpeedEnabled ? paramsForMood(mood).speedMultiplier : 1).toFixed(2)}
       </div>
       <div>ref {CURSOR_DISTANCE_REFERENCE_PX} px</div>
       {stats ? (

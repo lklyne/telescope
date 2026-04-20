@@ -13,21 +13,14 @@
  * Easing shapes the *time* axis of each spline: progress is driven by
  * `easeAt(easing, elapsed / splineDurationMs)` rather than accumulating
  * constant arc-length per tick. splineDurationMs is frozen at spline
- * creation from baseSpeed × mood × distance scale, so mood changes only
- * take effect at the next fold (same as legacy behavior).
+ * creation from baseSpeed × distance scale.
  */
 
 import { type EasingSpec, normalizeEasing } from './cursor-motion'
 
 export interface CursorTuningParams {
-  /** Base arc-length speed before mood + distance scale, in px/s. */
+  /** Base arc-length speed before distance scale, in px/s. */
   baseSpeedPxS: number
-  /**
-   * When false, the director ignores `paramsForMood(...).speedMultiplier`
-   * and always uses 1.0. Useful to audit whether a "slow / stopped cursor"
-   * bug comes from mood classification (waiting / stuck / error → 0).
-   */
-  moodSpeedEnabled: boolean
   /**
    * 0..1 exponent. 1 = constant speed (duration grows with distance).
    * 0 = constant duration regardless of distance.
@@ -55,7 +48,6 @@ export interface CursorTuningParams {
 
 export const DEFAULT_CURSOR_TUNING: CursorTuningParams = {
   baseSpeedPxS: 600,
-  moodSpeedEnabled: true,
   distanceScaling: 1,
   easing: { kind: 'preset', name: 'easeInOutCubic' },
   syncCapMs: 300,
@@ -76,8 +68,6 @@ export function normalizeCursorTuning(raw: unknown): CursorTuningParams {
   const d = DEFAULT_CURSOR_TUNING
   return {
     baseSpeedPxS: clamp(Number(r.baseSpeedPxS ?? d.baseSpeedPxS), 50, 2000, d.baseSpeedPxS),
-    moodSpeedEnabled:
-      typeof r.moodSpeedEnabled === 'boolean' ? r.moodSpeedEnabled : d.moodSpeedEnabled,
     distanceScaling: clamp(Number(r.distanceScaling ?? d.distanceScaling), 0, 1, d.distanceScaling),
     easing: normalizeEasing(r.easing),
     syncCapMs: clamp(Number(r.syncCapMs ?? d.syncCapMs), 0, 1000, d.syncCapMs),

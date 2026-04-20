@@ -7,6 +7,7 @@ import type {
   PresenceTargetRefSource,
 } from '../shared/types'
 import {
+  PRESENCE_BATCH_BUDGET_MS,
   PRESENCE_STEP_DELAY_MS,
   PRESENCE_THINKING_DELAY_MS,
 } from '../shared/presence-timing'
@@ -504,7 +505,45 @@ function movePresenceCursorTo(
   notifyPresenceChanged()
 }
 
-/** Stagger an operation across positions in the background. Cancellable via activeScanId. */
+/**
+ * A single enqueued step in a session's mutation drain. Carries its own
+ * request so coalesced batches from different callers keep their origin,
+ * and its own per-item delay so each batch's pacing is calibrated to the
+ * batch size it was enqueued with.
+ */
+interface MutationStep {
+  request: IncomingMessage
+  x: number
+  y: number
+  labelKey: PresenceLabelKey | null
+  perItemDelayMs: number
+  perform: () => void
+}
+
+/**
+ * Per-session append-only mutation queues. Rapid-fire requests from the
+ * same session append to the running drain; they do not cancel it. This
+ * is what lets `telescope delete id1 && telescope delete id2 && ...`
+ * actually complete every delete instead of silently dropping all but one.
+ */
+const mutationQueues = new Map<string, MutationStep[]>()
+const mutationRunning = new Set<string>()
+
+export function isMutationRunActive(sessionId: string): boolean {
+  return mutationRunning.has(sessionId)
+}
+
+/**
+ * Drive a cursor gesture over `items`, firing `perform(i)` once the cursor
+ * has arrived at each position. Runs to completion — new calls from the
+ * same session append to the running drain rather than cancelling it.
+ *
+ * Pacing: single-item ops get the full PRESENCE_STEP_DELAY_MS so the
+ * "move, then act" gesture is clear. Multi-item batches divide
+ * PRESENCE_BATCH_BUDGET_MS across their items, so an N-item batch drains
+ * in ≈ budget time regardless of N — the tail mutation always lands
+ * within one budget window of the request.
+ */
 export function staggerOperation(
   request: IncomingMessage,
   items: Array<{ x: number; y: number }>,
@@ -512,33 +551,95 @@ export function staggerOperation(
   perform: (index: number) => void,
 ): void {
   if (items.length === 0) return
-  const scanId = bumpActiveScanId()
+  const resolved = resolveSession(request)
+  if (!resolved) {
+    // No session to animate against — run mutations synchronously so the
+    // data model stays consistent even when presence can't be rendered.
+    for (let i = 0; i < items.length; i++) perform(i)
+    return
+  }
+  const { sessionId } = resolved
+
+  const perItemDelayMs = items.length === 1
+    ? PRESENCE_CURSOR_STEP_DELAY_MS
+    : Math.max(1, Math.floor(PRESENCE_BATCH_BUDGET_MS / items.length))
+
+  const steps: MutationStep[] = items.map((it, i) => ({
+    request,
+    x: it.x,
+    y: it.y,
+    labelKey,
+    perItemDelayMs,
+    perform: () => perform(i),
+  }))
+
+  const queue = mutationQueues.get(sessionId) ?? []
+  queue.push(...steps)
+  mutationQueues.set(sessionId, queue)
+
+  if (mutationRunning.has(sessionId)) return
+
+  mutationRunning.add(sessionId)
+  // Take the cursor from any running scan so the mutation owns the gesture.
+  // Mutations themselves don't consult activeScanId — they always complete.
+  bumpActiveScanId()
   void (async () => {
-    for (let i = 0; i < items.length; i++) {
-      if (activeScanId !== scanId) return
-      movePresenceCursorTo(request, items[i].x, items[i].y, labelKey)
-      await delay(PRESENCE_CURSOR_STEP_DELAY_MS)
-      if (activeScanId !== scanId) return
-      upsertPresenceCursor(request, {
-        canvasX: items[i].x,
-        canvasY: items[i].y,
-        surface: 'canvas',
-        activity: 'acting',
-        labelKey,
-      })
-      perform(i)
+    try {
+      while (true) {
+        const q = mutationQueues.get(sessionId)
+        if (!q || q.length === 0) break
+        const step = q.shift()!
+        movePresenceCursorTo(step.request, step.x, step.y, step.labelKey)
+        await delay(step.perItemDelayMs)
+        upsertPresenceCursor(step.request, {
+          canvasX: step.x,
+          canvasY: step.y,
+          surface: 'canvas',
+          activity: 'acting',
+          labelKey: step.labelKey,
+        })
+        step.perform()
+      }
+    } finally {
+      mutationRunning.delete(sessionId)
+      mutationQueues.delete(sessionId)
+      setPresenceCursorIdle(request)
     }
-    setPresenceCursorIdle(request)
   })()
 }
 
-/** Animate cursor over positions without performing operations (for read scans). */
+/**
+ * Animate the cursor across positions without performing any mutation.
+ * Used for read scans (workspace listing, etc.). Cancellable via
+ * activeScanId — a newer scan or a starting mutation interrupts it.
+ * Skipped entirely when a mutation is already draining for this session:
+ * scans are decorative and must not fight the mutation for the cursor.
+ */
 export function animateCursorScan(
   request: IncomingMessage,
   positions: Array<{ x: number; y: number }>,
   labelKey: PresenceLabelKey | null,
 ): void {
-  staggerOperation(request, positions, labelKey, () => {})
+  if (positions.length === 0) return
+  const resolved = resolveSession(request)
+  if (resolved && mutationRunning.has(resolved.sessionId)) return
+  const scanId = bumpActiveScanId()
+  void (async () => {
+    for (let i = 0; i < positions.length; i++) {
+      if (activeScanId !== scanId) return
+      movePresenceCursorTo(request, positions[i].x, positions[i].y, labelKey)
+      await delay(PRESENCE_CURSOR_STEP_DELAY_MS)
+      if (activeScanId !== scanId) return
+      upsertPresenceCursor(request, {
+        canvasX: positions[i].x,
+        canvasY: positions[i].y,
+        surface: 'canvas',
+        activity: 'acting',
+        labelKey,
+      })
+    }
+    setPresenceCursorIdle(request)
+  })()
 }
 
 // --- Reset ---
@@ -559,5 +660,7 @@ export function resetPresenceState(pendingIntents: Map<string, { expiryTimer: No
   pendingIntents.clear()
   activePresenceTasks.clear()
   presenceCursors.clear()
+  mutationQueues.clear()
+  mutationRunning.clear()
   notifyPresenceChanged()
 }

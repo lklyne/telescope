@@ -70,6 +70,7 @@ import { resolveSession } from './presence-session'
 import {
   activePresenceTasks,
   bumpActiveScanId,
+  isMutationRunActive,
   upsertPresenceCursor,
   upsertActivePresenceTask,
   scheduleThinkingState,
@@ -486,6 +487,14 @@ export function updatePresenceCursor(
 ): void {
   if (url === '/session/presence') return
   if (url.startsWith('/mcp/session/')) return
+
+  // A mutation drain owns the cursor end-to-end — don't let middleware
+  // reposition stomp the per-item gesture, and don't bump the scan id
+  // either (that only affects read scans, which are already suppressed
+  // while a mutation is running).
+  const resolved = resolveSession(request, body)
+  if (resolved && isMutationRunActive(resolved.sessionId)) return
+
   bumpActiveScanId()
 
   const frameId = deriveFrameId(url, body)

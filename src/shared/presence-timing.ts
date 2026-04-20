@@ -29,6 +29,13 @@ export const PRESENCE_DWELL_MS = 50
  *  scan animations. */
 export const PRESENCE_STEP_DELAY_MS = PRESENCE_TRAVEL_MS + PRESENCE_DWELL_MS
 
+/** Total pacing budget for a batch mutation (multi-item create/delete).
+ *  The drain loop divides this across all items in the batch so tail latency
+ *  stays bounded regardless of N: a single-item op waits the full
+ *  PRESENCE_STEP_DELAY_MS, but an N-item batch waits ≈ this / N per item.
+ *  Travel is a continuous spline in the director — it is unaffected. */
+export const PRESENCE_BATCH_BUDGET_MS = PRESENCE_STEP_DELAY_MS
+
 /** How long to wait after the last tool call before auto-transitioning the
  *  cursor to the "Thinking…" state. Covers the gap while the agent's chain
  *  of thought runs between actions. */

@@ -340,7 +340,8 @@ export const entityRoutes: Route[] = [
         }
         if (pos) itemsToDelete.push({ kind: item.kind, id: item.id, ...pos })
       }
-      writeJson(response, 200, { items: payload.items.map((item) => ({ kind: item.kind, id: item.id, deleted: true })) })
+      const queued = new Set(itemsToDelete.map((i) => i.id))
+      writeJson(response, 200, { items: payload.items.map((item) => ({ kind: item.kind, id: item.id, deleted: queued.has(item.id) })) })
       staggerOperation(request, itemsToDelete, null, (i) => {
         const item = itemsToDelete[i]
         if (item.kind === 'frame') deleteFrames({ frameIds: [item.id] })

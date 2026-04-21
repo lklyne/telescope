@@ -5,6 +5,7 @@ import { workspaceViewMode } from '../ui-state'
 import { selectBrowserTab } from './runtime-core'
 import { checkForUpdatesManually } from '../auto-updater'
 import { showOnboardingWindow } from '../onboarding-window'
+import { showDebugWindow } from '../debug-window'
 import {
   bundledSkillHash,
   installedSkillHash,
@@ -125,6 +126,11 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
       label: 'View',
       submenu: [
         { role: 'toggleDevTools' },
+        {
+          label: 'Open Motion Debug Window',
+          accelerator: 'CmdOrCtrl+Shift+D',
+          click: () => showDebugWindow(),
+        },
         { type: 'separator' },
         { role: 'togglefullscreen' },
       ],

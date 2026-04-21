@@ -48,6 +48,11 @@ const config: ForgeConfig = {
           target: 'main',
         },
         {
+          entry: 'src/preload/debug.ts',
+          config: 'vite.preload.config.ts',
+          target: 'preload',
+        },
+        {
           entry: 'src/preload/toolbar.ts',
           config: 'vite.preload.config.ts',
           target: 'preload',

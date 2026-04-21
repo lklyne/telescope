@@ -388,9 +388,11 @@ export function buildCanvasLayoutData(
             // render outside the frame when targeting off-screen elements.
             const clampedX = Math.max(0, Math.min(point.x, frame.width))
             const clampedY = Math.max(0, Math.min(point.y, frame.height))
+            const page = findPageById(frame.id)
+            const chromeHeight = page?.chromeHeight ?? 0
             return {
               canvasX: frame.canvasX + clampedX,
-              canvasY: frame.canvasY + clampedY,
+              canvasY: frame.canvasY + chromeHeight + clampedY,
             }
           }
         }

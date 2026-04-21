@@ -4,14 +4,25 @@
 
 import { app, nativeTheme } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 import type {
+  CursorMotionParams,
   DevtoolsPanelTab,
   FixConfig,
   OnboardingState,
   OriginBinding,
   OriginBindings,
 } from '../../shared/types'
+import {
+  DEFAULT_CURSOR_MOTION,
+  normalizeCursorMotion,
+} from '../../shared/cursor-motion'
+import {
+  DEFAULT_CURSOR_TUNING,
+  normalizeCursorTuning,
+  type CursorTuningParams,
+} from '../../shared/cursor-tuning'
+import { getDebugWebContents } from '../debug-window'
 import {
   bgView,
   aboveView,
@@ -52,14 +63,22 @@ type PreferencesFile = {
   onboarding?: OnboardingState
   originBindings?: OriginBindings
   fixConfig?: Omit<FixConfig, 'configured'>
+  debug?: {
+    cursorMotion?: CursorMotionParams
+    cursorSplineViz?: boolean
+    cursorTuning?: CursorTuningParams
+  }
 }
+
+let currentCursorMotion: CursorMotionParams = DEFAULT_CURSOR_MOTION
+let currentCursorSplineViz = false
+let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 
 function readPreferencesFile(): PreferencesFile {
   try {
-    const file = preferencesPath()
-    if (!existsSync(file)) return {}
-    return JSON.parse(readFileSync(file, 'utf8')) as PreferencesFile
+    return JSON.parse(readFileSync(preferencesPath(), 'utf8')) as PreferencesFile
   } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return {}
     console.error('Failed to read preferences:', error)
     return {}
   }
@@ -129,6 +148,48 @@ export function loadPreferences(): void {
   if (parsed.fixConfig && typeof parsed.fixConfig === 'object') {
     fixConfig = { ...DEFAULT_FIX_CONFIG, ...parsed.fixConfig, configured: true }
   }
+  currentCursorMotion = normalizeCursorMotion(parsed.debug?.cursorMotion)
+  currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
+  currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
+}
+
+export function getCursorMotion(): CursorMotionParams {
+  return currentCursorMotion
+}
+
+export function getCursorSplineViz(): boolean {
+  return currentCursorSplineViz
+}
+
+export function saveCursorSplineViz(next: boolean): void {
+  currentCursorSplineViz = next === true
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    debug: { ...parsed.debug, cursorSplineViz: currentCursorSplineViz },
+  })
+}
+
+export function saveCursorMotion(next: CursorMotionParams): void {
+  currentCursorMotion = normalizeCursorMotion(next)
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    debug: { ...parsed.debug, cursorMotion: currentCursorMotion },
+  })
+}
+
+export function getCursorTuning(): CursorTuningParams {
+  return currentCursorTuning
+}
+
+export function saveCursorTuning(next: CursorTuningParams): void {
+  currentCursorTuning = normalizeCursorTuning(next)
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    debug: { ...parsed.debug, cursorTuning: currentCursorTuning },
+  })
 }
 
 export function savePreferences(): void {
@@ -198,9 +259,32 @@ export function broadcastTheme(): void {
   if (devtoolsResizeHandleView && !devtoolsResizeHandleView.webContents.isDestroyed()) {
     devtoolsResizeHandleView.webContents.send('theme-changed', data)
   }
+  const debugWebContents = getDebugWebContents()
+  if (debugWebContents && !debugWebContents.isDestroyed()) {
+    debugWebContents.send('theme-changed', data)
+  }
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]
     page.frameView.setBackgroundColor(frameColor())
     page.chromeView.webContents.send('theme-changed', data)
   }
+}
+
+function broadcastToDebugTargets(channel: string, payload: unknown): void {
+  const targets = [
+    bgView?.webContents,
+    aboveView?.webContents,
+    getDebugWebContents(),
+  ]
+  for (const wc of targets) {
+    if (wc && !wc.isDestroyed()) wc.send(channel, payload)
+  }
+}
+
+export function broadcastCursorMotion(): void {
+  broadcastToDebugTargets('cursor-motion-changed', currentCursorMotion)
+}
+
+export function broadcastCursorSplineViz(): void {
+  broadcastToDebugTargets('cursor-spline-viz-changed', currentCursorSplineViz)
 }

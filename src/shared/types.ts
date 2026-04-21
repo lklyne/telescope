@@ -1,3 +1,14 @@
+import type {
+  CursorMotionParams,
+  CurveDirection,
+  EasingPreset,
+  EasingSpec,
+  MotionCandidate,
+  Vec2,
+} from './cursor-motion'
+import type { CursorTuningParams } from './cursor-tuning'
+import type { PresenceDebugEntry } from './presence-debug'
+
 // --- IPC Channel Types ---
 
 export interface ViewportPreset {
@@ -494,6 +505,13 @@ export interface ThemeBootstrapData {
   theme: ThemeData
 }
 
+export interface DebugBootstrapData extends ThemeBootstrapData {
+  cursorMotion: CursorMotionParams
+  cursorSplineViz: boolean
+  cursorTuning: CursorTuningParams
+  presenceTimeline: PresenceDebugEntry[]
+}
+
 export interface LeftSidebarBootstrapData extends ThemeBootstrapData {
   sidebarData: LeftSidebarData
 }
@@ -547,6 +565,38 @@ export interface OnboardingElectronAPI {
   dismiss: () => void
   onProgress: (callback: (event: OnboardingProgressEvent) => void) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
+}
+
+export interface DebugElectronAPI {
+  getInitialData: () => Promise<DebugBootstrapData>
+  updateCursorMotion: (params: CursorMotionParams) => void
+  resetCursorMotion: () => void
+  onCursorMotionChanged: (callback: (params: CursorMotionParams) => void) => () => void
+  updateCursorSplineViz: (on: boolean) => void
+  onCursorSplineVizChanged: (callback: (on: boolean) => void) => () => void
+  updateCursorTuning: (params: CursorTuningParams) => void
+  resetCursorTuning: () => void
+  onPresenceTimelineAppend: (callback: (entry: PresenceDebugEntry) => void) => () => void
+  onThemeChanged: (callback: (data: ThemeData) => void) => () => void
+}
+
+export interface DebugPreviewPath {
+  start: Vec2
+  end: Vec2
+  candidates: MotionCandidate[]
+  selectedCandidateIndex: number
+  samples: Vec2[]
+}
+
+export type {
+  CursorMotionParams,
+  CurveDirection,
+  CursorTuningParams,
+  EasingPreset,
+  EasingSpec,
+  MotionCandidate,
+  PresenceDebugEntry,
+  Vec2,
 }
 
 export interface CanvasLayoutBootstrapData extends ThemeBootstrapData {

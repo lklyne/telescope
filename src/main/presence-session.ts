@@ -25,44 +25,37 @@ export function activeSessions(now = Date.now()): McpClientSession[] {
   return sessions
 }
 
+function upsertSession(
+  id: string,
+  clientName: string | undefined,
+): { sessionId: string; session: McpClientSession } {
+  const existing = mcpSessions.get(id)
+  if (existing) {
+    existing.lastSeenAt = Date.now()
+    if (clientName) existing.clientName = clientName
+    return { sessionId: id, session: existing }
+  }
+  const next: McpClientSession = {
+    id,
+    clientName: clientName ?? id,
+    lastSeenAt: Date.now(),
+  }
+  mcpSessions.set(id, next)
+  return { sessionId: id, session: next }
+}
+
 export function resolveSession(
   request: IncomingMessage,
   body?: Record<string, unknown>,
 ): { sessionId: string; session: McpClientSession } | null {
   const headerId = request.headers['x-telescope-session-id'] as string | undefined
   const headerClientName = request.headers['x-telescope-client-name'] as string | undefined
-  if (headerId) {
-    const existing = mcpSessions.get(headerId)
-    if (existing) {
-      existing.lastSeenAt = Date.now()
-      if (headerClientName) existing.clientName = headerClientName
-      return { sessionId: headerId, session: existing }
-    }
-    const nextSession = {
-      id: headerId,
-      clientName: headerClientName ?? headerId,
-      lastSeenAt: Date.now(),
-    }
-    mcpSessions.set(headerId, nextSession)
-    return { sessionId: headerId, session: nextSession }
-  }
+  if (headerId) return upsertSession(headerId, headerClientName)
+
   const bodySessionId = typeof body?.sessionId === 'string' ? body.sessionId : undefined
   const bodyClientName = typeof body?.clientName === 'string' ? body.clientName : undefined
-  if (bodySessionId) {
-    const existing = mcpSessions.get(bodySessionId)
-    if (existing) {
-      existing.lastSeenAt = Date.now()
-      if (bodyClientName) existing.clientName = bodyClientName
-      return { sessionId: bodySessionId, session: existing }
-    }
-    const nextSession = {
-      id: bodySessionId,
-      clientName: bodyClientName ?? bodySessionId,
-      lastSeenAt: Date.now(),
-    }
-    mcpSessions.set(bodySessionId, nextSession)
-    return { sessionId: bodySessionId, session: nextSession }
-  }
+  if (bodySessionId) return upsertSession(bodySessionId, bodyClientName)
+
   const active = activeSessions()
   if (active.length === 0) return null
   const session = active.reduce((a, b) => (a.lastSeenAt >= b.lastSeenAt ? a : b))

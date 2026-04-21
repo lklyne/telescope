@@ -124,7 +124,7 @@ export function notifyPresenceChanged(): void {
 }
 
 function schedulePresenceExpiry(): void {
-  if (presenceExpiryTimer) clearTimeout(presenceExpiryTimer)
+  if (presenceExpiryTimer) return
   presenceExpiryTimer = setTimeout(() => {
     presenceExpiryTimer = null
     const before = presenceCursors.size + activePresenceTasks.size

@@ -4,7 +4,7 @@
 
 import { app, nativeTheme } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 import type {
   CursorMotionParams,
   DevtoolsPanelTab,
@@ -76,10 +76,9 @@ let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 
 function readPreferencesFile(): PreferencesFile {
   try {
-    const file = preferencesPath()
-    if (!existsSync(file)) return {}
-    return JSON.parse(readFileSync(file, 'utf8')) as PreferencesFile
+    return JSON.parse(readFileSync(preferencesPath(), 'utf8')) as PreferencesFile
   } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return {}
     console.error('Failed to read preferences:', error)
     return {}
   }
@@ -271,30 +270,21 @@ export function broadcastTheme(): void {
   }
 }
 
-export function broadcastCursorMotion(): void {
-  const params = currentCursorMotion
-  if (bgView && !bgView.webContents.isDestroyed()) {
-    bgView.webContents.send('cursor-motion-changed', params)
-  }
-  if (aboveView && !aboveView.webContents.isDestroyed()) {
-    aboveView.webContents.send('cursor-motion-changed', params)
-  }
-  const debugWebContents = getDebugWebContents()
-  if (debugWebContents && !debugWebContents.isDestroyed()) {
-    debugWebContents.send('cursor-motion-changed', params)
+function broadcastToDebugTargets(channel: string, payload: unknown): void {
+  const targets = [
+    bgView?.webContents,
+    aboveView?.webContents,
+    getDebugWebContents(),
+  ]
+  for (const wc of targets) {
+    if (wc && !wc.isDestroyed()) wc.send(channel, payload)
   }
 }
 
+export function broadcastCursorMotion(): void {
+  broadcastToDebugTargets('cursor-motion-changed', currentCursorMotion)
+}
+
 export function broadcastCursorSplineViz(): void {
-  const on = currentCursorSplineViz
-  if (bgView && !bgView.webContents.isDestroyed()) {
-    bgView.webContents.send('cursor-spline-viz-changed', on)
-  }
-  if (aboveView && !aboveView.webContents.isDestroyed()) {
-    aboveView.webContents.send('cursor-spline-viz-changed', on)
-  }
-  const debugWebContents = getDebugWebContents()
-  if (debugWebContents && !debugWebContents.isDestroyed()) {
-    debugWebContents.send('cursor-spline-viz-changed', on)
-  }
+  broadcastToDebugTargets('cursor-spline-viz-changed', currentCursorSplineViz)
 }

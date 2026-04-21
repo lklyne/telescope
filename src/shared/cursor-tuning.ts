@@ -1,8 +1,5 @@
 /**
  * Cursor tuning defaults + normalization.
- *
- * In this branch the values are used by the debug presence playground only;
- * they do not drive production cursor playback yet.
  */
 
 import { type EasingSpec, normalizeEasing } from './cursor-motion'

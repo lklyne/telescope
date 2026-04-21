@@ -19,7 +19,7 @@ import {
   CURSOR_DISTANCE_REFERENCE_PX,
   distanceSpeedScale,
 } from '../../shared/cursor-tuning'
-import { FilledCursorIcon } from '../canvas-bg/AgentCursorLayer'
+import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 
 const TRAIL_LIMIT = 6
 const CURSOR_COLOR = '#2563eb'

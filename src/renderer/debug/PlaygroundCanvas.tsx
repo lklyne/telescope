@@ -8,7 +8,7 @@ import {
   pickCandidateIndex,
   type MotionCandidate,
 } from '../../shared/cursor-motion'
-import { FilledCursorIcon } from '../canvas-bg/AgentCursorLayer'
+import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 
 const TRAIL_LIMIT = 6
 const CURSOR_COLOR = '#2563eb'

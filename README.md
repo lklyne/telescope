@@ -29,7 +29,7 @@ All this stuff is designed with collaboration in mind, so it's easy to vibe out 
 - **Edges & connections** — Draw connections between entities on the canvas
 - **Undo/redo** — Full undo history backed by Yjs CRDTs
 - **Local-first storage** — No sign-in, no account. All files live on your computer
-- **Open file formats** — Canvas layout uses Obsidian's `.canvas` spec; text and media are plain `.md`, `.png`, and `.webm` files that live on your computer in a folder.
+- **Open file formats** — Canvas layout uses the [JSON Canvas](https://jsoncanvas.org) spec (also used by Obsidian); text and media are plain `.md`, `.png`, and `.webm` files that live on your computer in a folder.
 
 ## Inspiration and related products
 - [Paper](https://paper.design): best full-featured design tool with agent collaboration

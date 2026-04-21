@@ -32,11 +32,11 @@ All this stuff is designed with collaboration in mind, so it's easy to vibe out 
 - **Open file formats** — Canvas layout uses the [JSON Canvas](https://jsoncanvas.org) spec (also used by Obsidian); text and media are plain `.md`, `.png`, and `.webm` files that live on your computer in a folder.
 
 ## Inspiration and related products
-- [Paper](https://paper.design): best full-featured design tool with agent collaboration
+- [Paper](https://paper.design): imo the best full-featured design tool with agent collaboration
 - [Agentation](https://agentation.com): inspiration for visual edits and commenting
 - [Polypane](https://polypane.app): for viewing a webpage across multiple breakpoints in one place
 - [Obsidian](https://obsidian.md): inspiration from local storage format and its lightweight canvas
-- [agent-browser](https://agent-browser.dev): inspiration for cli based web automation
+- [agent-browser](https://agent-browser.dev): inspiration for cli based web automation. Wrapped in telescope skill for browser automation.
 
 ## System requirements
 

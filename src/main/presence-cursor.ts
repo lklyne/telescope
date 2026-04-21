@@ -74,12 +74,6 @@ let presenceExpiryTimer: NodeJS.Timeout | null = null
 export const PRESENCE_CURSOR_STEP_DELAY_MS = PRESENCE_STEP_DELAY_MS
 const PRESENCE_CURSOR_THINKING_DELAY_MS = PRESENCE_THINKING_DELAY_MS
 const PRESENCE_DEPARTURE_GRACE_MS = 1500
-/**
- * How long a cursor can sit without new updates before the sweep fades it.
- * Bumps on every `upsertPresenceCursor` / `movePresenceCursorTo`, so as long
- * as the agent is actively doing work the cursor stays. When the work stops
- * and nothing new arrives for this long, fade begins.
- */
 const PRESENCE_IDLE_RETIRE_MS = 10_000
 
 // --- Coercion validation sets ---
@@ -204,10 +198,6 @@ function expirePresenceCursors(now: number): void {
       beginPresenceDeparture(id)
       continue
     }
-    // Idle retirement: whether or not the session still holds an active task,
-    // no new cursor update in PRESENCE_IDLE_RETIRE_MS means the agent has
-    // stopped doing work. Fade rather than hard-remove so the disappear is
-    // graceful.
     if (now - cursor.updatedAt > PRESENCE_IDLE_RETIRE_MS) {
       beginPresenceDeparture(id)
     }
@@ -420,9 +410,6 @@ export function clearActivePresenceTask(
 ): void {
   const resolved = resolveSession(request, body)
   if (!resolved) return
-  // `beginPresenceDeparture` handles the task delete, cursor → 'departing'
-  // transition, and scheduled remove — a graceful fade rather than an abrupt
-  // pop on the 'done' event.
   beginPresenceDeparture(resolved.sessionId)
   schedulePresenceExpiry()
   notifyPresenceChanged()

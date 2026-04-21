@@ -5,7 +5,11 @@ import type {
   PresenceActivity,
 } from '../../shared/types'
 import { labelForPresenceCursor } from '../../shared/agent-presence'
-import { DEFAULT_CURSOR_MOTION, easeAt } from '../../shared/cursor-motion'
+import {
+  DEFAULT_CURSOR_MOTION,
+  DISTANCE_SCALE_REFERENCE_PX,
+  easeAt,
+} from '../../shared/cursor-motion'
 import { foldSpline } from '../../shared/cursor-spline'
 import { framePointMatchesTargetRect } from '../../shared/presence-targeting'
 import {
@@ -15,12 +19,22 @@ import {
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 
 const ANIMATE_DURATION_MS = PRESENCE_TRAVEL_MS
+// Short hops complete faster, longer hops cap at ANIMATE_DURATION_MS, so the
+// pre-click dwell budget grows when the cursor only needs to travel a few px.
+const MIN_ANIMATE_DURATION_MS = 60
 const PRODUCTION_CURSOR_MOTION = {
   ...DEFAULT_CURSOR_MOTION,
   durationMs: ANIMATE_DURATION_MS,
   distanceScaling: 0,
 }
 const POSITION_EPSILON = 0.5
+
+function animationDurationForDistance(distance: number): number {
+  if (distance <= 0) return 0
+  if (distance >= DISTANCE_SCALE_REFERENCE_PX) return ANIMATE_DURATION_MS
+  const scaled = ANIMATE_DURATION_MS * (distance / DISTANCE_SCALE_REFERENCE_PX)
+  return Math.max(MIN_ANIMATE_DURATION_MS, scaled)
+}
 
 function activityStyle(activity: PresenceActivity): CSSProperties {
   switch (activity) {
@@ -164,11 +178,13 @@ function AgentCursor({
     }
 
     const spline = foldSpline(current, tangentRef.current, [target])
+    const distance = Math.hypot(target.x - current.x, target.y - current.y)
+    const duration = animationDurationForDistance(distance)
     let startedAt = 0
 
     const tick = (now: number) => {
       if (startedAt === 0) startedAt = now
-      const progress = Math.min(1, (now - startedAt) / PRODUCTION_CURSOR_MOTION.durationMs)
+      const progress = duration <= 0 ? 1 : Math.min(1, (now - startedAt) / duration)
       const sample = spline.sampleT(easeAt(PRODUCTION_CURSOR_MOTION.easing, progress))
       pointRef.current = sample.position
       tangentRef.current = sample.tangent

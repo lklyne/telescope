@@ -25,7 +25,9 @@ import {
 } from './presence-manager'
 import {
   upsertPresenceCursor,
+  presenceCursors,
   PRESENCE_CURSOR_STEP_DELAY_MS,
+  PRESENCE_CURSOR_POSITION_SKIP_PX,
 } from './presence-cursor'
 import {
   type CdpProxyRegistration,
@@ -546,14 +548,40 @@ export async function startAppControlServer(): Promise<void> {
           const y = params.y as number
           const resolved = resolveCanvasPointForFrame(registration.frameId, { frameX: x, frameY: y })
           if (resolved) {
+            // For mousePressed, if the CDP-resolved point is already inside the
+            // cursor's current targetRect (or just a few px away in canvas
+            // space), the intent already put us at the target — a second
+            // reposition would restart the 250ms animation from almost-zero
+            // distance and make the click land mid-correction. Flip activity
+            // but leave the position alone.
+            let skipPosition = false
+            if (cdpType === 'mousePressed') {
+              const existing = registration.sessionId
+                ? presenceCursors.get(registration.sessionId)
+                : undefined
+              if (existing && existing.frameId === registration.frameId) {
+                const rect = existing.targetRect
+                const withinTargetRect =
+                  rect != null &&
+                  x >= rect.x && x <= rect.x + rect.width &&
+                  y >= rect.y && y <= rect.y + rect.height
+                const canvasDistance = Math.hypot(
+                  resolved.canvasX - existing.canvasX,
+                  resolved.canvasY - existing.canvasY,
+                )
+                skipPosition =
+                  withinTargetRect ||
+                  canvasDistance < PRESENCE_CURSOR_POSITION_SKIP_PX
+              }
+            }
             upsertPresenceCursor(request, {
               body: pageSessionBody(),
               surface: 'frame',
               frameId: registration.frameId,
-              frameX: x,
-              frameY: y,
-              canvasX: resolved.canvasX,
-              canvasY: resolved.canvasY,
+              frameX: skipPosition ? undefined : x,
+              frameY: skipPosition ? undefined : y,
+              canvasX: skipPosition ? undefined : resolved.canvasX,
+              canvasY: skipPosition ? undefined : resolved.canvasY,
               activity: 'acting',
               labelKey: cdpType === 'mouseMoved' ? undefined : 'click_target',
               targetRef: null,
@@ -565,11 +593,16 @@ export async function startAppControlServer(): Promise<void> {
           if (cdpType === 'mousePressed') {
             const intentSessionId = registration.sessionId ?? ''
             const intent = pendingIntents.get(intentSessionId)
-            const elapsed = intent ? Date.now() - intent.receivedAt : 0
             if (intent) {
               clearTimeout(intent.expiryTimer)
               pendingIntents.delete(intentSessionId)
             }
+            // Budget the pre-click wait from the cursor's most recent actual
+            // position change, not from intent arrival. If agent-browser
+            // cold-start + scrollintoview ate the intent head-start, this
+            // restores the full travel+dwell window after the final reposition.
+            const cursor = intentSessionId ? presenceCursors.get(intentSessionId) : undefined
+            const elapsed = cursor ? Date.now() - cursor.lastMoveAt : 0
             const remaining = Math.max(0, PRESENCE_CURSOR_STEP_DELAY_MS - elapsed)
             if (remaining > 0) {
               await new Promise<void>((resolve) => setTimeout(resolve, remaining))

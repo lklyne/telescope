@@ -27,6 +27,8 @@ import {
   cdpProxyMetrics,
 } from '../cdp-proxy'
 import {
+  animateCursorScan,
+  movePresenceCursorTo,
   staggerOperation,
   normalizeAgentSnapshot,
   findPresenceTarget,
@@ -80,6 +82,8 @@ export const frameRoutes: Route[] = [
       const payload = body as CreateFramesRequest
       const frames = payload.frames ?? []
       if (frames.length <= 1) {
+        const frame = frames[0]
+        if (frame) movePresenceCursorTo(request, frame.canvasX, frame.canvasY, 'create_frame')
         writeJson(response, 200, createFrames(payload))
         return
       }
@@ -97,7 +101,7 @@ export const frameRoutes: Route[] = [
   {
     method: 'POST',
     pattern: '/frames/update',
-    async handler({ response, body }) {
+    async handler({ request, response, body }) {
       const payload = body as {
         frames: Array<{
           id: string
@@ -110,9 +114,11 @@ export const frameRoutes: Route[] = [
         }>
       }
       const updated: string[] = []
+      const positions: Array<{ x: number; y: number }> = []
       for (const f of payload.frames) {
         const page = findPageById(f.id)
         if (!page) continue
+        positions.push({ x: page.canvasX, y: page.canvasY })
         if (f.presetIndex !== undefined) setFramePreset(page.id, f.presetIndex)
         if (f.orientation !== undefined) setDeviceOrientation(page.id, f.orientation)
         if (f.showDeviceFrame !== undefined) {
@@ -128,13 +134,15 @@ export const frameRoutes: Route[] = [
         if (f.canvasY !== undefined) page.canvasY = f.canvasY
         updated.push(page.id)
       }
+      if (positions.length === 1) movePresenceCursorTo(request, positions[0].x, positions[0].y, null)
+      else if (positions.length > 1) animateCursorScan(request, positions, null)
       writeJson(response, 200, { updated })
     },
   },
   {
     method: 'POST',
     pattern: '/frames/create-at-position',
-    async handler({ response, body }) {
+    async handler({ request, response, body }) {
       const payload = body as {
         sourceFrameId?: string
         presetIndex?: number
@@ -145,6 +153,7 @@ export const frameRoutes: Route[] = [
         writeJson(response, 400, { error: 'canvasX and canvasY are required numbers' })
         return
       }
+      movePresenceCursorTo(request, payload.canvasX, payload.canvasY, 'create_frame')
       writeJson(
         response,
         200,
@@ -166,6 +175,11 @@ export const frameRoutes: Route[] = [
       const payload = body as DeleteFramesRequest
       const frameIds = payload.frameIds ?? []
       if (frameIds.length <= 1) {
+        const id = frameIds[0]
+        if (id) {
+          const page = findPageById(id)
+          if (page) movePresenceCursorTo(request, page.canvasX, page.canvasY, null)
+        }
         writeJson(response, 200, deleteFrames(payload))
         return
       }

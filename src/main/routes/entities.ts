@@ -15,7 +15,12 @@ import { createFrames } from '../workspace-frames'
 import { deleteFrames } from '../workspace-entities'
 import { findPageById } from '../runtime/runtime-context'
 import { imageSizeFromPath, videoSizeFromPath } from '../runtime/image-sizing'
-import { animateCursorScan, allEntityPositions, staggerOperation } from '../presence-manager'
+import {
+  animateCursorScan,
+  allEntityPositions,
+  movePresenceCursorTo,
+  staggerOperation,
+} from '../presence-manager'
 import { writeJson } from '../app-control-server'
 
 export const entityRoutes: Route[] = [
@@ -49,6 +54,7 @@ export const entityRoutes: Route[] = [
           writeJson(response, 400, { error: 'canvasX and canvasY are required numbers' })
           return
         }
+        movePresenceCursorTo(request, item.canvasX, item.canvasY, null)
         writeJson(
           response,
           200,
@@ -97,7 +103,8 @@ export const entityRoutes: Route[] = [
         const entity = updateTextEntity(item.id, item.patch)
         if (entity) results.push(entity)
       }
-      if (positions.length > 1) animateCursorScan(request, positions, null)
+      if (positions.length === 1) movePresenceCursorTo(request, positions[0].x, positions[0].y, null)
+      else if (positions.length > 1) animateCursorScan(request, positions, null)
       writeJson(response, 200, items.length === 1 && !payload.items ? results[0] ?? { error: 'not found' } : { items: results })
     },
   },
@@ -111,7 +118,12 @@ export const entityRoutes: Route[] = [
       }
       const ids = payload.ids ?? [payload.id!]
       if (ids.length <= 1) {
-        const deleted = ids[0] ? deleteTextEntity(ids[0]) : false
+        const id = ids[0]
+        if (id) {
+          const existing = getTextEntities().find((e) => e.id === id)
+          if (existing) movePresenceCursorTo(request, existing.canvasX, existing.canvasY, null)
+        }
+        const deleted = id ? deleteTextEntity(id) : false
         writeJson(response, 200, !payload.ids ? { ok: deleted } : { deleted: deleted ? ids : [] })
         return
       }
@@ -160,6 +172,7 @@ export const entityRoutes: Route[] = [
         }
         const dims = resolveFileDimensions(item as { file: string; width?: number; height?: number })
         const id = item.id ?? `file_${randomUUID()}`
+        movePresenceCursorTo(request, item.canvasX, item.canvasY, null)
         createFileEntity({
           id,
           canvasX: item.canvasX,
@@ -211,7 +224,8 @@ export const entityRoutes: Route[] = [
         const entity = updateFileEntity(item.id, item.patch)
         if (entity) results.push(entity)
       }
-      if (positions.length > 1) animateCursorScan(request, positions, null)
+      if (positions.length === 1) movePresenceCursorTo(request, positions[0].x, positions[0].y, null)
+      else if (positions.length > 1) animateCursorScan(request, positions, null)
       writeJson(response, 200, items.length === 1 && !payload.items ? results[0] ?? { error: 'not found' } : { items: results })
     },
   },
@@ -225,7 +239,12 @@ export const entityRoutes: Route[] = [
       }
       const ids = payload.ids ?? [payload.id!]
       if (ids.length <= 1) {
-        const deleted = ids[0] ? deleteFileEntity(ids[0]) : false
+        const id = ids[0]
+        if (id) {
+          const existing = getFileEntities().find((e) => e.id === id)
+          if (existing) movePresenceCursorTo(request, existing.canvasX, existing.canvasY, null)
+        }
+        const deleted = id ? deleteFileEntity(id) : false
         writeJson(response, 200, !payload.ids ? { ok: deleted } : { deleted: deleted ? ids : [] })
         return
       }

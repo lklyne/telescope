@@ -59,6 +59,8 @@ export {
   allEntityPositions,
   staggerOperation,
   animateCursorScan,
+  movePresenceCursorTo,
+  findEntityPosition,
 } from './presence-cursor'
 
 // Re-export for route usage

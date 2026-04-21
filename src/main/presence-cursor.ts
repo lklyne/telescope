@@ -15,6 +15,7 @@ import {
   getFileEntities,
 } from './runtime/document-commands'
 import { pages } from './runtime/runtime-context'
+import { workspaceGroups } from './runtime/workspace-model'
 import {
   resolveSession,
   mcpSessions,
@@ -456,6 +457,20 @@ export function allEntityPositions(): Array<{ x: number; y: number }> {
   return positions
 }
 
+/** Look up the canvas position of any entity by id — frame, text, file, or
+ * group. Returns null if the id doesn't match anything. */
+export function findEntityPosition(id: string): { x: number; y: number } | null {
+  const page = pages.find((p) => p.id === id)
+  if (page) return { x: page.canvasX, y: page.canvasY }
+  const te = getTextEntities().find((e) => e.id === id)
+  if (te) return { x: te.canvasX, y: te.canvasY }
+  const fe = getFileEntities().find((e) => e.id === id)
+  if (fe) return { x: fe.canvasX, y: fe.canvasY }
+  const group = workspaceGroups.find((g) => g.id === id)
+  if (group) return { x: group.canvasX, y: group.canvasY }
+  return null
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -478,7 +493,7 @@ function setPresenceCursorIdle(request: IncomingMessage): void {
   notifyPresenceChanged()
 }
 
-function movePresenceCursorTo(
+export function movePresenceCursorTo(
   request: IncomingMessage,
   canvasX: number,
   canvasY: number,

@@ -74,6 +74,7 @@ let presenceExpiryTimer: NodeJS.Timeout | null = null
 export const PRESENCE_CURSOR_STEP_DELAY_MS = PRESENCE_STEP_DELAY_MS
 const PRESENCE_CURSOR_THINKING_DELAY_MS = PRESENCE_THINKING_DELAY_MS
 const PRESENCE_DEPARTURE_GRACE_MS = 1500
+const PRESENCE_IDLE_RETIRE_MS = 10_000
 
 // --- Coercion validation sets ---
 
@@ -197,8 +198,8 @@ function expirePresenceCursors(now: number): void {
       beginPresenceDeparture(id)
       continue
     }
-    if (!activePresenceTasks.has(id) && now - cursor.updatedAt > 10_000) {
-      removePresenceCursor(id)
+    if (now - cursor.updatedAt > PRESENCE_IDLE_RETIRE_MS) {
+      beginPresenceDeparture(id)
     }
   }
   // Clean up orphaned active tasks whose cursors have already been removed.
@@ -409,8 +410,7 @@ export function clearActivePresenceTask(
 ): void {
   const resolved = resolveSession(request, body)
   if (!resolved) return
-  activePresenceTasks.delete(resolved.sessionId)
-  removePresenceCursor(resolved.sessionId)
+  beginPresenceDeparture(resolved.sessionId)
   schedulePresenceExpiry()
   notifyPresenceChanged()
 }

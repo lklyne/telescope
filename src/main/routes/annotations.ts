@@ -1,5 +1,5 @@
 import type { Route } from './types'
-import type { AnnotationStatusFilter } from '../../shared/types'
+import type { AnnotationAnchor, AnnotationStatusFilter } from '../../shared/types'
 import {
   addAnnotationReply,
   createAnnotation,
@@ -12,7 +12,35 @@ import {
   fixAnnotation,
   fixPendingAnnotationsForOrigin,
 } from '../agent-fix/fix-orchestrator'
+import { findEntityPosition, movePresenceCursorTo } from '../presence-manager'
 import { writeJson } from '../app-control-server'
+import type { IncomingMessage } from 'http'
+
+/** Resolve an annotation's anchor to a canvas position. Returns null for
+ * frame/element anchors where the frame can't be found; those are rare
+ * enough that a silent miss is fine. */
+function annotationAnchorPosition(
+  anchor: AnnotationAnchor,
+): { x: number; y: number } | null {
+  if (anchor.type === 'canvas') return { x: anchor.canvasX, y: anchor.canvasY }
+  if (anchor.type === 'region') {
+    return {
+      x: anchor.canvasRect.x + anchor.canvasRect.width / 2,
+      y: anchor.canvasRect.y + anchor.canvasRect.height / 2,
+    }
+  }
+  if (anchor.type === 'frame' || anchor.type === 'element') {
+    return findEntityPosition(anchor.frameId)
+  }
+  return null
+}
+
+function moveCursorToAnnotation(request: IncomingMessage, id: string): void {
+  const annotation = getAnnotationById(id)
+  if (!annotation) return
+  const pos = annotationAnchorPosition(annotation.anchor)
+  if (pos) movePresenceCursorTo(request, pos.x, pos.y, null)
+}
 
 export const annotationRoutes: Route[] = [
   {
@@ -49,7 +77,7 @@ export const annotationRoutes: Route[] = [
   {
     method: 'POST',
     pattern: '/annotations',
-    async handler({ response, body }) {
+    async handler({ request, response, body }) {
       const payload = body as {
         anchor?: unknown
         author?: 'user' | 'agent'
@@ -62,6 +90,8 @@ export const annotationRoutes: Route[] = [
         writeJson(response, 400, { error: 'anchor and text are required' })
         return
       }
+      const pos = annotationAnchorPosition(payload.anchor as AnnotationAnchor)
+      if (pos) movePresenceCursorTo(request, pos.x, pos.y, null)
       writeJson(
         response,
         200,
@@ -81,8 +111,9 @@ export const annotationRoutes: Route[] = [
   {
     method: 'POST',
     pattern: /^\/annotations\/([^/]+)\/acknowledge$/,
-    async handler({ response, params }) {
+    async handler({ request, response, params }) {
       const id = params[0]
+      moveCursorToAnnotation(request, id)
       const result = updateAnnotationStatus(id, 'acknowledged')
       if (!result) {
         writeJson(response, 404, { error: `Annotation not found: ${id}` })
@@ -94,9 +125,10 @@ export const annotationRoutes: Route[] = [
   {
     method: 'POST',
     pattern: /^\/annotations\/([^/]+)\/dismiss$/,
-    async handler({ response, body, params }) {
+    async handler({ request, response, body, params }) {
       const id = params[0]
       const payload = body as { reason?: string }
+      moveCursorToAnnotation(request, id)
       const result = updateAnnotationStatus(id, 'dismissed', payload.reason)
       if (!result) {
         writeJson(response, 404, { error: `Annotation not found: ${id}` })
@@ -108,8 +140,9 @@ export const annotationRoutes: Route[] = [
   {
     method: 'POST',
     pattern: /^\/annotations\/([^/]+)\/resolve$/,
-    async handler({ response, params }) {
+    async handler({ request, response, params }) {
       const id = params[0]
+      moveCursorToAnnotation(request, id)
       const result = updateAnnotationStatus(id, 'resolved')
       if (!result) {
         writeJson(response, 404, { error: `Annotation not found: ${id}` })
@@ -121,13 +154,14 @@ export const annotationRoutes: Route[] = [
   {
     method: 'POST',
     pattern: /^\/annotations\/([^/]+)\/reply$/,
-    async handler({ response, body, params }) {
+    async handler({ request, response, body, params }) {
       const id = params[0]
       const payload = body as { author?: string; text?: string }
       if (!payload.text) {
         writeJson(response, 400, { error: 'text is required' })
         return
       }
+      moveCursorToAnnotation(request, id)
       const result = addAnnotationReply(id, (payload.author as 'user' | 'agent') ?? 'agent', payload.text)
       if (!result) {
         writeJson(response, 404, { error: `Annotation not found: ${id}` })
@@ -139,8 +173,9 @@ export const annotationRoutes: Route[] = [
   {
     method: 'DELETE',
     pattern: /^\/annotations\/([^/]+)$/,
-    async handler({ response, params }) {
+    async handler({ request, response, params }) {
       const id = params[0]
+      moveCursorToAnnotation(request, id)
       const deleted = deleteAnnotation(id)
       if (!deleted) {
         writeJson(response, 404, { error: `Annotation not found: ${id}` })

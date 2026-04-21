@@ -26,7 +26,7 @@ function defaultInputClass(variant: Variant, isDark: boolean): string {
   if (variant === 'canvas-chrome') {
     return 'min-w-0 flex-1 border-0 bg-transparent text-xs font-medium outline-none placeholder:text-zinc-400 focus:outline-none'
   }
-  return `min-w-0 flex-1 rounded-[4px] ring-1 p-0 text-xs leading-[inherit] font-[inherit] outline-none ${
+  return `min-w-0 flex-1 -ml-1 rounded-[4px] ring-1 px-1 py-0 text-xs leading-[inherit] font-[inherit] outline-none ${
     isDark ? 'ring-zinc-600 bg-zinc-950 text-zinc-100' : 'ring-zinc-300 bg-white text-zinc-900'
   }`
 }

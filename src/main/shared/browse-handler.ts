@@ -309,7 +309,10 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     // Keying by frameId sidesteps both gates.
     const sessionFlags = ['--session', frameId]
 
-    // Fire presence intent (non-blocking)
+    // Fire presence intent (non-blocking). Include frameId so the cursor
+    // follows the frame we're actually driving — otherwise the server-side
+    // fallback picks the first CDP proxy registration for this session and
+    // the cursor sticks to whichever frame was driven first.
     if (labelKey) {
       callApp('/session/presence/intent', {
         method: 'POST',
@@ -318,6 +321,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           clientName,
           command: verb,
           labelKey,
+          frameId,
           labelHint: verb === 'fill' || verb === 'type' ? 'editing control' : null,
           targetRef: ref,
           targetRefSource: ref ? 'agent-browser' : null,

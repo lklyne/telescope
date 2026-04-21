@@ -150,7 +150,7 @@ function AgentCursor({
       left: 0,
       top: 0,
       transform: `translate3d(${cursor.canvasX}px, ${cursor.canvasY}px, 0)`,
-      transition: `transform ${ANIMATE_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity 800ms ease-out`,
+      transition: `transform ${ANIMATE_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
       willChange: 'transform',
     }),
     [cursor.canvasX, cursor.canvasY],
@@ -163,7 +163,12 @@ function AgentCursor({
     transformOrigin: 'top left',
   }
 
-  const activityTransformStyle = activityStyle(cursor.activity)
+  // Transition transform/opacity/filter so activity changes (acting ↔ idle,
+  // fade on departing) ease instead of snapping — matches pre-refactor UX.
+  const activityTransformStyle: CSSProperties = {
+    ...activityStyle(cursor.activity),
+    transition: 'transform 800ms ease-out, opacity 800ms ease-out, filter 800ms ease-out',
+  }
 
   return (
     <div className="absolute" style={positionStyle}>

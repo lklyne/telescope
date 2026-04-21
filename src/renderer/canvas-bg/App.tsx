@@ -213,7 +213,7 @@ export default function App({
       {layoutData.viewMode === 'browser' ? (
         <BrowserTabBar
           activeBrowserTabId={layoutData.activeBrowserTabId}
-          leftInset={layoutData.canvasOrigin.x}
+          leftInset={layoutData.leftChromeWidth}
           browserTabs={layoutData.browserTabs}
           isDark={isDark}
           onAddBrowserFrame={api.addBrowserFrame}

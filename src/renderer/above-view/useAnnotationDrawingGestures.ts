@@ -71,7 +71,7 @@ export function useAnnotationDrawingGestures({
         if (event.clientY < layoutData.canvasOrigin.y) return
         if (
           layoutData.viewMode === 'canvas' &&
-          event.clientX < layoutData.canvasOrigin.x
+          event.clientX < layoutData.leftChromeWidth
         ) {
           return
         }
@@ -122,7 +122,7 @@ export function useAnnotationDrawingGestures({
       clearDraft,
       closeThread,
       drawInteractionEnabled,
-      layoutData.canvasOrigin.x,
+      layoutData.leftChromeWidth,
       layoutData.canvasOrigin.y,
       layoutData.selectedEntityIds,
       layoutData.viewMode,

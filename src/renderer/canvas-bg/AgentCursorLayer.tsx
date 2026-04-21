@@ -121,12 +121,10 @@ function ClickRipple({ color }: { color: string }) {
 
 function AgentCursor({
   cursor,
-  frame,
-  overlayOffsetY,
+  zoom,
 }: {
   cursor: AgentPresenceCursor
-  frame: CanvasSceneFrameEntity | null
-  overlayOffsetY: number
+  zoom: number
 }) {
   const label = labelForPresenceCursor(cursor)
   const [rippleKey, setRippleKey] = useState<number | null>(null)
@@ -144,50 +142,62 @@ function AgentCursor({
     }
   }, [cursor.activity, cursor.labelKey])
 
-  const cursorStyle = useMemo(
+  // Position is in canvas units — the parent wrapper applies the canvas
+  // transform, so pan/zoom move this with the canvas atomically. Only
+  // director-driven motion triggers the CSS transition.
+  const positionStyle: CSSProperties = useMemo(
     () => ({
-      left: cursor.screenX,
-      top: cursor.screenY - overlayOffsetY,
-      transition: `left ${ANIMATE_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), top ${ANIMATE_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity 800ms ease-out, transform 800ms ease-out`,
-      ...activityStyle(cursor.activity),
+      left: 0,
+      top: 0,
+      transform: `translate3d(${cursor.canvasX}px, ${cursor.canvasY}px, 0)`,
+      transition: `transform ${ANIMATE_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+      willChange: 'transform',
     }),
-    [cursor.screenX, cursor.screenY, overlayOffsetY, cursor.activity],
+    [cursor.canvasX, cursor.canvasY],
   )
 
+  // Counter-scale keeps icon, label, and ripple at constant screen size
+  // regardless of canvas zoom.
+  const counterScaleStyle: CSSProperties = {
+    transform: `scale(${1 / zoom})`,
+    transformOrigin: 'top left',
+  }
+
+  // Transition transform/opacity/filter so activity changes (acting ↔ idle,
+  // fade on departing) ease instead of snapping — matches pre-refactor UX.
+  const activityTransformStyle: CSSProperties = {
+    ...activityStyle(cursor.activity),
+    transition: 'transform 800ms ease-out, opacity 800ms ease-out, filter 800ms ease-out',
+  }
+
   return (
-    <>
-      <TargetHalo
-        cursor={cursor}
-        frame={frame}
-        overlayOffsetY={overlayOffsetY}
-      />
-      <div
-        className="absolute"
-        style={cursorStyle}
-      >
-        {rippleKey !== null && (
-          <ClickRipple key={rippleKey} color={cursor.color} />
-        )}
-        <FilledCursorIcon color={cursor.color} size={24} />
-        {label ? (
-          <div
-            className="ml-4 -mt-1.5 whitespace-nowrap rounded px-2 py-0.5"
-            style={{
-              backgroundColor: cursor.color,
-              fontSize: 10,
-              lineHeight: '14px',
-              color: 'white',
-              boxShadow:
-                cursor.activity === 'acting'
-                  ? '0 2px 8px rgba(0,0,0,0.28)'
-                  : '0 1px 3px rgba(0,0,0,0.2)',
-            }}
-          >
-            {label}
-          </div>
-        ) : null}
+    <div className="absolute" style={positionStyle}>
+      <div style={counterScaleStyle}>
+        <div style={activityTransformStyle}>
+          {rippleKey !== null && (
+            <ClickRipple key={rippleKey} color={cursor.color} />
+          )}
+          <FilledCursorIcon color={cursor.color} size={24} />
+          {label ? (
+            <div
+              className="ml-4 -mt-1.5 whitespace-nowrap rounded px-2 py-0.5"
+              style={{
+                backgroundColor: cursor.color,
+                fontSize: 10,
+                lineHeight: '14px',
+                color: 'white',
+                boxShadow:
+                  cursor.activity === 'acting'
+                    ? '0 2px 8px rgba(0,0,0,0.28)'
+                    : '0 1px 3px rgba(0,0,0,0.2)',
+              }}
+            >
+              {label}
+            </div>
+          ) : null}
+        </div>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -235,10 +245,16 @@ export function ActiveFrameHighlightLayer({
 export function AgentCursorLayer({
   cursors,
   frames,
+  canvasOrigin,
+  pan,
+  zoom,
   overlayOffsetY = 0,
 }: {
   cursors: AgentPresenceCursor[]
   frames: CanvasSceneFrameEntity[]
+  canvasOrigin: { x: number; y: number }
+  pan: { x: number; y: number }
+  zoom: number
   overlayOffsetY?: number
 }) {
   if (cursors.length === 0) return null
@@ -253,8 +269,8 @@ export function AgentCursorLayer({
 @keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(1); opacity: 0; } }`}
       </style>
       {cursors.map((cursor) => (
-        <AgentCursor
-          key={cursor.sessionId}
+        <TargetHalo
+          key={`halo-${cursor.sessionId}`}
           cursor={cursor}
           frame={
             cursor.frameId
@@ -264,6 +280,16 @@ export function AgentCursorLayer({
           overlayOffsetY={overlayOffsetY}
         />
       ))}
+      <div
+        className="absolute left-0 top-0 origin-top-left"
+        style={{
+          transform: `translate(${canvasOrigin.x + pan.x}px, ${canvasOrigin.y + pan.y - overlayOffsetY}px) scale(${zoom})`,
+        }}
+      >
+        {cursors.map((cursor) => (
+          <AgentCursor key={cursor.sessionId} cursor={cursor} zoom={zoom} />
+        ))}
+      </div>
     </div>
   )
 }

@@ -8,6 +8,7 @@ import type {
   SidebarCanvasItem,
   ThemeData,
 } from '../../shared/types'
+import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { SidebarCanvasTree } from './SidebarCanvasTree'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
@@ -39,7 +40,6 @@ export default function App({
   const [sidebarData, setSidebarData] = useState<LeftSidebarData>(initialSidebarData)
   const [pagesExpanded, setPagesExpanded] = useState(true)
   const [editingTabId, setEditingTabId] = useState<string | null>(null)
-  const [editingTabName, setEditingTabName] = useState('')
   const previousActiveFrameCountRef = useRef<number | null>(null)
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
@@ -89,7 +89,6 @@ export default function App({
     if (!editingTabId) return
     if (!sidebarData.tabs.some((tab) => tab.id === editingTabId)) {
       setEditingTabId(null)
-      setEditingTabName('')
     }
   }, [editingTabId, sidebarData.tabs])
 
@@ -105,18 +104,15 @@ export default function App({
     previousActiveFrameCountRef.current = nextCount
   }, [activeTab?.id, activeTab?.frames.length])
 
-  function startRenameTab(tabId: string, currentName: string) {
+  function startRenameTab(tabId: string) {
     setEditingTabId(tabId)
-    setEditingTabName(currentName)
   }
 
   function cancelRenameTab() {
     setEditingTabId(null)
-    setEditingTabName('')
   }
 
-  function commitRenameTab(tabId: string, currentName: string) {
-    const nextName = editingTabName.trim()
+  function commitRenameTab(tabId: string, currentName: string, nextName: string) {
     if (nextName && nextName !== currentName) api.renameTab(tabId, nextName)
     cancelRenameTab()
   }
@@ -184,29 +180,13 @@ export default function App({
                         }}
                       >
                         <File size={14} className="shrink-0 text-zinc-500" />
-                        <input
-                          autoFocus
-                          value={editingTabName}
-                          onChange={(e) => setEditingTabName(e.target.value)}
-                          onBlur={() => commitRenameTab(tab.id, tab.name)}
-                          onClick={(e) => e.stopPropagation()}
-                          onDoubleClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault()
-                              commitRenameTab(tab.id, tab.name)
-                            }
-                            if (e.key === 'Escape') {
-                              e.preventDefault()
-                              cancelRenameTab()
-                            }
-                          }}
-                          onFocus={(e) => e.target.select()}
-                          className={`min-w-0 flex-1 self-stretch rounded-[4px] border px-0.5 text-xs outline-none ${
-                            isDark
-                              ? 'border-zinc-600 bg-zinc-950 text-zinc-100'
-                              : 'border-zinc-300 bg-white text-zinc-900'
-                          }`}
+                        <InlineEditLabel
+                          value={tab.name}
+                          isEditing
+                          onCommit={(nextName) => commitRenameTab(tab.id, tab.name, nextName)}
+                          onCancel={cancelRenameTab}
+                          variant="sidebar-row"
+                          isDark={isDark}
                         />
                         {tab.isActive ? <Check size={14} className="ml-auto shrink-0" /> : null}
                       </div>
@@ -223,7 +203,7 @@ export default function App({
                           paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
                         }}
                         onClick={() => api.selectTab(tab.id)}
-                        onDoubleClick={() => startRenameTab(tab.id, tab.name)}
+                        onDoubleClick={() => startRenameTab(tab.id)}
                         title={tab.name}
                       >
                         <File size={14} className="shrink-0 text-zinc-500" />
@@ -247,7 +227,7 @@ export default function App({
                               ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
                               : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
                           }`}
-                          onClick={() => startRenameTab(tab.id, tab.name)}
+                          onClick={() => startRenameTab(tab.id)}
                         >
                           <span>Rename space</span>
                         </Menu.Item>

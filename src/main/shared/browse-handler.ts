@@ -217,7 +217,14 @@ export function spawnAsync(
     const child = spawn(cmd, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: opts.cwd,
-      env: { ...process.env, NO_COLOR: '1' },
+      // Auto-shutdown per-frame daemons after 60s of inactivity. We spin one
+      // daemon per frame (via --session <frameId>) so without an idle timeout
+      // they'd accumulate for the app's lifetime. User override still wins.
+      env: {
+        AGENT_BROWSER_IDLE_TIMEOUT_MS: '60000',
+        ...process.env,
+        NO_COLOR: '1',
+      },
     })
     const maxBuf = opts.maxBuffer ?? 10 * 1024 * 1024
     const stdoutChunks: Buffer[] = []
@@ -295,8 +302,17 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   return withFrameLock(frameId, async () => {
     const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(frameId)
     const abPath = resolveAgentBrowserPath()
+    // One agent-browser daemon per frame. Without --session, a single daemon
+    // pins the first --cdp URL it saw and silently ignores subsequent --cdp
+    // values — upstream bug in agent-browser (CLI skips `launch` when daemon
+    // is already running; daemon's relaunch check doesn't compare cdp_url).
+    // Keying by frameId sidesteps both gates.
+    const sessionFlags = ['--session', frameId]
 
-    // Fire presence intent (non-blocking)
+    // Fire presence intent (non-blocking). Include frameId so the cursor
+    // follows the frame we're actually driving — otherwise the server-side
+    // fallback picks the first CDP proxy registration for this session and
+    // the cursor sticks to whichever frame was driven first.
     if (labelKey) {
       callApp('/session/presence/intent', {
         method: 'POST',
@@ -305,6 +321,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           clientName,
           command: verb,
           labelKey,
+          frameId,
           labelHint: verb === 'fill' || verb === 'type' ? 'editing control' : null,
           targetRef: ref,
           targetRefSource: ref ? 'agent-browser' : null,
@@ -340,7 +357,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
       const { stdout } = await spawnAsync(
         abPath,
-        [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, 'batch', '--json', '--bail'],
+        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'batch', '--json', '--bail'],
         { timeout: timeoutMs, input: batchInput },
       )
 
@@ -412,7 +429,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     if (verb && MUTATION_VERBS.has(verb) && ref) {
       await spawnAsync(
         abPath,
-        [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, 'scrollintoview', ref],
+        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'scrollintoview', ref],
         { timeout: 5_000 },
       ).catch(() => {}) // Best-effort — don't fail the click if scroll fails
     }
@@ -423,7 +440,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
     const { stdout, stderr } = await spawnAsync(
       abPath,
-      [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, ...extraFlags, ...argv],
+      [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, ...extraFlags, ...argv],
       { timeout: timeoutMs },
     )
 
@@ -458,7 +475,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       try {
         const { stdout: urlOut } = await spawnAsync(
           abPath,
-          [...GLOBAL_AB_FLAGS, '--cdp', cdpUrl, 'get', 'url'],
+          [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'get', 'url'],
           { timeout: 5_000 },
         )
         output += `\nurl: ${urlOut.trim()}`

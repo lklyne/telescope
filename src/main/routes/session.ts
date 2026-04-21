@@ -201,12 +201,15 @@ export const sessionRoutes: Route[] = [
 
       const targetRect = resolvePresenceTargetRect(frameId, targetRef, targetRefSource, null)
       const observationCommands = new Set(['snapshot', 'wait', 'get'])
-      const fallbackFrameY = observationCommands.has(command) ? 20 : undefined
+      const isObservation = observationCommands.has(command)
+      // For mutation commands with an agent-browser ref we can't resolve to
+      // bounds, skip the center fallback and let CDP mouseMoved drive the
+      // cursor — otherwise it lands at frame center then snaps to the target.
       const framePosition =
-        frameId
+        frameId && (targetRect || isObservation)
           ? resolveCanvasPointForFrame(frameId, {
               frameX: undefined,
-              frameY: fallbackFrameY,
+              frameY: isObservation ? 20 : undefined,
               targetRect,
             })
           : null
@@ -216,8 +219,8 @@ export const sessionRoutes: Route[] = [
         taskLabel,
         surface: frameId ? 'frame' : 'canvas',
         frameId,
-        canvasX: framePosition?.canvasX ?? null,
-        canvasY: framePosition?.canvasY ?? null,
+        canvasX: framePosition?.canvasX,
+        canvasY: framePosition?.canvasY,
         targetName,
         targetRect,
         labelHint,

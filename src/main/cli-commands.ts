@@ -187,6 +187,20 @@ const focus: VerbHandler = async (args) => {
 }
 
 const link: VerbHandler = async (args) => {
+  if (args.positional.length >= 2) {
+    const [fromEntityId, toEntityId] = args.positional
+    const edge: Record<string, unknown> = { fromEntityId, toEntityId, kind: 'connection' }
+    if (args.flags.label) edge.label = args.flags.label
+    printJson(await callApp('/edges/create', {
+      method: 'POST',
+      body: JSON.stringify({ edges: [edge] }),
+    }))
+    return 0
+  }
+  if (args.positional.length === 1 || (args.positional.length === 0 && process.stdin.isTTY)) {
+    printError('usage: telescope link <fromId> <toId> [--label <text>]  (or pipe a JSON edges array on stdin)')
+    return 1
+  }
   const input = await readStdin()
   printJson(await callApp('/edges/create', {
     method: 'POST',

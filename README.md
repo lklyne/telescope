@@ -2,11 +2,11 @@
 
 Part web browser and part canvas, telescope is a hybrid design tool for thinking through ideas spatially and iterating on software. 
 
-Code is the source of truth for making ideas real, but long chat threads and single browser tabs aren't ideal for the exploratory, divergent, and visual thinking thats often required to design something great. A canvas is a much more familiar place for this type of work, but there's a gap between what you see on the canvas and what is built. There's lots of products and tools that bridge this gap in variety of ways, but there's always some level of friction moving back and fourth between canvas and code.
+Code is the source of truth for making ideas real, but long chat threads and single browser tabs aren't ideal for the exploratory, divergent, and visual thinking that's often required to design something great. A canvas is a much more familiar place for this type of work, but there's a gap between what you see on the canvas and what is built. There's lots of products and tools that bridge this gap in a variety of ways, but there's always some level of friction moving back and forth between canvas and code.
 
-Telescope sidesteps this disconnect with a different approach: full featured browser tabs on a canvas. The actual website, product, or prototype lives spatially alongside notes, images, and drawings making it easy to build and explore in one place.
+Telescope sidesteps this disconnect with a different approach: full-featured browser tabs on a canvas. The actual website, product, or prototype lives spatially alongside notes, images, and drawings making it easy to build and explore in one place.
 
-All this stuff is designed with collaboration in mind, so its easy to vibe out designs, research, and more as you work with teams of people and agents.
+All this stuff is designed with collaboration in mind, so it's easy to vibe out designs, research, and more as you work with teams of people and agents.
 
 <!-- TODO: Add screenshot or GIF demo here -->
 
@@ -20,7 +20,7 @@ All this stuff is designed with collaboration in mind, so its easy to vibe out d
 
 ## Key features
 
-- **Canvas** — Arrange real browser windows on an infinite, zoomable canvas
+- **Canvas** — Arrange real browser windows on an infinite, zoomable canvas.
 - **Agent-friendly** — Agents drive the canvas through a `telescope` CLI (primary) or an MCP server (fallback) — creating frames, navigating, inspecting the DOM, clicking, typing, and taking screenshots
 - **Agent presence** — See an agent's live cursor and task status as it works alongside you
 - **Commenting & annotations** — Create annotations on any frame, usable by people and agents
@@ -32,10 +32,10 @@ All this stuff is designed with collaboration in mind, so its easy to vibe out d
 - **Open file formats** — Canvas layout uses Obsidian's `.canvas` spec; text and media are plain `.md`, `.png`, and `.webm` files that live on your computer in a folder.
 
 ## Inspiration and related products
-- [Paper](https://paper.design): best full featured design tool with agent collaboration
-- [Agentation](https://agentation.com): for visual edits and commenting
+- [Paper](https://paper.design): best full-featured design tool with agent collaboration
+- [Agentation](https://agentation.com): inspiration for visual edits and commenting
 - [Polypane](https://polypane.app): for viewing a webpage across multiple breakpoints in one place
-- [Obsidian](https://obsidian.md): inspiration from local storage format and their light weight canvas
+- [Obsidian](https://obsidian.md): inspiration from local storage format and its lightweight canvas
 - [agent-browser](https://agent-browser.dev): inspiration for cli based web automation
 
 ## System requirements
@@ -47,7 +47,7 @@ All this stuff is designed with collaboration in mind, so its easy to vibe out d
 
 Download the latest release from the [GitHub Releases](https://github.com/lklyne/telescope/releases) page.
 
-Updates are delivered automatically via `electron-updater`. You'll be prompted to restart when a new version is ready.
+Updates are delivered automatically via `update-electron-app`. You'll be prompted to restart when a new version is ready.
 
 ## Using with AI agents
 

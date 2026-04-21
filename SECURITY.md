@@ -36,5 +36,5 @@ Only the latest release is actively supported with security fixes.
 
 | Version | Supported |
 |---|---|
-| Latest alpha | Yes |
+| Latest release | Yes |
 | Older releases | No |

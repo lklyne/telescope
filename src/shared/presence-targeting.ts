@@ -7,16 +7,23 @@ export function resolvePresenceFramePoint(input: {
   fallbackX: number
   fallbackY: number
 }): { x: number; y: number } {
-  if (typeof input.frameX === 'number' && typeof input.frameY === 'number') {
-    return { x: input.frameX, y: input.frameY }
+  const targetCenter = input.targetRect
+    ? {
+        x: input.targetRect.x + input.targetRect.width / 2,
+        y: input.targetRect.y + input.targetRect.height / 2,
+      }
+    : null
+
+  return {
+    x:
+      typeof input.frameX === 'number'
+        ? input.frameX
+        : targetCenter?.x ?? input.fallbackX,
+    y:
+      typeof input.frameY === 'number'
+        ? input.frameY
+        : targetCenter?.y ?? input.fallbackY,
   }
-  if (input.targetRect) {
-    return {
-      x: input.targetRect.x + input.targetRect.width / 2,
-      y: input.targetRect.y + input.targetRect.height / 2,
-    }
-  }
-  return { x: input.fallbackX, y: input.fallbackY }
 }
 
 export function framePointMatchesTargetRect(

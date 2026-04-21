@@ -71,6 +71,7 @@ import { resolveSession } from './presence-session'
 import {
   activePresenceTasks,
   bumpActiveScanId,
+  presenceCursors,
   upsertPresenceCursor,
   upsertActivePresenceTask,
   scheduleThinkingState,
@@ -486,16 +487,27 @@ export function updatePresenceCursor(
   body: Record<string, unknown>,
 ): void {
   if (url === '/session/presence') return
+  if (url === '/session/presence/intent') return
   if (url.startsWith('/mcp/session/')) return
   bumpActiveScanId()
 
+  const resolved = resolveSession(request, body)
   const frameId = deriveFrameId(url, body)
-  const position = normalizeCanvasPosition(
-    extractCanvasPosition(url, body) ??
-    (frameId
-      ? resolveCanvasPointForFrame(frameId)
-      : null),
-  )
+  const labelKey = deriveLabelKey(url, method)
+  const existingCursor = resolved ? presenceCursors.get(resolved.sessionId) : null
+  const isAttachFrame = labelKey === 'attach_frame'
+  const preserveSameFramePosition =
+    isAttachFrame &&
+    frameId !== null &&
+    existingCursor?.surface === 'frame' &&
+    existingCursor.frameId === frameId
+
+  const position = preserveSameFramePosition
+    ? { x: existingCursor.canvasX, y: existingCursor.canvasY }
+    : normalizeCanvasPosition(
+        extractCanvasPosition(url, body) ??
+          (frameId ? resolveCanvasPointForFrame(frameId) : null),
+      )
 
   upsertPresenceCursor(request, {
     body,
@@ -504,10 +516,10 @@ export function updatePresenceCursor(
     surface: frameId ? 'frame' : 'canvas',
     activity: 'acting',
     frameId,
-    labelKey: deriveLabelKey(url, method),
+    labelKey,
   })
 
-  if (activePresenceTasks.has(resolveSession(request, body)?.sessionId ?? '')) {
+  if (resolved && activePresenceTasks.has(resolved.sessionId)) {
     upsertActivePresenceTask(request, {
       body,
       surface: frameId ? 'frame' : 'canvas',

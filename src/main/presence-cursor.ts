@@ -75,6 +75,9 @@ export const PRESENCE_CURSOR_STEP_DELAY_MS = PRESENCE_STEP_DELAY_MS
 const PRESENCE_CURSOR_THINKING_DELAY_MS = PRESENCE_THINKING_DELAY_MS
 const PRESENCE_DEPARTURE_GRACE_MS = 1500
 const PRESENCE_IDLE_RETIRE_MS = 10_000
+const PRESENCE_MOVE_LOGGING_ENABLED =
+  process.env.NODE_ENV !== 'production' ||
+  Boolean(process.env.MAIN_WINDOW_VITE_DEV_SERVER_URL)
 
 // --- Coercion validation sets ---
 
@@ -246,6 +249,107 @@ export function coercePresenceTargetRefSource(value: unknown): PresenceTargetRef
     : null
 }
 
+function formatCoord(value: number | null | undefined): string {
+  return typeof value === 'number' ? value.toFixed(1) : '-'
+}
+
+function formatTargetRect(rect: PresenceTargetRect | null | undefined): string {
+  if (!rect) return '-'
+  return `${rect.x.toFixed(1)},${rect.y.toFixed(1)},${rect.width.toFixed(1)},${rect.height.toFixed(1)}`
+}
+
+function coordSourceForLog(
+  existing: PresenceCursorEntry | undefined,
+  patch: {
+    surface?: PresenceSurface
+    frameX?: number | null
+    frameY?: number | null
+    targetRect?: PresenceTargetRect | null
+    canvasX?: number
+    canvasY?: number
+  },
+): string {
+  const surface = patch.surface ?? existing?.surface ?? 'canvas'
+  if (surface !== 'frame') return 'canvas'
+  if (typeof patch.frameX === 'number' && typeof patch.frameY === 'number') {
+    return 'frame-point'
+  }
+  if (patch.targetRect) return 'target-rect'
+  if (typeof patch.canvasX === 'number' && typeof patch.canvasY === 'number') {
+    return 'canvas-only'
+  }
+  return 'existing'
+}
+
+function logPresenceMove(
+  request: IncomingMessage,
+  source: 'upsertPresenceCursor' | 'movePresenceCursorTo',
+  sessionId: string,
+  clientName: string,
+  existing: PresenceCursorEntry | undefined,
+  next: PresenceCursorEntry,
+  patch: {
+    body?: Record<string, unknown>
+    canvasX?: number
+    canvasY?: number
+    frameX?: number | null
+    frameY?: number | null
+    targetRect?: PresenceTargetRect | null
+  },
+): void {
+  if (!PRESENCE_MOVE_LOGGING_ENABLED) return
+  const changed =
+    !existing ||
+    existing.canvasX !== next.canvasX ||
+    existing.canvasY !== next.canvasY
+  if (!changed) return
+  if (!existing && patch.canvasX === undefined && patch.canvasY === undefined) return
+
+  const body = patch.body ?? {}
+  const route = `${request.method ?? 'GET'} ${request.url ?? ''}`.trim()
+  const eventType =
+    typeof body.eventType === 'string' ? body.eventType : null
+  const command = typeof body.command === 'string' ? body.command : null
+  const coordSource = coordSourceForLog(existing, patch)
+  const suspiciousCenterFallback =
+    next.surface === 'frame' &&
+    coordSource === 'canvas-only' &&
+    typeof next.frameX !== 'number' &&
+    typeof next.frameY !== 'number' &&
+    !next.targetRect
+  const prevX = existing?.canvasX
+  const prevY = existing?.canvasY
+  const dx =
+    typeof prevX === 'number' ? (next.canvasX - prevX).toFixed(1) : 'n/a'
+  const dy =
+    typeof prevY === 'number' ? (next.canvasY - prevY).toFixed(1) : 'n/a'
+
+  const parts = [
+    '[presence-move]',
+    `source=${source}`,
+    `route=${JSON.stringify(route)}`,
+    `session=${sessionId.slice(0, 8)}`,
+    `client=${JSON.stringify(clientName)}`,
+    `from=(${formatCoord(prevX)},${formatCoord(prevY)})`,
+    `to=(${formatCoord(next.canvasX)},${formatCoord(next.canvasY)})`,
+    `delta=(${dx},${dy})`,
+    `surface=${next.surface}`,
+    `activity=${next.activity}`,
+    `label=${next.labelKey ?? '-'}`,
+    `coordSource=${coordSource}`,
+    `frame=${next.frameId ?? '-'}`,
+    `framePoint=(${formatCoord(next.frameX)},${formatCoord(next.frameY)})`,
+    `targetRect=${formatTargetRect(next.targetRect)}`,
+    `targetRef=${next.targetRef ?? '-'}`,
+    `targetName=${JSON.stringify(next.targetName ?? '-')}`,
+  ]
+  if (eventType) parts.push(`event=${eventType}`)
+  if (command) parts.push(`command=${command}`)
+  if (suspiciousCenterFallback) parts.push('suspect=center-fallback')
+
+  console.log(parts.join(' '))
+}
+
 // --- Cursor mutation functions ---
 
 export function upsertPresenceCursor(
@@ -280,7 +384,7 @@ export function upsertPresenceCursor(
   }
 
   const existing = presenceCursors.get(sessionId)
-  presenceCursors.set(sessionId, {
+  const next: PresenceCursorEntry = {
     sessionId,
     clientName: session.clientName,
     color: existing?.color ?? deriveColor(sessionId),
@@ -333,7 +437,18 @@ export function upsertPresenceCursor(
         ? existing?.targetRect ?? null
         : patch.targetRect,
     updatedAt: Date.now(),
-  })
+  }
+
+  presenceCursors.set(sessionId, next)
+  logPresenceMove(
+    request,
+    'upsertPresenceCursor',
+    sessionId,
+    session.clientName,
+    existing,
+    next,
+    patch,
+  )
 
   schedulePresenceExpiry()
   notifyPresenceChanged()
@@ -507,7 +622,7 @@ export function movePresenceCursorTo(
   if (existing.canvasX === canvasX && existing.canvasY === canvasY && existing.labelKey === labelKey) {
     return
   }
-  presenceCursors.set(resolved.sessionId, {
+  const next: PresenceCursorEntry = {
     ...existing,
     canvasX,
     canvasY,
@@ -515,7 +630,17 @@ export function movePresenceCursorTo(
     activity: 'traveling',
     labelKey,
     updatedAt: Date.now(),
-  })
+  }
+  presenceCursors.set(resolved.sessionId, next)
+  logPresenceMove(
+    request,
+    'movePresenceCursorTo',
+    resolved.sessionId,
+    resolved.session.clientName,
+    existing,
+    next,
+    { canvasX, canvasY },
+  )
   notifyPresenceChanged()
 }
 

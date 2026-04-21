@@ -5,6 +5,8 @@ import type {
   PresenceActivity,
 } from '../../shared/types'
 import { labelForPresenceCursor } from '../../shared/agent-presence'
+import { DEFAULT_CURSOR_MOTION, easeAt } from '../../shared/cursor-motion'
+import { foldSpline } from '../../shared/cursor-spline'
 import { framePointMatchesTargetRect } from '../../shared/presence-targeting'
 import {
   PRESENCE_TRAVEL_MS,
@@ -12,8 +14,14 @@ import {
 } from '../../shared/presence-timing'
 
 const ANIMATE_DURATION_MS = PRESENCE_TRAVEL_MS
+const PRODUCTION_CURSOR_MOTION = {
+  ...DEFAULT_CURSOR_MOTION,
+  durationMs: ANIMATE_DURATION_MS,
+  distanceScaling: 0,
+}
+const POSITION_EPSILON = 0.5
 
-function FilledCursorIcon({
+export function FilledCursorIcon({
   color,
   size = 16,
 }: {
@@ -128,8 +136,15 @@ function AgentCursor({
 }) {
   const label = labelForPresenceCursor(cursor)
   const [rippleKey, setRippleKey] = useState<number | null>(null)
+  const [displayPoint, setDisplayPoint] = useState(() => ({
+    x: cursor.canvasX,
+    y: cursor.canvasY,
+  }))
   const rippleCounterRef = useRef(0)
   const prevActivity = useRef(cursor.activity)
+  const animationFrameRef = useRef<number | null>(null)
+  const pointRef = useRef(displayPoint)
+  const tangentRef = useRef({ x: 1, y: 0 })
 
   useEffect(() => {
     const wasClick =
@@ -142,18 +157,72 @@ function AgentCursor({
     }
   }, [cursor.activity, cursor.labelKey])
 
-  // Position is in canvas units — the parent wrapper applies the canvas
-  // transform, so pan/zoom move this with the canvas atomically. Only
-  // director-driven motion triggers the CSS transition.
+  useEffect(() => {
+    pointRef.current = displayPoint
+  }, [displayPoint])
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const target = { x: cursor.canvasX, y: cursor.canvasY }
+    const current = pointRef.current
+
+    if (
+      Math.abs(target.x - current.x) < POSITION_EPSILON &&
+      Math.abs(target.y - current.y) < POSITION_EPSILON
+    ) {
+      pointRef.current = target
+      setDisplayPoint(target)
+      return
+    }
+
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current)
+    }
+
+    const spline = foldSpline(current, tangentRef.current, [target])
+    let startedAt = 0
+
+    const tick = (now: number) => {
+      if (startedAt === 0) startedAt = now
+      const progress = Math.min(1, (now - startedAt) / PRODUCTION_CURSOR_MOTION.durationMs)
+      const sample = spline.sampleT(easeAt(PRODUCTION_CURSOR_MOTION.easing, progress))
+      pointRef.current = sample.position
+      tangentRef.current = sample.tangent
+      setDisplayPoint(sample.position)
+
+      if (progress < 1) {
+        animationFrameRef.current = requestAnimationFrame(tick)
+      } else {
+        animationFrameRef.current = null
+        pointRef.current = target
+        setDisplayPoint(target)
+      }
+    }
+
+    animationFrameRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+    }
+  }, [cursor.canvasX, cursor.canvasY])
+
   const positionStyle: CSSProperties = useMemo(
     () => ({
       left: 0,
       top: 0,
-      transform: `translate3d(${cursor.canvasX}px, ${cursor.canvasY}px, 0)`,
-      transition: `transform ${ANIMATE_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+      transform: `translate3d(${displayPoint.x}px, ${displayPoint.y}px, 0)`,
       willChange: 'transform',
     }),
-    [cursor.canvasX, cursor.canvasY],
+    [displayPoint.x, displayPoint.y],
   )
 
   // Counter-scale keeps icon, label, and ripple at constant screen size

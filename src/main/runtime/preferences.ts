@@ -6,12 +6,23 @@ import { app, nativeTheme } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import type {
+  CursorMotionParams,
   DevtoolsPanelTab,
   FixConfig,
   OnboardingState,
   OriginBinding,
   OriginBindings,
 } from '../../shared/types'
+import {
+  DEFAULT_CURSOR_MOTION,
+  normalizeCursorMotion,
+} from '../../shared/cursor-motion'
+import {
+  DEFAULT_CURSOR_TUNING,
+  normalizeCursorTuning,
+  type CursorTuningParams,
+} from '../../shared/cursor-tuning'
+import { getDebugWebContents } from '../debug-window'
 import {
   bgView,
   aboveView,
@@ -52,7 +63,16 @@ type PreferencesFile = {
   onboarding?: OnboardingState
   originBindings?: OriginBindings
   fixConfig?: Omit<FixConfig, 'configured'>
+  debug?: {
+    cursorMotion?: CursorMotionParams
+    cursorSplineViz?: boolean
+    cursorTuning?: CursorTuningParams
+  }
 }
+
+let currentCursorMotion: CursorMotionParams = DEFAULT_CURSOR_MOTION
+let currentCursorSplineViz = false
+let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -129,6 +149,48 @@ export function loadPreferences(): void {
   if (parsed.fixConfig && typeof parsed.fixConfig === 'object') {
     fixConfig = { ...DEFAULT_FIX_CONFIG, ...parsed.fixConfig, configured: true }
   }
+  currentCursorMotion = normalizeCursorMotion(parsed.debug?.cursorMotion)
+  currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
+  currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
+}
+
+export function getCursorMotion(): CursorMotionParams {
+  return currentCursorMotion
+}
+
+export function getCursorSplineViz(): boolean {
+  return currentCursorSplineViz
+}
+
+export function saveCursorSplineViz(next: boolean): void {
+  currentCursorSplineViz = next === true
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    debug: { ...parsed.debug, cursorSplineViz: currentCursorSplineViz },
+  })
+}
+
+export function saveCursorMotion(next: CursorMotionParams): void {
+  currentCursorMotion = normalizeCursorMotion(next)
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    debug: { ...parsed.debug, cursorMotion: currentCursorMotion },
+  })
+}
+
+export function getCursorTuning(): CursorTuningParams {
+  return currentCursorTuning
+}
+
+export function saveCursorTuning(next: CursorTuningParams): void {
+  currentCursorTuning = normalizeCursorTuning(next)
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    debug: { ...parsed.debug, cursorTuning: currentCursorTuning },
+  })
 }
 
 export function savePreferences(): void {
@@ -198,9 +260,41 @@ export function broadcastTheme(): void {
   if (devtoolsResizeHandleView && !devtoolsResizeHandleView.webContents.isDestroyed()) {
     devtoolsResizeHandleView.webContents.send('theme-changed', data)
   }
+  const debugWebContents = getDebugWebContents()
+  if (debugWebContents && !debugWebContents.isDestroyed()) {
+    debugWebContents.send('theme-changed', data)
+  }
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]
     page.frameView.setBackgroundColor(frameColor())
     page.chromeView.webContents.send('theme-changed', data)
+  }
+}
+
+export function broadcastCursorMotion(): void {
+  const params = currentCursorMotion
+  if (bgView && !bgView.webContents.isDestroyed()) {
+    bgView.webContents.send('cursor-motion-changed', params)
+  }
+  if (aboveView && !aboveView.webContents.isDestroyed()) {
+    aboveView.webContents.send('cursor-motion-changed', params)
+  }
+  const debugWebContents = getDebugWebContents()
+  if (debugWebContents && !debugWebContents.isDestroyed()) {
+    debugWebContents.send('cursor-motion-changed', params)
+  }
+}
+
+export function broadcastCursorSplineViz(): void {
+  const on = currentCursorSplineViz
+  if (bgView && !bgView.webContents.isDestroyed()) {
+    bgView.webContents.send('cursor-spline-viz-changed', on)
+  }
+  if (aboveView && !aboveView.webContents.isDestroyed()) {
+    aboveView.webContents.send('cursor-spline-viz-changed', on)
+  }
+  const debugWebContents = getDebugWebContents()
+  if (debugWebContents && !debugWebContents.isDestroyed()) {
+    debugWebContents.send('cursor-spline-viz-changed', on)
   }
 }

@@ -202,16 +202,27 @@ export const sessionRoutes: Route[] = [
       const targetRect = resolvePresenceTargetRect(frameId, targetRef, targetRefSource, null)
       const observationCommands = new Set(['snapshot', 'wait', 'get'])
       const isObservation = observationCommands.has(command)
-      // For mutation commands with an agent-browser ref we can't resolve to
-      // bounds, skip the center fallback and let CDP mouseMoved drive the
-      // cursor — otherwise it lands at frame center then snaps to the target.
-      const framePosition =
-        frameId && (targetRect || isObservation)
-          ? resolveCanvasPointForFrame(frameId, {
-              frameX: undefined,
-              frameY: isObservation ? 20 : undefined,
-              targetRect,
-            })
+      const currentCursor = getPresenceCursors().find(
+        (cursor) => cursor.sessionId === resolved.sessionId,
+      )
+      // When we're issuing an intent for the same frame the cursor is already
+      // in and can't resolve a targetRect (e.g. mutation intents whose ref is
+      // agent-browser-opaque, or observations like snapshot/wait/get), preserve
+      // the cursor's existing position. Nulling frameX/frameY here causes
+      // buildCanvasLayoutData to fall back to frame center and the renderer
+      // visibly hops between real interactions in the same frame.
+      const preserveSameFramePosition =
+        frameId !== null &&
+        !targetRect &&
+        currentCursor?.surface === 'frame' &&
+        currentCursor.frameId === frameId
+      const framePosition = preserveSameFramePosition
+        ? {
+            canvasX: currentCursor.canvasX,
+            canvasY: currentCursor.canvasY,
+          }
+        : frameId && (targetRect || isObservation)
+          ? resolveCanvasPointForFrame(frameId, { targetRect })
           : null
 
       upsertActivePresenceTask(request, {
@@ -233,8 +244,8 @@ export const sessionRoutes: Route[] = [
         surface: frameId ? 'frame' : 'canvas',
         activity: 'traveling',
         frameId,
-        frameX: null,
-        frameY: null,
+        frameX: preserveSameFramePosition ? undefined : null,
+        frameY: preserveSameFramePosition ? undefined : null,
         labelKey,
         taskLabel,
         labelHint,

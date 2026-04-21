@@ -27,6 +27,17 @@ describe('resolvePresenceFramePoint', () => {
     expect(result).toEqual({ x: 35, y: 50 })
   })
 
+  it('mixes partial frame coordinates with fallback values', () => {
+    const result = resolvePresenceFramePoint({
+      frameX: null,
+      frameY: 20,
+      targetRect: null,
+      fallbackX: 500,
+      fallbackY: 300,
+    })
+    expect(result).toEqual({ x: 500, y: 20 })
+  })
+
   it('falls back to fallback coordinates when nothing else available', () => {
     const result = resolvePresenceFramePoint({
       frameX: null,

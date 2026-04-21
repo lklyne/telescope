@@ -162,9 +162,11 @@ export function resolveCanvasPointForFrame(
     fallbackX: width / 2,
     fallbackY: height / 2,
   })
+  // `page.canvasY` is the top of the frame's chrome band; the DOM point lives
+  // in content coordinates, so shift down by chromeHeight to land on the page.
   return {
     canvasX: page.canvasX + clamp(point.x, 0, width),
-    canvasY: page.canvasY + clamp(point.y, 0, height),
+    canvasY: page.canvasY + page.chromeHeight + clamp(point.y, 0, height),
   }
 }
 

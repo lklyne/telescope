@@ -38,3 +38,8 @@ export const PRESENCE_THINKING_DELAY_MS = 3_000
  *  Prevents stale intents from affecting unrelated CDP commands. */
 export const PRESENCE_INTENT_TTL_MS = 2_000
 
+/** Duration of the rAF-driven scroll ramp. Scroll is intercepted in the
+ *  preload and animated with an ease curve instead of applying the full
+ *  delta instantly, so the page motion reads as continuous like the cursor. */
+export const PRESENCE_SCROLL_ANIMATION_MS = 300
+

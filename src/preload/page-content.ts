@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron'
 import type { Annotation, AnnotationMode, ScrollSyncData } from '../shared/types'
+import { PRESENCE_SCROLL_ANIMATION_MS } from '../shared/presence-timing'
 
 import {
   getInspectableElementByNodeId,
@@ -698,6 +699,8 @@ ipcRenderer.on(
 )
 
 
+let activeScrollToken = 0
+
 ipcRenderer.on(
   'dispatch-scroll',
   (
@@ -735,24 +738,62 @@ ipcRenderer.on(
     }
     const beforeLeft = target.scrollLeft
     const beforeTop = target.scrollTop
-    target.scrollBy(payload.deltaX, payload.deltaY)
-    const afterLeft = target.scrollLeft
-    const afterTop = target.scrollTop
-    ipcRenderer.send('dispatch-scroll-result', {
-      requestId: payload.requestId,
-      data: {
-        ok: true,
-        consumed: beforeLeft !== afterLeft || beforeTop !== afterTop,
-        targetTag:
-          target instanceof Element
-            ? target.tagName.toLowerCase()
-            : 'document',
-        beforeLeft,
-        beforeTop,
-        afterLeft,
-        afterTop,
-      },
-    })
+
+    const finish = () => {
+      const afterLeft = target.scrollLeft
+      const afterTop = target.scrollTop
+      ipcRenderer.send('dispatch-scroll-result', {
+        requestId: payload.requestId,
+        data: {
+          ok: true,
+          consumed: beforeLeft !== afterLeft || beforeTop !== afterTop,
+          targetTag:
+            target instanceof Element
+              ? target.tagName.toLowerCase()
+              : 'document',
+          beforeLeft,
+          beforeTop,
+          afterLeft,
+          afterTop,
+        },
+      })
+    }
+
+    if (payload.deltaX === 0 && payload.deltaY === 0) {
+      finish()
+      return
+    }
+
+    // Supersede any in-flight ramp so back-to-back scrolls don't stack.
+    const token = ++activeScrollToken
+    const duration = PRESENCE_SCROLL_ANIMATION_MS
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+    let startedAt = 0
+    let appliedX = 0
+    let appliedY = 0
+
+    const tick = (now: number) => {
+      if (token !== activeScrollToken) {
+        finish()
+        return
+      }
+      if (startedAt === 0) startedAt = now
+      const progress = Math.min(1, (now - startedAt) / duration)
+      const eased = easeOutCubic(progress)
+      const targetX = payload.deltaX * eased
+      const targetY = payload.deltaY * eased
+      const stepX = targetX - appliedX
+      const stepY = targetY - appliedY
+      if (stepX !== 0 || stepY !== 0) target.scrollBy(stepX, stepY)
+      appliedX = targetX
+      appliedY = targetY
+      if (progress < 1) {
+        requestAnimationFrame(tick)
+      } else {
+        finish()
+      }
+    }
+    requestAnimationFrame(tick)
   },
 )
 

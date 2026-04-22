@@ -348,6 +348,13 @@ export async function startAppControlServer(): Promise<void> {
 
     const IPC_TIMEOUT_MS = 5000
 
+    const waitForPresenceDwell = async (sessionId: string | null | undefined): Promise<void> => {
+      const cursor = sessionId ? presenceCursors.get(sessionId) : undefined
+      const elapsed = cursor ? Date.now() - cursor.lastMoveAt : 0
+      const remaining = Math.max(0, PRESENCE_CURSOR_STEP_DELAY_MS - elapsed)
+      if (remaining > 0) await new Promise<void>((resolve) => setTimeout(resolve, remaining))
+    }
+
     const sendScrollIpc = (
       wc: Electron.WebContents,
       x: number,
@@ -604,12 +611,7 @@ export async function startAppControlServer(): Promise<void> {
             // Budget the pre-click dwell from the cursor's last reposition,
             // not from intent arrival — otherwise cold-start / scrollIntoView
             // can consume the head-start before the cursor finishes moving.
-            const cursor = intentSessionId ? presenceCursors.get(intentSessionId) : undefined
-            const elapsed = cursor ? Date.now() - cursor.lastMoveAt : 0
-            const remaining = Math.max(0, PRESENCE_CURSOR_STEP_DELAY_MS - elapsed)
-            if (remaining > 0) {
-              await new Promise<void>((resolve) => setTimeout(resolve, remaining))
-            }
+            await waitForPresenceDwell(registration.sessionId)
           }
 
           // DOM.getBoxModel returns CSS viewport coords; Input.dispatchMouseEvent
@@ -687,6 +689,7 @@ export async function startAppControlServer(): Promise<void> {
           activity: 'acting',
           labelKey: 'scroll_page',
         })
+        await waitForPresenceDwell(registration.sessionId)
         try {
           const startedAt = Date.now()
           const result = await sendScrollIpc(
@@ -731,6 +734,7 @@ export async function startAppControlServer(): Promise<void> {
           activity: 'acting',
           labelKey: 'scroll_page',
         })
+        await waitForPresenceDwell(registration.sessionId)
         try {
           const startedAt = Date.now()
           const result = await sendScrollIpc(

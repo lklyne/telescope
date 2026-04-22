@@ -131,6 +131,7 @@ export function backgroundFrameOverlays(): CanvasSceneFrameEntity[] {
       height,
       presetIndex: page.presetIndex,
       linked: page.linked,
+      parentGroupId: page.parentGroupId,
       screenX: showShell ? bounds.shell.x : bounds.page.x,
       screenY: showShell ? bounds.shell.y : bounds.page.y,
       screenWidth: showShell ? bounds.shell.width : bounds.page.width,

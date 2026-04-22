@@ -26,6 +26,7 @@ import { drawingEntities } from './drawing-entity-state'
 import { fileEntities } from './file-entity-state'
 import { textEntities } from './text-entity-state'
 import { breadcrumb } from '../sentry-context'
+import { descendantEntityIdsForGroup } from './group-descendants'
 
 type SelectionCommand =
   | { kind: 'none' }
@@ -283,12 +284,7 @@ export function selectedDragEntityIds(entityId: string): string[] {
   }
   const activeGroupId = uiSelectedGroupId()
   if (activeGroupId) {
-    const descendantIds = [
-      ...pages.filter((page) => page.parentGroupId === activeGroupId).map((page) => page.id),
-      ...textEntities.filter((entity) => entity.parentGroupId === activeGroupId).map((entity) => entity.id),
-      ...fileEntities.filter((entity) => entity.parentGroupId === activeGroupId).map((entity) => entity.id),
-      ...workspaceGroups.filter((group) => group.parentGroupId === activeGroupId).map((group) => group.id),
-    ]
+    const descendantIds = descendantEntityIdsForGroup(activeGroupId)
     if (descendantIds.includes(entityId)) {
       return descendantIds
     }

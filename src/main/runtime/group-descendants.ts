@@ -1,0 +1,49 @@
+import { drawingEntities } from './drawing-entity-state'
+import { fileEntities } from './file-entity-state'
+import { pages } from './page-runtime'
+import { textEntities } from './text-entity-state'
+import { workspaceGroups } from './workspace-model'
+
+export function descendantEntityIdsForGroup(groupId: string): string[] {
+  const ids: string[] = []
+
+  const visit = (parentId: string) => {
+    const childGroupIds = workspaceGroups
+      .filter((group) => group.parentGroupId === parentId)
+      .map((group) => group.id)
+
+    ids.push(
+      ...pages.filter((page) => page.parentGroupId === parentId).map((page) => page.id),
+      ...textEntities.filter((entity) => entity.parentGroupId === parentId).map((entity) => entity.id),
+      ...fileEntities.filter((entity) => entity.parentGroupId === parentId).map((entity) => entity.id),
+      ...drawingEntities.filter((entity) => entity.parentGroupId === parentId).map((entity) => entity.id),
+      ...childGroupIds,
+    )
+
+    childGroupIds.forEach(visit)
+  }
+
+  visit(groupId)
+  return ids
+}
+
+export function groupContainsFrameDescendant(groupId: string): boolean {
+  const queue = [groupId]
+
+  while (queue.length > 0) {
+    const parentId = queue.shift()
+    if (!parentId) continue
+
+    if (pages.some((page) => page.parentGroupId === parentId)) {
+      return true
+    }
+
+    queue.push(
+      ...workspaceGroups
+        .filter((group) => group.parentGroupId === parentId)
+        .map((group) => group.id),
+    )
+  }
+
+  return false
+}

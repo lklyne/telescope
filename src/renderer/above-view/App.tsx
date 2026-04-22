@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
+  CanvasSceneEntity,
+  CanvasSelectableTarget,
   LayoutUpdateData,
   SelectionOverlayPayload,
   ThemeData,
@@ -266,18 +268,18 @@ export default function App({
 
   // Above-view WCV origin sits at canvasOrigin.y; scene entities use screenY
   // in window coords, so we add canvasOrigin.y to clientY before bounds checks.
-  const hitTestEntity = useCallback(
+  const hitTestSceneEntity = useCallback(
     (
       clientX: number,
       clientY: number,
-      accept: (kind: string) => boolean,
-    ): string | null => {
+      accept: (entity: CanvasSceneEntity) => boolean,
+    ): CanvasSceneEntity | null => {
       const layout = layoutRef.current
       const windowY = clientY + layout.canvasOrigin.y
       const FRAME_CHROME = 44
       for (let i = layout.entities.length - 1; i >= 0; i--) {
         const e = layout.entities[i]
-        if (!accept(e.kind)) continue
+        if (!accept(e)) continue
         const top = e.kind === 'frame' ? e.screenY - FRAME_CHROME : e.screenY
         const bottom = e.screenY + e.screenHeight
         if (
@@ -286,22 +288,83 @@ export default function App({
           windowY >= top &&
           windowY <= bottom
         ) {
-          return e.id
+          return e
         }
       }
       return null
     },
     [layoutRef],
   )
-  const hitTestFrame = useCallback(
-    (clientX: number, clientY: number) =>
-      hitTestEntity(clientX, clientY, (k) => k === 'frame'),
-    [hitTestEntity],
+
+  const findSceneEntity = useCallback(
+    (entityId: string): CanvasSceneEntity | null =>
+      layoutRef.current.entities.find((entity) => entity.id === entityId) ?? null,
+    [layoutRef],
   )
+
+  const entityBelongsToSelectedGroup = useCallback(
+    (entity: CanvasSceneEntity): boolean => {
+      const layout = layoutRef.current
+      const selectedGroupId = layout.selectedGroupId
+      if (!selectedGroupId) return false
+
+      const groupsById = new Map(
+        (layout.groups ?? []).map((group) => [group.id, group] as const),
+      )
+
+      let currentParentId = entity.parentGroupId
+      while (currentParentId) {
+        if (currentParentId === selectedGroupId) return true
+        currentParentId = groupsById.get(currentParentId)?.parentGroupId
+      }
+      return false
+    },
+    [layoutRef],
+  )
+
+  const hitTestSelectionEntity = useCallback(
+    (clientX: number, clientY: number): CanvasSelectableTarget | null => {
+      const layout = layoutRef.current
+      if (!layout.selectedGroupId && layout.selectedEntityIds.length <= 1) {
+        return null
+      }
+
+      const entity = hitTestSceneEntity(clientX, clientY, (candidate) => {
+        if (candidate.kind === 'group') return false
+        if (layout.selectedGroupId && entityBelongsToSelectedGroup(candidate)) return true
+        return layout.selectedEntityIds.length > 1 && layout.selectedEntityIds.includes(candidate.id)
+      })
+
+      return entity ? { id: entity.id, kind: entity.kind } : null
+    },
+    [entityBelongsToSelectedGroup, hitTestSceneEntity, layoutRef],
+  )
+
+  const hitTestPointerEntity = useCallback(
+    (clientX: number, clientY: number): CanvasSelectableTarget | null => {
+      const preservedSelectionTarget = hitTestSelectionEntity(clientX, clientY)
+      if (preservedSelectionTarget) return preservedSelectionTarget
+
+      const frame = hitTestSceneEntity(
+        clientX,
+        clientY,
+        (candidate) => candidate.kind === 'frame',
+      )
+      return frame ? { id: frame.id, kind: 'frame' } : null
+    },
+    [hitTestSceneEntity, hitTestSelectionEntity],
+  )
+
   const hitTestHoverTarget = useCallback(
-    (clientX: number, clientY: number) =>
-      hitTestEntity(clientX, clientY, (k) => k !== 'group' && k !== 'drawing'),
-    [hitTestEntity],
+    (clientX: number, clientY: number) => {
+      const entity = hitTestSceneEntity(
+        clientX,
+        clientY,
+        (candidate) => candidate.kind !== 'group' && candidate.kind !== 'drawing',
+      )
+      return entity?.id ?? null
+    },
+    [hitTestSceneEntity],
   )
 
   // One window pointermove handler drives both placement-preview cursor and
@@ -347,19 +410,34 @@ export default function App({
     }
   }, [api, hitTestHoverTarget, hoverForwardingEnabled, layoutRef, pendingPlacement])
 
-  const onFramePointerDown = useCallback(
-    (frameId: string, event: MouseEvent) => {
+  const onEntityPointerDown = useCallback(
+    (target: CanvasSelectableTarget, event: MouseEvent) => {
       const isAdditive = event.shiftKey || event.metaKey || event.ctrlKey
       if (isAdditive) {
-        api.selectFrame(frameId, {
+        const modifiers = {
           shift: event.shiftKey,
           meta: event.metaKey,
           ctrl: event.ctrlKey,
-        })
+        }
+        if (target.kind === 'frame') api.selectFrame(target.id, modifiers)
+        else api.selectEntity(target.id, target.kind, modifiers)
         return
       }
-      api.selectFrame(frameId)
-      api.startDragFrame(frameId)
+
+      const layout = layoutRef.current
+      const sceneEntity = findSceneEntity(target.id)
+      const preserveSelection =
+        layout.selectedEntityIds.includes(target.id) ||
+        (sceneEntity ? entityBelongsToSelectedGroup(sceneEntity) : false)
+
+      if (!preserveSelection) {
+        if (target.kind === 'frame') api.selectFrame(target.id)
+        else api.selectEntity(target.id, target.kind)
+      }
+
+      if (target.kind === 'frame') api.startDragFrame(target.id)
+      else api.startDragEntity(target.id)
+
       let lastScreenX = event.screenX
       let lastScreenY = event.screenY
       const onMove = (ev: MouseEvent) => {
@@ -367,19 +445,22 @@ export default function App({
         const dy = ev.screenY - lastScreenY
         lastScreenX = ev.screenX
         lastScreenY = ev.screenY
-        if (dx !== 0 || dy !== 0) api.dragFrame(frameId, dx, dy)
+        if (dx === 0 && dy === 0) return
+        if (target.kind === 'frame') api.dragFrame(target.id, dx, dy)
+        else api.dragEntity(target.id, dx, dy)
       }
       const onUp = () => {
         window.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
         window.removeEventListener('blur', onUp)
-        api.endDragFrame()
+        if (target.kind === 'frame') api.endDragFrame()
+        else api.endDragEntity()
       }
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
       window.addEventListener('blur', onUp)
     },
-    [],
+    [entityBelongsToSelectedGroup, findSceneEntity, layoutRef],
   )
 
   const placementClickAt = useCallback(
@@ -429,14 +510,14 @@ export default function App({
           : canvasClickAtFromAboveView,
       onDragMove: activeDragMove,
       onDragEnd: activeDragEnd,
-      hitTestFrame:
+      hitTestEntity:
         overlayInteractive || pendingPlacement || dragMode === 'region_select'
           ? undefined
-          : hitTestFrame,
-      onFramePointerDown:
+          : hitTestPointerEntity,
+      onEntityPointerDown:
         overlayInteractive || pendingPlacement || dragMode === 'region_select'
           ? undefined
-          : onFramePointerDown,
+          : onEntityPointerDown,
     }),
     [
       api,
@@ -447,8 +528,8 @@ export default function App({
       activeDragMove,
       activeDragEnd,
       dragMode,
-      hitTestFrame,
-      onFramePointerDown,
+      hitTestPointerEntity,
+      onEntityPointerDown,
     ],
   )
   // Always enabled: when the overlay has zero bounds (main's gate closed),

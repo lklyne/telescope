@@ -39,7 +39,12 @@ import {
   zoom,
 } from './runtime-context'
 import { shouldGateBeOpen } from './gate-predicate'
-import { getUiState, annotationMode as uiAnnotationMode, selectedCanvasTargets } from '../ui-state'
+import {
+  getUiState,
+  annotationMode as uiAnnotationMode,
+  selectedCanvasTargets,
+  selectedGroupId as uiSelectedGroupId,
+} from '../ui-state'
 import { drawingEntities } from './drawing-entity-state'
 import {
   devtoolsOpen as uiDevtoolsOpen,
@@ -74,6 +79,7 @@ import {
 import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
+import { groupContainsFrameDescendant } from './group-descendants'
 
 export function setBoundsIfChanged(
   view: WebContentsView,
@@ -261,6 +267,10 @@ export function layoutAllViews(): void {
   if (aboveView && win) {
     const { width, height } = win.getBounds()
     const selectedTargets = selectedCanvasTargets()
+    const activeSelectedGroupId = uiSelectedGroupId()
+    const selectionOwnsFrameContent =
+      (selectedTargets.length > 1 && selectedTargets.some((target) => target.kind === 'frame')) ||
+      (activeSelectedGroupId !== null && groupContainsFrameDescendant(activeSelectedGroupId))
     const shouldCover = shouldGateBeOpen({
       interactionKind: interactionState.kind === 'idle' ? 'idle'
         : interactionState.kind === 'panning-canvas' ? 'panning'
@@ -276,6 +286,7 @@ export function layoutAllViews(): void {
       hoveringCanvasChrome,
       selectedEntityIds: selectedTargets.map((t) => t.id),
       selectedEntityKinds: selectedTargets.map((t) => t.kind),
+      selectionOwnsFrameContent,
       hasSavedDrawings: drawingEntities.length > 0,
     })
     const bounds = shouldCover

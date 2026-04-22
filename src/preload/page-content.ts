@@ -452,11 +452,16 @@ function injectGroupDragOverlay(): void {
   let dragActive = false
   let lastScreenX = 0
   let lastScreenY = 0
+  let cleanupDragListeners: (() => void) | null = null
 
   const stopDrag = () => {
     if (!dragActive) return
     dragActive = false
     overlay.style.cursor = 'grab'
+    if (cleanupDragListeners) {
+      cleanupDragListeners()
+      cleanupDragListeners = null
+    }
     ipcRenderer.send('page-group-drag-end')
   }
 
@@ -473,33 +478,45 @@ function injectGroupDragOverlay(): void {
     e.preventDefault()
     e.stopPropagation()
     ipcRenderer.send('page-group-drag-start')
-  })
 
-  overlay.addEventListener('mousemove', (e: MouseEvent) => {
-    if (!dragActive) return
-    const dx = e.screenX - lastScreenX
-    const dy = e.screenY - lastScreenY
-    lastScreenX = e.screenX
-    lastScreenY = e.screenY
-    e.preventDefault()
-    e.stopPropagation()
-    ipcRenderer.send('page-group-drag', { dx, dy })
-  })
+    // Track on window while the drag is active so layout updates that move the
+    // frame do not immediately end the gesture via overlay hover transitions.
+    const onMove = (moveEvent: MouseEvent) => {
+      if (!dragActive) return
+      const dx = moveEvent.screenX - lastScreenX
+      const dy = moveEvent.screenY - lastScreenY
+      lastScreenX = moveEvent.screenX
+      lastScreenY = moveEvent.screenY
+      moveEvent.preventDefault()
+      moveEvent.stopPropagation()
+      if (dx !== 0 || dy !== 0) {
+        ipcRenderer.send('page-group-drag', { dx, dy })
+      }
+    }
 
-  overlay.addEventListener('mouseup', (e: MouseEvent) => {
-    if (e.button !== 0) return
-    e.preventDefault()
-    e.stopPropagation()
-    stopDrag()
-  })
+    const onUp = (upEvent: MouseEvent) => {
+      if (upEvent.button !== 0) return
+      upEvent.preventDefault()
+      upEvent.stopPropagation()
+      stopDrag()
+    }
 
-  overlay.addEventListener('mouseleave', () => {
-    stopDrag()
+    if (cleanupDragListeners) cleanupDragListeners()
+    cleanupDragListeners = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
   })
 
   window.addEventListener('blur', stopDrag)
   document.body.appendChild(overlay)
   cleanupBlockingOverlayListeners = () => {
+    if (cleanupDragListeners) {
+      cleanupDragListeners()
+      cleanupDragListeners = null
+    }
     stopDrag()
     window.removeEventListener('blur', stopDrag)
   }

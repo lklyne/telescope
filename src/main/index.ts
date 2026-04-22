@@ -84,6 +84,7 @@ app.on('child-process-gone', (_e, details) => logCrash('child-process-gone', det
 const remoteDebuggingPort = process.env.TELESCOPE_REMOTE_DEBUGGING_PORT ?? '9229'
 app.commandLine.appendSwitch('remote-debugging-port', remoteDebuggingPort)
 app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
+app.commandLine.appendSwitch('enable-unsafe-webgpu')
 
 // Allow smoke tests to isolate workspace data in a temp directory
 const userDataDirArg = process.argv.find((a) => a.startsWith('--user-data-dir='))

@@ -60,9 +60,19 @@ function resolveSessionId(): string {
 }
 
 export const sessionId = resolveSessionId()
-let clientName = 'telescope-mcp'
+// TELESCOPE_CLIENT_NAME wins over setClientName so parallel agents can send
+// distinct names — otherwise presence-cursor.ts evicts cursors sharing a
+// clientName, leaving only one visible at a time.
+const CLIENT_NAME_OVERRIDE = process.env.TELESCOPE_CLIENT_NAME
+let clientName = CLIENT_NAME_OVERRIDE ?? 'telescope-mcp'
 
 export function setClientName(name: string): void {
+  if (CLIENT_NAME_OVERRIDE !== undefined) {
+    console.warn(
+      `[app-client] setClientName(${JSON.stringify(name)}) ignored; TELESCOPE_CLIENT_NAME=${JSON.stringify(CLIENT_NAME_OVERRIDE)} has precedence`,
+    )
+    return
+  }
   clientName = name
 }
 

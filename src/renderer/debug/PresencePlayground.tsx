@@ -20,6 +20,7 @@ import {
   distanceSpeedScale,
 } from '../../shared/cursor-tuning'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
+import { CURSOR_TRAIL_OFFSET, PresenceParticleTrail } from '../shared/PresenceParticleTrail'
 
 const TRAIL_LIMIT = 6
 const CURSOR_COLOR = '#2563eb'
@@ -43,10 +44,55 @@ interface ActiveRun {
   target: Vec2
 }
 
+export type TrailFadeEasing = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out'
+
+export interface TrailParticleParams {
+  size: number
+  offsetX: number
+  offsetY: number
+  lifetimeSeconds: number
+  driftGraceSeconds: number
+  driftStrength: number
+  driftReferenceDistance: number
+  driftTurnRate: number
+  driftFlowScale: number
+  particleCount: number
+  /** When false, no particles emit while the cursor is stationary. */
+  emitWhenIdle: boolean
+  fadeOutGraceSeconds: number
+  fadeOutSeconds: number
+  fadeOutEasing: TrailFadeEasing
+  emitSpeedReferencePxPerSec: number
+  emitSpeedBias: number
+  emitsPerFrame: number
+}
+
+export const DEFAULT_TRAIL_PARAMS: TrailParticleParams = {
+  size: 2,
+  offsetX: CURSOR_TRAIL_OFFSET.x,
+  offsetY: CURSOR_TRAIL_OFFSET.y,
+  lifetimeSeconds: 2.5,
+  driftGraceSeconds: 0.3,
+  driftStrength: 30,
+  driftReferenceDistance: 180,
+  driftTurnRate: 0.7,
+  driftFlowScale: 0.001,
+  particleCount: 8192,
+  emitWhenIdle: false,
+  fadeOutGraceSeconds: 0.2,
+  fadeOutSeconds: 1.2,
+  fadeOutEasing: 'ease-in',
+  emitSpeedReferencePxPerSec: 1250,
+  emitSpeedBias: 2.35,
+  emitsPerFrame: 16,
+}
+
 export function PresencePlayground({
   tuning,
+  trail,
 }: {
   tuning: CursorTuningParams
+  trail: TrailParticleParams
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const cursorRef = useRef<HTMLDivElement | null>(null)
@@ -58,6 +104,8 @@ export function PresencePlayground({
   const lastTickRef = useRef<number>(0)
   const seqRef = useRef(0)
 
+  const [displayPos, setDisplayPos] = useState<Vec2>({ x: 160, y: 160 })
+  const [isTraveling, setIsTraveling] = useState(false)
   const [trails, setTrails] = useState<Trail[]>([])
   const [activeSplinePolyline, setActiveSplinePolyline] = useState<Vec2[] | null>(
     null,
@@ -104,12 +152,14 @@ export function PresencePlayground({
       positionRef.current = sample.position
       tangentRef.current = sample.tangent
       applyCursorTransform(cursorRef.current, sample.position)
+      setDisplayPos(sample.position)
 
       if (progressT >= 1) {
         // Arrived. Retire the active spline; subsequent clicks re-fold from
         // this settled (position, tangent).
         activeRef.current = null
         setActiveSplinePolyline(null)
+        setIsTraveling(false)
         return
       }
       rafRef.current = requestAnimationFrame(tick)
@@ -157,6 +207,7 @@ export function PresencePlayground({
       elapsedMs: 0,
       target,
     }
+    setIsTraveling(true)
     ensureRaf()
   }
 
@@ -172,6 +223,35 @@ export function PresencePlayground({
           backgroundSize: '32px 32px',
         }}
       >
+        <PresenceParticleTrail
+          size={trail.size}
+          lifetimeSeconds={trail.lifetimeSeconds}
+          holdSeconds={trail.driftGraceSeconds}
+          driftStrength={trail.driftStrength}
+          driftReferenceDistance={trail.driftReferenceDistance}
+          driftTurnRate={trail.driftTurnRate}
+          driftFlowScale={trail.driftFlowScale}
+          particleCount={trail.particleCount}
+          fadeOutGraceSeconds={trail.fadeOutGraceSeconds}
+          fadeOutSeconds={trail.fadeOutSeconds}
+          fadeOutEasing={trail.fadeOutEasing}
+          emitSpeedReferencePxPerSec={trail.emitSpeedReferencePxPerSec}
+          emitSpeedBias={trail.emitSpeedBias}
+          emitsPerFrame={trail.emitsPerFrame}
+          cursors={[
+            {
+              id: 'playground',
+              x: displayPos.x + trail.offsetX,
+              y: displayPos.y + trail.offsetY,
+              color: CURSOR_COLOR,
+              intensity: isTraveling
+                ? 1
+                : trail.emitWhenIdle
+                  ? 0.8
+                  : 0,
+            },
+          ]}
+        />
         <TrailsSvg trails={trails} activeId={activeRef.current?.id ?? null} />
         <ActiveSpline polyline={activeSplinePolyline} />
         <div

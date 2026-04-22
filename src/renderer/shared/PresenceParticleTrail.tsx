@@ -411,18 +411,18 @@ function buildSystem(initial: {
 
 export function PresenceParticleTrail({
   cursors,
-  holdSeconds = 0.15,
+  holdSeconds = 0.3,
   lifetimeSeconds = 2.5,
   size = 2,
-  driftStrength = 45,
-  driftReferenceDistance = 170,
+  driftStrength = 30,
+  driftReferenceDistance = 330,
   particleCount = 8192,
-  fadeOutGraceSeconds = 2,
-  fadeOutSeconds = 2,
+  fadeOutGraceSeconds = 0.2,
+  fadeOutSeconds = 1.2,
   fadeOutEasing = 'ease-in',
-  emitSpeedReferencePxPerSec = 925,
-  emitSpeedBias = 4,
-  emitsPerFrame = 4,
+  emitSpeedReferencePxPerSec = 1250,
+  emitSpeedBias = 2.35,
+  emitsPerFrame = 16,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const handleRef = useRef<Handle | null>(null)

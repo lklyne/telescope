@@ -244,16 +244,22 @@ export default function App({
   )
 
   const onMarqueeEnd = useCallback(
-    (startX: number, startY: number, endX: number, endY: number) => {
+    (
+      startX: number,
+      startY: number,
+      endX: number,
+      endY: number,
+      modifiers?: import('../../shared/types').SelectionModifiers,
+    ) => {
       const layout = layoutRef.current
       const rect = normalizeRect(startX, startY, endX, endY)
       api.setSelectionOverlayRect(null)
       if (rect.width < 4 || rect.height < 4) {
-        api.canvasDeselect()
+        api.canvasDeselect(modifiers)
         return
       }
       const windowRect = { ...rect, top: rect.top + layout.canvasOrigin.y }
-      api.canvasSelectInRect(screenRectToCanvasRect(windowRect, layout))
+      api.canvasSelectInRect(screenRectToCanvasRect(windowRect, layout), modifiers)
     },
     [api, layoutRef],
   )
@@ -343,6 +349,15 @@ export default function App({
 
   const onFramePointerDown = useCallback(
     (frameId: string, event: MouseEvent) => {
+      const isAdditive = event.shiftKey || event.metaKey || event.ctrlKey
+      if (isAdditive) {
+        api.selectFrame(frameId, {
+          shift: event.shiftKey,
+          meta: event.metaKey,
+          ctrl: event.ctrlKey,
+        })
+        return
+      }
       api.selectFrame(frameId)
       api.startDragFrame(frameId)
       let lastScreenX = event.screenX

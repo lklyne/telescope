@@ -4,6 +4,7 @@ import { useCornerResize, useEdgeResize } from './useEntityResize'
 import { CornerResizeHandle, EdgeResizeHandle } from './ResizeHandles'
 import { useDragGesture } from '../shared/useDragGesture'
 import type { AspectRatioResizeMode, EntityResizePatch } from './entityConstants'
+import type { SelectionModifiers } from '../../shared/types'
 
 // --- Selectable Entity Shell (shared wrapper for text blocks, file blocks, etc.) ---
 
@@ -49,7 +50,7 @@ export function SelectableEntityShell({
   background: string
   borderRadius?: number
   showCardShadow?: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, modifiers?: SelectionModifiers) => void
   onResize: (id: string, patch: EntityResizePatch) => void
   onDragStart: (id: string) => void
   onDrag: (id: string, dx: number, dy: number) => void
@@ -75,7 +76,13 @@ export function SelectableEntityShell({
       if (shouldStartDrag && !shouldStartDrag(event)) return false
       return true
     },
-    onBegin: () => {
+    onBegin: (ctx) => {
+      const { shift, meta, ctrl } = ctx.modifiers
+      if (shift || meta || ctrl) {
+        // Additive click: toggle this entity's selection without starting a drag.
+        onSelect(id, { shift, meta, ctrl })
+        return null
+      }
       if (!isSelectedRef.current) onSelect(id)
       onDragStart(id)
       return { lastDx: 0, lastDy: 0 }

@@ -321,7 +321,13 @@ function injectBlockingOverlay(): void {
         if (dragStarted) {
           ipcRenderer.send('page-group-drag-end')
         } else {
-          ipcRenderer.send('page-select')
+          ipcRenderer.send('page-select', {
+            modifiers: {
+              shift: e.shiftKey,
+              meta: e.metaKey,
+              ctrl: e.ctrlKey,
+            },
+          })
         }
       }
 

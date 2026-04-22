@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import type { RefObject } from 'react'
-import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI, LayoutUpdateData, SelectionModifiers } from '../../shared/types'
 import {
   classifyViewportWheel,
   isOverlayUiTarget,
@@ -12,6 +12,10 @@ import {
 } from '../../shared/gesture-utils'
 import { useDragGesture } from '../shared/useDragGesture'
 import { toOverlayRect } from './canvasGeometry'
+
+function toSelectionModifiers(mods: { shift: boolean; meta: boolean; ctrl: boolean }): SelectionModifiers {
+  return { shift: mods.shift, meta: mods.meta, ctrl: mods.ctrl }
+}
 
 /**
  * Canvas-bg viewport gestures.
@@ -144,10 +148,11 @@ export function useCanvasViewportGestures({
         return
       }
       // marquee
+      const modifiers = toSelectionModifiers(ctx.modifiers)
       if (rect.width < 4 || rect.height < 4) {
-        if (layout.viewMode === 'canvas') api.canvasDeselect()
+        if (layout.viewMode === 'canvas') api.canvasDeselect(modifiers)
       } else {
-        api.canvasSelectInRect(screenRectToCanvasRect(rect, layout))
+        api.canvasSelectInRect(screenRectToCanvasRect(rect, layout), modifiers)
       }
       stopDragging()
     },

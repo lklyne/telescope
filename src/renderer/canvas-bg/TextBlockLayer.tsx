@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
-import type { CanvasSceneTextEntity } from '../../shared/types'
+import type { CanvasSceneTextEntity, SelectionModifiers } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { SelectableEntityShell } from './SelectableEntityShell'
 import type { EntityResizePatch } from './entityConstants'
@@ -27,7 +27,7 @@ function TextBlockCard({
   isSelected: boolean
   isMarqueePreview: boolean
   canEdit: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, modifiers?: SelectionModifiers) => void
   onUpdateText: (id: string, text: string) => void
   onResize: (id: string, patch: EntityResizePatch) => void
   onTextEditingChange: (active: boolean) => void
@@ -182,7 +182,7 @@ export function TextBlockLayer({
   marqueePreviewIds: Set<string> | null
   selectedEntityIdSet: Set<string>
   selectedEntityCount: number
-  onSelect: (id: string) => void
+  onSelect: (id: string, modifiers?: SelectionModifiers) => void
   onUpdateText: (id: string, text: string) => void
   onResize: (id: string, patch: EntityResizePatch) => void
   onTextEditingChange: (active: boolean) => void

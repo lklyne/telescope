@@ -71,13 +71,16 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.on('canvas-selection-overlay', handler)
     return () => ipcRenderer.removeListener('canvas-selection-overlay', handler)
   },
-  canvasSelectInRect: (rect) => ipcRenderer.send('canvas-select-in-rect', rect),
-  canvasSelectInScreenRect: (rect) => ipcRenderer.send('canvas-select-in-screen-rect', rect),
-  canvasDeselect: () => ipcRenderer.send('page-deselect'),
-  canvasClickAt: (screenX: number, screenY: number) =>
-    ipcRenderer.send('canvas-click-at', { screenX, screenY }),
+  canvasSelectInRect: (rect, modifiers) =>
+    ipcRenderer.send('canvas-select-in-rect', { ...rect, modifiers }),
+  canvasSelectInScreenRect: (rect, modifiers) =>
+    ipcRenderer.send('canvas-select-in-screen-rect', { ...rect, modifiers }),
+  canvasDeselect: (modifiers) => ipcRenderer.send('page-deselect', { modifiers }),
+  canvasClickAt: (screenX, screenY, modifiers) =>
+    ipcRenderer.send('canvas-click-at', { screenX, screenY, modifiers }),
   clearAnnotateHover: () => ipcRenderer.send('canvas-clear-annotate-hover'),
-  selectFrame: (frameId) => ipcRenderer.send('canvas-select-frame', { frameId }),
+  selectFrame: (frameId, modifiers) =>
+    ipcRenderer.send('canvas-select-frame', { frameId, modifiers }),
   selectBrowserTab: (frameId) => ipcRenderer.send('canvas-select-browser-tab', { frameId }),
   addBrowserFrame: (presetIndex) => ipcRenderer.send('add-browser-frame', presetIndex),
   navigateFrame: (frameId, url) => ipcRenderer.send('canvas-navigate-frame', { frameId, url }),
@@ -143,8 +146,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-rename-drawing-entity', { entityId, name }),
   dropFileBuffer: (buffer: Uint8Array, ext: string, canvasX: number, canvasY: number) =>
     ipcRenderer.send('canvas-drop-file-buffer', { buffer: Buffer.from(buffer), ext, canvasX, canvasY }),
-  selectEntity: (entityId: string, entityKind: string) =>
-    ipcRenderer.send('canvas-select-entity', { entityId, entityKind }),
+  selectEntity: (entityId, entityKind, modifiers) =>
+    ipcRenderer.send('canvas-select-entity', { entityId, entityKind, modifiers }),
   selectGroup: (groupId: string) =>
     ipcRenderer.send('canvas-select-group', { groupId }),
   enterGroup: (groupId: string) =>

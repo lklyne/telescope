@@ -46,6 +46,12 @@ export type CanvasSelectableTarget = CanvasEntityRef
 
 export type CanvasHoverTarget = CanvasSelectableTarget | null
 
+export type SelectionModifiers = {
+  shift: boolean
+  meta: boolean
+  ctrl: boolean
+}
+
 export type CanvasInteractionState =
   | { kind: 'idle' }
   | {
@@ -1371,12 +1377,16 @@ export interface CanvasBgElectronAPI {
   setSelectionOverlayRect: (
     overlay: SelectionOverlayPayload | null,
   ) => void
-  canvasSelectInRect: (rect: WorkspaceBounds) => void
-  canvasSelectInScreenRect: (rect: WorkspaceBounds) => void
-  canvasDeselect: () => void
-  canvasClickAt: (screenX: number, screenY: number) => void
+  canvasSelectInRect: (rect: WorkspaceBounds, modifiers?: SelectionModifiers) => void
+  canvasSelectInScreenRect: (rect: WorkspaceBounds, modifiers?: SelectionModifiers) => void
+  canvasDeselect: (modifiers?: SelectionModifiers) => void
+  canvasClickAt: (
+    screenX: number,
+    screenY: number,
+    modifiers?: SelectionModifiers,
+  ) => void
   clearAnnotateHover: () => void
-  selectFrame: (frameId: string) => void
+  selectFrame: (frameId: string, modifiers?: SelectionModifiers) => void
   selectBrowserTab: (frameId: string) => void
   addBrowserFrame: (presetIndex: number | 'custom') => void
   navigateFrame: (frameId: string, url: string) => void
@@ -1422,7 +1432,11 @@ export interface CanvasBgElectronAPI {
   renameTextEntity: (entityId: string, name: string) => void
   renameDrawingEntity: (entityId: string, name: string) => void
   dropFileBuffer: (buffer: Uint8Array, ext: string, canvasX: number, canvasY: number) => void
-  selectEntity: (entityId: string, entityKind: CanvasEntityKind) => void
+  selectEntity: (
+    entityId: string,
+    entityKind: CanvasEntityKind,
+    modifiers?: SelectionModifiers,
+  ) => void
   selectGroup: (groupId: string) => void
   enterGroup: (groupId: string) => void
   startDragGroup: (groupId: string) => void

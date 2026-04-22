@@ -1,7 +1,8 @@
 import { ipcMain } from 'electron'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
-import type { CanvasEntityKind } from '../../shared/types'
+import type { CanvasEntityKind, SelectionModifiers } from '../../shared/types'
 import type { EdgeSide } from '../../shared/types'
+import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
 import { aboveView } from '../runtime/view-refs'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
@@ -57,7 +58,12 @@ import {
 import { createEdges, deleteEdges } from '../workspace-edges'
 import { selectEntitiesInRect } from '../workspace-entities'
 import { createFileEntity } from '../runtime/document-commands'
-import { enterGroup, selectGroup, selectNone } from '../runtime/selection-controller'
+import {
+  applyEntitySelectionMutation,
+  enterGroup,
+  selectGroup,
+  selectNone,
+} from '../runtime/selection-controller'
 import { consumeDragId } from '../runtime/drop-owner'
 import { registerCanvasDragIpc } from './register-canvas-drag-ipc'
 import { registerCanvasEntityIpc } from './register-canvas-entity-ipc'
@@ -70,8 +76,18 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on(
     'canvas-select-in-rect',
-    (_event, bounds: { x: number; y: number; width: number; height: number }) => {
-      selectEntitiesInRect(bounds)
+    (
+      _event,
+      payload: {
+        x: number
+        y: number
+        width: number
+        height: number
+        modifiers?: SelectionModifiers
+      },
+    ) => {
+      const { modifiers, ...bounds } = payload
+      selectEntitiesInRect(bounds, { mode: selectionMutationMode(modifiers) })
     },
   )
 
@@ -82,33 +98,69 @@ export function registerCanvasIpc(): void {
     }
   })
 
-  ipcMain.on('canvas-select-frame', (_event, { frameId }: { frameId: string }) => {
-    if (interactionBlocksPageSelection()) return
-    const idx = pages.findIndex((candidate) => candidate.id === frameId)
-    if (idx === -1) return
-    selectPage(idx)
-  })
+  ipcMain.on(
+    'canvas-select-frame',
+    (
+      _event,
+      { frameId, modifiers }: { frameId: string; modifiers?: SelectionModifiers },
+    ) => {
+      if (interactionBlocksPageSelection()) return
+      if (!pages.some((candidate) => candidate.id === frameId)) return
+      const mode = selectionMutationMode(modifiers)
+      if (mode === 'replace') {
+        const idx = pages.findIndex((candidate) => candidate.id === frameId)
+        if (idx !== -1) selectPage(idx)
+        return
+      }
+      applyEntitySelectionMutation([frameId], mode)
+    },
+  )
 
-  ipcMain.on('canvas-click-at', (_event, { screenX, screenY }: { screenX: number; screenY: number }) => {
-    if (interactionBlocksPageSelection()) return
-    const origin = canvasOrigin()
-    const canvasX = (screenX - origin.x - pan.x) / zoom
-    const canvasY = (screenY - origin.y - pan.y) / zoom
-    // Use a 1x1 rect at the click point for hit-testing.
-    // Drawings are hit-tested in the renderer (SVG stroke hit-paths), not by bbox here.
-    selectEntitiesInRect(
-      { x: canvasX, y: canvasY, width: 1, height: 1 },
-      { includeDrawings: false },
-    )
-  })
+  ipcMain.on(
+    'canvas-click-at',
+    (
+      _event,
+      {
+        screenX,
+        screenY,
+        modifiers,
+      }: { screenX: number; screenY: number; modifiers?: SelectionModifiers },
+    ) => {
+      if (interactionBlocksPageSelection()) return
+      const origin = canvasOrigin()
+      const canvasX = (screenX - origin.x - pan.x) / zoom
+      const canvasY = (screenY - origin.y - pan.y) / zoom
+      // Use a 1x1 rect at the click point for hit-testing.
+      // Drawings are hit-tested in the renderer (SVG stroke hit-paths), not by bbox here.
+      selectEntitiesInRect(
+        { x: canvasX, y: canvasY, width: 1, height: 1 },
+        { includeDrawings: false, mode: selectionMutationMode(modifiers) },
+      )
+    },
+  )
 
-  ipcMain.on('canvas-select-in-screen-rect', (_event, rect: { x: number; y: number; width: number; height: number }) => {
-    if (interactionBlocksPageSelection()) return
-    const origin = canvasOrigin()
-    const canvasX = (rect.x - origin.x - pan.x) / zoom
-    const canvasY = (rect.y - origin.y - pan.y) / zoom
-    selectEntitiesInRect({ x: canvasX, y: canvasY, width: rect.width / zoom, height: rect.height / zoom })
-  })
+  ipcMain.on(
+    'canvas-select-in-screen-rect',
+    (
+      _event,
+      rect: {
+        x: number
+        y: number
+        width: number
+        height: number
+        modifiers?: SelectionModifiers
+      },
+    ) => {
+      if (interactionBlocksPageSelection()) return
+      const origin = canvasOrigin()
+      const canvasX = (rect.x - origin.x - pan.x) / zoom
+      const canvasY = (rect.y - origin.y - pan.y) / zoom
+      selectEntitiesInRect(
+        { x: canvasX, y: canvasY, width: rect.width / zoom, height: rect.height / zoom },
+        { mode: selectionMutationMode(rect.modifiers) },
+      )
+    },
+  )
 
   ipcMain.on('canvas-select-entities', (_event, entityIds: string[]) => {
     setSelectedEntities(entityIds)
@@ -121,10 +173,22 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on(
     'canvas-select-entity',
-    (_event, { entityId, entityKind }: { entityId: string; entityKind: string }) => {
+    (
+      _event,
+      {
+        entityId,
+        entityKind,
+        modifiers,
+      }: { entityId: string; entityKind: string; modifiers?: SelectionModifiers },
+    ) => {
       if (!VALID_ENTITY_KINDS.has(entityKind as CanvasEntityKind)) return
       if (entityKind === 'frame' && interactionBlocksPageSelection()) return
-      selectEntity(entityId, entityKind)
+      const mode = selectionMutationMode(modifiers)
+      if (mode === 'replace') {
+        selectEntity(entityId, entityKind)
+        return
+      }
+      applyEntitySelectionMutation([entityId], mode)
     },
   )
 

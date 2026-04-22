@@ -105,21 +105,28 @@ Edit `changelog.md`:
 - Use today's date from the environment (`currentDate`).
 - Leave the rest of the file untouched.
 
-### Step 7: Bump, commit, tag
+### Step 7: Commit changelog, bump, tag
 
-- `git add changelog.md`
-- Run the matching script:
-  - patch → `pnpm release:patch`
-  - minor → `pnpm release:minor`
-  - major → no script exists; run `npm version major && git push --follow-tags` directly, and tell the user you're adding a `release:major` script next time they're in `package.json` (don't modify it now)
+npm 10+ refuses to run `npm version` when the tree has any porcelain output — staged files count as dirty, so the changelog has to land in its own commit before the bump.
+
+1. Commit the changelog on its own:
+   ```
+   git add CHANGELOG.md
+   git commit -m "docs: changelog for X.Y.Z"
+   ```
+   (Git stores the file as `CHANGELOG.md` on case-insensitive macOS filesystems even though the path is `changelog.md` — either works for `git add`.)
+2. Run the matching release script on a clean tree:
+   - patch → `pnpm release:patch`
+   - minor → `pnpm release:minor`
+   - major → no script exists; run `npm version major && git push --follow-tags` directly, and tell the user you're adding a `release:major` script next time they're in `package.json` (don't modify it now)
 
 `npm version` will:
 - Bump `package.json`
-- Include the staged `changelog.md` in the bump commit
+- Create a `chore: bump version to X.Y.Z`-style commit (package.json only)
 - Create an annotated tag `vX.Y.Z`
 - (The `release:*` scripts then push with `--follow-tags`)
 
-If the tree has unexpected staged changes at this point, stop — something went wrong.
+Result: two commits land (`docs: changelog ...` then the version bump), with the tag on the bump commit. If `npm version` still errors about a dirty tree, stop and investigate — something unexpected is staged or modified.
 
 ### Step 8: Report
 

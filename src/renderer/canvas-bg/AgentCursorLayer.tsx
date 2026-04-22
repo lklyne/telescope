@@ -9,6 +9,7 @@ import {
   DEFAULT_CURSOR_MOTION,
   DISTANCE_SCALE_REFERENCE_PX,
   easeAt,
+  type Vec2,
 } from '../../shared/cursor-motion'
 import { foldSpline } from '../../shared/cursor-spline'
 import { framePointMatchesTargetRect } from '../../shared/presence-targeting'
@@ -17,6 +18,10 @@ import {
   PRESENCE_STEP_DELAY_MS,
 } from '../../shared/presence-timing'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
+import {
+  PresenceParticleTrail,
+  type PresenceParticleCursor,
+} from '../shared/PresenceParticleTrail'
 
 const ANIMATE_DURATION_MS = PRESENCE_TRAVEL_MS
 // Short hops complete faster, longer hops cap at ANIMATE_DURATION_MS, so the
@@ -28,6 +33,12 @@ const PRODUCTION_CURSOR_MOTION = {
   distanceScaling: 0,
 }
 const POSITION_EPSILON = 0.5
+
+// Emit the particle trail relative to the cursor tip, in screen px so it stays
+// aligned with the counter-scaled cursor icon at any zoom. Values mirror the
+// debug playground's dialed-in offset (DEFAULT_TRAIL_PARAMS.offsetX/Y).
+const TRAIL_OFFSET_SCREEN_X = 12
+const TRAIL_OFFSET_SCREEN_Y = 16
 
 function animationDurationForDistance(distance: number): number {
   if (distance <= 0) return 0
@@ -120,22 +131,17 @@ function ClickRipple({ color }: { color: string }) {
 
 function AgentCursor({
   cursor,
+  point,
   zoom,
 }: {
   cursor: AgentPresenceCursor
+  point: Vec2
   zoom: number
 }) {
   const label = labelForPresenceCursor(cursor)
   const [rippleKey, setRippleKey] = useState<number | null>(null)
-  const [displayPoint, setDisplayPoint] = useState(() => ({
-    x: cursor.canvasX,
-    y: cursor.canvasY,
-  }))
   const rippleCounterRef = useRef(0)
   const prevActivity = useRef(cursor.activity)
-  const animationFrameRef = useRef<number | null>(null)
-  const pointRef = useRef(displayPoint)
-  const tangentRef = useRef({ x: 1, y: 0 })
 
   useEffect(() => {
     const wasClick =
@@ -148,74 +154,14 @@ function AgentCursor({
     }
   }, [cursor.activity, cursor.labelKey])
 
-  useEffect(() => {
-    pointRef.current = displayPoint
-  }, [displayPoint])
-
-  useEffect(() => {
-    return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    const target = { x: cursor.canvasX, y: cursor.canvasY }
-    const current = pointRef.current
-
-    if (
-      Math.abs(target.x - current.x) < POSITION_EPSILON &&
-      Math.abs(target.y - current.y) < POSITION_EPSILON
-    ) {
-      pointRef.current = target
-      setDisplayPoint(target)
-      return
-    }
-
-    if (animationFrameRef.current !== null) {
-      cancelAnimationFrame(animationFrameRef.current)
-    }
-
-    const spline = foldSpline(current, tangentRef.current, [target])
-    const distance = Math.hypot(target.x - current.x, target.y - current.y)
-    const duration = animationDurationForDistance(distance)
-    let startedAt = 0
-
-    const tick = (now: number) => {
-      if (startedAt === 0) startedAt = now
-      const progress = duration <= 0 ? 1 : Math.min(1, (now - startedAt) / duration)
-      const sample = spline.sampleT(easeAt(PRODUCTION_CURSOR_MOTION.easing, progress))
-      pointRef.current = sample.position
-      tangentRef.current = sample.tangent
-      setDisplayPoint(sample.position)
-
-      if (progress < 1) {
-        animationFrameRef.current = requestAnimationFrame(tick)
-      } else {
-        animationFrameRef.current = null
-        pointRef.current = target
-        setDisplayPoint(target)
-      }
-    }
-
-    animationFrameRef.current = requestAnimationFrame(tick)
-    return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = null
-      }
-    }
-  }, [cursor.canvasX, cursor.canvasY])
-
   const positionStyle: CSSProperties = useMemo(
     () => ({
       left: 0,
       top: 0,
-      transform: `translate3d(${displayPoint.x}px, ${displayPoint.y}px, 0)`,
+      transform: `translate3d(${point.x}px, ${point.y}px, 0)`,
       willChange: 'transform',
     }),
-    [displayPoint.x, displayPoint.y],
+    [point.x, point.y],
   )
 
   // Counter-scale keeps icon, label, and ripple at constant screen size
@@ -304,6 +250,103 @@ export function ActiveFrameHighlightLayer({
   )
 }
 
+interface CursorAnim {
+  point: Vec2
+  tangent: Vec2
+  spline: ReturnType<typeof foldSpline> | null
+  startedAt: number
+  duration: number
+  target: Vec2
+}
+
+interface AnimatedCursor {
+  cursor: AgentPresenceCursor
+  point: Vec2
+  isAnimating: boolean
+}
+
+// Drives one RAF for all presence cursors so the DOM icon and particle trail
+// read from the same interpolated positions. Target changes from the server
+// start a new spline from the current (position, tangent) — matching the
+// pre-refactor AgentCursor animation exactly.
+function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
+  const animsRef = useRef<Map<string, CursorAnim>>(new Map())
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    const anims = animsRef.current
+    for (const c of cursors) {
+      const target: Vec2 = { x: c.canvasX, y: c.canvasY }
+      const existing = anims.get(c.sessionId)
+      if (!existing) {
+        anims.set(c.sessionId, {
+          point: target,
+          tangent: { x: 1, y: 0 },
+          spline: null,
+          startedAt: 0,
+          duration: 0,
+          target,
+        })
+        continue
+      }
+      const dx = target.x - existing.point.x
+      const dy = target.y - existing.point.y
+      if (Math.abs(dx) < POSITION_EPSILON && Math.abs(dy) < POSITION_EPSILON) {
+        existing.target = target
+        existing.spline = null
+        continue
+      }
+      existing.spline = foldSpline(existing.point, existing.tangent, [target])
+      existing.startedAt = 0
+      existing.duration = animationDurationForDistance(Math.hypot(dx, dy))
+      existing.target = target
+    }
+    const active = new Set(cursors.map((c) => c.sessionId))
+    for (const id of anims.keys()) {
+      if (!active.has(id)) anims.delete(id)
+    }
+  }, [cursors])
+
+  useEffect(() => {
+    let rafId = 0
+    const tick = () => {
+      let advanced = false
+      const now = performance.now()
+      for (const anim of animsRef.current.values()) {
+        if (!anim.spline) continue
+        if (anim.startedAt === 0) anim.startedAt = now
+        const progress =
+          anim.duration <= 0
+            ? 1
+            : Math.min(1, (now - anim.startedAt) / anim.duration)
+        const sample = anim.spline.sampleT(
+          easeAt(PRODUCTION_CURSOR_MOTION.easing, progress),
+        )
+        anim.point = sample.position
+        anim.tangent = sample.tangent
+        if (progress >= 1) {
+          anim.point = anim.target
+          anim.spline = null
+        }
+        advanced = true
+      }
+      if (advanced) setTick((t) => (t + 1) & 0xffff)
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [])
+
+  return cursors.map((c) => {
+    const anim = animsRef.current.get(c.sessionId)
+    return {
+      cursor: c,
+      point: anim?.point ?? { x: c.canvasX, y: c.canvasY },
+      isAnimating: !!anim?.spline,
+    }
+  })
+}
+
 export function AgentCursorLayer({
   cursors,
   frames,
@@ -319,6 +362,25 @@ export function AgentCursorLayer({
   zoom: number
   overlayOffsetY?: number
 }) {
+  const animated = useAnimatedCursors(cursors)
+
+  const trailCursors: PresenceParticleCursor[] = useMemo(
+    () =>
+      animated.map(({ cursor, point, isAnimating }) => ({
+        id: cursor.sessionId,
+        x: canvasOrigin.x + pan.x + point.x * zoom + TRAIL_OFFSET_SCREEN_X,
+        y:
+          canvasOrigin.y +
+          pan.y -
+          overlayOffsetY +
+          point.y * zoom +
+          TRAIL_OFFSET_SCREEN_Y,
+        color: cursor.color,
+        intensity: isAnimating ? 1 : 0,
+      })),
+    [animated, canvasOrigin.x, canvasOrigin.y, pan.x, pan.y, zoom, overlayOffsetY],
+  )
+
   if (cursors.length === 0) return null
 
   return (
@@ -330,6 +392,7 @@ export function AgentCursorLayer({
         {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 @keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(1); opacity: 0; } }`}
       </style>
+      <PresenceParticleTrail cursors={trailCursors} />
       {cursors.map((cursor) => (
         <TargetHalo
           key={`halo-${cursor.sessionId}`}
@@ -348,8 +411,13 @@ export function AgentCursorLayer({
           transform: `translate(${canvasOrigin.x + pan.x}px, ${canvasOrigin.y + pan.y - overlayOffsetY}px) scale(${zoom})`,
         }}
       >
-        {cursors.map((cursor) => (
-          <AgentCursor key={cursor.sessionId} cursor={cursor} zoom={zoom} />
+        {animated.map(({ cursor, point }) => (
+          <AgentCursor
+            key={cursor.sessionId}
+            cursor={cursor}
+            point={point}
+            zoom={zoom}
+          />
         ))}
       </div>
     </div>

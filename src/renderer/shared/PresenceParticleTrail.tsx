@@ -438,7 +438,7 @@ export function PresenceParticleTrail({
   cursors,
   holdSeconds = 0.3,
   lifetimeSeconds = 2.5,
-  size = 2,
+  size = 4,
   driftStrength = 30,
   driftReferenceDistance = 180,
   driftTurnRate = 0.7,

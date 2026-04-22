@@ -1,9 +1,4 @@
 // @ts-nocheck — TSL node types are intentionally loose.
-//
-// Particle trail v1 — fixed-lifetime ring buffer. Mirrors the attractor demo
-// pattern as closely as possible: one vec3 storage buffer per per-instance
-// attribute, assigned directly to material.positionNode / colorNode /
-// scaleNode without Fn() wrapping.
 
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three/webgpu'
@@ -32,6 +27,12 @@ const MAX_CURSORS = 8
 // Hardcoded dispatch ceiling. The actual emits-per-frame is a runtime uniform
 // and may be anything in [2, EMIT_PER_FRAME_MAX].
 const EMIT_PER_FRAME_MAX = 16
+
+// Screen-space offset from the cursor's translate origin to the tip of the
+// FilledCursorIcon, so trail particles emit from the tip rather than the
+// top-left of the icon. Shared by AgentCursorLayer (production) and
+// PresencePlayground (debug defaults).
+export const CURSOR_TRAIL_OFFSET = { x: 12, y: 16 } as const
 
 export interface PresenceParticleCursor {
   id: string
@@ -123,13 +124,10 @@ function buildSystem(initial: {
   emitSpeedBias: number
   emitsPerFrame: number
 }) {
-  // --- Per-instance storage buffers (each a separate vec3 to mirror the
-  // attractor demo's pattern of one .toAttribute()-per-slot.)
   const positionBuffer = instancedArray(MAX_POOL_SIZE, 'vec3') // (x, y, 0)
   const stateBuffer = instancedArray(MAX_POOL_SIZE, 'vec3')    // (age, cursorIdx, unused)
   const velocityBuffer = instancedArray(MAX_POOL_SIZE, 'vec3') // (vx, vy, 0)
 
-  // --- Uniforms
   const cursorPos = uniformArray(
     Array.from({ length: MAX_CURSORS }, () => new THREE.Vector2(-10000, -10000)),
   )
@@ -265,11 +263,8 @@ function buildSystem(initial: {
     })
   })().compute(MAX_POOL_SIZE)
 
-  // --- Material. MeshBasicNodeMaterial with manual per-vertex offset math.
-  // SpriteNodeMaterial's billboarding is unnecessary under an orthographic
-  // pixel camera (planes at z=0 already face -Z), and its internals were
-  // not rendering in our setup.
-
+  // Manual per-vertex offset; SpriteNodeMaterial billboarding is unnecessary
+  // under an orthographic pixel camera (planes at z=0 already face -Z).
   const material = new THREE.MeshBasicNodeMaterial({
     transparent: true,
     depthWrite: false,
@@ -283,9 +278,6 @@ function buildSystem(initial: {
     const lifeT = state.x.div(lifetimeU).clamp(0, 1)
     const shrink = float(1).sub(smoothstep(0.4, 1, lifeT))
     const perVertexSize = sizeU.mul(shrink.max(0.15))
-    // positionLocal: plane corners at (±0.5, ±0.5, 0). Scale by size, then
-    // offset by the per-instance center. Output is the final world position
-    // of this vertex.
     return positionLocal.mul(perVertexSize).add(center)
   })()
 
@@ -385,8 +377,10 @@ function buildSystem(initial: {
     pushCursors(cursors) {
       const n = Math.min(cursors.length, MAX_CURSORS)
       cursorCount.value = n
+      const seen = new Set<string>()
       for (let i = 0; i < n; i++) {
         const c = cursors[i]
+        seen.add(c.id)
         // First time we see this id, snap prev=curr so the first emission
         // doesn't interpolate from a stale/off-screen previous position.
         if (!knownIds.has(c.id)) {
@@ -396,6 +390,9 @@ function buildSystem(initial: {
         cursorPos.array[i].set(c.x, c.y)
         cursorColor.array[i].set(c.color)
         cursorIntensity.array[i] = c.intensity
+      }
+      for (const id of knownIds) {
+        if (!seen.has(id)) knownIds.delete(id)
       }
     },
     setParams(p) {

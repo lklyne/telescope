@@ -36,7 +36,6 @@
   "dependencies": {
     "@base-ui/react": "^1.2.0",
     "@modelcontextprotocol/sdk": "^1.18.0",
-    "@react-three/fiber": "^9.6.0",
     "@sentry/core": "^8.55.0",
     "@sentry/electron": "^5.11.0",
     "lucide-react": "^0.576.0",

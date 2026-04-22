@@ -20,7 +20,7 @@ import {
   distanceSpeedScale,
 } from '../../shared/cursor-tuning'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
-import { PresenceParticleTrail } from '../shared/PresenceParticleTrail'
+import { CURSOR_TRAIL_OFFSET, PresenceParticleTrail } from '../shared/PresenceParticleTrail'
 
 const TRAIL_LIMIT = 6
 const CURSOR_COLOR = '#2563eb'
@@ -69,8 +69,8 @@ export interface TrailParticleParams {
 
 export const DEFAULT_TRAIL_PARAMS: TrailParticleParams = {
   size: 2,
-  offsetX: 12,
-  offsetY: 16,
+  offsetX: CURSOR_TRAIL_OFFSET.x,
+  offsetY: CURSOR_TRAIL_OFFSET.y,
   lifetimeSeconds: 2.5,
   driftGraceSeconds: 0.3,
   driftStrength: 30,

@@ -25,8 +25,11 @@ import {
 } from './presence-manager'
 import {
   upsertPresenceCursor,
+  presenceCursors,
   PRESENCE_CURSOR_STEP_DELAY_MS,
+  PRESENCE_CURSOR_POSITION_SKIP_PX,
 } from './presence-cursor'
+import { framePointMatchesTargetRect } from '../shared/presence-targeting'
 import {
   type CdpProxyRegistration,
   type CdpClientBridge,
@@ -345,6 +348,13 @@ export async function startAppControlServer(): Promise<void> {
 
     const IPC_TIMEOUT_MS = 5000
 
+    const waitForPresenceDwell = async (sessionId: string | null | undefined): Promise<void> => {
+      const cursor = sessionId ? presenceCursors.get(sessionId) : undefined
+      const elapsed = cursor ? Date.now() - cursor.lastMoveAt : 0
+      const remaining = Math.max(0, PRESENCE_CURSOR_STEP_DELAY_MS - elapsed)
+      if (remaining > 0) await new Promise<void>((resolve) => setTimeout(resolve, remaining))
+    }
+
     const sendScrollIpc = (
       wc: Electron.WebContents,
       x: number,
@@ -546,34 +556,62 @@ export async function startAppControlServer(): Promise<void> {
           const y = params.y as number
           const resolved = resolveCanvasPointForFrame(registration.frameId, { frameX: x, frameY: y })
           if (resolved) {
+            // On mousePressed, if the intent already placed the cursor at the
+            // target, suppress the reposition — otherwise the click lands
+            // mid-animation instead of on the dwelled cursor.
+            let skipPosition = false
+            if (cdpType === 'mousePressed') {
+              const existing = registration.sessionId
+                ? presenceCursors.get(registration.sessionId)
+                : undefined
+              if (existing && existing.frameId === registration.frameId) {
+                const rect = existing.targetRect
+                const withinTargetRect =
+                  rect != null && framePointMatchesTargetRect(x, y, rect, 0)
+                const canvasDistance = Math.hypot(
+                  resolved.canvasX - existing.canvasX,
+                  resolved.canvasY - existing.canvasY,
+                )
+                skipPosition =
+                  withinTargetRect ||
+                  canvasDistance < PRESENCE_CURSOR_POSITION_SKIP_PX
+              }
+            }
             upsertPresenceCursor(request, {
               body: pageSessionBody(),
               surface: 'frame',
               frameId: registration.frameId,
-              frameX: x,
-              frameY: y,
-              canvasX: resolved.canvasX,
-              canvasY: resolved.canvasY,
+              // On skip, preserve all rendering-input fields (frame coords,
+              // targetRect, targetRef/Name). canvas-layout-data recomputes
+              // frame-cursor canvasX/Y from frameX/Y or targetRect; clearing
+              // both would snap the cursor to frame center.
+              ...(skipPosition
+                ? {}
+                : {
+                    frameX: x,
+                    frameY: y,
+                    canvasX: resolved.canvasX,
+                    canvasY: resolved.canvasY,
+                    targetRef: null,
+                    targetRefSource: null,
+                    targetName: null,
+                    targetRect: null,
+                  }),
               activity: 'acting',
               labelKey: cdpType === 'mouseMoved' ? undefined : 'click_target',
-              targetRef: null,
-              targetRefSource: null,
-              targetName: null,
-              targetRect: null,
             })
           }
           if (cdpType === 'mousePressed') {
             const intentSessionId = registration.sessionId ?? ''
             const intent = pendingIntents.get(intentSessionId)
-            const elapsed = intent ? Date.now() - intent.receivedAt : 0
             if (intent) {
               clearTimeout(intent.expiryTimer)
               pendingIntents.delete(intentSessionId)
             }
-            const remaining = Math.max(0, PRESENCE_CURSOR_STEP_DELAY_MS - elapsed)
-            if (remaining > 0) {
-              await new Promise<void>((resolve) => setTimeout(resolve, remaining))
-            }
+            // Budget the pre-click dwell from the cursor's last reposition,
+            // not from intent arrival — otherwise cold-start / scrollIntoView
+            // can consume the head-start before the cursor finishes moving.
+            await waitForPresenceDwell(registration.sessionId)
           }
 
           // DOM.getBoxModel returns CSS viewport coords; Input.dispatchMouseEvent
@@ -651,6 +689,7 @@ export async function startAppControlServer(): Promise<void> {
           activity: 'acting',
           labelKey: 'scroll_page',
         })
+        await waitForPresenceDwell(registration.sessionId)
         try {
           const startedAt = Date.now()
           const result = await sendScrollIpc(
@@ -695,6 +734,7 @@ export async function startAppControlServer(): Promise<void> {
           activity: 'acting',
           labelKey: 'scroll_page',
         })
+        await waitForPresenceDwell(registration.sessionId)
         try {
           const startedAt = Date.now()
           const result = await sendScrollIpc(

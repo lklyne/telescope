@@ -44,6 +44,10 @@ export interface PresenceCursorEntry {
   targetName?: string | null
   targetRect?: PresenceTargetRect | null
   updatedAt: number
+  // Wall-clock time of the most recent canvasX/canvasY change. Drives the
+  // CDP-proxy pre-click sleep so the budget resets when the cursor is
+  // actually repositioned (not just re-tagged).
+  lastMoveAt: number
 }
 
 export interface ActivePresenceTask {
@@ -72,6 +76,10 @@ let presenceExpiryTimer: NodeJS.Timeout | null = null
 // --- Constants ---
 
 export const PRESENCE_CURSOR_STEP_DELAY_MS = PRESENCE_STEP_DELAY_MS
+/** Canvas-space distance below which a CDP-time reposition is treated as a
+ *  no-op correction — the cursor stays where the intent placed it rather than
+ *  restarting its animation to a few-pixel-off coordinate. */
+export const PRESENCE_CURSOR_POSITION_SKIP_PX = 30
 const PRESENCE_CURSOR_THINKING_DELAY_MS = PRESENCE_THINKING_DELAY_MS
 const PRESENCE_DEPARTURE_GRACE_MS = 1500
 const PRESENCE_IDLE_RETIRE_MS = 10_000
@@ -384,12 +392,19 @@ export function upsertPresenceCursor(
   }
 
   const existing = presenceCursors.get(sessionId)
+  const resolvedCanvasX = patch.canvasX ?? existing?.canvasX ?? 0
+  const resolvedCanvasY = patch.canvasY ?? existing?.canvasY ?? 0
+  const positionChanged =
+    !existing ||
+    existing.canvasX !== resolvedCanvasX ||
+    existing.canvasY !== resolvedCanvasY
+  const now = Date.now()
   const next: PresenceCursorEntry = {
     sessionId,
     clientName: session.clientName,
     color: existing?.color ?? deriveColor(sessionId),
-    canvasX: patch.canvasX ?? existing?.canvasX ?? 0,
-    canvasY: patch.canvasY ?? existing?.canvasY ?? 0,
+    canvasX: resolvedCanvasX,
+    canvasY: resolvedCanvasY,
     surface: patch.surface ?? existing?.surface ?? 'canvas',
     activity: patch.activity ?? existing?.activity ?? 'acting',
     frameId:
@@ -436,7 +451,8 @@ export function upsertPresenceCursor(
       patch.targetRect === undefined
         ? existing?.targetRect ?? null
         : patch.targetRect,
-    updatedAt: Date.now(),
+    updatedAt: now,
+    lastMoveAt: positionChanged ? now : existing?.lastMoveAt ?? now,
   }
 
   presenceCursors.set(sessionId, next)
@@ -622,6 +638,8 @@ export function movePresenceCursorTo(
   if (existing.canvasX === canvasX && existing.canvasY === canvasY && existing.labelKey === labelKey) {
     return
   }
+  const positionChanged = existing.canvasX !== canvasX || existing.canvasY !== canvasY
+  const now = Date.now()
   const next: PresenceCursorEntry = {
     ...existing,
     canvasX,
@@ -629,7 +647,8 @@ export function movePresenceCursorTo(
     surface: 'canvas',
     activity: 'traveling',
     labelKey,
-    updatedAt: Date.now(),
+    updatedAt: now,
+    lastMoveAt: positionChanged ? now : existing.lastMoveAt,
   }
   presenceCursors.set(resolved.sessionId, next)
   logPresenceMove(

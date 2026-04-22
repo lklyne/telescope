@@ -638,6 +638,8 @@ export function movePresenceCursorTo(
   if (existing.canvasX === canvasX && existing.canvasY === canvasY && existing.labelKey === labelKey) {
     return
   }
+  const positionChanged = existing.canvasX !== canvasX || existing.canvasY !== canvasY
+  const now = Date.now()
   const next: PresenceCursorEntry = {
     ...existing,
     canvasX,
@@ -645,8 +647,8 @@ export function movePresenceCursorTo(
     surface: 'canvas',
     activity: 'traveling',
     labelKey,
-    updatedAt: Date.now(),
-    lastMoveAt: Date.now(),
+    updatedAt: now,
+    lastMoveAt: positionChanged ? now : existing.lastMoveAt,
   }
   presenceCursors.set(resolved.sessionId, next)
   logPresenceMove(

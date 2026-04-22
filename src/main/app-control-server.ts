@@ -574,15 +574,24 @@ export async function startAppControlServer(): Promise<void> {
               body: pageSessionBody(),
               surface: 'frame',
               frameId: registration.frameId,
+              // On skip, preserve all rendering-input fields (frame coords,
+              // targetRect, targetRef/Name). canvas-layout-data recomputes
+              // frame-cursor canvasX/Y from frameX/Y or targetRect; clearing
+              // both would snap the cursor to frame center.
               ...(skipPosition
                 ? {}
-                : { frameX: x, frameY: y, canvasX: resolved.canvasX, canvasY: resolved.canvasY }),
+                : {
+                    frameX: x,
+                    frameY: y,
+                    canvasX: resolved.canvasX,
+                    canvasY: resolved.canvasY,
+                    targetRef: null,
+                    targetRefSource: null,
+                    targetName: null,
+                    targetRect: null,
+                  }),
               activity: 'acting',
               labelKey: cdpType === 'mouseMoved' ? undefined : 'click_target',
-              targetRef: null,
-              targetRefSource: null,
-              targetName: null,
-              targetRect: null,
             })
           }
           if (cdpType === 'mousePressed') {

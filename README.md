@@ -4,7 +4,7 @@ Part web browser and part canvas, telescope is a hybrid design tool for thinking
 
 Code is the source of truth for making ideas real, but long chat threads and single browser tabs aren't ideal for the exploratory, divergent, and visual thinking that's often required to design something great. A canvas is a much more familiar place for this type of work, but there's a gap between what you see on the canvas and what is built. There's lots of products and tools that bridge this gap in a variety of ways, but there's always some level of friction moving back and forth between canvas and code.
 
-Telescope sidesteps this disconnect with a different approach: full-featured browser tabs on a canvas. The actual website, product, or prototype lives spatially alongside notes, images, and drawings making it easy to build and explore in one place.
+Telescope sidesteps this with a different approach: full-featured browser tabs on a canvas. The actual website, product, or prototype lives spatially alongside notes, images, and drawings making it easy to build and explore in one place.
 
 All this stuff is designed with collaboration in mind, so it's easy to vibe out designs, research, and more as you work with teams of people and agents.
 

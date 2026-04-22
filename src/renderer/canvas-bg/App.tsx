@@ -317,6 +317,15 @@ export default function App({
             onResizeMulti={(entries) => api.resizeMultiSelection(entries)}
             onDrawingMouseDown={(id, event) => {
               event.stopPropagation()
+              const isAdditive = event.shiftKey || event.metaKey || event.ctrlKey
+              if (isAdditive) {
+                api.selectEntity(id, 'drawing', {
+                  shift: event.shiftKey,
+                  meta: event.metaKey,
+                  ctrl: event.ctrlKey,
+                })
+                return
+              }
               api.selectEntity(id, 'drawing')
               api.startDragEntity(id)
               let lastX = event.screenX
@@ -372,7 +381,7 @@ export default function App({
             onDragEnd={api.endDragEntity}
             onDragStart={api.startDragEntity}
             onResize={(id, patch) => api.updateTextEntity(id, patch)}
-            onSelect={(id) => api.selectEntity(id, 'text')}
+            onSelect={(id, modifiers) => api.selectEntity(id, 'text', modifiers)}
             onTextEditingChange={api.setTextEditing}
             onUpdateText={(id, text) => api.updateTextEntity(id, { text })}
             selectedEntityCount={layoutData.selectedEntityIds.length}
@@ -396,7 +405,7 @@ export default function App({
             onDragEnd={api.endDragEntity}
             onDragStart={api.startDragEntity}
             onResize={(id, patch) => api.updateFileEntity(id, patch)}
-            onSelect={(id) => api.selectEntity(id, 'file')}
+            onSelect={(id, modifiers) => api.selectEntity(id, 'file', modifiers)}
             onTextEditingChange={api.setTextEditing}
             selectedEntityCount={layoutData.selectedEntityIds.length}
             selectedEntityIdSet={selectedEntityIdSet}

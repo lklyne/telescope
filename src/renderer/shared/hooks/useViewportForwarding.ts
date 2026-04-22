@@ -5,17 +5,38 @@ import {
   middleDragDelta,
   shouldStartMouseViewportPan,
 } from '../../../shared/gesture-utils'
+import type { SelectionModifiers } from '../../../shared/types'
+
+function selectionModifiersFromEvent(event: MouseEvent): SelectionModifiers {
+  return { shift: event.shiftKey, meta: event.metaKey, ctrl: event.ctrlKey }
+}
 
 interface ViewportForwardingApi {
   canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
   canvasPan: (deltaX: number, deltaY: number) => void
-  canvasDeselect?: () => void
-  canvasClickAt?: (screenX: number, screenY: number) => void
+  canvasDeselect?: (modifiers?: SelectionModifiers) => void
+  canvasClickAt?: (
+    screenX: number,
+    screenY: number,
+    modifiers?: SelectionModifiers,
+  ) => void
   /** Optional left-drag forwarding. When provided, left-button drags are
    *  forwarded through these callbacks instead of immediately firing
    *  canvasClickAt on mousedown. */
-  onDragMove?: (startClientX: number, startClientY: number, clientX: number, clientY: number) => void
-  onDragEnd?: (startClientX: number, startClientY: number, clientX: number, clientY: number) => void
+  onDragMove?: (
+    startClientX: number,
+    startClientY: number,
+    clientX: number,
+    clientY: number,
+    modifiers?: SelectionModifiers,
+  ) => void
+  onDragEnd?: (
+    startClientX: number,
+    startClientY: number,
+    clientX: number,
+    clientY: number,
+    modifiers?: SelectionModifiers,
+  ) => void
   /** Optional renderer-side hit test: given client coords, return a frame id
    *  if a frame body/chrome was clicked, else null. When provided together
    *  with onFramePointerDown, left-button clicks on a frame bypass click/drag
@@ -88,9 +109,9 @@ export function useViewportForwarding(
           }
           event.preventDefault()
         } else if (api.canvasClickAt) {
-          api.canvasClickAt(event.clientX, event.clientY)
+          api.canvasClickAt(event.clientX, event.clientY, selectionModifiersFromEvent(event))
         } else if (api.canvasDeselect) {
-          api.canvasDeselect()
+          api.canvasDeselect(selectionModifiersFromEvent(event))
         }
       }
     }
@@ -112,7 +133,13 @@ export function useViewportForwarding(
           return
         }
         leftDrag.dragging = true
-        api.onDragMove(leftDrag.startClientX, leftDrag.startClientY, event.clientX, event.clientY)
+        api.onDragMove(
+          leftDrag.startClientX,
+          leftDrag.startClientY,
+          event.clientX,
+          event.clientY,
+          selectionModifiersFromEvent(event),
+        )
       }
     }
 
@@ -123,13 +150,20 @@ export function useViewportForwarding(
 
       if (leftDrag && event.button === 0) {
         if (leftDrag.dragging && api.onDragEnd) {
-          api.onDragEnd(leftDrag.startClientX, leftDrag.startClientY, event.clientX, event.clientY)
+          api.onDragEnd(
+            leftDrag.startClientX,
+            leftDrag.startClientY,
+            event.clientX,
+            event.clientY,
+            selectionModifiersFromEvent(event),
+          )
         } else {
           // Was a click, not a drag
+          const modifiers = selectionModifiersFromEvent(event)
           if (api.canvasClickAt) {
-            api.canvasClickAt(event.clientX, event.clientY)
+            api.canvasClickAt(event.clientX, event.clientY, modifiers)
           } else if (api.canvasDeselect) {
-            api.canvasDeselect()
+            api.canvasDeselect(modifiers)
           }
         }
         leftDrag = null

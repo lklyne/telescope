@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
-import type { CanvasSceneFileEntity } from '../../shared/types'
+import type { CanvasSceneFileEntity, SelectionModifiers } from '../../shared/types'
 import { SelectableEntityShell } from './SelectableEntityShell'
 import { aspectRatioResizeModeForCanvasFile, type EntityResizePatch, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from './entityConstants'
 import { MIN_FILE_WIDTH, MIN_FILE_HEIGHT } from './entityConstants'
@@ -37,7 +37,7 @@ function FileBlockCard({
   isMarqueePreview: boolean
   canEdit: boolean
   wireframeJsonMode: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, modifiers?: SelectionModifiers) => void
   onResize: (id: string, patch: EntityResizePatch) => void
   onTextEditingChange: (active: boolean) => void
   onDragStart: (id: string) => void
@@ -386,7 +386,7 @@ export function FileBlockLayer({
   selectedEntityIdSet: Set<string>
   selectedEntityCount: number
   jsonModeMap: FileJsonModeMap
-  onSelect: (id: string) => void
+  onSelect: (id: string, modifiers?: SelectionModifiers) => void
   onResize: (id: string, patch: EntityResizePatch) => void
   onTextEditingChange: (active: boolean) => void
   onDragStart: (id: string) => void

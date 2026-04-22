@@ -123,6 +123,18 @@ export function useFrameChromeDrag({
       }
 
       const layout = layoutRef.current
+      const isAdditive = event.shiftKey || event.metaKey || event.ctrlKey
+      if (isAdditive) {
+        // Toggle this frame in/out of the selection. A shift/meta-click is a
+        // pure selection gesture — do not start a drag.
+        api.selectFrame(frameId, {
+          shift: event.shiftKey,
+          meta: event.metaKey,
+          ctrl: event.ctrlKey,
+        })
+        event.preventDefault()
+        return
+      }
       if (!layout.selectedEntityIds.includes(frameId)) {
         api.selectFrame(frameId)
       }

@@ -1,6 +1,10 @@
 import { ipcMain } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { ScrollSyncData } from '../../shared/types'
+import type { ScrollSyncData, SelectionModifiers } from '../../shared/types'
+import {
+  isAdditiveSelection,
+  selectionMutationMode,
+} from '../../shared/selection-modifiers'
 import {
   canvasOrigin,
   bgView,
@@ -49,7 +53,10 @@ import {
 } from '../navigation-sync'
 import { deleteFrames, selectEntitiesInRect } from '../workspace-entities'
 import { duplicateFrameFromSource } from '../workspace-frames'
-import { selectedDragEntityIds } from '../runtime/selection-controller'
+import {
+  applyEntitySelectionMutation,
+  selectedDragEntityIds,
+} from '../runtime/selection-controller'
 import { aboveView } from '../runtime/view-refs'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { setSelectionOverlayRect } from '../runtime/window-shell'
@@ -66,20 +73,39 @@ function resolveDraggedEntityIds(entityId: string): string[] {
 }
 
 export function registerPageChromeIpc(): void {
-  ipcMain.on('page-select', (event) => {
-    if (interactionBlocksPageSelection()) {
-      selectionDebug('ipc:page-select:suppressed', { senderId: event.sender.id })
-      return
-    }
-    const idx = pages.findIndex((page) => page.pageView.webContents === event.sender)
-    selectionDebug('ipc:page-select', { idx, senderId: event.sender.id })
-    if (idx !== -1) selectPage(idx)
-  })
+  ipcMain.on(
+    'page-select',
+    (event, payload?: { modifiers?: SelectionModifiers }) => {
+      if (interactionBlocksPageSelection()) {
+        selectionDebug('ipc:page-select:suppressed', { senderId: event.sender.id })
+        return
+      }
+      const page = pages.find((candidate) => candidate.pageView.webContents === event.sender)
+      if (!page) return
+      const mode = selectionMutationMode(payload?.modifiers)
+      selectionDebug('ipc:page-select', { pageId: page.id, senderId: event.sender.id, mode })
+      if (mode === 'replace') {
+        const idx = pages.indexOf(page)
+        if (idx !== -1) selectPage(idx)
+        return
+      }
+      applyEntitySelectionMutation([page.id], mode)
+    },
+  )
 
-  ipcMain.on('page-deselect', () => {
-    selectionDebug('ipc:page-deselect')
-    deselectAll()
-  })
+  ipcMain.on(
+    'page-deselect',
+    (_event, payload?: { modifiers?: SelectionModifiers }) => {
+      // Additive modifiers (shift/meta/ctrl) preserve the existing selection
+      // so clicking on empty space with a modifier held does not wipe it.
+      if (isAdditiveSelection(payload?.modifiers)) {
+        selectionDebug('ipc:page-deselect:suppressed-additive')
+        return
+      }
+      selectionDebug('ipc:page-deselect')
+      deselectAll()
+    },
+  )
 
   ipcMain.on('frame-hover', (event, hovered: boolean) => {
     if (interactionBlocksPageHover()) return
@@ -88,15 +114,25 @@ export function registerPageChromeIpc(): void {
     setHoverEntity(hovered && page ? { id: page.id, kind: 'frame' } : null)
   })
 
-  ipcMain.on('chrome-select', (event) => {
-    if (interactionBlocksPageSelection()) {
-      selectionDebug('ipc:chrome-select:suppressed', { senderId: event.sender.id })
-      return
-    }
-    const idx = pages.findIndex((page) => page.chromeView.webContents === event.sender)
-    selectionDebug('ipc:chrome-select', { idx, senderId: event.sender.id })
-    if (idx !== -1) selectPage(idx)
-  })
+  ipcMain.on(
+    'chrome-select',
+    (event, payload?: { modifiers?: SelectionModifiers }) => {
+      if (interactionBlocksPageSelection()) {
+        selectionDebug('ipc:chrome-select:suppressed', { senderId: event.sender.id })
+        return
+      }
+      const page = pages.find((candidate) => candidate.chromeView.webContents === event.sender)
+      if (!page) return
+      const mode = selectionMutationMode(payload?.modifiers)
+      selectionDebug('ipc:chrome-select', { pageId: page.id, senderId: event.sender.id, mode })
+      if (mode === 'replace') {
+        const idx = pages.indexOf(page)
+        if (idx !== -1) selectPage(idx)
+        return
+      }
+      applyEntitySelectionMutation([page.id], mode)
+    },
+  )
 
   ipcMain.on('chrome-navigate', (event, url: string) => {
     const page = findPageBySender(event.sender)
@@ -225,7 +261,13 @@ export function registerPageChromeIpc(): void {
     'page-marquee-select-commit',
     (
       event,
-      rect: { screenX: number; screenY: number; width: number; height: number },
+      rect: {
+        screenX: number
+        screenY: number
+        width: number
+        height: number
+        modifiers?: SelectionModifiers
+      },
     ) => {
       const page = findPageByPageView(event.sender)
       if (!page || !win) return
@@ -239,12 +281,15 @@ export function registerPageChromeIpc(): void {
       const origin = canvasOrigin()
       const clientX = rect.screenX - contentBounds.x
       const clientY = rect.screenY - contentBounds.y
-      selectEntitiesInRect({
-        x: (clientX - origin.x - pan.x) / zoom,
-        y: (clientY - origin.y - pan.y) / zoom,
-        width: rect.width / zoom,
-        height: rect.height / zoom,
-      })
+      selectEntitiesInRect(
+        {
+          x: (clientX - origin.x - pan.x) / zoom,
+          y: (clientY - origin.y - pan.y) / zoom,
+          width: rect.width / zoom,
+          height: rect.height / zoom,
+        },
+        { mode: selectionMutationMode(rect.modifiers) },
+      )
     },
   )
 

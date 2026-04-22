@@ -6,6 +6,8 @@ import type {
   WorkspaceGraph,
   WorkspaceSelection,
 } from '../shared/types'
+import type { SelectionMutationMode } from '../shared/selection-modifiers'
+import { applyEntitySelectionMutation } from './runtime/selection-controller'
 import {
   findPageById,
   pages,
@@ -254,9 +256,13 @@ export function deleteFrames(input: DeleteFramesRequest): DeleteFramesResponse {
 
 export function selectEntitiesInRect(
   bounds: WorkspaceBounds,
-  options: { includeDrawings?: boolean } = {},
+  options: {
+    includeDrawings?: boolean
+    mode?: SelectionMutationMode
+  } = {},
 ): { entityIds: string[] } {
   const includeDrawings = options.includeDrawings ?? true
+  const mode = options.mode ?? 'replace'
   const frameIds = pages
     .filter((page) => boundsOverlap(frameSelectableBounds(page), bounds))
     .map((page) => page.id)
@@ -301,6 +307,14 @@ export function selectEntitiesInRect(
     .map((de) => de.id)
 
   const entityIds = [...frameIds, ...textIds, ...fileIds, ...drawingIds]
+
+  if (mode !== 'replace') {
+    // Additive / toggle / remove modes: preserve existing selection outside the rect
+    // and merge rect hits according to the mode. An empty rect with an additive
+    // mode is a no-op, which matches OS-level shift-click conventions.
+    applyEntitySelectionMutation(entityIds, mode)
+    return { entityIds }
+  }
 
   if (!entityIds.length) {
     deselectAll()

@@ -1,4 +1,5 @@
 import type { CanvasEntityKind, UiState } from '../../shared/types'
+import type { SelectionMutationMode } from '../../shared/selection-modifiers'
 import {
   devtoolsPanelTab as uiDevtoolsPanelTab,
   getUiState,
@@ -247,6 +248,32 @@ export function enterGroup(
   ]
   if (!childIds.length) return false
   return selectEntities(childIds, { clearInteraction: true, ...options })
+}
+
+export function applyEntitySelectionMutation(
+  targetIds: string[],
+  mode: SelectionMutationMode,
+  options?: CommitOptions,
+): boolean {
+  if (mode === 'replace') return selectEntities(targetIds, options)
+
+  const current = uiSelectedEntityIds()
+  const currentSet = new Set(current)
+  const targetSet = new Set(targetIds)
+
+  let nextIds: string[]
+  if (mode === 'add') {
+    nextIds = [...new Set([...current, ...targetIds])]
+  } else if (mode === 'remove') {
+    nextIds = current.filter((id) => !targetSet.has(id))
+  } else {
+    // toggle: XOR — entities already selected are dropped, new ones are added
+    const kept = current.filter((id) => !targetSet.has(id))
+    const added = targetIds.filter((id) => !currentSet.has(id))
+    nextIds = [...kept, ...added]
+  }
+
+  return selectEntities(nextIds, options)
 }
 
 export function selectedDragEntityIds(entityId: string): string[] {

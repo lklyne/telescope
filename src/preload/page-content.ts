@@ -206,6 +206,40 @@ window.addEventListener(
   { passive: false, capture: true }
 )
 
+// Additive-selection intercept.
+//
+// When a frame is singly selected, `interactive` is true and the blocking
+// overlay is removed — clicks on the body land inside the webpage. Without
+// this capturing listener, there is no way to shift-click the frame body
+// to toggle its selection. Routing the mousedown to main as a page-select
+// with modifiers keeps OS-level additive selection working regardless of
+// the interactive / overlay state.
+window.addEventListener(
+  'mousedown',
+  (e: MouseEvent) => {
+    if (e.button !== 0) return
+    if (!e.shiftKey && !e.metaKey && !e.ctrlKey) return
+    if (annotationMode === 'region_select') return
+    if (annotateEnabled) return
+    if (isDomInspectionEnabled()) return
+    selectionDebug('additive-click-intercept', {
+      shift: e.shiftKey,
+      meta: e.metaKey,
+      ctrl: e.ctrlKey,
+    })
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    ipcRenderer.send('page-select', {
+      modifiers: {
+        shift: e.shiftKey,
+        meta: e.metaKey,
+        ctrl: e.ctrlKey,
+      },
+    })
+  },
+  { capture: true },
+)
+
 // --- Selection overlay ---
 // When the page is not interactive (unselected), inject an overlay that blocks
 // all pointer events and forwards wheel/click to canvas operations.
@@ -321,7 +355,13 @@ function injectBlockingOverlay(): void {
         if (dragStarted) {
           ipcRenderer.send('page-group-drag-end')
         } else {
-          ipcRenderer.send('page-select')
+          ipcRenderer.send('page-select', {
+            modifiers: {
+              shift: e.shiftKey,
+              meta: e.metaKey,
+              ctrl: e.ctrlKey,
+            },
+          })
         }
       }
 

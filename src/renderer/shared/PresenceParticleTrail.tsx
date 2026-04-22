@@ -15,11 +15,13 @@ import {
   instanceIndex,
   instancedArray,
   mix,
+  mx_noise_vec3,
   positionLocal,
   smoothstep,
   uint,
   uniform,
   uniformArray,
+  uv,
   vec2,
   vec3,
   vec4,
@@ -48,6 +50,10 @@ interface Props {
   driftStrength?: number
   /** Distance in px at which drift smoothstep-eases up to max. */
   driftReferenceDistance?: number
+  /** How fast each particle's drift direction evolves over time. 0 = fixed direction; larger = more swirling. */
+  driftTurnRate?: number
+  /** Spatial coherence of the drift flow field. 0 = every particle independent; higher = neighbors drift together. */
+  driftFlowScale?: number
   /** Active slots in the ring buffer; clamped to [64, MAX_POOL_SIZE]. */
   particleCount?: number
   /** Seconds a cursor must sit idle (intensity <= 0) before its trail starts a global fade. */
@@ -89,6 +95,8 @@ interface Handle {
     size: number
     driftStrength: number
     driftReferenceDistance: number
+    driftTurnRate: number
+    driftFlowScale: number
     particleCount: number
     fadeOutGraceSeconds: number
     fadeOutSeconds: number
@@ -105,6 +113,8 @@ function buildSystem(initial: {
   size: number
   driftStrength: number
   driftReferenceDistance: number
+  driftTurnRate: number
+  driftFlowScale: number
   particleCount: number
   fadeOutGraceSeconds: number
   fadeOutSeconds: number
@@ -167,6 +177,9 @@ function buildSystem(initial: {
   const sizeU = uniform(initial.size)
   const driftStrengthU = uniform(initial.driftStrength)
   const driftReferenceDistanceU = uniform(initial.driftReferenceDistance)
+  const driftTurnRateU = uniform(initial.driftTurnRate)
+  const driftFlowScaleU = uniform(initial.driftFlowScale)
+  const timeU = uniform(0)
   const poolSizeU = uniform(
     Math.max(64, Math.min(MAX_POOL_SIZE, initial.particleCount)),
     'uint',
@@ -224,11 +237,16 @@ function buildSystem(initial: {
       state.x.assign(lifetimeU)
     }).Else(() => {
       If(age.greaterThan(holdU), () => {
-        // Random direction per particle (seeded by instance index).
-        const seed = instanceIndex.add(uint(91)).toVar()
-        const dx = hash(seed).sub(0.5).mul(2)
-        const dy = hash(seed.add(uint(3))).sub(0.5).mul(2)
-        const dir = vec3(dx, dy, float(0))
+        // Direction is sampled from a noise field at (seed + pos*flowScale,
+        // time*turnRate). turnRate controls how fast each particle's
+        // direction evolves; flowScale controls how much neighbors share a
+        // direction (0 = fully independent random walk, >0 = flow field).
+        const seed = float(instanceIndex).mul(0.137)
+        const t = timeU.mul(driftTurnRateU)
+        const nx = seed.add(pos.x.mul(driftFlowScaleU))
+        const ny = seed.add(float(31.7)).add(pos.y.mul(driftFlowScaleU))
+        const n = mx_noise_vec3(vec3(nx, ny, t))
+        const dir = vec3(n.x, n.y, float(0))
 
         // Drift strength eases from 0 (near cursor) to max (far from cursor).
         // This means particles clustered at a resting cursor stay calm, while
@@ -280,7 +298,11 @@ function buildSystem(initial: {
     const fadeIn = smoothstep(0, 0.05, lifeT)
     const fadeOut = float(1).sub(smoothstep(0.3, 1, lifeT))
     const globalFade = cursorFadeAlpha.element(cIdx)
-    return vec4(base, fadeIn.mul(fadeOut).mul(globalFade))
+    // Radial mask: solid core, smoothstep to 0 before the quad edge so the
+    // corners are fully transparent and the particle reads as a round point.
+    const dist = uv().sub(vec2(0.5, 0.5)).length()
+    const radial = float(1).sub(smoothstep(0.1, 0.5, dist))
+    return vec4(base, fadeIn.mul(fadeOut).mul(globalFade).mul(radial))
   })()
 
   const geometry = new THREE.PlaneGeometry(1, 1)
@@ -300,6 +322,7 @@ function buildSystem(initial: {
   const stepCompute = (renderer: THREE.WebGPURenderer, dtSeconds: number) => {
     const dt = Math.min(Math.max(dtSeconds, 0), 1 / 15)
     deltaU.value = dt
+    timeU.value += dt
 
     const activeCount = cursorCount.value
     const fadeDuration = Math.max(fadeOutSecondsU.value, 0.0001)
@@ -381,6 +404,8 @@ function buildSystem(initial: {
       sizeU.value = p.size
       driftStrengthU.value = p.driftStrength
       driftReferenceDistanceU.value = p.driftReferenceDistance
+      driftTurnRateU.value = p.driftTurnRate
+      driftFlowScaleU.value = p.driftFlowScale
       fadeOutGraceU.value = p.fadeOutGraceSeconds
       fadeOutSecondsU.value = p.fadeOutSeconds
       fadeEasing = p.fadeOutEasing
@@ -415,7 +440,9 @@ export function PresenceParticleTrail({
   lifetimeSeconds = 2.5,
   size = 2,
   driftStrength = 30,
-  driftReferenceDistance = 330,
+  driftReferenceDistance = 180,
+  driftTurnRate = 0.7,
+  driftFlowScale = 0.001,
   particleCount = 8192,
   fadeOutGraceSeconds = 0.2,
   fadeOutSeconds = 1.2,
@@ -470,6 +497,8 @@ export function PresenceParticleTrail({
           size,
           driftStrength,
           driftReferenceDistance,
+          driftTurnRate,
+          driftFlowScale,
           particleCount,
           fadeOutGraceSeconds,
           fadeOutSeconds,
@@ -528,6 +557,8 @@ export function PresenceParticleTrail({
       size,
       driftStrength,
       driftReferenceDistance,
+      driftTurnRate,
+      driftFlowScale,
       particleCount,
       fadeOutGraceSeconds,
       fadeOutSeconds,
@@ -542,6 +573,8 @@ export function PresenceParticleTrail({
     size,
     driftStrength,
     driftReferenceDistance,
+    driftTurnRate,
+    driftFlowScale,
     particleCount,
     fadeOutGraceSeconds,
     fadeOutSeconds,

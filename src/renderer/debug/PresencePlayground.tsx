@@ -54,6 +54,8 @@ export interface TrailParticleParams {
   driftGraceSeconds: number
   driftStrength: number
   driftReferenceDistance: number
+  driftTurnRate: number
+  driftFlowScale: number
   particleCount: number
   /** When false, no particles emit while the cursor is stationary. */
   emitWhenIdle: boolean
@@ -72,7 +74,9 @@ export const DEFAULT_TRAIL_PARAMS: TrailParticleParams = {
   lifetimeSeconds: 2.5,
   driftGraceSeconds: 0.3,
   driftStrength: 30,
-  driftReferenceDistance: 330,
+  driftReferenceDistance: 180,
+  driftTurnRate: 0.7,
+  driftFlowScale: 0.001,
   particleCount: 8192,
   emitWhenIdle: false,
   fadeOutGraceSeconds: 0.2,
@@ -225,6 +229,8 @@ export function PresencePlayground({
           holdSeconds={trail.driftGraceSeconds}
           driftStrength={trail.driftStrength}
           driftReferenceDistance={trail.driftReferenceDistance}
+          driftTurnRate={trail.driftTurnRate}
+          driftFlowScale={trail.driftFlowScale}
           particleCount={trail.particleCount}
           fadeOutGraceSeconds={trail.fadeOutGraceSeconds}
           fadeOutSeconds={trail.fadeOutSeconds}

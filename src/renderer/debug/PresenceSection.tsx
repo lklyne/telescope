@@ -213,6 +213,38 @@ function TrailControls({
       </Field>
 
       <Field
+        label="Drift turn rate"
+        value={trail.driftTurnRate.toFixed(2)}
+        help="How fast each particle's drift direction changes over time. 0 = fixed direction; higher = swirling/meandering motion."
+      >
+        <input
+          type="range"
+          min={0}
+          max={4}
+          step={0.05}
+          value={trail.driftTurnRate}
+          onChange={(e) => patch({ driftTurnRate: Number(e.target.value) })}
+          className="w-full accent-blue-600"
+        />
+      </Field>
+
+      <Field
+        label="Drift flow scale"
+        value={trail.driftFlowScale.toFixed(4)}
+        help="Spatial coherence of the drift flow field. 0 = every particle wanders independently; higher = nearby particles move together like a breeze."
+      >
+        <input
+          type="range"
+          min={0}
+          max={0.05}
+          step={0.001}
+          value={trail.driftFlowScale}
+          onChange={(e) => patch({ driftFlowScale: Number(e.target.value) })}
+          className="w-full accent-blue-600"
+        />
+      </Field>
+
+      <Field
         label="Particle count"
         value={`${trail.particleCount}`}
         help="Upper bound on live particles. Higher = denser trail at the cost of GPU work."

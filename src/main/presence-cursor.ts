@@ -398,6 +398,7 @@ export function upsertPresenceCursor(
     !existing ||
     existing.canvasX !== resolvedCanvasX ||
     existing.canvasY !== resolvedCanvasY
+  const now = Date.now()
   const next: PresenceCursorEntry = {
     sessionId,
     clientName: session.clientName,
@@ -450,10 +451,8 @@ export function upsertPresenceCursor(
       patch.targetRect === undefined
         ? existing?.targetRect ?? null
         : patch.targetRect,
-    updatedAt: Date.now(),
-    lastMoveAt: positionChanged
-      ? Date.now()
-      : existing?.lastMoveAt ?? Date.now(),
+    updatedAt: now,
+    lastMoveAt: positionChanged ? now : existing?.lastMoveAt ?? now,
   }
 
   presenceCursors.set(sessionId, next)

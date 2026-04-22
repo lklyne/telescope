@@ -6,14 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
-### Added
-- LICENSE file (PolyForm Shield 1.0.0)
-- Expanded README with feature list, install instructions, and MCP documentation
-- CHANGELOG, CONTRIBUTING, CODE_OF_CONDUCT, and SECURITY community docs
-- `.env.example` documenting all available environment variables
+## [0.2.6] - 2026-04-21 — Presence Polish, Debug Window
 
-### Changed
-- Moved internal planning docs to `docs/internal/`
+Lots of refinement to how agent cursors move and retire, plus a new debug window for inspecting presence in flight.
+
+### Improvements
+- Agent cursors render in canvas space, so they no longer rubber-band during pan/zoom
+- Cursor motion follows a Catmull-Rom spline with distance-scaled animation — short hops feel instant, long travel reads as intentional
+- Scroll animates with an ease curve and dwells before moving, so the cursor lands at the origin before the page shifts
+- Cursors fade out gracefully on idle-retire and session-done instead of popping
+- Single-item creates, updates, and deletes across text, files, frames, links, groups, annotations, and camera focus all move the cursor now
+- Each frame gets its own agent-browser session, so driving multiple frames in one app session routes to the right place
+- `telescope link <fromId> <toId>` accepts positional args alongside the stdin batch form
+
+### Fixes
+- Click timing: the cursor actually arrives before mousePressed lands, with a full travel+dwell window
+- Agent cursor projections account for chrome height, so clicks no longer land 44px above their target
+- Same-frame attach_frame no longer bounces the cursor to frame center
+- Unresolvable click/fill refs no longer snap to frame center
+- Sidebar inline edit layout
+- Presence sessions refresh `lastSeenAt` on lookup, so active flows can't be reaped mid-sweep
+
+### New
+- Standalone debug window with a presence timeline and motion playground
+
+### Misc
+- LICENSE file (PolyForm Shield 1.0.0)
+- Expanded README with feature list, install instructions, and MCP docs
+- CONTRIBUTING, CODE_OF_CONDUCT, and SECURITY docs
+- `.env.example` covering available environment variables
+- Telescope skill moved into the repo so branch edits stop leaking globally
+- Internal planning docs moved to `docs/internal/`
 
 ## [0.2.1-alpha.9] - 2026-04-07
 

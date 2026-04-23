@@ -44,6 +44,8 @@ export type DragGestureSpec<T> = {
   onUpdate: (ctx: GestureContext, token: T) => void
   onCommit: (ctx: GestureContext, token: T) => void
   onCancel: (token: T, reason: CancelReason) => void
+  /** Runs after an accepted pointerdown, even when threshold prevents begin. */
+  onPointerDown?: (ctx: GestureContext) => void
   /** Filter pointerdown events before they start a gesture. */
   filter?: (event: PointerEvent) => boolean
   /** Stop propagation of accepted pointerdown events (prevents ancestor gestures). */
@@ -88,8 +90,6 @@ export function useDragGesture<T>(spec: DragGestureSpec<T>): void {
     let token: T | null = null
     let begun = false
     let lastButtons = 0
-    const threshold = spec.threshold ?? 0
-
     const cancel = (reason: CancelReason) => {
       if (token !== null) {
         try { specRef.current.onCancel(token, reason) } catch { /* ignore */ }
@@ -110,7 +110,9 @@ export function useDragGesture<T>(spec: DragGestureSpec<T>): void {
       startX = event.clientX
       startY = event.clientY
       lastButtons = event.buttons
+      specRef.current.onPointerDown?.(contextFrom(event, startX, startY))
       el.setPointerCapture(event.pointerId)
+      const threshold = specRef.current.threshold ?? 0
       if (threshold === 0) {
         const ctx = contextFrom(event, startX, startY)
         const t = specRef.current.onBegin(ctx)
@@ -125,6 +127,7 @@ export function useDragGesture<T>(spec: DragGestureSpec<T>): void {
       lastButtons = event.buttons
       const ctx = contextFrom(event, startX, startY)
       if (!begun) {
+        const threshold = specRef.current.threshold ?? 0
         if (Math.abs(ctx.dx) < threshold && Math.abs(ctx.dy) < threshold) return
         const t = specRef.current.onBegin(ctx)
         if (t === null) { cancel('external'); return }

@@ -9,6 +9,15 @@ import type { SelectionModifiers } from '../../shared/types'
 // --- Selectable Entity Shell (shared wrapper for text blocks, file blocks, etc.) ---
 
 type DragToken = { lastDx: number; lastDy: number }
+type DragTarget =
+  | { kind: 'entity'; id: string }
+  | { kind: 'group'; id: string }
+
+type EntityDragToken = DragToken & {
+  target: DragTarget
+}
+
+const GROUP_CHILD_DRAG_THRESHOLD_PX = 3
 
 export function SelectableEntityShell({
   id,
@@ -30,6 +39,10 @@ export function SelectableEntityShell({
   onDragStart,
   onDrag,
   onDragEnd,
+  selectedGroupDragTargetId = null,
+  onGroupDragStart,
+  onGroupDrag,
+  onGroupDragEnd,
   shouldStartDrag,
   overflowVisible = false,
   showResizeHandles = true,
@@ -55,6 +68,10 @@ export function SelectableEntityShell({
   onDragStart: (id: string) => void
   onDrag: (id: string, dx: number, dy: number) => void
   onDragEnd: () => void
+  selectedGroupDragTargetId?: string | null
+  onGroupDragStart?: (groupId: string) => void
+  onGroupDrag?: (groupId: string, dx: number, dy: number) => void
+  onGroupDragEnd?: () => void
   shouldStartDrag?: (e: PointerEvent) => boolean
   overflowVisible?: boolean
   showResizeHandles?: boolean
@@ -64,10 +81,20 @@ export function SelectableEntityShell({
   const setHoveredEntityId = useContext(EntityHoverSetterContext)
   const ref = useRef<HTMLDivElement>(null)
   const isSelectedRef = useRef(isSelected)
+  const selectedGroupDragTargetIdRef = useRef(selectedGroupDragTargetId)
+  const suppressNextGroupClickRef = useRef(false)
   isSelectedRef.current = isSelected
+  selectedGroupDragTargetIdRef.current = selectedGroupDragTargetId
 
-  useDragGesture<DragToken>({
+  const clearSuppressedGroupClick = () => {
+    window.setTimeout(() => {
+      suppressNextGroupClickRef.current = false
+    }, 0)
+  }
+
+  useDragGesture<EntityDragToken>({
     target: ref,
+    threshold: selectedGroupDragTargetId ? GROUP_CHILD_DRAG_THRESHOLD_PX : 0,
     stopPropagation: true,
     filter: (event) => {
       if (event.button !== 0) return false
@@ -83,19 +110,49 @@ export function SelectableEntityShell({
         onSelect(id, { shift, meta, ctrl })
         return null
       }
+      const groupDragTargetId = selectedGroupDragTargetIdRef.current
+      if (groupDragTargetId && onGroupDragStart && onGroupDrag && onGroupDragEnd) {
+        suppressNextGroupClickRef.current = true
+        onGroupDragStart(groupDragTargetId)
+        if (ctx.dx !== 0 || ctx.dy !== 0) onGroupDrag(groupDragTargetId, ctx.dx, ctx.dy)
+        return {
+          lastDx: ctx.dx,
+          lastDy: ctx.dy,
+          target: { kind: 'group', id: groupDragTargetId },
+        }
+      }
       if (!isSelectedRef.current) onSelect(id)
       onDragStart(id)
-      return { lastDx: 0, lastDy: 0 }
+      return { lastDx: 0, lastDy: 0, target: { kind: 'entity', id } }
     },
     onUpdate: (ctx, token) => {
       const dx = ctx.dx - token.lastDx
       const dy = ctx.dy - token.lastDy
       token.lastDx = ctx.dx
       token.lastDy = ctx.dy
-      if (dx !== 0 || dy !== 0) onDrag(id, dx, dy)
+      if (dx === 0 && dy === 0) return
+      if (token.target.kind === 'group') {
+        onGroupDrag?.(token.target.id, dx, dy)
+        return
+      }
+      onDrag(id, dx, dy)
     },
-    onCommit: () => onDragEnd(),
-    onCancel: () => onDragEnd(),
+    onCommit: (_ctx, token) => {
+      if (token.target.kind === 'group') {
+        onGroupDragEnd?.()
+        clearSuppressedGroupClick()
+        return
+      }
+      onDragEnd()
+    },
+    onCancel: (token) => {
+      if (token.target.kind === 'group') {
+        onGroupDragEnd?.()
+        clearSuppressedGroupClick()
+        return
+      }
+      onDragEnd()
+    },
   })
 
   const zoom = getZoom()
@@ -127,6 +184,24 @@ export function SelectableEntityShell({
       }}
       onMouseEnter={() => setHoveredEntityId(id)}
       onMouseLeave={() => setHoveredEntityId(null)}
+      onClick={(event) => {
+        const groupDragTargetId = selectedGroupDragTargetIdRef.current
+        if (!groupDragTargetId) return
+        if (suppressNextGroupClickRef.current) {
+          event.preventDefault()
+          event.stopPropagation()
+          suppressNextGroupClickRef.current = false
+          return
+        }
+        const target = event.target as HTMLElement | null
+        if (target?.closest('[data-resize-handle], button, input, textarea')) return
+        onSelect(id, {
+          shift: event.shiftKey,
+          meta: event.metaKey,
+          ctrl: event.ctrlKey,
+        })
+        event.stopPropagation()
+      }}
     >
       {children}
       {isSelected && showResizeHandles && (

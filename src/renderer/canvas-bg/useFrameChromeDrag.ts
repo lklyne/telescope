@@ -7,6 +7,11 @@ import {
   type ChromeDragSession,
   type DragCopyPreview,
 } from './canvasGeometry'
+import { selectedGroupDragTargetId } from './groupMembership'
+
+type ChromeDragTarget =
+  | { kind: 'frame'; id: string }
+  | { kind: 'group'; id: string }
 
 export function useFrameChromeDrag({
   api,
@@ -16,32 +21,44 @@ export function useFrameChromeDrag({
   layoutRef: RefObject<LayoutUpdateData>
 }) {
   const chromeDraggingRef = useRef(false)
-  const dragFrameIdRef = useRef<string | null>(null)
+  const dragTargetRef = useRef<ChromeDragTarget | null>(null)
   const chromeDragSessionRef = useRef<ChromeDragSession | null>(null)
   const chromeLastPosRef = useRef({ x: 0, y: 0 })
   const [dragCopyPreview, setDragCopyPreview] = useState<DragCopyPreview[]>([])
   const [isChromeDragging, setIsChromeDragging] = useState(false)
 
   const resetDragState = useCallback(() => {
+    const dragTarget = dragTargetRef.current
     chromeDraggingRef.current = false
     setIsChromeDragging(false)
-    dragFrameIdRef.current = null
+    dragTargetRef.current = null
     chromeDragSessionRef.current = null
     setDragCopyPreview([])
-    api.endDragFrame()
+    if (dragTarget?.kind === 'group') {
+      api.endDragGroup()
+    } else if (dragTarget?.kind === 'frame') {
+      api.endDragFrame()
+    }
   }, [api])
 
   const syncChromeDragCopyMode = useCallback(
     (copyMode: boolean) => {
       const session = chromeDragSessionRef.current
-      const dragFrameId = dragFrameIdRef.current
-      if (!session || session.copyMode === copyMode || !dragFrameId) return
+      const dragTarget = dragTargetRef.current
+      if (
+        !session ||
+        session.copyMode === copyMode ||
+        !dragTarget ||
+        dragTarget.kind !== 'frame'
+      ) {
+        return
+      }
 
       session.copyMode = copyMode
 
       if (copyMode) {
         if (session.totalScreenDx !== 0 || session.totalScreenDy !== 0) {
-          api.dragFrame(dragFrameId, -session.totalScreenDx, -session.totalScreenDy)
+          api.dragFrame(dragTarget.id, -session.totalScreenDx, -session.totalScreenDy)
         }
         setDragCopyPreview(buildDragCopyPreview(session, layoutRef.current))
         return
@@ -49,7 +66,7 @@ export function useFrameChromeDrag({
 
       setDragCopyPreview([])
       if (session.totalScreenDx !== 0 || session.totalScreenDy !== 0) {
-        api.dragFrame(dragFrameId, session.totalScreenDx, session.totalScreenDy)
+        api.dragFrame(dragTarget.id, session.totalScreenDx, session.totalScreenDy)
       }
     },
     [api, layoutRef],
@@ -66,8 +83,13 @@ export function useFrameChromeDrag({
       const dy = event.screenY - chromeLastPosRef.current.y
       chromeLastPosRef.current = { x: event.screenX, y: event.screenY }
       const session = chromeDragSessionRef.current
-      const dragFrameId = dragFrameIdRef.current
-      if (!dragFrameId || !session) return
+      const dragTarget = dragTargetRef.current
+      if (!dragTarget) return
+      if (dragTarget.kind === 'group') {
+        api.dragGroup(dragTarget.id, dx, dy)
+        return
+      }
+      if (!session) return
       if (event.altKey !== session.copyMode) {
         syncChromeDragCopyMode(event.altKey)
       }
@@ -77,7 +99,7 @@ export function useFrameChromeDrag({
         setDragCopyPreview(buildDragCopyPreview(session, layoutRef.current))
         return
       }
-      api.dragFrame(dragFrameId, dx, dy)
+      api.dragFrame(dragTarget.id, dx, dy)
     }
 
     const handleMouseUp = () => {
@@ -135,6 +157,18 @@ export function useFrameChromeDrag({
         event.preventDefault()
         return
       }
+      const selectedGroupTargetId = selectedGroupDragTargetId(layout, frameId)
+      if (selectedGroupTargetId) {
+        api.startDragGroup(selectedGroupTargetId)
+        chromeDraggingRef.current = true
+        setIsChromeDragging(true)
+        dragTargetRef.current = { kind: 'group', id: selectedGroupTargetId }
+        chromeDragSessionRef.current = null
+        chromeLastPosRef.current = { x: event.screenX, y: event.screenY }
+        setDragCopyPreview([])
+        event.preventDefault()
+        return
+      }
       if (!layout.selectedEntityIds.includes(frameId)) {
         api.selectFrame(frameId)
       }
@@ -163,7 +197,7 @@ export function useFrameChromeDrag({
       api.startDragFrame(frameId)
       chromeDraggingRef.current = true
       setIsChromeDragging(true)
-      dragFrameIdRef.current = frameId
+      dragTargetRef.current = { kind: 'frame', id: frameId }
       chromeLastPosRef.current = { x: event.screenX, y: event.screenY }
 
       if (event.altKey && chromeDragSessionRef.current) {

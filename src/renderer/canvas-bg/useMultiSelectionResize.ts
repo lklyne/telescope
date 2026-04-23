@@ -70,10 +70,16 @@ export function useMultiCornerResize({
       let accH = canvasBbox.height
       let accCX = canvasBbox.x
       let accCY = canvasBbox.y
+      let lastButtons = e.buttons || 1
       const flipX = corner === 'top-left' || corner === 'bottom-left' ? -1 : 1
       const flipY = corner === 'top-left' || corner === 'top-right' ? -1 : 1
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
+        lastButtons = moveEvent.buttons
+        if (lastButtons === 0) {
+          finishResize()
+          return
+        }
         const dx = (moveEvent.screenX - lastX) / zoom
         const dy = (moveEvent.screenY - lastY) / zoom
         lastX = moveEvent.screenX
@@ -93,12 +99,19 @@ export function useMultiCornerResize({
 
       const finishResize = () => {
         window.removeEventListener('mousemove', handleMouseMove)
-        window.removeEventListener('mouseup', finishResize)
-        window.removeEventListener('blur', finishResize)
+        window.removeEventListener('mouseup', handleMouseUp)
+        window.removeEventListener('blur', handleBlur)
+      }
+      const handleMouseUp = () => {
+        lastButtons = 0
+        finishResize()
+      }
+      const handleBlur = () => {
+        if (lastButtons === 0) finishResize()
       }
       window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup', finishResize)
-      window.addEventListener('blur', finishResize)
+      window.addEventListener('mouseup', handleMouseUp)
+      window.addEventListener('blur', handleBlur)
     },
     [entities, canvasBbox, zoom, corner, onResize],
   )
@@ -132,10 +145,16 @@ export function useMultiEdgeResize({
       let accH = canvasBbox.height
       let accCX = canvasBbox.x
       let accCY = canvasBbox.y
+      let lastButtons = e.buttons || 1
       const isHorizontal = edge === 'left' || edge === 'right'
       const flip = edge === 'left' || edge === 'top' ? -1 : 1
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
+        lastButtons = moveEvent.buttons
+        if (lastButtons === 0) {
+          finishResize()
+          return
+        }
         const dx = (moveEvent.screenX - lastX) / zoom
         const dy = (moveEvent.screenY - lastY) / zoom
         lastX = moveEvent.screenX
@@ -159,12 +178,19 @@ export function useMultiEdgeResize({
 
       const finishResize = () => {
         window.removeEventListener('mousemove', handleMouseMove)
-        window.removeEventListener('mouseup', finishResize)
-        window.removeEventListener('blur', finishResize)
+        window.removeEventListener('mouseup', handleMouseUp)
+        window.removeEventListener('blur', handleBlur)
+      }
+      const handleMouseUp = () => {
+        lastButtons = 0
+        finishResize()
+      }
+      const handleBlur = () => {
+        if (lastButtons === 0) finishResize()
       }
       window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup', finishResize)
-      window.addEventListener('blur', finishResize)
+      window.addEventListener('mouseup', handleMouseUp)
+      window.addEventListener('blur', handleBlur)
     },
     [entities, canvasBbox, zoom, edge, onResize],
   )

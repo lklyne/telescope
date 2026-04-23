@@ -32,7 +32,7 @@ import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { usePendingPlacementState } from './usePendingPlacementState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useFrameChromeDrag } from './useFrameChromeDrag'
-import { useGroupBoundsDrag } from './useGroupBoundsDrag'
+import { descendantIdsForGroup, selectedGroupHasDescendantFrame } from './groupMembership'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 const GROUP_MENU_DELAY_MS = 150
@@ -85,7 +85,6 @@ export default function App({
 
   const handleSelectEdge = useCallback((edgeId: string | null) => api.selectEdge(edgeId), [api])
   const handleHoverEntity = useCallback((entityId: string | null) => api.hoverFrame(entityId), [api])
-  const handleGroupBoundsPointerDown = useGroupBoundsDrag(api)
 
   const frameEntities = useMemo(
     () => layoutData.entities.filter((e): e is CanvasSceneFrameEntity => e.kind === 'frame'),
@@ -117,6 +116,14 @@ export default function App({
     if (!layoutData.selectedGroupId) return null
     return (layoutData.groups ?? []).find((group) => group.id === layoutData.selectedGroupId) ?? null
   }, [layoutData.groups, layoutData.selectedGroupId])
+  const selectedGroupDescendantIds = useMemo(() => {
+    if (!layoutData.selectedGroupId) return new Set<string>()
+    return descendantIdsForGroup(layoutData.groups ?? [], layoutData.selectedGroupId)
+  }, [layoutData.groups, layoutData.selectedGroupId])
+  const selectedGroupControlsMirroredToAboveView = useMemo(
+    () => selectedGroupHasDescendantFrame(layoutData),
+    [layoutData],
+  )
   const [delayedSelectedGroupMenuId, setDelayedSelectedGroupMenuId] = useState<string | null>(null)
   const shouldQueueSelectedGroupMenu =
     layoutData.viewMode === 'canvas' &&
@@ -181,8 +188,10 @@ export default function App({
             isDark={isDark}
             selectedGroupId={layoutData.selectedGroupId ?? null}
             zoom={layoutData.zoom}
-            onResize={(id, patch) => api.updateGroupEntity(id, patch)}
-            onPointerDown={handleGroupBoundsPointerDown}
+            onSelectGroup={api.selectGroup}
+            onStartDragGroup={api.startDragGroup}
+            onDragGroup={api.dragGroup}
+            onEndDragGroup={api.endDragGroup}
             onDoubleClick={(groupId) => {
               api.enterGroup(groupId)
             }}
@@ -229,7 +238,11 @@ export default function App({
             groups={layoutData.groups ?? []}
             isDark={isDark}
             selectedGroupId={layoutData.selectedGroupId ?? null}
+            suppressOverlay={selectedGroupControlsMirroredToAboveView}
             onResizeGroup={(id, patch) => api.updateGroupEntity(id, patch)}
+            onStartDragGroup={api.startDragGroup}
+            onDragGroup={api.dragGroup}
+            onEndDragGroup={api.endDragGroup}
           />
         ) : null}
 
@@ -380,12 +393,17 @@ export default function App({
             onDrag={api.dragEntity}
             onDragEnd={api.endDragEntity}
             onDragStart={api.startDragEntity}
+            onGroupDrag={api.dragGroup}
+            onGroupDragEnd={api.endDragGroup}
+            onGroupDragStart={api.startDragGroup}
             onResize={(id, patch) => api.updateTextEntity(id, patch)}
             onSelect={(id, modifiers) => api.selectEntity(id, 'text', modifiers)}
             onTextEditingChange={api.setTextEditing}
             onUpdateText={(id, text) => api.updateTextEntity(id, { text })}
             selectedEntityCount={layoutData.selectedEntityIds.length}
             selectedEntityIdSet={selectedEntityIdSet}
+            selectedGroupDescendantIds={selectedGroupDescendantIds}
+            selectedGroupId={layoutData.selectedGroupId ?? null}
           />
         </CanvasEntityViewportLayer>
       ) : null}
@@ -404,11 +422,16 @@ export default function App({
             onDrag={api.dragEntity}
             onDragEnd={api.endDragEntity}
             onDragStart={api.startDragEntity}
+            onGroupDrag={api.dragGroup}
+            onGroupDragEnd={api.endDragGroup}
+            onGroupDragStart={api.startDragGroup}
             onResize={(id, patch) => api.updateFileEntity(id, patch)}
             onSelect={(id, modifiers) => api.selectEntity(id, 'file', modifiers)}
             onTextEditingChange={api.setTextEditing}
             selectedEntityCount={layoutData.selectedEntityIds.length}
             selectedEntityIdSet={selectedEntityIdSet}
+            selectedGroupDescendantIds={selectedGroupDescendantIds}
+            selectedGroupId={layoutData.selectedGroupId ?? null}
             jsonModeMap={fileJsonModeMap}
           />
         </CanvasEntityViewportLayer>

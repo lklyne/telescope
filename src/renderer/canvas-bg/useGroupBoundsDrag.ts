@@ -1,63 +1,67 @@
-import { useCallback } from 'react'
-import type { CanvasBgElectronAPI } from '../../shared/types'
+import type { RefObject } from 'react'
+import { useDragGesture } from '../shared/useDragGesture'
 
 const GROUP_DRAG_THRESHOLD_PX = 3
 
-/**
- * Pointer-down handler for group bounds: selects the group, then promotes the
- * gesture to a drag once the cursor moves past a small threshold. Drag is
- * routed back through the IPC API (start/drag/end).
- *
- * Returns a stable callback suitable for `<GroupBoundsLayer onPointerDown>`.
- */
-export function useGroupBoundsDrag(
-  api: CanvasBgElectronAPI,
-): (groupId: string, e: React.PointerEvent) => void {
-  return useCallback(
-    (groupId, e) => {
-      e.stopPropagation()
-      api.selectGroup(groupId)
-      const target = e.currentTarget as HTMLElement
-      const pointerId = e.pointerId
-      const startX = e.clientX
-      const startY = e.clientY
-      let dragging = false
-      try { target.setPointerCapture(pointerId) } catch { /* ignore */ }
-      const onMove = (moveEvent: PointerEvent) => {
-        if (moveEvent.pointerId !== pointerId) return
-        if (!dragging) {
-          const dx = moveEvent.clientX - startX
-          const dy = moveEvent.clientY - startY
-          if (Math.abs(dx) < GROUP_DRAG_THRESHOLD_PX && Math.abs(dy) < GROUP_DRAG_THRESHOLD_PX) return
-          dragging = true
-          api.startDragGroup(groupId)
-        }
-        api.dragGroup(groupId, moveEvent.movementX, moveEvent.movementY)
+type GroupDragToken = {
+  lastDx: number
+  lastDy: number
+}
+
+export function useGroupDragGesture({
+  target,
+  groupId,
+  enabled = true,
+  selectOnBegin = true,
+  selectOnPointerDown = false,
+  onSelectGroup,
+  onStartDragGroup,
+  onDragGroup,
+  onEndDragGroup,
+  filter,
+}: {
+  target: RefObject<HTMLElement | null>
+  groupId: string
+  enabled?: boolean
+  selectOnBegin?: boolean
+  selectOnPointerDown?: boolean
+  onSelectGroup?: (groupId: string) => void
+  onStartDragGroup: (groupId: string) => void
+  onDragGroup: (groupId: string, dx: number, dy: number) => void
+  onEndDragGroup: () => void
+  filter?: (event: PointerEvent) => boolean
+}): void {
+  useDragGesture<GroupDragToken>({
+    target,
+    threshold: GROUP_DRAG_THRESHOLD_PX,
+    stopPropagation: true,
+    filter: (event) => {
+      if (!enabled) return false
+      if (event.button !== 0) return false
+      const targetElement = event.target as HTMLElement | null
+      if (targetElement?.closest('[data-resize-handle], input, textarea, button')) {
+        return false
       }
-      const cleanup = () => {
-        target.removeEventListener('pointermove', onMove)
-        target.removeEventListener('pointerup', onUp)
-        target.removeEventListener('pointercancel', onCancel)
-        target.removeEventListener('lostpointercapture', onCancel)
-        if (target.hasPointerCapture?.(pointerId)) {
-          try { target.releasePointerCapture(pointerId) } catch { /* ignore */ }
-        }
-      }
-      const onUp = (upEvent: PointerEvent) => {
-        if (upEvent.pointerId !== pointerId) return
-        if (dragging) api.endDragGroup()
-        cleanup()
-      }
-      const onCancel = (cancelEvent: PointerEvent) => {
-        if (cancelEvent.pointerId !== pointerId) return
-        if (dragging) api.endDragGroup()
-        cleanup()
-      }
-      target.addEventListener('pointermove', onMove)
-      target.addEventListener('pointerup', onUp)
-      target.addEventListener('pointercancel', onCancel)
-      target.addEventListener('lostpointercapture', onCancel)
+      if (filter && !filter(event)) return false
+      return true
     },
-    [api],
-  )
+    onPointerDown: () => {
+      if (selectOnPointerDown) onSelectGroup?.(groupId)
+    },
+    onBegin: (ctx) => {
+      if (selectOnBegin && !selectOnPointerDown) onSelectGroup?.(groupId)
+      onStartDragGroup(groupId)
+      if (ctx.dx !== 0 || ctx.dy !== 0) onDragGroup(groupId, ctx.dx, ctx.dy)
+      return { lastDx: ctx.dx, lastDy: ctx.dy }
+    },
+    onUpdate: (ctx, token) => {
+      const dx = ctx.dx - token.lastDx
+      const dy = ctx.dy - token.lastDy
+      token.lastDx = ctx.dx
+      token.lastDy = ctx.dy
+      if (dx !== 0 || dy !== 0) onDragGroup(groupId, dx, dy)
+    },
+    onCommit: () => onEndDragGroup(),
+    onCancel: () => onEndDragGroup(),
+  })
 }

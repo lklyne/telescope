@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-04-23 — Cursor Trails, Multi-Select
+
+### New
+- WebGPU particle trails behind agent cursors — speed-gated emission with noise-driven drift, so trails concentrate during fast movement and dissipate when idle
+- Shift/Cmd-click toggles entities in and out of the current selection across frames, text, files, drawings, and groups
+
+### Improvements
+- Canvas zooms out to 2% (down from 10%), so huge spatial workspaces fit on screen
+- Frames stay draggable when you click into one from a multi-selection
+
+### Fixes
+- Selected groups drag and resize cleanly under rapid input
+- Shift/Cmd-click on a singly-selected frame now toggles selection instead of falling through to the webpage
+
+### Misc
+- Release skill documents the new two-commit flow (changelog, then version bump)
+
 ## [0.2.6] - 2026-04-21 — Presence Polish, Debug Window
 
 Lots of refinement to how agent cursors move and retire, plus a new debug window for inspecting presence in flight.

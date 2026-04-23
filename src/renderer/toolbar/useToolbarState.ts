@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { AgentPresenceCursor, AnnotationMode, ToolbarSelectionData } from '../../shared/types'
 import { toolbarApi } from './toolbarApi'
 
-export const ZOOM_PRESETS = [2, 10, 25, 50, 75, 100, 150, 200] as const
+export const ZOOM_PRESETS = [10, 25, 50, 75, 100, 150, 200] as const
 
 const EMPTY_SELECTION: ToolbarSelectionData = {
   activeFrameId: null,

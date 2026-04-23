@@ -186,7 +186,6 @@ function FileBlockCard({
       onGroupDragStart={onGroupDragStart}
       onGroupDrag={onGroupDrag}
       onGroupDragEnd={onGroupDragEnd}
-      showResizeHandles={false}
       aspectRatioResizeMode={aspectRatioResizeModeForCanvasFile(entity.file)}
       shouldStartDrag={(event) => {
         if (canEdit && (isMarkdown || isVideo || isWireframe)) return false

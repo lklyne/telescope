@@ -93,7 +93,6 @@ function TextBlockCard({
       onGroupDragStart={onGroupDragStart}
       onGroupDrag={onGroupDrag}
       onGroupDragEnd={onGroupDragEnd}
-      showResizeHandles={false}
       shouldStartDrag={(event) => {
         if (canEdit) return false
         const target = event.target as HTMLElement | null

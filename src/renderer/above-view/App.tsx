@@ -33,7 +33,7 @@ import {
   RegionSelectComposer,
 } from './CommentsLayer'
 import { MarqueeLayer } from './MarqueeLayer'
-import { FloatingUiLayer, hasFloatingMenu } from './FloatingUiLayer'
+import { FloatingUiLayer } from './FloatingUiLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
 import { useAnnotationThreadState } from './useAnnotationThreadState'

@@ -5,7 +5,7 @@
  * needs to intercept pointer input or paint canvas-level UI: during any
  * non-idle gesture, while a non-select tool is armed, while space-pan is
  * held, while a marquee is showing,
- * while a selected text/drawing entity's inline menu is on screen, and
+ * while a selected drawing entity's inline menu is on screen, and
  * while saved drawings are visible above unselected frames.
  *
  * The predicate is pure and testable. Its authority is main: the renderer
@@ -30,7 +30,7 @@ export type GateInputs = {
 }
 
 export function shouldGateBeOpen(inputs: GateInputs): boolean {
-  if (inputs.interactionKind !== 'idle') return true
+  if (interactionOpensGate(inputs.interactionKind)) return true
   if (toolModeOpensGate(inputs.toolMode)) return true
   if (inputs.commentOverlayActive) return true
   if (inputs.spaceHeld) return true
@@ -40,6 +40,10 @@ export function shouldGateBeOpen(inputs: GateInputs): boolean {
   if (hasFloatingMenu(inputs)) return true
   if (hasVisibleSavedDrawings(inputs)) return true
   return false
+}
+
+function interactionOpensGate(interactionKind: GateInputs['interactionKind']): boolean {
+  return interactionKind !== 'idle' && interactionKind !== 'editing-text'
 }
 
 /**
@@ -58,7 +62,9 @@ function hasFloatingMenu(inputs: GateInputs): boolean {
   if (inputs.viewMode !== 'canvas') return false
   if (inputs.selectedEntityIds.length !== 1) return false
   const kind = inputs.selectedEntityKinds[0]
-  return kind === 'text' || kind === 'drawing'
+  // Sticky-note controls render in bgView so text selection can keep
+  // native pointer access to the card and its resize handles.
+  return kind === 'drawing'
 }
 
 /**

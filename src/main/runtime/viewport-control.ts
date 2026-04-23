@@ -10,10 +10,11 @@ import {
 } from './runtime-geometry'
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import { safeSend } from './safe-send'
+import { clampCanvasZoom } from '../../shared/zoom'
 import type { WorkspaceBounds } from '../../shared/types'
 
 export function setZoom(value: number): void {
-  const nextZoom = Math.max(0.1, Math.min(3.0, value))
+  const nextZoom = clampCanvasZoom(value)
   if (nextZoom === zoom) return
   setZoomState(nextZoom)
   markDirty('canvas', 'toolbar', 'pages')

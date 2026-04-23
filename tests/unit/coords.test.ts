@@ -26,7 +26,7 @@ describe('coords', () => {
   })
 
   it('round-trips at zoom extremes', () => {
-    for (const zoom of [0.1, 0.5, 1, 2, 10]) {
+    for (const zoom of [0.02, 0.5, 1, 2, 10]) {
       const L = layout({ zoom })
       const c = screenPointToCanvasPoint(500, 400, L)
       const s = canvasToScreenPoint(L, c)

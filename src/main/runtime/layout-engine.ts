@@ -266,10 +266,11 @@ export function layoutAllViews(): void {
   if (aboveView && win) {
     const { width, height } = win.getBounds()
     const selectedTargets = selectedCanvasTargets()
-    const selectedGroupOwnsFrameContent =
-      selectedTargets.length === 1 &&
-      selectedTargets[0]?.kind === 'group' &&
-      pages.some((page) => descendantEntityIdsForGroup(selectedTargets[0].id).includes(page.id))
+    let selectedGroupOwnsFrameContent = false
+    if (selectedTargets.length === 1 && selectedTargets[0]?.kind === 'group') {
+      const groupDescendantIds = new Set(descendantEntityIdsForGroup(selectedTargets[0].id))
+      selectedGroupOwnsFrameContent = pages.some((page) => groupDescendantIds.has(page.id))
+    }
     const selectionOwnsFrameContent =
       (selectedTargets.length > 1 &&
         selectedTargets.some((target) => target.kind === 'frame')) ||

@@ -120,10 +120,7 @@ export default function App({
     if (!layoutData.selectedGroupId) return new Set<string>()
     return descendantIdsForGroup(layoutData.groups ?? [], layoutData.selectedGroupId)
   }, [layoutData.groups, layoutData.selectedGroupId])
-  const selectedGroupControlsMirroredToAboveView = useMemo(
-    () => selectedGroupHasDescendantFrame(layoutData),
-    [layoutData],
-  )
+  const selectedGroupControlsMirroredToAboveView = selectedGroupHasDescendantFrame(layoutData)
   const [delayedSelectedGroupMenuId, setDelayedSelectedGroupMenuId] = useState<string | null>(null)
   const shouldQueueSelectedGroupMenu =
     layoutData.viewMode === 'canvas' &&

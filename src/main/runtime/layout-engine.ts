@@ -43,7 +43,6 @@ import {
   getUiState,
   annotationMode as uiAnnotationMode,
   selectedCanvasTargets,
-  selectedGroupId as uiSelectedGroupId,
 } from '../ui-state'
 import { drawingEntities } from './drawing-entity-state'
 import {
@@ -79,7 +78,6 @@ import {
 import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
-import { groupContainsFrameDescendant } from './group-descendants'
 
 export function setBoundsIfChanged(
   view: WebContentsView,
@@ -267,10 +265,9 @@ export function layoutAllViews(): void {
   if (aboveView && win) {
     const { width, height } = win.getBounds()
     const selectedTargets = selectedCanvasTargets()
-    const activeSelectedGroupId = uiSelectedGroupId()
     const selectionOwnsFrameContent =
-      (selectedTargets.length > 1 && selectedTargets.some((target) => target.kind === 'frame')) ||
-      (activeSelectedGroupId !== null && groupContainsFrameDescendant(activeSelectedGroupId))
+      selectedTargets.length > 1 &&
+      selectedTargets.some((target) => target.kind === 'frame')
     const shouldCover = shouldGateBeOpen({
       interactionKind: interactionState.kind === 'idle' ? 'idle'
         : interactionState.kind === 'panning-canvas' ? 'panning'

@@ -100,7 +100,6 @@ export interface CanvasSceneFrameEntity {
   contentScreenHeight?: number
   /** Use SVG rendering for the device shell (A/B toggle). */
   useSvgDeviceShell?: boolean
-  parentGroupId?: string
 }
 
 export interface CanvasSceneTextEntity {

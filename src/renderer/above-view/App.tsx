@@ -296,48 +296,19 @@ export default function App({
     [layoutRef],
   )
 
-  const findSceneEntity = useCallback(
-    (entityId: string): CanvasSceneEntity | null =>
-      layoutRef.current.entities.find((entity) => entity.id === entityId) ?? null,
-    [layoutRef],
-  )
-
-  const entityBelongsToSelectedGroup = useCallback(
-    (entity: CanvasSceneEntity): boolean => {
-      const layout = layoutRef.current
-      const selectedGroupId = layout.selectedGroupId
-      if (!selectedGroupId) return false
-
-      const groupsById = new Map(
-        (layout.groups ?? []).map((group) => [group.id, group] as const),
-      )
-
-      let currentParentId = entity.parentGroupId
-      while (currentParentId) {
-        if (currentParentId === selectedGroupId) return true
-        currentParentId = groupsById.get(currentParentId)?.parentGroupId
-      }
-      return false
-    },
-    [layoutRef],
-  )
-
   const hitTestSelectionEntity = useCallback(
     (clientX: number, clientY: number): CanvasSelectableTarget | null => {
       const layout = layoutRef.current
-      if (!layout.selectedGroupId && layout.selectedEntityIds.length <= 1) {
-        return null
-      }
+      if (layout.selectedEntityIds.length <= 1) return null
 
       const entity = hitTestSceneEntity(clientX, clientY, (candidate) => {
         if (candidate.kind === 'group') return false
-        if (layout.selectedGroupId && entityBelongsToSelectedGroup(candidate)) return true
-        return layout.selectedEntityIds.length > 1 && layout.selectedEntityIds.includes(candidate.id)
+        return layout.selectedEntityIds.includes(candidate.id)
       })
 
       return entity ? { id: entity.id, kind: entity.kind } : null
     },
-    [entityBelongsToSelectedGroup, hitTestSceneEntity, layoutRef],
+    [hitTestSceneEntity, layoutRef],
   )
 
   const hitTestPointerEntity = useCallback(
@@ -425,10 +396,7 @@ export default function App({
       }
 
       const layout = layoutRef.current
-      const sceneEntity = findSceneEntity(target.id)
-      const preserveSelection =
-        layout.selectedEntityIds.includes(target.id) ||
-        (sceneEntity ? entityBelongsToSelectedGroup(sceneEntity) : false)
+      const preserveSelection = layout.selectedEntityIds.includes(target.id)
 
       if (!preserveSelection) {
         if (target.kind === 'frame') api.selectFrame(target.id)
@@ -460,7 +428,7 @@ export default function App({
       window.addEventListener('mouseup', onUp)
       window.addEventListener('blur', onUp)
     },
-    [entityBelongsToSelectedGroup, findSceneEntity, layoutRef],
+    [layoutRef],
   )
 
   const placementClickAt = useCallback(

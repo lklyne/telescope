@@ -27,23 +27,3 @@ export function descendantEntityIdsForGroup(groupId: string): string[] {
   return ids
 }
 
-export function groupContainsFrameDescendant(groupId: string): boolean {
-  const queue = [groupId]
-
-  while (queue.length > 0) {
-    const parentId = queue.shift()
-    if (!parentId) continue
-
-    if (pages.some((page) => page.parentGroupId === parentId)) {
-      return true
-    }
-
-    queue.push(
-      ...workspaceGroups
-        .filter((group) => group.parentGroupId === parentId)
-        .map((group) => group.id),
-    )
-  }
-
-  return false
-}

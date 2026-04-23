@@ -67,7 +67,13 @@ export function useCornerResize({
       const aspect = width / height
       const flipX = corner === 'top-left' || corner === 'bottom-left' ? -1 : 1
       const flipY = corner === 'top-left' || corner === 'top-right' ? -1 : 1
+      let lastButtons = e.buttons || 1
       const handleMouseMove = (moveEvent: MouseEvent) => {
+        lastButtons = moveEvent.buttons
+        if (lastButtons === 0) {
+          finishResize()
+          return
+        }
         const dx = (moveEvent.screenX - lastX) / zoom
         const dy = (moveEvent.screenY - lastY) / zoom
         lastX = moveEvent.screenX
@@ -103,12 +109,19 @@ export function useCornerResize({
       }
       const finishResize = () => {
         window.removeEventListener('mousemove', handleMouseMove)
-        window.removeEventListener('mouseup', finishResize)
-        window.removeEventListener('blur', finishResize)
+        window.removeEventListener('mouseup', handleMouseUp)
+        window.removeEventListener('blur', handleBlur)
+      }
+      const handleMouseUp = () => {
+        lastButtons = 0
+        finishResize()
+      }
+      const handleBlur = () => {
+        if (lastButtons === 0) finishResize()
       }
       window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup', finishResize)
-      window.addEventListener('blur', finishResize)
+      window.addEventListener('mouseup', handleMouseUp)
+      window.addEventListener('blur', handleBlur)
     },
     [id, width, height, canvasX, canvasY, zoom, minWidth, minHeight, corner, onResize, aspectRatioResizeMode],
   )
@@ -153,7 +166,13 @@ export function useEdgeResize({
       const aspect = width / height
       const isHorizontal = edge === 'left' || edge === 'right'
       const flip = edge === 'left' || edge === 'top' ? -1 : 1
+      let lastButtons = e.buttons || 1
       const handleMouseMove = (moveEvent: MouseEvent) => {
+        lastButtons = moveEvent.buttons
+        if (lastButtons === 0) {
+          finishResize()
+          return
+        }
         const dx = (moveEvent.screenX - lastX) / zoom
         const dy = (moveEvent.screenY - lastY) / zoom
         lastX = moveEvent.screenX
@@ -187,12 +206,19 @@ export function useEdgeResize({
       }
       const finishResize = () => {
         window.removeEventListener('mousemove', handleMouseMove)
-        window.removeEventListener('mouseup', finishResize)
-        window.removeEventListener('blur', finishResize)
+        window.removeEventListener('mouseup', handleMouseUp)
+        window.removeEventListener('blur', handleBlur)
+      }
+      const handleMouseUp = () => {
+        lastButtons = 0
+        finishResize()
+      }
+      const handleBlur = () => {
+        if (lastButtons === 0) finishResize()
       }
       window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup', finishResize)
-      window.addEventListener('blur', finishResize)
+      window.addEventListener('mouseup', handleMouseUp)
+      window.addEventListener('blur', handleBlur)
     },
     [id, width, height, canvasX, canvasY, zoom, minWidth, minHeight, edge, onResize, aspectRatioResizeMode],
   )

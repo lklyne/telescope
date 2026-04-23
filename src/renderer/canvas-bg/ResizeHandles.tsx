@@ -25,7 +25,7 @@ export function CornerResizeHandle({
 
   return (
     <div
-      data-resize-handle={scaleWithZoom || undefined}
+      data-resize-handle
       data-overlay-ui={scaleWithZoom ? undefined : true}
       onMouseDown={beginResize}
       style={{
@@ -38,6 +38,7 @@ export function CornerResizeHandle({
         border: `${borderWidth} solid ${selectionColor(isDark)}`,
         borderRadius: 0,
         cursor: CORNER_CURSORS[corner],
+        pointerEvents: 'auto',
         zIndex: 1,
       }}
     />
@@ -65,7 +66,7 @@ export function EdgeResizeHandle({
 
   return (
     <div
-      data-resize-handle={scaleWithZoom || undefined}
+      data-resize-handle
       data-overlay-ui={scaleWithZoom ? undefined : true}
       onMouseDown={beginResize}
       style={{
@@ -74,6 +75,7 @@ export function EdgeResizeHandle({
         width: isHorizontal ? undefined : size,
         height: isHorizontal ? size : undefined,
         cursor: EDGE_CURSORS[edge],
+        pointerEvents: 'auto',
         zIndex: 1,
       }}
     />

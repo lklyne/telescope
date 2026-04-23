@@ -20,6 +20,10 @@ function TextBlockCard({
   onDragStart,
   onDrag,
   onDragEnd,
+  selectedGroupDragTargetId,
+  onGroupDragStart,
+  onGroupDrag,
+  onGroupDragEnd,
 }: {
   note: CanvasSceneTextEntity
   getZoom: () => number
@@ -34,6 +38,10 @@ function TextBlockCard({
   onDragStart: (id: string) => void
   onDrag: (id: string, dx: number, dy: number) => void
   onDragEnd: () => void
+  selectedGroupDragTargetId?: string | null
+  onGroupDragStart: (groupId: string) => void
+  onGroupDrag: (groupId: string, dx: number, dy: number) => void
+  onGroupDragEnd: () => void
 }) {
   const [localText, setLocalText] = useState(note.text)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -81,6 +89,10 @@ function TextBlockCard({
       onDragStart={onDragStart}
       onDrag={onDrag}
       onDragEnd={onDragEnd}
+      selectedGroupDragTargetId={selectedGroupDragTargetId}
+      onGroupDragStart={onGroupDragStart}
+      onGroupDrag={onGroupDrag}
+      onGroupDragEnd={onGroupDragEnd}
       showResizeHandles={false}
       shouldStartDrag={(event) => {
         if (canEdit) return false
@@ -157,7 +169,8 @@ const MemoTextBlockCard = memo(TextBlockCard, (prev, next) => {
     prev.isDark === next.isDark &&
     prev.isSelected === next.isSelected &&
     prev.isMarqueePreview === next.isMarqueePreview &&
-    prev.canEdit === next.canEdit
+    prev.canEdit === next.canEdit &&
+    prev.selectedGroupDragTargetId === next.selectedGroupDragTargetId
   )
 })
 
@@ -168,6 +181,8 @@ export function TextBlockLayer({
   marqueePreviewIds,
   selectedEntityIdSet,
   selectedEntityCount,
+  selectedGroupId,
+  selectedGroupDescendantIds,
   onSelect,
   onUpdateText,
   onResize,
@@ -175,6 +190,9 @@ export function TextBlockLayer({
   onDragStart,
   onDrag,
   onDragEnd,
+  onGroupDragStart,
+  onGroupDrag,
+  onGroupDragEnd,
 }: {
   entities: CanvasSceneTextEntity[]
   getZoom: () => number
@@ -182,6 +200,8 @@ export function TextBlockLayer({
   marqueePreviewIds: Set<string> | null
   selectedEntityIdSet: Set<string>
   selectedEntityCount: number
+  selectedGroupId: string | null
+  selectedGroupDescendantIds: Set<string>
   onSelect: (id: string, modifiers?: SelectionModifiers) => void
   onUpdateText: (id: string, text: string) => void
   onResize: (id: string, patch: EntityResizePatch) => void
@@ -189,6 +209,9 @@ export function TextBlockLayer({
   onDragStart: (id: string) => void
   onDrag: (id: string, dx: number, dy: number) => void
   onDragEnd: () => void
+  onGroupDragStart: (groupId: string) => void
+  onGroupDrag: (groupId: string, dx: number, dy: number) => void
+  onGroupDragEnd: () => void
 }) {
   if (!entities.length) return null
   return (
@@ -202,9 +225,17 @@ export function TextBlockLayer({
           isMarqueePreview={marqueePreviewIds?.has(note.id) ?? false}
           canEdit={selectedEntityCount === 1 && selectedEntityIdSet.has(note.id)}
           note={note}
+          selectedGroupDragTargetId={
+            selectedGroupId && selectedGroupDescendantIds.has(note.id)
+              ? selectedGroupId
+              : null
+          }
           onDrag={onDrag}
           onDragEnd={onDragEnd}
           onDragStart={onDragStart}
+          onGroupDrag={onGroupDrag}
+          onGroupDragEnd={onGroupDragEnd}
+          onGroupDragStart={onGroupDragStart}
           onResize={onResize}
           onSelect={onSelect}
           onTextEditingChange={onTextEditingChange}

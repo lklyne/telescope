@@ -1,4 +1,4 @@
-import { useContext, useMemo } from 'react'
+import { useContext, useMemo, useRef } from 'react'
 import type {
   CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
@@ -22,6 +22,7 @@ import { CornerResizeHandle, EdgeResizeHandle } from './ResizeHandles'
 import { SelectionResizeGrid } from './SelectionResizeGrid'
 import { useMultiCornerResize, useMultiEdgeResize } from './useMultiSelectionResize'
 import type { MultiResizeEntity } from './useMultiSelectionResize'
+import { useGroupDragGesture } from './useGroupBoundsDrag'
 
 // Re-export for consumers that imported from this file
 export type { EntityResizePatch } from './entityConstants'
@@ -81,15 +82,31 @@ function GroupSelectionOverlay({
   group,
   isDark,
   onResize,
+  onStartDragGroup,
+  onDragGroup,
+  onEndDragGroup,
 }: {
   group: CanvasSceneGroupEntity
   isDark: boolean
   onResize: (id: string, patch: EntityResizePatch) => void
+  onStartDragGroup: (groupId: string) => void
+  onDragGroup: (groupId: string, dx: number, dy: number) => void
+  onEndDragGroup: () => void
 }) {
+  const ref = useRef<HTMLDivElement>(null)
   const zoom = group.width > 0 ? group.screenWidth / group.width : 1
+  useGroupDragGesture({
+    target: ref,
+    groupId: group.id,
+    selectOnBegin: false,
+    onStartDragGroup,
+    onDragGroup,
+    onEndDragGroup,
+  })
 
   return (
     <div
+      ref={ref}
       className="absolute border-2"
       style={{
         left: group.screenX,
@@ -404,16 +421,34 @@ export function GroupSelectionOverlayLayer({
   groups,
   isDark,
   selectedGroupId,
+  suppressOverlay = false,
   onResizeGroup,
+  onStartDragGroup,
+  onDragGroup,
+  onEndDragGroup,
 }: {
   groups: CanvasSceneGroupEntity[]
   isDark: boolean
   selectedGroupId: string | null
+  suppressOverlay?: boolean
   onResizeGroup: (id: string, patch: EntityResizePatch) => void
+  onStartDragGroup: (groupId: string) => void
+  onDragGroup: (groupId: string, dx: number, dy: number) => void
+  onEndDragGroup: () => void
 }) {
+  if (suppressOverlay) return null
   if (!selectedGroupId) return null
   const group = groups.find((candidate) => candidate.id === selectedGroupId)
   if (!group) return null
 
-  return <GroupSelectionOverlay group={group} isDark={isDark} onResize={onResizeGroup} />
+  return (
+    <GroupSelectionOverlay
+      group={group}
+      isDark={isDark}
+      onResize={onResizeGroup}
+      onStartDragGroup={onStartDragGroup}
+      onDragGroup={onDragGroup}
+      onEndDragGroup={onEndDragGroup}
+    />
+  )
 }

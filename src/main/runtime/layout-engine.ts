@@ -45,6 +45,7 @@ import {
   selectedCanvasTargets,
 } from '../ui-state'
 import { drawingEntities } from './drawing-entity-state'
+import { descendantEntityIdsForGroup } from './group-descendants'
 import {
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsPanelTab as uiDevtoolsPanelTab,
@@ -265,9 +266,15 @@ export function layoutAllViews(): void {
   if (aboveView && win) {
     const { width, height } = win.getBounds()
     const selectedTargets = selectedCanvasTargets()
+    let selectedGroupOwnsFrameContent = false
+    if (selectedTargets.length === 1 && selectedTargets[0]?.kind === 'group') {
+      const groupDescendantIds = new Set(descendantEntityIdsForGroup(selectedTargets[0].id))
+      selectedGroupOwnsFrameContent = pages.some((page) => groupDescendantIds.has(page.id))
+    }
     const selectionOwnsFrameContent =
-      selectedTargets.length > 1 &&
-      selectedTargets.some((target) => target.kind === 'frame')
+      (selectedTargets.length > 1 &&
+        selectedTargets.some((target) => target.kind === 'frame')) ||
+      selectedGroupOwnsFrameContent
     const shouldCover = shouldGateBeOpen({
       interactionKind: interactionState.kind === 'idle' ? 'idle'
         : interactionState.kind === 'panning-canvas' ? 'panning'

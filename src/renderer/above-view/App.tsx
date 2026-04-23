@@ -15,9 +15,16 @@ import {
   snapToGrid,
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
-import { DRAW_CURSOR } from '../canvas-bg/canvasBgConstants'
+import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
+import { MIN_GROUP_HEIGHT, MIN_GROUP_WIDTH } from '../canvas-bg/entityConstants'
+import {
+  descendantIdsForGroup,
+  selectedGroupHasDescendantFrame,
+  selectedGroupDragTargetId,
+} from '../canvas-bg/groupMembership'
+import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
 import {
@@ -36,6 +43,53 @@ import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportForwarding } from '../shared/hooks/useViewportForwarding'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
+const GROUP_DRAG_THRESHOLD = 4
+
+function SelectedGroupResizeOverlay({
+  isDark,
+  layoutData,
+}: {
+  isDark: boolean
+  layoutData: LayoutUpdateData
+}) {
+  const selectedGroupId = layoutData.selectedGroupId ?? null
+  if (!selectedGroupId) return null
+  if (!selectedGroupHasDescendantFrame(layoutData)) return null
+
+  const group = (layoutData.groups ?? []).find((candidate) => candidate.id === selectedGroupId)
+  if (!group) return null
+
+  const zoom = group.width > 0 ? group.screenWidth / group.width : 1
+
+  return (
+    <div
+      className="absolute border-2"
+      data-overlay-ui
+      style={{
+        left: group.screenX,
+        top: group.screenY - layoutData.canvasOrigin.y,
+        width: group.screenWidth,
+        height: group.screenHeight,
+        borderColor: selectionColor(isDark),
+        borderRadius: 2,
+        pointerEvents: 'none',
+      }}
+    >
+      <SelectionResizeGrid
+        id={group.id}
+        width={group.width}
+        height={group.height}
+        canvasX={group.canvasX}
+        canvasY={group.canvasY}
+        zoom={zoom}
+        minWidth={MIN_GROUP_WIDTH}
+        minHeight={MIN_GROUP_HEIGHT}
+        onResize={(id, patch) => api.updateGroupEntity(id, patch)}
+        isDark={isDark}
+      />
+    </div>
+  )
+}
 
 export default function App({
   initialLayoutData,
@@ -311,8 +365,46 @@ export default function App({
     [hitTestSceneEntity, layoutRef],
   )
 
+  const hitTestSelectedGroupEntity = useCallback(
+    (clientX: number, clientY: number): CanvasSelectableTarget | null => {
+      const layout = layoutRef.current
+      const selectedGroupId = layout.selectedGroupId ?? null
+      if (!selectedGroupId) return null
+
+      const group = (layout.groups ?? []).find((candidate) => candidate.id === selectedGroupId)
+      if (!group) return null
+
+      const descendantIds = descendantIdsForGroup(layout.groups ?? [], selectedGroupId)
+      const descendant = hitTestSceneEntity(clientX, clientY, (candidate) => {
+        if (candidate.kind === 'group') return false
+        return descendantIds.has(candidate.id)
+      })
+      if (descendant) return { id: descendant.id, kind: descendant.kind }
+
+      const windowY = clientY + layout.canvasOrigin.y
+      const insideBounds =
+        clientX >= group.screenX &&
+        clientX <= group.screenX + group.screenWidth &&
+        windowY >= group.screenY &&
+        windowY <= group.screenY + group.screenHeight
+      const insideHeader =
+        clientX >= group.screenX &&
+        clientX <= group.screenX + Math.max(group.screenWidth, 160) &&
+        windowY >= group.screenY - 24 &&
+        windowY <= group.screenY
+
+      return insideBounds || insideHeader
+        ? { id: group.id, kind: 'group' }
+        : null
+    },
+    [hitTestSceneEntity, layoutRef],
+  )
+
   const hitTestPointerEntity = useCallback(
     (clientX: number, clientY: number): CanvasSelectableTarget | null => {
+      const selectedGroupTarget = hitTestSelectedGroupEntity(clientX, clientY)
+      if (selectedGroupTarget) return selectedGroupTarget
+
       const preservedSelectionTarget = hitTestSelectionEntity(clientX, clientY)
       if (preservedSelectionTarget) return preservedSelectionTarget
 
@@ -323,7 +415,7 @@ export default function App({
       )
       return frame ? { id: frame.id, kind: 'frame' } : null
     },
-    [hitTestSceneEntity, hitTestSelectionEntity],
+    [hitTestSceneEntity, hitTestSelectedGroupEntity, hitTestSelectionEntity],
   )
 
   const hitTestHoverTarget = useCallback(
@@ -396,6 +488,74 @@ export default function App({
       }
 
       const layout = layoutRef.current
+      const selectedGroupTargetId = selectedGroupDragTargetId(layout, target.id)
+      if (selectedGroupTargetId) {
+        let dragging = false
+        let lastScreenX = event.screenX
+        let lastScreenY = event.screenY
+        const startScreenX = event.screenX
+        const startScreenY = event.screenY
+
+        const selectClickTarget = () => {
+          if (target.kind === 'group') {
+            api.selectGroup(target.id)
+          } else if (target.kind === 'frame') {
+            api.selectFrame(target.id)
+          } else {
+            api.selectEntity(target.id, target.kind)
+          }
+        }
+
+        const onMove = (ev: MouseEvent) => {
+          const totalDx = ev.screenX - startScreenX
+          const totalDy = ev.screenY - startScreenY
+          if (
+            !dragging &&
+            Math.abs(totalDx) < GROUP_DRAG_THRESHOLD &&
+            Math.abs(totalDy) < GROUP_DRAG_THRESHOLD
+          ) {
+            return
+          }
+
+          if (!dragging) {
+            dragging = true
+            api.startDragGroup(selectedGroupTargetId)
+          }
+
+          const dx = ev.screenX - lastScreenX
+          const dy = ev.screenY - lastScreenY
+          lastScreenX = ev.screenX
+          lastScreenY = ev.screenY
+          if (dx !== 0 || dy !== 0) api.dragGroup(selectedGroupTargetId, dx, dy)
+        }
+
+        const cleanup = () => {
+          window.removeEventListener('mousemove', onMove)
+          window.removeEventListener('mouseup', onUp)
+          window.removeEventListener('blur', onCancel)
+        }
+
+        const onUp = () => {
+          cleanup()
+          if (dragging) {
+            api.endDragGroup()
+            return
+          }
+          selectClickTarget()
+        }
+
+        const onCancel = () => {
+          cleanup()
+          if (dragging) api.endDragGroup()
+        }
+
+        event.preventDefault()
+        window.addEventListener('mousemove', onMove)
+        window.addEventListener('mouseup', onUp)
+        window.addEventListener('blur', onCancel)
+        return
+      }
+
       const preserveSelection = layout.selectedEntityIds.includes(target.id)
 
       if (!preserveSelection) {
@@ -621,6 +781,8 @@ export default function App({
           />
 
           <MarqueeLayer overlay={selectionOverlay} />
+
+          <SelectedGroupResizeOverlay isDark={isDark} layoutData={layoutData} />
 
           <FloatingUiLayer api={api} isDark={isDark} layoutData={layoutData} />
         </>

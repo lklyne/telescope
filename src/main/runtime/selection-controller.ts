@@ -282,12 +282,14 @@ export function selectedDragEntityIds(entityId: string): string[] {
   if (selectedIds.length > 1 && selectedIds.includes(entityId)) {
     return selectedIds
   }
+
   const activeGroupId = uiSelectedGroupId()
   if (activeGroupId) {
     const descendantIds = descendantEntityIdsForGroup(activeGroupId)
-    if (descendantIds.includes(entityId)) {
-      return descendantIds
+    if (entityId === activeGroupId || descendantIds.includes(entityId)) {
+      return [activeGroupId, ...descendantIds]
     }
   }
+
   return [entityId]
 }

@@ -29,6 +29,10 @@ function FileBlockCard({
   onDragStart,
   onDrag,
   onDragEnd,
+  selectedGroupDragTargetId,
+  onGroupDragStart,
+  onGroupDrag,
+  onGroupDragEnd,
 }: {
   entity: CanvasSceneFileEntity
   getZoom: () => number
@@ -43,6 +47,10 @@ function FileBlockCard({
   onDragStart: (id: string) => void
   onDrag: (id: string, dx: number, dy: number) => void
   onDragEnd: () => void
+  selectedGroupDragTargetId?: string | null
+  onGroupDragStart: (groupId: string) => void
+  onGroupDrag: (groupId: string, dx: number, dy: number) => void
+  onGroupDragEnd: () => void
 }) {
   const isImage = IMAGE_EXTENSIONS.test(entity.file)
   const isVideo = VIDEO_EXTENSIONS.test(entity.file)
@@ -174,6 +182,10 @@ function FileBlockCard({
       onDragStart={onDragStart}
       onDrag={onDrag}
       onDragEnd={onDragEnd}
+      selectedGroupDragTargetId={selectedGroupDragTargetId}
+      onGroupDragStart={onGroupDragStart}
+      onGroupDrag={onGroupDrag}
+      onGroupDragEnd={onGroupDragEnd}
       showResizeHandles={false}
       aspectRatioResizeMode={aspectRatioResizeModeForCanvasFile(entity.file)}
       shouldStartDrag={(event) => {
@@ -357,7 +369,8 @@ const MemoFileBlockCard = memo(FileBlockCard, (prev, next) => {
     prev.isSelected === next.isSelected &&
     prev.isMarqueePreview === next.isMarqueePreview &&
     prev.canEdit === next.canEdit &&
-    prev.wireframeJsonMode === next.wireframeJsonMode
+    prev.wireframeJsonMode === next.wireframeJsonMode &&
+    prev.selectedGroupDragTargetId === next.selectedGroupDragTargetId
   )
 })
 
@@ -371,6 +384,8 @@ export function FileBlockLayer({
   marqueePreviewIds,
   selectedEntityIdSet,
   selectedEntityCount,
+  selectedGroupId,
+  selectedGroupDescendantIds,
   jsonModeMap,
   onSelect,
   onResize,
@@ -378,6 +393,9 @@ export function FileBlockLayer({
   onDragStart,
   onDrag,
   onDragEnd,
+  onGroupDragStart,
+  onGroupDrag,
+  onGroupDragEnd,
 }: {
   entities: CanvasSceneFileEntity[]
   getZoom: () => number
@@ -385,6 +403,8 @@ export function FileBlockLayer({
   marqueePreviewIds: Set<string> | null
   selectedEntityIdSet: Set<string>
   selectedEntityCount: number
+  selectedGroupId: string | null
+  selectedGroupDescendantIds: Set<string>
   jsonModeMap: FileJsonModeMap
   onSelect: (id: string, modifiers?: SelectionModifiers) => void
   onResize: (id: string, patch: EntityResizePatch) => void
@@ -392,6 +412,9 @@ export function FileBlockLayer({
   onDragStart: (id: string) => void
   onDrag: (id: string, dx: number, dy: number) => void
   onDragEnd: () => void
+  onGroupDragStart: (groupId: string) => void
+  onGroupDrag: (groupId: string, dx: number, dy: number) => void
+  onGroupDragEnd: () => void
 }) {
   if (!entities.length) return null
   return (
@@ -406,9 +429,17 @@ export function FileBlockLayer({
           canEdit={selectedEntityIdSet.has(entity.id) && selectedEntityCount === 1}
           wireframeJsonMode={jsonModeMap.get(entity.id) ?? false}
           entity={entity}
+          selectedGroupDragTargetId={
+            selectedGroupId && selectedGroupDescendantIds.has(entity.id)
+              ? selectedGroupId
+              : null
+          }
           onDrag={onDrag}
           onDragEnd={onDragEnd}
           onDragStart={onDragStart}
+          onGroupDrag={onGroupDrag}
+          onGroupDragEnd={onGroupDragEnd}
+          onGroupDragStart={onGroupDragStart}
           onResize={onResize}
           onSelect={onSelect}
           onTextEditingChange={onTextEditingChange}

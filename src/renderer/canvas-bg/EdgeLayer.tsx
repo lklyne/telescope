@@ -8,6 +8,7 @@ import type {
 } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { selectionColor, EDGE_COLOR_DEFAULT } from './canvasBgConstants'
+import { scaleEdgeHitTargetSize } from './edgeHitSizing'
 
 // --- Constants ---
 
@@ -18,6 +19,7 @@ const DOT_OFFSET = 8
 const SNAP_DISTANCE = 48
 const CONTROL_POINT_MIN = 40
 const CONTROL_POINT_MAX = 200
+const EDGE_SELECTION_HIT_WIDTH = 14
 
 // --- Geometry helpers ---
 
@@ -122,6 +124,7 @@ function AnchorDots({
   onHoverEntity: (entityId: string | null) => void
 }) {
   const [hoveredSide, setHoveredSide] = useState<EdgeSide | null>(null)
+  const dotHitRadius = scaleEdgeHitTargetSize(DOT_HIT_RADIUS, zoom)
 
   useEffect(() => {
     if (!isDragging) setHoveredSide(null)
@@ -144,12 +147,12 @@ function AnchorDots({
                 strokeWidth={1}
               />
             ) : null}
-            {/* Smaller interaction target */}
+            {/* Zoom-scaled interaction target */}
             <circle
               cx={pt.x}
               cy={pt.y}
               fill="transparent"
-              r={DOT_HIT_RADIUS}
+              r={dotHitRadius}
               style={{ cursor: 'crosshair', pointerEvents: 'all' }}
               onMouseDown={(e) => {
                 e.stopPropagation()
@@ -225,6 +228,7 @@ export function EdgeLayer({
   const dragListenersRef = useRef<{ move: (e: MouseEvent) => void; up: (e: MouseEvent) => void } | null>(null)
   const zoomRef = useRef(zoom)
   zoomRef.current = zoom
+  const edgeSelectionHitWidth = scaleEdgeHitTargetSize(EDGE_SELECTION_HIT_WIDTH, zoom)
 
   // Clean up drag listeners on unmount
   useEffect(() => {
@@ -243,7 +247,14 @@ export function EdgeLayer({
       onBeginEdgeDrag(entityId, side)
 
       const handleMove = (e: MouseEvent) => {
-        const bestTarget = findClosestAnchorTarget(entityMap, entityId, e.clientX, e.clientY, SNAP_DISTANCE, zoomRef.current)
+        const bestTarget = findClosestAnchorTarget(
+          entityMap,
+          entityId,
+          e.clientX,
+          e.clientY,
+          scaleEdgeHitTargetSize(SNAP_DISTANCE, zoomRef.current),
+          zoomRef.current,
+        )
         const nextHoveredEntityId = bestTarget?.entityId ?? null
         if (hoveredDragEntityIdRef.current !== nextHoveredEntityId) {
           hoveredDragEntityIdRef.current = nextHoveredEntityId
@@ -261,7 +272,14 @@ export function EdgeLayer({
         window.removeEventListener('mouseup', handleUp)
         dragListenersRef.current = null
 
-        const bestTarget = findClosestAnchorTarget(entityMap, entityId, e.clientX, e.clientY, SNAP_DISTANCE, zoomRef.current)
+        const bestTarget = findClosestAnchorTarget(
+          entityMap,
+          entityId,
+          e.clientX,
+          e.clientY,
+          scaleEdgeHitTargetSize(SNAP_DISTANCE, zoomRef.current),
+          zoomRef.current,
+        )
 
         if (bestTarget) {
           onCommitEdgeDrag(entityId, bestTarget.entityId, side, bestTarget.side)
@@ -400,12 +418,12 @@ export function EdgeLayer({
             stroke={edgeColor}
             strokeWidth={1.5}
           />
-          {/* Fat invisible hit target */}
+          {/* Zoom-scaled invisible hit target */}
           <path
             d={d}
             fill="none"
             stroke="transparent"
-            strokeWidth={14}
+            strokeWidth={edgeSelectionHitWidth}
             style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
             onClick={(e) => {
               e.stopPropagation()

@@ -1,7 +1,7 @@
 ---
 name: release
 description: Cut a new Telescope release. Bumps the version, updates CHANGELOG.md, tags, and pushes — CI builds and publishes. Use when the user says "cut a release", "ship a release", "release v0.2.6", "bump the version", or wants to update the changelog and tag.
-allowed-tools: Bash(git *), Bash(pnpm *), Bash(npm version*), Edit, Write, Read, AskUserQuestion
+allowed-tools: Bash(git *), Bash(pnpm *), Bash(npm version*), Bash(gh release *), Edit, Write, Read, AskUserQuestion
 ---
 
 # Release Skill
@@ -128,13 +128,34 @@ npm 10+ refuses to run `npm version` when the tree has any porcelain output — 
 
 Result: two commits land (`docs: changelog ...` then the version bump), with the tag on the bump commit. If `npm version` still errors about a dirty tree, stop and investigate — something unexpected is staged or modified.
 
-### Step 8: Report
+### Step 8: Populate GitHub release notes
+
+The `release.yml` workflow (via `electron-forge publish`) creates a GitHub Release with the build artifacts but leaves the body empty. This step copies the changelog entry into the release body so the Releases page isn't blank.
+
+1. Extract the section for this version from `changelog.md` — everything from `## [X.Y.Z] - YYYY-MM-DD — <Title>` up to (but not including) the next `## [` heading. Strip the leading heading line itself; the body should start with the content beneath it. Save to a temp file (e.g., `/tmp/telescope-release-notes-X.Y.Z.md`).
+
+2. Wait for the release to exist, then update its notes. The workflow takes several minutes to build and publish, so the release may not appear immediately.
+
+   Poll with a short interval:
+   ```
+   until gh release view vX.Y.Z >/dev/null 2>&1; do sleep 15; done
+   gh release edit vX.Y.Z --notes-file /tmp/telescope-release-notes-X.Y.Z.md
+   ```
+
+   Prefer running this via `Bash` with `run_in_background: true` so the skill can continue to Step 9 and report while the poll completes. Report the result when the background task finishes.
+
+3. If `gh release edit` fails because the release still doesn't exist after a reasonable wait (~15 min), stop polling and tell the user to run the `gh release edit` command themselves once the workflow finishes.
+
+Do not touch the `--prerelease` flag or the title — leave those to the user to adjust on the Releases page.
+
+### Step 9: Report
 
 Tell the user:
 
 - New version and tag (e.g., `v0.2.6`)
 - Tag has been pushed; the `release.yml` workflow will build and publish
 - Link to the Actions tab: `https://github.com/lklyne/telescope/actions`
+- Whether the release notes edit succeeded, is still pending (background poll), or needs to be run manually
 - Reminder to check the GitHub Release draft and flip "prerelease" off if needed before publishing
 
 ## Notes

@@ -5,7 +5,7 @@ import {
   middleDragDelta,
   shouldStartMouseViewportPan,
 } from '../../../shared/gesture-utils'
-import type { SelectionModifiers } from '../../../shared/types'
+import type { CanvasSelectableTarget, SelectionModifiers } from '../../../shared/types'
 
 function selectionModifiersFromEvent(event: MouseEvent): SelectionModifiers {
   return { shift: event.shiftKey, meta: event.metaKey, ctrl: event.ctrlKey }
@@ -37,12 +37,11 @@ interface ViewportForwardingApi {
     clientY: number,
     modifiers?: SelectionModifiers,
   ) => void
-  /** Optional renderer-side hit test: given client coords, return a frame id
-   *  if a frame body/chrome was clicked, else null. When provided together
-   *  with onFramePointerDown, left-button clicks on a frame bypass click/drag
-   *  forwarding and call onFramePointerDown instead. */
-  hitTestFrame?: (clientX: number, clientY: number) => string | null
-  onFramePointerDown?: (frameId: string, event: MouseEvent) => void
+  /** Optional renderer-side hit test for selection-owned content or frame
+   *  bodies/chrome. When it returns a target, left-button clicks bypass
+   *  generic click forwarding and call onEntityPointerDown instead. */
+  hitTestEntity?: (clientX: number, clientY: number) => CanvasSelectableTarget | null
+  onEntityPointerDown?: (target: CanvasSelectableTarget, event: MouseEvent) => void
 }
 
 const DRAG_THRESHOLD = 4
@@ -93,10 +92,10 @@ export function useViewportForwarding(
       }
 
       if (event.button === 0) {
-        if (api.hitTestFrame && api.onFramePointerDown) {
-          const frameId = api.hitTestFrame(event.clientX, event.clientY)
-          if (frameId) {
-            api.onFramePointerDown(frameId, event)
+        if (api.hitTestEntity && api.onEntityPointerDown) {
+          const target = api.hitTestEntity(event.clientX, event.clientY)
+          if (target) {
+            api.onEntityPointerDown(target, event)
             return
           }
         }

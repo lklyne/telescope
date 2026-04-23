@@ -1,8 +1,6 @@
 import { ipcMain } from 'electron'
 import type { CanvasHoverTarget } from '../../shared/types'
 import { pages } from '../runtime/page-runtime'
-import { textEntities } from '../runtime/text-entity-state'
-import { fileEntities } from '../runtime/file-entity-state'
 import {
   applyDragDelta,
   finalizeDrag,
@@ -30,7 +28,6 @@ import {
   zoom,
 } from '../runtime/surface-layout'
 import { setSelectionOverlayRect } from '../runtime/window-shell'
-import { workspaceGroups } from '../runtime/workspace-model'
 import { resolveEntityKind, selectNone, selectedDragEntityIds } from '../runtime/selection-controller'
 import { createEdges } from '../workspace-edges'
 import {
@@ -39,6 +36,7 @@ import {
   pasteEntitiesFromClipboard,
   pasteFramesFromClipboard,
 } from '../workspace-clipboard'
+import { descendantEntityIdsForGroup } from '../runtime/group-descendants'
 
 const VIEWPORT_EVENT_FRAME_MS = 16
 
@@ -104,25 +102,6 @@ function resolveDraggedFrameIds(frameId: string): string[] {
 
 function resolveDraggedEntityIds(entityId: string): string[] {
   return selectedDragEntityIds(entityId)
-}
-
-
-const descendantEntityIdsForGroup = (groupId: string): string[] => {
-  const ids: string[] = []
-  const visit = (parentId: string) => {
-    const childGroupIds = workspaceGroups
-      .filter((group) => group.parentGroupId === parentId)
-      .map((group) => group.id)
-    ids.push(
-      ...pages.filter((page) => page.parentGroupId === parentId).map((page) => page.id),
-      ...textEntities.filter((entity) => entity.parentGroupId === parentId).map((entity) => entity.id),
-      ...fileEntities.filter((entity) => entity.parentGroupId === parentId).map((entity) => entity.id),
-      ...childGroupIds,
-    )
-    childGroupIds.forEach(visit)
-  }
-  visit(groupId)
-  return ids
 }
 
 export function registerCanvasDragIpc(): void {

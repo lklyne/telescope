@@ -25,6 +25,7 @@ export type GateInputs = {
   hoveringCanvasChrome: boolean
   selectedEntityIds: readonly string[]
   selectedEntityKinds: readonly CanvasEntityKind[]
+  selectionOwnsFrameContent: boolean
   hasSavedDrawings: boolean
 }
 
@@ -35,6 +36,7 @@ export function shouldGateBeOpen(inputs: GateInputs): boolean {
   if (inputs.spaceHeld) return true
   if (inputs.hoveringCanvasChrome) return true
   if (inputs.selectionMarqueeVisible) return true
+  if (inputs.selectionOwnsFrameContent) return true
   if (hasFloatingMenu(inputs)) return true
   if (hasVisibleSavedDrawings(inputs)) return true
   return false

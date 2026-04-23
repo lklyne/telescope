@@ -12,6 +12,7 @@ function base(): GateInputs {
     hoveringCanvasChrome: false,
     selectedEntityIds: [],
     selectedEntityKinds: [],
+    selectionOwnsFrameContent: false,
     hasSavedDrawings: false,
   }
 }
@@ -60,6 +61,15 @@ describe('shouldGateBeOpen', () => {
 
   it('open when marquee visible', () => {
     expect(shouldGateBeOpen({ ...base(), selectionMarqueeVisible: true })).toBe(true)
+  })
+
+  it('open when the current selection owns frame content', () => {
+    expect(
+      shouldGateBeOpen({
+        ...base(),
+        selectionOwnsFrameContent: true,
+      }),
+    ).toBe(true)
   })
 
   it('open for single text selection (floating menu)', () => {

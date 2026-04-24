@@ -21,10 +21,8 @@ import {
 } from '../../shared/cursor-tuning'
 import { defaultAutoPolicy } from '../../shared/presence-emitter-policy'
 import type { EmitterMode } from '../../shared/presence-emitter-machine'
-import {
-  DEFAULT_EMITTER_MODES,
-  DEFAULT_TRANSITION_TABLE,
-} from '../../shared/presence-emitter-config'
+import { DEFAULT_EMITTER_MODES } from '../../shared/presence-emitter-config'
+import type { TransitionTable } from '../../shared/presence-emitter-machine'
 import { usePresenceEmitter } from '../shared/usePresenceEmitter'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
@@ -49,6 +47,12 @@ const MODE_SELECTION_OPTIONS: Array<{
   { value: 'orbit_sphere', label: 'Orbit sphere', hint: 'Force' },
   { value: 'orbit_rect', label: 'Orbit rect', hint: 'Force' },
 ]
+
+// Playground transitions crossfade without burst — the Burst button is the
+// only way to fire one here, so the debug surface doesn't pop on every click.
+const PLAYGROUND_TRANSITION_TABLE: TransitionTable = {
+  default: { durationMs: 250, exitEffect: 'fade', easing: 'ease-in-out' },
+}
 
 // Demo rect that's always visible. Clicks inside/outside drive the targetRect
 // signal so auto mode can select orbit_rect vs orbit_sphere accordingly.
@@ -266,7 +270,7 @@ export function PresencePlayground({
     onReady: emitterOnReady,
   } = usePresenceEmitter({
     modes: DEFAULT_EMITTER_MODES,
-    transitions: DEFAULT_TRANSITION_TABLE,
+    transitions: PLAYGROUND_TRANSITION_TABLE,
   })
 
   useEffect(() => {

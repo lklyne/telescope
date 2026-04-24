@@ -144,8 +144,10 @@ describe('createPresenceEmitterMachine — transitions', () => {
       50,
     )
     const inLayer = out.find((o) => o.id === 'c1:in')!
+    const outLayer = out.find((o) => o.id === 'c1:out')!
     expect(inLayer.mode).toBe('orbit_rect')
     expect(inLayer.targetRect).toEqual(rect)
+    expect(outLayer.targetRect).toBeNull()
   })
 
   it('honors per-edge transition config when provided', () => {
@@ -248,6 +250,19 @@ describe('createPresenceEmitterMachine — burst routing', () => {
       16,
     )
     expect(bursts).toEqual(['c1:out'])
+  })
+
+  it('rewrites imperative burst id to :in layer during transition', () => {
+    const machine = createPresenceEmitterMachine({
+      modes: MODES,
+      transitions: { default: { durationMs: 200, exitEffect: 'fade', easing: 'linear' } },
+    })
+    machine.flush([input({ desiredMode: 'trail' })], 16)
+    machine.flush([input({ desiredMode: 'orbit_sphere', isMoving: false })], 50)
+    machine.triggerBurst('c1')
+    const { bursts } = machine.flush([input({ desiredMode: 'orbit_sphere', isMoving: false })], 50)
+    // Mid-transition — imperative burst should target the incoming layer.
+    expect(bursts).toEqual(['c1:in'])
   })
 })
 

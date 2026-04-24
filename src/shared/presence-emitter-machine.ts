@@ -188,7 +188,7 @@ export function createPresenceEmitterMachine(
         color: input.color,
         mode: state.transition.fromMode,
         intensity: baseIntensity(opts.modes, state.transition.fromMode) * (1 - eased),
-        targetRect: input.targetRect,
+        targetRect: null,
       })
       outputs.push({
         id: `${input.cursorId}:in`,
@@ -253,7 +253,14 @@ export function createPresenceEmitterMachine(
       if (!seen.has(id)) states.delete(id)
     }
 
-    const bursts = pendingBursts.slice()
+    const bursts = pendingBursts.slice().map((id) => {
+      // If id already has a :out or :in suffix (e.g., from exitEffect), keep as-is.
+      if (id.endsWith(':out') || id.endsWith(':in')) return id
+      // Otherwise, route to the dominant layer based on state.
+      const state = states.get(id)
+      if (state?.transition) return `${id}:in`
+      return id
+    })
     pendingBursts.length = 0
     return { outputs, bursts }
   }

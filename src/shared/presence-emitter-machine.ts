@@ -91,12 +91,44 @@ export interface CreateMachineOptions {
   transitions: TransitionTable
 }
 
+interface ActiveTransition {
+  fromMode: EmitterMode
+  toMode: EmitterMode
+  elapsedMs: number
+  config: TransitionConfig
+}
+
 interface CursorState {
   currentMode: EmitterMode
+  transition: ActiveTransition | null
 }
 
 function baseIntensity(modes: EmitterModes, mode: EmitterMode): number {
   return modes[mode].baseIntensity
+}
+
+function applyEase(t: number, kind: FadeEasing): number {
+  if (t <= 0) return 0
+  if (t >= 1) return 1
+  switch (kind) {
+    case 'ease-in':
+      return t * t
+    case 'ease-out':
+      return 1 - (1 - t) * (1 - t)
+    case 'ease-in-out':
+      return t * t * (3 - 2 * t)
+    default:
+      return t
+  }
+}
+
+function resolveEdge(
+  transitions: TransitionTable,
+  fromMode: EmitterMode,
+  toMode: EmitterMode,
+): TransitionConfig {
+  const key: TransitionEdgeKey = `${fromMode}->${toMode}`
+  return transitions.edges?.[key] ?? transitions.default
 }
 
 export function createPresenceEmitterMachine(
@@ -105,33 +137,80 @@ export function createPresenceEmitterMachine(
   const states = new Map<string, CursorState>()
 
   return {
-    update(inputs, _dtMs) {
+    update(inputs, dtMs) {
       const seen = new Set<string>()
       const outputs: MachineCursorOutput[] = []
+
       for (const input of inputs) {
         seen.add(input.cursorId)
         let state = states.get(input.cursorId)
         if (!state) {
-          state = { currentMode: input.desiredMode }
+          state = { currentMode: input.desiredMode, transition: null }
           states.set(input.cursorId, state)
         }
-        outputs.push({
-          id: input.cursorId,
-          x: input.x,
-          y: input.y,
-          color: input.color,
-          mode: state.currentMode,
-          intensity: baseIntensity(opts.modes, state.currentMode),
-          targetRect: input.targetRect,
-        })
+
+        // Start a new transition if desiredMode differs from currentMode and
+        // no transition is in flight.
+        if (!state.transition && input.desiredMode !== state.currentMode) {
+          state.transition = {
+            fromMode: state.currentMode,
+            toMode: input.desiredMode,
+            elapsedMs: 0,
+            config: resolveEdge(opts.transitions, state.currentMode, input.desiredMode),
+          }
+        }
+
+        // Advance an active transition.
+        if (state.transition) {
+          state.transition.elapsedMs += dtMs
+          if (state.transition.elapsedMs >= state.transition.config.durationMs) {
+            state.currentMode = state.transition.toMode
+            state.transition = null
+          }
+        }
+
+        if (state.transition) {
+          const t = Math.min(1, state.transition.elapsedMs / state.transition.config.durationMs)
+          const eased = applyEase(t, state.transition.config.easing)
+          outputs.push({
+            id: `${input.cursorId}:out`,
+            x: input.x,
+            y: input.y,
+            color: input.color,
+            mode: state.transition.fromMode,
+            intensity: baseIntensity(opts.modes, state.transition.fromMode) * (1 - eased),
+            targetRect: input.targetRect,
+          })
+          outputs.push({
+            id: `${input.cursorId}:in`,
+            x: input.x,
+            y: input.y,
+            color: input.color,
+            mode: state.transition.toMode,
+            intensity: baseIntensity(opts.modes, state.transition.toMode) * eased,
+            targetRect: input.targetRect,
+          })
+        } else {
+          outputs.push({
+            id: input.cursorId,
+            x: input.x,
+            y: input.y,
+            color: input.color,
+            mode: state.currentMode,
+            intensity: baseIntensity(opts.modes, state.currentMode),
+            targetRect: input.targetRect,
+          })
+        }
       }
+
       for (const id of states.keys()) {
         if (!seen.has(id)) states.delete(id)
       }
+
       return outputs
     },
     triggerBurst(_cursorId) {
-      // Implemented in a later task.
+      // Implemented in Task 5.
     },
   }
 }

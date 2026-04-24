@@ -100,3 +100,66 @@ describe('createPresenceEmitterMachine — stable state', () => {
     expect(out).toHaveLength(0)
   })
 })
+
+describe('createPresenceEmitterMachine — transitions', () => {
+  function setup() {
+    const machine = createPresenceEmitterMachine({
+      modes: MODES,
+      transitions: { default: { durationMs: 200, exitEffect: 'fade', easing: 'linear' } },
+    })
+    machine.update([input({ desiredMode: 'trail' })], 16)
+    return machine
+  }
+
+  it('starts a transition when desiredMode changes', () => {
+    const machine = setup()
+    // Change desiredMode; advance one tick of 100ms — halfway through 200ms window.
+    const out = machine.update([input({ desiredMode: 'orbit_sphere', isMoving: false })], 100)
+    expect(out).toHaveLength(2)
+    const outLayer = out.find((o) => o.id === 'c1:out')!
+    const inLayer = out.find((o) => o.id === 'c1:in')!
+    expect(outLayer.mode).toBe('trail')
+    expect(inLayer.mode).toBe('orbit_sphere')
+    expect(outLayer.intensity).toBeCloseTo(MODES.trail.baseIntensity * 0.5, 5)
+    expect(inLayer.intensity).toBeCloseTo(MODES.orbit_sphere.baseIntensity * 0.5, 5)
+  })
+
+  it('collapses transition on or after duration', () => {
+    const machine = setup()
+    machine.update([input({ desiredMode: 'orbit_sphere', isMoving: false })], 100)
+    const out = machine.update([input({ desiredMode: 'orbit_sphere', isMoving: false })], 200)
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      id: 'c1',
+      mode: 'orbit_sphere',
+      intensity: MODES.orbit_sphere.baseIntensity,
+    })
+  })
+
+  it('passes targetRect through to the incoming layer during transition', () => {
+    const machine = setup()
+    const rect = { x: 10, y: 20, width: 30, height: 40 }
+    const out = machine.update(
+      [input({ desiredMode: 'orbit_rect', isMoving: false, targetRect: rect })],
+      50,
+    )
+    const inLayer = out.find((o) => o.id === 'c1:in')!
+    expect(inLayer.mode).toBe('orbit_rect')
+    expect(inLayer.targetRect).toEqual(rect)
+  })
+
+  it('honors per-edge transition config when provided', () => {
+    const machine = createPresenceEmitterMachine({
+      modes: MODES,
+      transitions: {
+        default: { durationMs: 1000, exitEffect: 'fade', easing: 'linear' },
+        edges: { 'trail->orbit_sphere': { durationMs: 100, exitEffect: 'fade', easing: 'linear' } },
+      },
+    })
+    machine.update([input({ desiredMode: 'trail' })], 16)
+    // Advance 100ms — should complete the short trail→orbit_sphere edge.
+    const out = machine.update([input({ desiredMode: 'orbit_sphere', isMoving: false })], 100)
+    expect(out).toHaveLength(1)
+    expect(out[0].mode).toBe('orbit_sphere')
+  })
+})

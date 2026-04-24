@@ -24,6 +24,15 @@ export interface OrbitSphereParams {
   radiusPx: number
   angularVelocityRadPerSec: number
   radiusFadeInSeconds: number
+  // Spring constant (px/s² per px of displacement). Scaled by cursor
+  // intensity at sim time: full pull when in orbit, relaxed on transition
+  // out so particles coast on inertia.
+  constraintStrength: number
+  // Velocity damping per second applied to orbit particles.
+  dampingPerSecond: number
+  // Outward push (px/s) at intensity=0, scaled by (1-intensity). Makes
+  // the ball visibly scatter during transition-out rather than stale.
+  dispersalSpeedPxPerSec: number
   baseIntensity: number
 }
 

@@ -521,6 +521,15 @@ export function AgentCursorLayer({
         orbitSphereRadiusFadeInSeconds={
           DEFAULT_EMITTER_MODES.orbit_sphere.radiusFadeInSeconds
         }
+        orbitSphereConstraintStrength={
+          DEFAULT_EMITTER_MODES.orbit_sphere.constraintStrength
+        }
+        orbitSphereDampingPerSecond={
+          DEFAULT_EMITTER_MODES.orbit_sphere.dampingPerSecond
+        }
+        orbitSphereDispersalSpeedPxPerSec={
+          DEFAULT_EMITTER_MODES.orbit_sphere.dispersalSpeedPxPerSec
+        }
         orbitRectCrossJitterPx={DEFAULT_EMITTER_MODES.orbit_rect.crossJitterPx}
         orbitRectAngularVelocityRadPerSec={
           DEFAULT_EMITTER_MODES.orbit_rect.angularVelocityRadPerSec

@@ -41,6 +41,15 @@ const PARTICLE_MODE_BURST = 3
 const ORBIT_SPHERE_RADIUS_PX = 8
 const ORBIT_SPHERE_ANGULAR_VELOCITY = 0.6
 const ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS = 0.35
+// Spring-constant (px/s² per px of displacement). At intensity=1, this pulls
+// orbit particles tightly to their sphere target; at intensity=0, no pull,
+// particles drift on inertia.
+const ORBIT_SPHERE_CONSTRAINT_STRENGTH = 120
+// Velocity damping (per second). Keeps released particles from drifting forever.
+const ORBIT_SPHERE_DAMPING_PER_SECOND = 1.4
+// Extra outward push (px/s) applied when intensity < 1, scaled by (1-intensity).
+// This is what makes the ball visibly "disperse" rather than just stop pulling.
+const ORBIT_SPHERE_DISPERSAL_SPEED = 45
 
 // Orbit rect tuning defaults.
 const ORBIT_RECT_CROSS_JITTER_PX = 5
@@ -140,6 +149,14 @@ interface Props {
   orbitSphereRadiusPx?: number
   orbitSphereAngularVelocityRadPerSec?: number
   orbitSphereRadiusFadeInSeconds?: number
+  /** Spring k (px/s² per px). Scales with cursor intensity so particles stay
+   * tight when in orbit and coast outward when intensity drops. */
+  orbitSphereConstraintStrength?: number
+  /** Velocity damping per second for orbit particles. */
+  orbitSphereDampingPerSecond?: number
+  /** Outward dispersal speed (px/s) at intensity=0. Makes the ball actively
+   * disperse during a transition-out rather than just drift stale. */
+  orbitSphereDispersalSpeedPxPerSec?: number
   /** Orbit rect tuning. */
   orbitRectCrossJitterPx?: number
   orbitRectAngularVelocityRadPerSec?: number
@@ -233,6 +250,9 @@ function buildSystem(initial: {
   orbitSphereRadiusPx: number
   orbitSphereAngularVelocity: number
   orbitSphereRadiusFadeInSeconds: number
+  orbitSphereConstraintStrength: number
+  orbitSphereDampingPerSecond: number
+  orbitSphereDispersalSpeedPxPerSec: number
   orbitRectCrossJitterPx: number
   orbitRectAngularVelocity: number
   orbitRectFadeInSeconds: number
@@ -333,6 +353,14 @@ function buildSystem(initial: {
   const orbitSphereRadiusU = uniform(initial.orbitSphereRadiusPx)
   const orbitSphereAngularVelocityU = uniform(initial.orbitSphereAngularVelocity)
   const orbitSphereRadiusFadeInU = uniform(initial.orbitSphereRadiusFadeInSeconds)
+  // Spring-damped "gravity" toward the orbit target. Scaled by cursor
+  // intensity at sim time: at full intensity the pull is stiff so particles
+  // track the sphere surface; when intensity drops (transitioning out) the
+  // pull weakens, particles coast on inertia, and a small outward push
+  // disperses the ball.
+  const orbitSphereConstraintU = uniform(initial.orbitSphereConstraintStrength)
+  const orbitSphereDampingU = uniform(initial.orbitSphereDampingPerSecond)
+  const orbitSphereDispersalU = uniform(initial.orbitSphereDispersalSpeedPxPerSec)
   const orbitRectCrossJitterU = uniform(initial.orbitRectCrossJitterPx)
   const orbitRectAngularVelocityU = uniform(initial.orbitRectAngularVelocity)
   const orbitRectFadeInU = uniform(initial.orbitRectFadeInSeconds)
@@ -489,10 +517,14 @@ function buildSystem(initial: {
         pos.addAssign(vel.mul(deltaU))
       })
         .ElseIf(mode.equal(float(PARTICLE_MODE_ORBIT_SPHERE)), () => {
-          // Orbit particles don't integrate; their position is rebuilt each
-          // frame from baked-in (sinLat, lonInit, velMult, radius) plus the
-          // cursor's accumulated rotation angle. Rotation is around the screen's
-          // vertical axis, so lat → y offset, (cos, sin) of longitude → (x, z).
+          // Each orbit particle has a "target" on a sphere around the cursor,
+          // rotating with the cursor's accumulated angle. The particle is
+          // spring-pulled toward that target with strength scaled by the
+          // cursor's intensity. At intensity=1, pull is stiff so the particle
+          // tracks the rotating target (the ball looks rigid). As intensity
+          // drops (transitioning out), pull weakens, the particle coasts on
+          // inertia, and a small outward "dispersal" push makes the ball
+          // visibly scatter rather than just stale in place.
           const cIdx = uint(state.y)
           const cursor = cursorPos.element(cIdx)
           const params = paramsBuffer.element(instanceIndex)
@@ -503,14 +535,44 @@ function buildSystem(initial: {
           const cursorAngle = cursorOrbitAngle.element(cIdx)
           const lon = lonInit.add(cursorAngle.mul(velMult))
           const cosLat = float(1).sub(sinLat.mul(sinLat)).max(0).sqrt()
-          // Ease radius from 0 → full over the first fade-in window so the
-          // sphere "inhales" from the cursor rather than popping in.
           const radiusT = smoothstep(float(0), orbitSphereRadiusFadeInU, age)
           const effectiveR = radius.mul(radiusT)
           const ox = effectiveR.mul(cosLat).mul(lon.cos())
           const oz = effectiveR.mul(cosLat).mul(lon.sin())
           const oy = effectiveR.mul(sinLat)
-          pos.assign(vec3(cursor.x.add(ox), cursor.y.add(oy), oz))
+          const target = vec3(cursor.x.add(ox), cursor.y.add(oy), oz)
+
+          const intensity = cursorIntensity.element(cIdx)
+          const k = orbitSphereConstraintU.mul(intensity)
+          const pullAccel = target.sub(pos).mul(k)
+
+          // Outward push from cursor, scaled by (1 - intensity). Uses offset
+          // from cursor in xy as the direction; if the particle is exactly
+          // at the cursor we use a tiny fallback so normalization is safe.
+          const offset = vec3(pos.x.sub(cursor.x), pos.y.sub(cursor.y), float(0))
+          const offsetLen = offset.x
+            .mul(offset.x)
+            .add(offset.y.mul(offset.y))
+            .sqrt()
+            .max(0.001)
+          const outwardDir = vec3(
+            offset.x.div(offsetLen),
+            offset.y.div(offsetLen),
+            float(0),
+          )
+          const dispersalScale = float(1).sub(intensity).max(0)
+          const dispersalAccel = outwardDir.mul(
+            orbitSphereDispersalU.mul(dispersalScale),
+          )
+
+          // Integrate velocity with damping; integrate position.
+          const damp = float(1).sub(orbitSphereDampingU.mul(deltaU)).max(0)
+          const nextVel = vel
+            .mul(damp)
+            .add(pullAccel.mul(deltaU))
+            .add(dispersalAccel.mul(deltaU))
+          vel.assign(nextVel)
+          pos.addAssign(nextVel.mul(deltaU))
         })
         .ElseIf(mode.equal(float(PARTICLE_MODE_ORBIT_RECT)), () => {
           // Orbit rect: resolve perimeter fraction t ∈ [0,1) to a position on
@@ -891,6 +953,9 @@ export function PresenceParticleTrail({
   orbitSphereRadiusPx = ORBIT_SPHERE_RADIUS_PX,
   orbitSphereAngularVelocityRadPerSec = ORBIT_SPHERE_ANGULAR_VELOCITY,
   orbitSphereRadiusFadeInSeconds = ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS,
+  orbitSphereConstraintStrength = ORBIT_SPHERE_CONSTRAINT_STRENGTH,
+  orbitSphereDampingPerSecond = ORBIT_SPHERE_DAMPING_PER_SECOND,
+  orbitSphereDispersalSpeedPxPerSec = ORBIT_SPHERE_DISPERSAL_SPEED,
   orbitRectCrossJitterPx = ORBIT_RECT_CROSS_JITTER_PX,
   orbitRectAngularVelocityRadPerSec = ORBIT_SPHERE_ANGULAR_VELOCITY,
   orbitRectFadeInSeconds = ORBIT_RECT_FADE_IN_SECONDS,
@@ -960,6 +1025,9 @@ export function PresenceParticleTrail({
           orbitSphereRadiusPx,
           orbitSphereAngularVelocity: orbitSphereAngularVelocityRadPerSec,
           orbitSphereRadiusFadeInSeconds,
+          orbitSphereConstraintStrength,
+          orbitSphereDampingPerSecond,
+          orbitSphereDispersalSpeedPxPerSec,
           orbitRectCrossJitterPx,
           orbitRectAngularVelocity: orbitRectAngularVelocityRadPerSec,
           orbitRectFadeInSeconds,

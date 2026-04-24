@@ -117,11 +117,13 @@ function TextBlockCard({
         />
         {canEdit ? (
           <textarea
-            className="text-block-textarea flex-1 w-full resize-none border-none outline-none bg-transparent px-2 pb-2"
+            className="text-block-textarea flex-1 w-full resize-none border-none outline-none bg-transparent px-2.5 pb-2"
             style={{
+              boxSizing: 'border-box',
               fontSize: 12,
               color: 'rgb(0, 0, 0)',
               fontFamily: 'system-ui, sans-serif',
+              paddingTop: '0.3em',
             }}
             value={localText}
             placeholder="Type a note..."

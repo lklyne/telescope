@@ -61,18 +61,51 @@ export function usePresenceEmitter(
     new Map(),
   )
   const particleControlsRef = useRef<PresenceParticleControls | null>(null)
-  const lastTickMsRef = useRef<number>(performance.now())
+  const pendingInputsRef = useRef<
+    ReadonlyArray<MachineCursorInputWithoutMovement>
+  >([])
   const debounceMs = args.stationaryDebounceMs ?? STATIONARY_DEBOUNCE_MS
 
-  // push() runs per caller tick. It mutates refs and calls into the particle
-  // system imperatively — no React state is set here, so the caller tree
-  // does not re-render on each RAF even though this fires ~60 times/sec.
+  // push() is cheap: it just stashes the caller's desired inputs in a ref.
+  // The real machine tick runs on the RAF loop below so transitions advance
+  // every frame regardless of whether React re-rendered.
   const push = useCallback(
     (inputs: ReadonlyArray<MachineCursorInputWithoutMovement>) => {
-      const now = performance.now()
-      const dtMs = now - lastTickMsRef.current
-      lastTickMsRef.current = now
+      pendingInputsRef.current = inputs
+    },
+    [],
+  )
 
+  const controls = useMemo(
+    () => ({
+      triggerBurst: (cursorId: string) => {
+        machineRef.current!.triggerBurst(cursorId)
+      },
+    }),
+    [],
+  )
+
+  const onReady = useCallback((c: PresenceParticleControls) => {
+    particleControlsRef.current = c
+  }, [])
+
+  useEffect(() => {
+    let rafId = 0
+    let lastTickMs = performance.now()
+
+    const tick = (now: number) => {
+      rafId = requestAnimationFrame(tick)
+      const controls = particleControlsRef.current
+      if (!controls) {
+        // Particle system not initialized yet. Hold the clock steady so that
+        // once it comes online the first dtMs isn't wild.
+        lastTickMs = now
+        return
+      }
+      const dtMs = now - lastTickMs
+      lastTickMs = now
+
+      const inputs = pendingInputsRef.current
       const positions = lastPosRef.current
       const resolved: MachineCursorInput[] = inputs.map((i) => {
         if (typeof i.isMoving === 'boolean') {
@@ -97,38 +130,19 @@ export function usePresenceEmitter(
         return { ...i, isMoving } as MachineCursorInput
       })
 
-      // Prune positions for cursors that disappeared.
       const seen = new Set(resolved.map((r) => r.cursorId))
       for (const id of positions.keys()) {
         if (!seen.has(id)) positions.delete(id)
       }
 
       const { outputs, bursts } = machineRef.current!.flush(resolved, dtMs)
-      const controls = particleControlsRef.current
-      if (!controls) return
       controls.pushCursors(outputs.map(toParticleCursor))
       for (const id of bursts) controls.triggerBurst(id)
-    },
-    [debounceMs],
-  )
+    }
 
-  const controls = useMemo(
-    () => ({
-      triggerBurst: (cursorId: string) => {
-        machineRef.current!.triggerBurst(cursorId)
-      },
-    }),
-    [],
-  )
-
-  const onReady = useCallback((c: PresenceParticleControls) => {
-    particleControlsRef.current = c
-  }, [])
-
-  useEffect(() => {
-    // Reset lastTick on mount so the first push's dtMs is small.
-    lastTickMsRef.current = performance.now()
-  }, [])
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [debounceMs])
 
   return { push, controls, onReady }
 }

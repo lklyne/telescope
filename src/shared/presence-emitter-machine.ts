@@ -81,8 +81,16 @@ export interface MachineCursorOutput {
   targetRect: PresenceEmitterRect | null
 }
 
+export interface MachineFlushResult {
+  outputs: MachineCursorOutput[]
+  // Cursor ids (may be suffixed with ':out') to dispatch to
+  // PresenceParticleControls.triggerBurst in insertion order.
+  bursts: string[]
+}
+
 export interface PresenceEmitterMachine {
   update(inputs: MachineCursorInput[], dtMs: number): MachineCursorOutput[]
+  flush(inputs: MachineCursorInput[], dtMs: number): MachineFlushResult
   triggerBurst(cursorId: string): void
 }
 
@@ -135,98 +143,116 @@ export function createPresenceEmitterMachine(
   opts: CreateMachineOptions,
 ): PresenceEmitterMachine {
   const states = new Map<string, CursorState>()
+  const pendingBursts: string[] = []
+
+  function advanceTransition(state: CursorState, input: MachineCursorInput): void {
+    if (state.transition) {
+      if (input.desiredMode === state.transition.fromMode) {
+        state.transition = null
+      } else if (input.desiredMode !== state.transition.toMode) {
+        state.transition.toMode = input.desiredMode
+        state.transition.config = resolveEdge(
+          opts.transitions,
+          state.transition.fromMode,
+          input.desiredMode,
+        )
+      }
+    } else if (input.desiredMode !== state.currentMode) {
+      const config = resolveEdge(opts.transitions, state.currentMode, input.desiredMode)
+      state.transition = {
+        fromMode: state.currentMode,
+        toMode: input.desiredMode,
+        elapsedMs: 0,
+        config,
+      }
+      if (config.exitEffect === 'burst') {
+        // Target the outgoing layer so the orbit particles that are about to
+        // fade are the ones that burst.
+        pendingBursts.push(`${input.cursorId}:out`)
+      }
+    }
+  }
+
+  function emitOutputs(
+    state: CursorState,
+    input: MachineCursorInput,
+    outputs: MachineCursorOutput[],
+  ): void {
+    if (state.transition) {
+      const t = Math.min(1, state.transition.elapsedMs / state.transition.config.durationMs)
+      const eased = applyEase(t, state.transition.config.easing)
+      outputs.push({
+        id: `${input.cursorId}:out`,
+        x: input.x,
+        y: input.y,
+        color: input.color,
+        mode: state.transition.fromMode,
+        intensity: baseIntensity(opts.modes, state.transition.fromMode) * (1 - eased),
+        targetRect: input.targetRect,
+      })
+      outputs.push({
+        id: `${input.cursorId}:in`,
+        x: input.x,
+        y: input.y,
+        color: input.color,
+        mode: state.transition.toMode,
+        intensity: baseIntensity(opts.modes, state.transition.toMode) * eased,
+        targetRect: input.targetRect,
+      })
+    } else {
+      outputs.push({
+        id: input.cursorId,
+        x: input.x,
+        y: input.y,
+        color: input.color,
+        mode: state.currentMode,
+        intensity: baseIntensity(opts.modes, state.currentMode),
+        targetRect: input.targetRect,
+      })
+    }
+  }
+
+  function flush(inputs: MachineCursorInput[], dtMs: number): MachineFlushResult {
+    const seen = new Set<string>()
+    const outputs: MachineCursorOutput[] = []
+
+    for (const input of inputs) {
+      seen.add(input.cursorId)
+      let state = states.get(input.cursorId)
+      if (!state) {
+        state = { currentMode: input.desiredMode, transition: null }
+        states.set(input.cursorId, state)
+      }
+
+      advanceTransition(state, input)
+
+      if (state.transition) {
+        state.transition.elapsedMs += dtMs
+        if (state.transition.elapsedMs >= state.transition.config.durationMs) {
+          state.currentMode = state.transition.toMode
+          state.transition = null
+        }
+      }
+
+      emitOutputs(state, input, outputs)
+    }
+
+    for (const id of states.keys()) {
+      if (!seen.has(id)) states.delete(id)
+    }
+
+    const bursts = pendingBursts.slice()
+    pendingBursts.length = 0
+    return { outputs, bursts }
+  }
 
   return {
     update(inputs, dtMs) {
-      const seen = new Set<string>()
-      const outputs: MachineCursorOutput[] = []
-
-      for (const input of inputs) {
-        seen.add(input.cursorId)
-        let state = states.get(input.cursorId)
-        if (!state) {
-          state = { currentMode: input.desiredMode, transition: null }
-          states.set(input.cursorId, state)
-        }
-
-        // Transition management:
-        // 1. If we're already in a transition and the user retargets, update
-        //    toMode but keep elapsedMs so oscillation can't freeze us.
-        // 2. If we're not in a transition and the desired mode differs from
-        //    current, start one.
-        // 3. If we're already in a transition and desiredMode equals the
-        //    current fromMode (flap-back), cancel the transition.
-        if (state.transition) {
-          if (input.desiredMode === state.transition.fromMode) {
-            state.transition = null
-          } else if (input.desiredMode !== state.transition.toMode) {
-            state.transition.toMode = input.desiredMode
-            state.transition.config = resolveEdge(
-              opts.transitions,
-              state.transition.fromMode,
-              input.desiredMode,
-            )
-          }
-        } else if (input.desiredMode !== state.currentMode) {
-          state.transition = {
-            fromMode: state.currentMode,
-            toMode: input.desiredMode,
-            elapsedMs: 0,
-            config: resolveEdge(opts.transitions, state.currentMode, input.desiredMode),
-          }
-        }
-
-        // Advance an active transition.
-        if (state.transition) {
-          state.transition.elapsedMs += dtMs
-          if (state.transition.elapsedMs >= state.transition.config.durationMs) {
-            state.currentMode = state.transition.toMode
-            state.transition = null
-          }
-        }
-
-        if (state.transition) {
-          const t = Math.min(1, state.transition.elapsedMs / state.transition.config.durationMs)
-          const eased = applyEase(t, state.transition.config.easing)
-          outputs.push({
-            id: `${input.cursorId}:out`,
-            x: input.x,
-            y: input.y,
-            color: input.color,
-            mode: state.transition.fromMode,
-            intensity: baseIntensity(opts.modes, state.transition.fromMode) * (1 - eased),
-            targetRect: input.targetRect,
-          })
-          outputs.push({
-            id: `${input.cursorId}:in`,
-            x: input.x,
-            y: input.y,
-            color: input.color,
-            mode: state.transition.toMode,
-            intensity: baseIntensity(opts.modes, state.transition.toMode) * eased,
-            targetRect: input.targetRect,
-          })
-        } else {
-          outputs.push({
-            id: input.cursorId,
-            x: input.x,
-            y: input.y,
-            color: input.color,
-            mode: state.currentMode,
-            intensity: baseIntensity(opts.modes, state.currentMode),
-            targetRect: input.targetRect,
-          })
-        }
-      }
-
-      for (const id of states.keys()) {
-        if (!seen.has(id)) states.delete(id)
-      }
-
-      return outputs
+      return flush(inputs, dtMs).outputs
     },
-    triggerBurst(_cursorId) {
-      // Implemented in Task 5.
+    flush,
+    triggerBurst(cursorId) {
+      pendingBursts.push(cursorId)
     },
   }
 }

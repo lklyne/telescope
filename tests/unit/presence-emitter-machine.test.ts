@@ -200,3 +200,53 @@ describe('createPresenceEmitterMachine — transitions', () => {
     expect(out[0].mode).toBe('trail')
   })
 })
+
+describe('createPresenceEmitterMachine — burst routing', () => {
+  it('drains an imperatively queued burst on the next update', () => {
+    const machine = createPresenceEmitterMachine({
+      modes: MODES,
+      transitions: TRANSITIONS,
+    })
+    machine.update([input({ cursorId: 'a' })], 16)
+    machine.triggerBurst('a')
+    const { outputs, bursts } = machine.flush([input({ cursorId: 'a' })], 16)
+    expect(bursts).toEqual(['a'])
+    expect(outputs).toHaveLength(1)
+    // Drained: second flush returns no bursts.
+    const again = machine.flush([input({ cursorId: 'a' })], 16)
+    expect(again.bursts).toEqual([])
+  })
+
+  it('enqueues a burst when transition exitEffect is burst', () => {
+    const machine = createPresenceEmitterMachine({
+      modes: MODES,
+      transitions: {
+        default: { durationMs: 200, exitEffect: 'burst', easing: 'linear' },
+      },
+    })
+    machine.flush([input({ desiredMode: 'orbit_sphere', isMoving: false })], 16)
+    const { bursts } = machine.flush(
+      [input({ desiredMode: 'trail', isMoving: true })],
+      16,
+    )
+    expect(bursts).toEqual(['c1:out'])
+  })
+
+  it('targets the outgoing layer when bursting mid-transition', () => {
+    const machine = createPresenceEmitterMachine({
+      modes: MODES,
+      transitions: {
+        default: { durationMs: 200, exitEffect: 'burst', easing: 'linear' },
+      },
+    })
+    machine.flush([input({ desiredMode: 'orbit_sphere', isMoving: false })], 16)
+    // Transition starts — this call enqueues an exit burst. The burst id should
+    // match the outgoing layer id ('c1:out') so the particle system targets
+    // the orbit particles that are about to fade.
+    const { bursts } = machine.flush(
+      [input({ desiredMode: 'trail', isMoving: true })],
+      16,
+    )
+    expect(bursts).toEqual(['c1:out'])
+  })
+})

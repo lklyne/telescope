@@ -61,10 +61,21 @@ export async function captureFrameComposited(
   blendOnto(baseBitmap, aboveCursor, pageSize)
 
   const cursorWc = cursorOverlayWindow?.webContents
-  const cursorOverlay =
-    canCapture && cursorWc && !cursorWc.isDestroyed() && cursorOverlayWindow
-      ? await captureAndCropToPage(cursorWc, cursorOverlayWindow.getBounds(), page, dpr)
-      : null
+  let cursorOverlay: NativeImage | null = null
+  if (canCapture && cursorWc && !cursorWc.isDestroyed() && cursorOverlayWindow) {
+    // BrowserWindow.getBounds() is in screen coords; aboveView.getBounds()
+    // is window-relative. Translate to window-relative so both overlays
+    // share the coordinate space bounds.page.* uses.
+    const contentBounds = win!.getContentBounds()
+    const cursorScreenBounds = cursorOverlayWindow.getBounds()
+    const cursorBounds = {
+      x: cursorScreenBounds.x - contentBounds.x,
+      y: cursorScreenBounds.y - contentBounds.y,
+      width: cursorScreenBounds.width,
+      height: cursorScreenBounds.height,
+    }
+    cursorOverlay = await captureAndCropToPage(cursorWc, cursorBounds, page, dpr)
+  }
   blendOnto(baseBitmap, cursorOverlay, pageSize)
 
   return { bitmap: baseBitmap, width: pageSize.width, height: pageSize.height }

@@ -218,13 +218,25 @@ export function createPresenceEmitterMachine(
 
     for (const input of inputs) {
       seen.add(input.cursorId)
-      let state = states.get(input.cursorId)
-      if (!state) {
-        state = { currentMode: input.desiredMode, transition: null }
-        states.set(input.cursorId, state)
+
+      // Downgrade orbit_rect to orbit_sphere when no rect is resolvable —
+      // same rule AgentCursorLayer enforced before this machine existed.
+      const effectiveDesired: EmitterMode =
+        input.desiredMode === 'orbit_rect' && !input.targetRect
+          ? 'orbit_sphere'
+          : input.desiredMode
+      const resolvedInput: MachineCursorInput = {
+        ...input,
+        desiredMode: effectiveDesired,
       }
 
-      advanceTransition(state, input)
+      let state = states.get(resolvedInput.cursorId)
+      if (!state) {
+        state = { currentMode: resolvedInput.desiredMode, transition: null }
+        states.set(resolvedInput.cursorId, state)
+      }
+
+      advanceTransition(state, resolvedInput)
 
       if (state.transition) {
         state.transition.elapsedMs += dtMs
@@ -234,7 +246,7 @@ export function createPresenceEmitterMachine(
         }
       }
 
-      emitOutputs(state, input, outputs)
+      emitOutputs(state, resolvedInput, outputs)
     }
 
     for (const id of states.keys()) {

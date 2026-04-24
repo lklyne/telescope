@@ -250,3 +250,32 @@ describe('createPresenceEmitterMachine — burst routing', () => {
     expect(bursts).toEqual(['c1:out'])
   })
 })
+
+describe('createPresenceEmitterMachine — orbit_rect downgrade', () => {
+  it('downgrades orbit_rect → orbit_sphere when targetRect is null', () => {
+    const machine = createPresenceEmitterMachine({
+      modes: MODES,
+      transitions: TRANSITIONS,
+    })
+    const out = machine.update(
+      [input({ desiredMode: 'orbit_rect', isMoving: false, targetRect: null })],
+      16,
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0].mode).toBe('orbit_sphere')
+  })
+
+  it('does not downgrade when rect is present', () => {
+    const machine = createPresenceEmitterMachine({
+      modes: MODES,
+      transitions: TRANSITIONS,
+    })
+    const rect = { x: 0, y: 0, width: 10, height: 10 }
+    const out = machine.update(
+      [input({ desiredMode: 'orbit_rect', isMoving: false, targetRect: rect })],
+      16,
+    )
+    expect(out[0].mode).toBe('orbit_rect')
+    expect(out[0].targetRect).toEqual(rect)
+  })
+})

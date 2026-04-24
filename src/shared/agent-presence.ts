@@ -1,28 +1,5 @@
 import type { AgentPresenceCursor, PresenceLabelKey } from './types'
 
-export type PresenceEmitterMode = 'trail' | 'orbit_sphere' | 'orbit_rect'
-
-// Maps presence (activity, labelKey) → particle emitter mode. Anchored here
-// rather than in the renderer so the mapping is one step away from the data
-// model and easy to unit-test. Modes that require extra renderer context
-// (orbit_rect needs a resolved target rect) may be downgraded by the caller
-// when that context is missing — see AgentCursorLayer.
-//
-// Note: PresenceEmitterMode does not include 'burst'. Burst is a transient
-// triggered by a click transition layered on top of whichever orbit mode
-// a cursor was already in.
-export function emitterModeForPresenceCursor(
-  cursor: Pick<AgentPresenceCursor, 'activity' | 'labelKey'>,
-): PresenceEmitterMode {
-  if (cursor.activity === 'acting' && cursor.labelKey === 'inspect_page') {
-    return 'orbit_rect'
-  }
-  if (cursor.activity === 'thinking' || cursor.activity === 'waiting') {
-    return 'orbit_sphere'
-  }
-  return 'trail'
-}
-
 function labelForKey(
   labelKey: PresenceLabelKey | null,
   targetName?: string | null,

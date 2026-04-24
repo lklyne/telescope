@@ -1,13 +1,11 @@
-import type { PresenceActivity, PresenceLabelKey } from './types'
+import type { PresenceActivity, PresenceLabelKey, PresenceTargetRect } from './types'
 
 export type EmitterMode = 'trail' | 'orbit_sphere' | 'orbit_rect'
 
-export interface PresenceEmitterRect {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+// Re-export under the name used internally by the emitter state machine.
+// Structurally identical to PresenceTargetRect in types.ts — we alias to
+// avoid a cast seam between the presence-cursor data model and the machine.
+export type PresenceEmitterRect = PresenceTargetRect
 
 export interface AutoModePolicyInput {
   isMoving: boolean

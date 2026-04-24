@@ -1,5 +1,23 @@
 import type { AgentPresenceCursor, PresenceLabelKey } from './types'
 
+export type PresenceEmitterMode = 'trail' | 'orbit_sphere'
+
+// Maps presence activity → particle emitter mode. Anchored here rather than in
+// the renderer so the logic is one step away from the data model and easy to
+// unit-test. Add new modes here when introducing new particle behaviors
+// (orbit_rect for inspecting a frame, burst for click).
+export function emitterModeForPresenceCursor(
+  cursor: Pick<AgentPresenceCursor, 'activity'>,
+): PresenceEmitterMode {
+  switch (cursor.activity) {
+    case 'thinking':
+    case 'waiting':
+      return 'orbit_sphere'
+    default:
+      return 'trail'
+  }
+}
+
 function labelForKey(
   labelKey: PresenceLabelKey | null,
   targetName?: string | null,

@@ -4,7 +4,10 @@ import type {
   CanvasSceneFrameEntity,
   PresenceActivity,
 } from '../../shared/types'
-import { labelForPresenceCursor } from '../../shared/agent-presence'
+import {
+  emitterModeForPresenceCursor,
+  labelForPresenceCursor,
+} from '../../shared/agent-presence'
 import {
   DEFAULT_CURSOR_MOTION,
   DISTANCE_SCALE_REFERENCE_PX,
@@ -34,6 +37,40 @@ const PRODUCTION_CURSOR_MOTION = {
   distanceScaling: 0,
 }
 const POSITION_EPSILON = 0.5
+
+// Emission intensity for orbit_sphere cursors. Tuned so the sphere holds
+// ~300 particles in flight at the default 2.5s lifetime — dense enough to
+// read as a shell without flooding the pool. Trail intensity stays on the
+// existing 0/1 "is animating" switch.
+const ORBIT_SPHERE_INTENSITY = 0.15
+
+// Dev flag (localStorage-backed) to reveal the text status chip. Off by
+// default so particle effects are the primary presence cue; toggle via
+// `localStorage.setItem('telescope.showPresenceLabels', 'true')` in devtools.
+const SHOW_PRESENCE_LABELS_KEY = 'telescope.showPresenceLabels'
+
+function readShowPresenceLabels(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage?.getItem(SHOW_PRESENCE_LABELS_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function useShowPresenceLabels(): boolean {
+  const [show, setShow] = useState(readShowPresenceLabels)
+  useEffect(() => {
+    const handler = (event: StorageEvent) => {
+      if (event.key === SHOW_PRESENCE_LABELS_KEY) {
+        setShow(event.newValue === 'true')
+      }
+    }
+    window.addEventListener('storage', handler)
+    return () => window.removeEventListener('storage', handler)
+  }, [])
+  return show
+}
 
 function animationDurationForDistance(distance: number): number {
   if (distance <= 0) return 0
@@ -128,10 +165,12 @@ function AgentCursor({
   cursor,
   point,
   zoom,
+  showLabel,
 }: {
   cursor: AgentPresenceCursor
   point: Vec2
   zoom: number
+  showLabel: boolean
 }) {
   const label = labelForPresenceCursor(cursor)
   const [rippleKey, setRippleKey] = useState<number | null>(null)
@@ -181,7 +220,7 @@ function AgentCursor({
             <ClickRipple key={rippleKey} color={cursor.color} />
           )}
           <FilledCursorIcon color={cursor.color} size={24} />
-          {label ? (
+          {showLabel && label ? (
             <div
               className="ml-4 -mt-1.5 whitespace-nowrap rounded px-2 py-0.5"
               style={{
@@ -370,22 +409,32 @@ export function AgentCursorLayer({
   overlayOffsetY?: number
 }) {
   const animated = useAnimatedCursors(cursors)
+  const showLabels = useShowPresenceLabels()
 
   // animated is a fresh array per render, so memoizing trailCursors would
   // invalidate every tick — just compute inline.
   const trailCursors: PresenceParticleCursor[] = animated.map(
-    ({ cursor, point, isAnimating }) => ({
-      id: cursor.sessionId,
-      x: canvasOrigin.x + pan.x + point.x * zoom + CURSOR_TRAIL_OFFSET.x,
-      y:
-        canvasOrigin.y +
-        pan.y -
-        overlayOffsetY +
-        point.y * zoom +
-        CURSOR_TRAIL_OFFSET.y,
-      color: cursor.color,
-      intensity: isAnimating ? 1 : 0,
-    }),
+    ({ cursor, point, isAnimating }) => {
+      const emitterMode = emitterModeForPresenceCursor(cursor)
+      return {
+        id: cursor.sessionId,
+        x: canvasOrigin.x + pan.x + point.x * zoom + CURSOR_TRAIL_OFFSET.x,
+        y:
+          canvasOrigin.y +
+          pan.y -
+          overlayOffsetY +
+          point.y * zoom +
+          CURSOR_TRAIL_OFFSET.y,
+        color: cursor.color,
+        intensity:
+          emitterMode === 'orbit_sphere'
+            ? ORBIT_SPHERE_INTENSITY
+            : isAnimating
+              ? 1
+              : 0,
+        emitterMode,
+      }
+    },
   )
 
   if (cursors.length === 0) return null
@@ -424,6 +473,7 @@ export function AgentCursorLayer({
             cursor={cursor}
             point={point}
             zoom={zoom}
+            showLabel={showLabels}
           />
         ))}
       </div>

@@ -28,9 +28,12 @@ describe('shouldGateBeOpen', () => {
     'dragging-entities',
     'resizing-entity',
     'dragging-edge',
-    'editing-text',
   ] as const)('open when interaction is %s', (kind) => {
     expect(shouldGateBeOpen({ ...base(), interactionKind: kind })).toBe(true)
+  })
+
+  it('stays closed while inline text is being edited', () => {
+    expect(shouldGateBeOpen({ ...base(), interactionKind: 'editing-text' })).toBe(false)
   })
 
   it.each(['annotate-draw', 'annotate-region-select'] as const)(
@@ -72,14 +75,14 @@ describe('shouldGateBeOpen', () => {
     ).toBe(true)
   })
 
-  it('open for single text selection (floating menu)', () => {
+  it('closed for single text selection (menu stays in bgView)', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
         selectedEntityIds: ['t1'],
         selectedEntityKinds: ['text'],
       }),
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('open for single drawing selection (floating menu)', () => {

@@ -27,12 +27,13 @@ import { FileChromeLayer } from './FileChromeLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { ActiveFrameHighlightLayer } from './AgentCursorLayer'
 import { EdgeLayer } from './EdgeLayer'
-import { GroupInlineMenu } from './InlineEntityMenu'
+import { GroupInlineMenu, StickyNoteInlineMenu } from './InlineEntityMenu'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { usePendingPlacementState } from './usePendingPlacementState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useFrameChromeDrag } from './useFrameChromeDrag'
 import { descendantIdsForGroup, selectedGroupHasDescendantFrame } from './groupMembership'
+import { SELECTED_FRAME_MENU_SHOW_DELAY_MS } from '../../shared/selectedFrameMenu'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 const GROUP_MENU_DELAY_MS = 150
@@ -116,12 +117,34 @@ export default function App({
     if (!layoutData.selectedGroupId) return null
     return (layoutData.groups ?? []).find((group) => group.id === layoutData.selectedGroupId) ?? null
   }, [layoutData.groups, layoutData.selectedGroupId])
+  const selectedTextEntity = useMemo(() => {
+    if (layoutData.selectedEntityIds.length !== 1) return null
+    const [selectedId] = layoutData.selectedEntityIds
+    return textEntities.find((entity) => entity.id === selectedId) ?? null
+  }, [layoutData.selectedEntityIds, textEntities])
   const selectedGroupDescendantIds = useMemo(() => {
     if (!layoutData.selectedGroupId) return new Set<string>()
     return descendantIdsForGroup(layoutData.groups ?? [], layoutData.selectedGroupId)
   }, [layoutData.groups, layoutData.selectedGroupId])
   const selectedGroupControlsMirroredToAboveView = selectedGroupHasDescendantFrame(layoutData)
+  const [delayedSelectedTextMenuId, setDelayedSelectedTextMenuId] = useState<string | null>(null)
   const [delayedSelectedGroupMenuId, setDelayedSelectedGroupMenuId] = useState<string | null>(null)
+  const shouldQueueSelectedTextMenu =
+    layoutData.viewMode === 'canvas' &&
+    layoutData.interaction.kind === 'idle' &&
+    selectedTextEntity !== null
+  useEffect(() => {
+    if (!shouldQueueSelectedTextMenu || !selectedTextEntity) {
+      setDelayedSelectedTextMenuId(null)
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setDelayedSelectedTextMenuId(selectedTextEntity.id)
+    }, SELECTED_FRAME_MENU_SHOW_DELAY_MS)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [selectedTextEntity, shouldQueueSelectedTextMenu])
   const shouldQueueSelectedGroupMenu =
     layoutData.viewMode === 'canvas' &&
     layoutData.interaction.kind === 'idle' &&
@@ -138,6 +161,8 @@ export default function App({
 
     return () => window.clearTimeout(timeoutId)
   }, [selectedGroupEntity, shouldQueueSelectedGroupMenu])
+  const showSelectedTextMenu =
+    selectedTextEntity !== null && delayedSelectedTextMenuId === selectedTextEntity.id
   const showSelectedGroupMenu =
     selectedGroupEntity !== null && delayedSelectedGroupMenuId === selectedGroupEntity.id
   const hoveredEntityId = layoutData.hover?.id ?? null
@@ -361,6 +386,18 @@ export default function App({
         ) : null}
 
       </div>
+
+      {showSelectedTextMenu ? (
+        selectedTextEntity ? (
+          <StickyNoteInlineMenu
+            isDark={isDark}
+            note={selectedTextEntity}
+            onDuplicate={() => api.duplicateTextEntity(selectedTextEntity.id)}
+            onDelete={() => api.deleteTextEntity(selectedTextEntity.id)}
+            onSelectColor={(color) => api.updateTextEntity(selectedTextEntity.id, { color })}
+          />
+        ) : null
+      ) : null}
 
       {showSelectedGroupMenu ? (
         selectedGroupEntity ? (

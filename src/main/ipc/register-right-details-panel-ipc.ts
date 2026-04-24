@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
-import type { AnnotationCreateRequest, EdgeEnd, EdgeSide } from '../../shared/types'
+import type { AnnotationCreateRequest, EdgeEnd, EdgeSide, FixConfigPatch } from '../../shared/types'
 import {
   getOriginBinding,
   removeOriginBinding,
@@ -242,9 +242,9 @@ export function registerRightDetailsPanelIpc(): void {
 
   ipcMain.on(
     'right-details-panel-set-fix-config',
-    (_event, payload: { model?: string; permissions?: string } | undefined) => {
+    (_event, payload: FixConfigPatch | undefined) => {
       if (!payload) return
-      setFixConfig(payload as { model?: 'opus' | 'sonnet' | 'haiku'; permissions?: 'dangerously' | 'default' })
+      setFixConfig(payload)
       notifyDevtoolsPanelData()
     },
   )

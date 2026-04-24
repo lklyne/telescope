@@ -9,6 +9,7 @@ import type {
   CursorMotionParams,
   DevtoolsPanelTab,
   FixConfig,
+  FixConfigPatch,
   OnboardingState,
   OriginBinding,
   OriginBindings,
@@ -199,7 +200,13 @@ export function savePreferences(): void {
     devtoolsWidth: uiDevtoolsWidth(),
     devtoolsPanelTab: uiDevtoolsPanelTab(),
     originBindings,
-    fixConfig: { model: fixConfig.model, permissions: fixConfig.permissions },
+    fixConfig: {
+      model: fixConfig.model,
+      permissions: fixConfig.permissions,
+      baseUrl: fixConfig.baseUrl,
+      modelId: fixConfig.modelId,
+      authToken: fixConfig.authToken,
+    },
   })
 }
 
@@ -228,7 +235,7 @@ export function getFixConfig(): FixConfig {
   return fixConfig
 }
 
-export function setFixConfig(patch: { model?: FixConfig['model']; permissions?: FixConfig['permissions'] }): void {
+export function setFixConfig(patch: FixConfigPatch): void {
   fixConfig = { ...fixConfig, ...patch, configured: true }
   savePreferences()
 }

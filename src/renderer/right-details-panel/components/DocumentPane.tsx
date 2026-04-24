@@ -229,6 +229,9 @@ function FixSettingsView({
 }) {
   const [model, setModel] = useState<FixModel>(fixConfig.model)
   const [permissions, setPermissions] = useState<FixPermissions>(fixConfig.permissions)
+  const [baseUrl, setBaseUrl] = useState<string>(fixConfig.baseUrl ?? '')
+  const [modelId, setModelId] = useState<string>(fixConfig.modelId ?? '')
+  const [authToken, setAuthToken] = useState<string>(fixConfig.authToken ?? '')
 
   const selectClass = `w-full rounded-md border px-2 py-1.5 text-[12px] ${
     isDark
@@ -237,7 +240,11 @@ function FixSettingsView({
   }`
 
   const handleConfirm = () => {
-    rightDetailsPanelApi.setFixConfig({ model, permissions })
+    rightDetailsPanelApi.setFixConfig(
+      model === 'local'
+        ? { model, permissions, baseUrl, modelId, authToken }
+        : { model, permissions },
+    )
     onDone()
   }
 
@@ -259,8 +266,48 @@ function FixSettingsView({
             <option value="opus">Opus</option>
             <option value="sonnet">Sonnet</option>
             <option value="haiku">Haiku</option>
+            <option value="local">Local (LM Studio)</option>
           </select>
         </div>
+
+        {model === 'local' ? (
+          <div className="space-y-2">
+            <div>
+              <label className="mb-1 block text-[11px] font-medium">Base URL</label>
+              <input
+                type="text"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="http://localhost:1234"
+                className={selectClass}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-medium">Model id</label>
+              <input
+                type="text"
+                value={modelId}
+                onChange={(e) => setModelId(e.target.value)}
+                placeholder="qwen/qwen3-coder-30b"
+                className={selectClass}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-medium">Auth token</label>
+              <input
+                type="text"
+                value={authToken}
+                onChange={(e) => setAuthToken(e.target.value)}
+                placeholder="lmstudio"
+                className={selectClass}
+              />
+            </div>
+            <p className={`text-[10px] leading-snug ${muted}`}>
+              Claude Code will POST to {'{baseUrl}'}/v1/messages. Requires LM Studio 0.4.1+ with a
+              loaded model and the server started.
+            </p>
+          </div>
+        ) : null}
 
         <div>
           <label className="mb-1 block text-[11px] font-medium">Permissions</label>

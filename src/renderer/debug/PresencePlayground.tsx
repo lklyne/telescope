@@ -19,33 +19,40 @@ import {
   CURSOR_DISTANCE_REFERENCE_PX,
   distanceSpeedScale,
 } from '../../shared/cursor-tuning'
+import { defaultAutoPolicy } from '../../shared/presence-emitter-policy'
+import type { EmitterMode } from '../../shared/presence-emitter-machine'
+import {
+  DEFAULT_EMITTER_MODES,
+  DEFAULT_TRANSITION_TABLE,
+} from '../../shared/presence-emitter-config'
+import { usePresenceEmitter } from '../shared/usePresenceEmitter'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
   CURSOR_TRAIL_OFFSET,
-  ORBIT_RECT_INTENSITY,
-  ORBIT_SPHERE_INTENSITY,
   PresenceParticleTrail,
-  type PresenceParticleControls,
-  type PresenceParticleEmitterMode,
+  type PresenceParticleCursor,
   type PresenceParticleTargetRect,
 } from '../shared/PresenceParticleTrail'
 
-// Options driving the mode selector overlay. Keep in sync with
-// PresenceParticleEmitterMode. Labels mirror the states a real presence cursor
-// would be in so designers can match the effect to the production trigger.
-const EMITTER_MODE_OPTIONS: Array<{
-  value: PresenceParticleEmitterMode
+type PlaygroundModeSelection =
+  | 'auto'
+  | 'trail'
+  | 'orbit_sphere'
+  | 'orbit_rect'
+
+const MODE_SELECTION_OPTIONS: Array<{
+  value: PlaygroundModeSelection
   label: string
   hint: string
 }> = [
-  { value: 'trail', label: 'Trail', hint: 'Traveling / default' },
-  { value: 'orbit_sphere', label: 'Orbit sphere', hint: 'Thinking / waiting' },
-  { value: 'orbit_rect', label: 'Orbit rect', hint: 'Inspecting frame' },
+  { value: 'auto', label: 'Auto', hint: 'Moving → trail, stationary → orbit' },
+  { value: 'trail', label: 'Trail', hint: 'Force' },
+  { value: 'orbit_sphere', label: 'Orbit sphere', hint: 'Force' },
+  { value: 'orbit_rect', label: 'Orbit rect', hint: 'Force' },
 ]
 
-// Demo rect used when Orbit rect is the active mode. Sized to be obvious
-// against the playground backdrop and centered-ish so clicks can move the
-// cursor in and out of it.
+// Demo rect that's always visible. Clicks inside/outside drive the targetRect
+// signal so auto mode can select orbit_rect vs orbit_sphere accordingly.
 const DEMO_RECT: PresenceParticleTargetRect = {
   x: 100,
   y: 120,
@@ -137,9 +144,8 @@ export function PresencePlayground({
 
   const [displayPos, setDisplayPos] = useState<Vec2>({ x: 160, y: 160 })
   const [isTraveling, setIsTraveling] = useState(false)
-  const [emitterMode, setEmitterMode] =
-    useState<PresenceParticleEmitterMode>('trail')
-  const particleControlsRef = useRef<PresenceParticleControls | null>(null)
+  const [modeSelection, setModeSelection] = useState<PlaygroundModeSelection>('auto')
+  const [rectActive, setRectActive] = useState(false)
   const [trails, setTrails] = useState<Trail[]>([])
   const [activeSplinePolyline, setActiveSplinePolyline] = useState<Vec2[] | null>(
     null,
@@ -209,6 +215,16 @@ export function PresencePlayground({
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
     }
+
+    // Detect whether the click is inside the dotted rect; this is the
+    // playground's targetRect signal.
+    const inside =
+      target.x >= DEMO_RECT.x &&
+      target.x <= DEMO_RECT.x + DEMO_RECT.width &&
+      target.y >= DEMO_RECT.y &&
+      target.y <= DEMO_RECT.y + DEMO_RECT.height
+    setRectActive(inside)
+
     const from = positionRef.current
     const distance = Math.hypot(target.x - from.x, target.y - from.y)
     if (distance < 1) return
@@ -245,6 +261,50 @@ export function PresencePlayground({
     ensureRaf()
   }
 
+  const emitter = usePresenceEmitter({
+    modes: DEFAULT_EMITTER_MODES,
+    transitions: DEFAULT_TRANSITION_TABLE,
+  })
+
+  useEffect(() => {
+    const targetRect = rectActive ? DEMO_RECT : null
+    const desiredMode: EmitterMode =
+      modeSelection === 'auto'
+        ? defaultAutoPolicy.pick({ isMoving: isTraveling, targetRect })
+        : modeSelection
+    emitter.push([
+      {
+        cursorId: 'playground',
+        x: displayPos.x + trail.offsetX,
+        y: displayPos.y + trail.offsetY,
+        color: CURSOR_COLOR,
+        desiredMode,
+        targetRect,
+        // Explicit override — we already know whether the cursor is tweening.
+        isMoving: isTraveling,
+      },
+    ])
+  }, [
+    displayPos,
+    trail.offsetX,
+    trail.offsetY,
+    modeSelection,
+    isTraveling,
+    rectActive,
+    emitter,
+  ])
+
+  // Map machine outputs to the shape PresenceParticleTrail expects.
+  const trailCursors: PresenceParticleCursor[] = emitter.outputs.map((o) => ({
+    id: o.id,
+    x: o.x,
+    y: o.y,
+    color: o.color,
+    intensity: o.intensity,
+    emitterMode: o.mode,
+    targetRect: o.targetRect,
+  }))
+
   return (
     <div className="relative flex h-full w-full min-w-0 flex-col">
       <div
@@ -257,8 +317,10 @@ export function PresencePlayground({
           backgroundSize: '32px 32px',
         }}
       >
-        {emitterMode === 'orbit_rect' ? <DemoRectOverlay rect={DEMO_RECT} /> : null}
+        <DemoRectOverlay rect={DEMO_RECT} active={rectActive} />
         <PresenceParticleTrail
+          cursors={trailCursors}
+          onReady={emitter.onReady}
           size={trail.size}
           lifetimeSeconds={trail.lifetimeSeconds}
           holdSeconds={trail.driftGraceSeconds}
@@ -273,29 +335,22 @@ export function PresencePlayground({
           emitSpeedReferencePxPerSec={trail.emitSpeedReferencePxPerSec}
           emitSpeedBias={trail.emitSpeedBias}
           emitsPerFrame={trail.emitsPerFrame}
-          onReady={(controls) => {
-            particleControlsRef.current = controls
-          }}
-          cursors={[
-            {
-              id: 'playground',
-              x: displayPos.x + trail.offsetX,
-              y: displayPos.y + trail.offsetY,
-              color: CURSOR_COLOR,
-              emitterMode,
-              targetRect: emitterMode === 'orbit_rect' ? DEMO_RECT : null,
-              intensity:
-                emitterMode === 'orbit_sphere'
-                  ? ORBIT_SPHERE_INTENSITY
-                  : emitterMode === 'orbit_rect'
-                    ? ORBIT_RECT_INTENSITY
-                    : isTraveling
-                      ? 1
-                      : trail.emitWhenIdle
-                        ? 0.8
-                        : 0,
-            },
-          ]}
+          orbitSphereRadiusPx={DEFAULT_EMITTER_MODES.orbit_sphere.radiusPx}
+          orbitSphereAngularVelocityRadPerSec={
+            DEFAULT_EMITTER_MODES.orbit_sphere.angularVelocityRadPerSec
+          }
+          orbitSphereRadiusFadeInSeconds={
+            DEFAULT_EMITTER_MODES.orbit_sphere.radiusFadeInSeconds
+          }
+          orbitRectCrossJitterPx={DEFAULT_EMITTER_MODES.orbit_rect.crossJitterPx}
+          orbitRectAngularVelocityRadPerSec={
+            DEFAULT_EMITTER_MODES.orbit_rect.angularVelocityRadPerSec
+          }
+          orbitRectFadeInSeconds={DEFAULT_EMITTER_MODES.orbit_rect.fadeInSeconds}
+          burstSpeedPxPerSec={DEFAULT_EMITTER_MODES.burst.speedPxPerSec}
+          burstSpeedJitter={DEFAULT_EMITTER_MODES.burst.speedJitter}
+          burstLifetimeSeconds={DEFAULT_EMITTER_MODES.burst.lifetimeSeconds}
+          burstDragPerSecond={DEFAULT_EMITTER_MODES.burst.dragPerSecond}
         />
         <TrailsSvg trails={trails} activeId={activeRef.current?.id ?? null} />
         <ActiveSpline polyline={activeSplinePolyline} />
@@ -308,11 +363,9 @@ export function PresencePlayground({
         </div>
         <InstructionHint />
         <EmitterModeSelector
-          mode={emitterMode}
-          onChange={setEmitterMode}
-          onTriggerBurst={() =>
-            particleControlsRef.current?.triggerBurst('playground')
-          }
+          selection={modeSelection}
+          onChange={setModeSelection}
+          onTriggerBurst={() => emitter.controls.triggerBurst('playground')}
         />
         <StatsOverlay tuning={tuning} stats={stats} />
       </div>
@@ -409,16 +462,16 @@ function InstructionHint() {
 }
 
 function EmitterModeSelector({
-  mode,
+  selection,
   onChange,
   onTriggerBurst,
 }: {
-  mode: PresenceParticleEmitterMode
-  onChange: (next: PresenceParticleEmitterMode) => void
+  selection: PlaygroundModeSelection
+  onChange: (next: PlaygroundModeSelection) => void
   onTriggerBurst: () => void
 }) {
-  const active = EMITTER_MODE_OPTIONS.find((o) => o.value === mode)
-  const canBurst = mode === 'orbit_sphere' || mode === 'orbit_rect'
+  const active = MODE_SELECTION_OPTIONS.find((o) => o.value === selection)
+  const canBurst = selection === 'orbit_sphere' || selection === 'orbit_rect' || selection === 'auto'
   return (
     <div
       className="absolute left-4 top-12 flex items-center gap-2 rounded px-2 py-1 text-[11px]"
@@ -428,21 +481,17 @@ function EmitterModeSelector({
     >
       <span className="opacity-60">Mode</span>
       <select
-        value={mode}
-        onChange={(e) =>
-          onChange(e.target.value as PresenceParticleEmitterMode)
-        }
+        value={selection}
+        onChange={(e) => onChange(e.target.value as PlaygroundModeSelection)}
         className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] dark:border-zinc-700 dark:bg-zinc-900"
       >
-        {EMITTER_MODE_OPTIONS.map((option) => (
+        {MODE_SELECTION_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
       </select>
-      {active ? (
-        <span className="opacity-50">· {active.hint}</span>
-      ) : null}
+      {active ? <span className="opacity-50">· {active.hint}</span> : null}
       <button
         type="button"
         onClick={(e) => {
@@ -453,7 +502,7 @@ function EmitterModeSelector({
         title={
           canBurst
             ? 'Convert the current orbit particles to a radial burst'
-            : 'Switch to an orbit mode to trigger a burst'
+            : 'Burst only applies when the cursor is in an orbit mode'
         }
         className="ml-1 rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900"
       >
@@ -463,18 +512,25 @@ function EmitterModeSelector({
   )
 }
 
-function DemoRectOverlay({ rect }: { rect: PresenceParticleTargetRect }) {
+function DemoRectOverlay({
+  rect,
+  active,
+}: {
+  rect: PresenceParticleTargetRect
+  active: boolean
+}) {
   return (
     <div
-      className="pointer-events-none absolute rounded-sm border border-dashed"
+      className="pointer-events-none absolute rounded-sm border border-dashed transition-colors"
       style={{
         left: rect.x,
         top: rect.y,
         width: rect.width,
         height: rect.height,
-        borderColor: 'color-mix(in srgb, var(--text-primary) 35%, transparent)',
-        background:
-          'color-mix(in srgb, var(--text-primary) 4%, transparent)',
+        borderColor: `color-mix(in srgb, var(--text-primary) ${active ? 70 : 35}%, transparent)`,
+        background: active
+          ? 'color-mix(in srgb, var(--text-primary) 8%, transparent)'
+          : 'color-mix(in srgb, var(--text-primary) 4%, transparent)',
       }}
     />
   )

@@ -23,9 +23,12 @@ import {
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
   CURSOR_TRAIL_OFFSET,
+  ORBIT_RECT_INTENSITY,
   ORBIT_SPHERE_INTENSITY,
   PresenceParticleTrail,
+  type PresenceParticleControls,
   type PresenceParticleCursor,
+  type PresenceParticleTargetRect,
 } from '../shared/PresenceParticleTrail'
 
 const ANIMATE_DURATION_MS = PRESENCE_TRAVEL_MS
@@ -388,6 +391,25 @@ function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
   })
 }
 
+// Resolve a presence cursor's target rect into screen-space coordinates using
+// the same transform TargetHalo uses (frame screen position + internal scale).
+// Returns null if the cursor doesn't have a valid rect on a resolvable frame.
+function resolveTargetRectScreen(
+  cursor: AgentPresenceCursor,
+  frame: CanvasSceneFrameEntity | null,
+  overlayOffsetY: number,
+): PresenceParticleTargetRect | null {
+  if (!frame || !cursor.targetRect) return null
+  const scaleX = frame.screenWidth / Math.max(frame.width, 1)
+  const scaleY = frame.screenHeight / Math.max(frame.height, 1)
+  return {
+    x: frame.screenX + cursor.targetRect.x * scaleX,
+    y: frame.screenY + cursor.targetRect.y * scaleY - overlayOffsetY,
+    width: cursor.targetRect.width * scaleX,
+    height: cursor.targetRect.height * scaleY,
+  }
+}
+
 export function AgentCursorLayer({
   cursors,
   frames,
@@ -405,12 +427,46 @@ export function AgentCursorLayer({
 }) {
   const animated = useAnimatedCursors(cursors)
   const showLabels = useShowPresenceLabels()
+  const particleControlsRef = useRef<PresenceParticleControls | null>(null)
+
+  // Track previous activity per cursor so we can fire burst on the same
+  // activity→acting+click_target transition that already drives ClickRipple.
+  const prevActivityRef = useRef<Map<string, PresenceActivity>>(new Map())
+  useEffect(() => {
+    const prev = prevActivityRef.current
+    for (const cursor of cursors) {
+      const last = prev.get(cursor.sessionId)
+      const justClicked =
+        cursor.activity === 'acting' &&
+        cursor.labelKey === 'click_target' &&
+        last !== 'acting'
+      if (justClicked) {
+        particleControlsRef.current?.triggerBurst(cursor.sessionId)
+      }
+      prev.set(cursor.sessionId, cursor.activity)
+    }
+    const active = new Set(cursors.map((c) => c.sessionId))
+    for (const id of prev.keys()) {
+      if (!active.has(id)) prev.delete(id)
+    }
+  }, [cursors])
 
   // animated is a fresh array per render, so memoizing trailCursors would
   // invalidate every tick — just compute inline.
   const trailCursors: PresenceParticleCursor[] = animated.map(
     ({ cursor, point, isAnimating }) => {
-      const emitterMode = emitterModeForPresenceCursor(cursor)
+      const desiredMode = emitterModeForPresenceCursor(cursor)
+      const frame = cursor.frameId
+        ? (frames.find((f) => f.id === cursor.frameId) ?? null)
+        : null
+      const rect =
+        desiredMode === 'orbit_rect'
+          ? resolveTargetRectScreen(cursor, frame, overlayOffsetY)
+          : null
+      // Downgrade to sphere if rect can't be resolved (e.g., labelKey is
+      // inspect_page but the frame isn't in the scene yet).
+      const emitterMode =
+        desiredMode === 'orbit_rect' && !rect ? 'orbit_sphere' : desiredMode
       return {
         id: cursor.sessionId,
         x: canvasOrigin.x + pan.x + point.x * zoom + CURSOR_TRAIL_OFFSET.x,
@@ -424,10 +480,13 @@ export function AgentCursorLayer({
         intensity:
           emitterMode === 'orbit_sphere'
             ? ORBIT_SPHERE_INTENSITY
-            : isAnimating
-              ? 1
-              : 0,
+            : emitterMode === 'orbit_rect'
+              ? ORBIT_RECT_INTENSITY
+              : isAnimating
+                ? 1
+                : 0,
         emitterMode,
+        targetRect: emitterMode === 'orbit_rect' ? rect : null,
       }
     },
   )
@@ -443,7 +502,12 @@ export function AgentCursorLayer({
         {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 @keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(1); opacity: 0; } }`}
       </style>
-      <PresenceParticleTrail cursors={trailCursors} />
+      <PresenceParticleTrail
+        cursors={trailCursors}
+        onReady={(controls) => {
+          particleControlsRef.current = controls
+        }}
+      />
       {cursors.map((cursor) => (
         <TargetHalo
           key={`halo-${cursor.sessionId}`}

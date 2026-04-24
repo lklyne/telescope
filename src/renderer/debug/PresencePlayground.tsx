@@ -261,7 +261,12 @@ export function PresencePlayground({
     ensureRaf()
   }
 
-  const emitter = usePresenceEmitter({
+  const {
+    outputs: emitterOutputs,
+    push: emitterPush,
+    controls: emitterControls,
+    onReady: emitterOnReady,
+  } = usePresenceEmitter({
     modes: DEFAULT_EMITTER_MODES,
     transitions: DEFAULT_TRANSITION_TABLE,
   })
@@ -272,7 +277,7 @@ export function PresencePlayground({
       modeSelection === 'auto'
         ? defaultAutoPolicy.pick({ isMoving: isTraveling, targetRect })
         : modeSelection
-    emitter.push([
+    emitterPush([
       {
         cursorId: 'playground',
         x: displayPos.x + trail.offsetX,
@@ -291,11 +296,11 @@ export function PresencePlayground({
     modeSelection,
     isTraveling,
     rectActive,
-    emitter,
+    emitterPush,
   ])
 
   // Map machine outputs to the shape PresenceParticleTrail expects.
-  const trailCursors: PresenceParticleCursor[] = emitter.outputs.map((o) => ({
+  const trailCursors: PresenceParticleCursor[] = emitterOutputs.map((o) => ({
     id: o.id,
     x: o.x,
     y: o.y,
@@ -320,7 +325,7 @@ export function PresencePlayground({
         <DemoRectOverlay rect={DEMO_RECT} active={rectActive} />
         <PresenceParticleTrail
           cursors={trailCursors}
-          onReady={emitter.onReady}
+          onReady={emitterOnReady}
           size={trail.size}
           lifetimeSeconds={trail.lifetimeSeconds}
           holdSeconds={trail.driftGraceSeconds}
@@ -365,7 +370,7 @@ export function PresencePlayground({
         <EmitterModeSelector
           selection={modeSelection}
           onChange={setModeSelection}
-          onTriggerBurst={() => emitter.controls.triggerBurst('playground')}
+          onTriggerBurst={() => emitterControls.triggerBurst('playground')}
         />
         <StatsOverlay tuning={tuning} stats={stats} />
       </div>

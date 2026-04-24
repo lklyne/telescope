@@ -430,7 +430,12 @@ export function AgentCursorLayer({
   const animated = useAnimatedCursors(cursors)
   const showLabels = useShowPresenceLabels()
 
-  const emitter = usePresenceEmitter({
+  const {
+    outputs: emitterOutputs,
+    push: emitterPush,
+    controls: emitterControls,
+    onReady: emitterOnReady,
+  } = usePresenceEmitter({
     modes: DEFAULT_EMITTER_MODES,
     transitions: DEFAULT_TRANSITION_TABLE,
   })
@@ -476,8 +481,8 @@ export function AgentCursorLayer({
         isMoving: isAnimating,
       }
     })
-    emitter.push(inputs)
-  }, [animated, frames, canvasOrigin, pan, zoom, overlayOffsetY, emitter])
+    emitterPush(inputs)
+  }, [animated, frames, canvasOrigin, pan, zoom, overlayOffsetY, emitterPush])
 
   useEffect(() => {
     const prev = prevActivityRef.current
@@ -488,7 +493,7 @@ export function AgentCursorLayer({
         cursor.labelKey === 'click_target' &&
         last !== 'acting'
       if (justClicked) {
-        emitter.controls.triggerBurst(cursor.sessionId)
+        emitterControls.triggerBurst(cursor.sessionId)
       }
       prev.set(cursor.sessionId, cursor.activity)
     }
@@ -496,10 +501,10 @@ export function AgentCursorLayer({
     for (const id of prev.keys()) {
       if (!active.has(id)) prev.delete(id)
     }
-  }, [cursors, emitter])
+  }, [cursors, emitterControls])
 
   // Map machine outputs to the shape PresenceParticleTrail expects.
-  const trailCursors: PresenceParticleCursor[] = emitter.outputs.map((o) => ({
+  const trailCursors: PresenceParticleCursor[] = emitterOutputs.map((o) => ({
     id: o.id,
     x: o.x,
     y: o.y,
@@ -522,7 +527,7 @@ export function AgentCursorLayer({
       </style>
       <PresenceParticleTrail
         cursors={trailCursors}
-        onReady={emitter.onReady}
+        onReady={emitterOnReady}
         orbitSphereRadiusPx={DEFAULT_EMITTER_MODES.orbit_sphere.radiusPx}
         orbitSphereAngularVelocityRadPerSec={
           DEFAULT_EMITTER_MODES.orbit_sphere.angularVelocityRadPerSec

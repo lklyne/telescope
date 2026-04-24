@@ -157,3 +157,13 @@ The HTTP API (src/main/routes/) remains available for runtime interaction.
 ## Telescope CLI
 
 - Always pass full URLs (including scheme and host) to `telescope create frame`. The canvas can contain frames from different origins, so bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
+
+## Skill files
+
+The telescope Claude Code skill lives in three places. Knowing which is which avoids silently-wasted edits:
+
+- **`resources/skills/telescope/SKILL.md`** — canonical source. Bundled into the packaged app via `forge.config.ts` (`extraResource`), then copied into every user's `~/.claude/skills/telescope/` at app launch by `src/main/skill-install.ts`. Default to editing this when updating guidance that should reach end users.
+- **`.claude/skills/telescope/SKILL.md`** — repo-local copy Claude Code auto-loads when working inside this codebase. Keep it in sync with `resources/skills/` so in-repo agents and end users see the same guidance. A few dev-only sections (e.g. the tracking-issue GitHub link) are allowed to live here and not ship.
+- **`~/.claude/skills/telescope/SKILL.md`** — each user's installed copy. Treat as read-only: `src/main/skill-auto-update.ts` compares the bundled hash to what's installed and re-copies the bundled version whenever they differ, so hand-edits here get silently overwritten on the next app launch after a release.
+
+When patching the skill, default to updating both `resources/skills/telescope/SKILL.md` and `.claude/skills/telescope/SKILL.md` in the same commit.

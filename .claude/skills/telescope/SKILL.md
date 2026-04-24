@@ -71,6 +71,32 @@ EOF
 For **files** (markdown, wireframe, image) upsert ignores `canvasX/canvasY` —
 the layout engine always places them. Images additionally ignore `width`.
 
+### Note colors
+
+`color` on text notes (and group labels) expects a **JSON Canvas preset id
+`"1"`–`"6"`** or a hex string. CSS color names like `"yellow"` or `"red"` are
+NOT presets — they silently fall through and render as raw CSS (vivid
+`#FFFF00`, `#FF0000`, etc.), which clashes hard with the canvas palette.
+
+| id | label | hex |
+|---|---|---|
+| `"1"` | Red | `#e8b4b8` |
+| `"2"` | Orange | `#e8ccb0` |
+| `"3"` | Yellow | `#FFE18E` |
+| `"4"` | Green | `#b8d8c8` |
+| `"5"` | Cyan | `#b0d0d8` |
+| `"6"` | Purple | `#c8b8d8` |
+
+Use `"3"` not `"yellow"`. Hex (`"#FFE18E"`) is also valid when you need a
+custom tone.
+
+### Note sizes
+
+Default to the built-in 200×200 sticky-note size — it's tuned to sit well
+next to frames on the canvas. Only pass `width`/`height` when there's an
+explicit reason (e.g. a long-form card that really needs more room). Custom
+sizes tend to look off against the rest of the workspace.
+
 ### Wireframes
 
 Files ending in `.wireframe.json` render as interactive wireframe editors on the

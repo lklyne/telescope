@@ -8,6 +8,10 @@ import type { Page } from './runtime-entities'
 import { win } from './window-shell'
 import { VideoActivityTracker, type ActivitySegment } from './video-activity-tracker'
 import { captureFrameComposited } from './frame-compositor'
+import { getZoom, pan } from './runtime-context'
+import { focusCanvasBounds, requestLayout, setPan, setZoom } from './viewport-control'
+import { layoutAllViews } from './layout-engine'
+import { pageCanvasBounds } from './runtime-geometry'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,6 +70,7 @@ class VideoRecorderInstance {
   private captureHeight = 0
   private dpr = 1
   private stopped = false
+  private savedCamera: { zoom: number; panX: number; panY: number } | null = null
 
   constructor(options: RecordingOptions) {
     this.recordingId = randomUUID()
@@ -87,14 +92,32 @@ class VideoRecorderInstance {
       throw new Error('Window not available')
     }
 
-    const display = electronScreen.getDisplayMatching(w.getBounds())
-    this.dpr = display.scaleFactor
-    const pageBounds = this.page.pageView.getBounds()
-    this.captureWidth = Math.round(pageBounds.width * this.dpr)
-    this.captureHeight = Math.round(pageBounds.height * this.dpr)
+    // Canvas zoom is wired into Chromium's device emulation `scale` in
+    // computeApplyEmulation — the page is actually rendered into only the
+    // scaled sub-region of its emulated viewport. To capture at native size,
+    // the page must be rendered at native size, which means forcing canvas
+    // zoom to 1 for the duration of the recording.
+    this.savedCamera = { zoom: getZoom(), panX: pan.x, panY: pan.y }
+    try {
+      if (getZoom() !== 1) setZoom(1)
+      focusCanvasBounds(pageCanvasBounds(this.page))
+      layoutAllViews()
+      // Chromium re-rasters on the next frame after enableDeviceEmulation.
+      // Give it room so the first captured frames aren't mid-transition.
+      await new Promise((r) => setTimeout(r, 250))
 
-    if (this.captureWidth === 0 || this.captureHeight === 0) {
-      throw new Error('Canvas view has zero dimensions')
+      const display = electronScreen.getDisplayMatching(w.getBounds())
+      this.dpr = display.scaleFactor
+      const pageBounds = this.page.pageView.getBounds()
+      this.captureWidth = Math.round(pageBounds.width * this.dpr)
+      this.captureHeight = Math.round(pageBounds.height * this.dpr)
+
+      if (this.captureWidth === 0 || this.captureHeight === 0) {
+        throw new Error('Canvas view has zero dimensions')
+      }
+    } catch (error) {
+      this.restoreCamera()
+      throw error
     }
 
     // Spawn ffmpeg to accept raw BGRA frames on stdin.
@@ -190,6 +213,11 @@ class VideoRecorderInstance {
     this.activityTracker.stop()
     const segments = this.activityTracker.getSegments()
 
+    // Restore pre-recording camera. Done before ffmpeg flush so the user's
+    // canvas snaps back immediately; the video finishes encoding in the
+    // background.
+    this.restoreCamera()
+
     // Write segments metadata alongside the video.
     const segmentsPath = this.outputPath.replace(/\.webm$/, '-segments.json')
     writeFileSync(segmentsPath, JSON.stringify({ segments }, null, 2))
@@ -217,6 +245,15 @@ class VideoRecorderInstance {
       droppedFrames: this.droppedFrames,
       segments,
     }
+  }
+
+  private restoreCamera(): void {
+    if (!this.savedCamera) return
+    const saved = this.savedCamera
+    this.savedCamera = null
+    if (getZoom() !== saved.zoom) setZoom(saved.zoom)
+    setPan(saved.panX, saved.panY)
+    requestLayout()
   }
 
   getState(): RecordingState {

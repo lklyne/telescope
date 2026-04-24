@@ -149,9 +149,25 @@ export function createPresenceEmitterMachine(
           states.set(input.cursorId, state)
         }
 
-        // Start a new transition if desiredMode differs from currentMode and
-        // no transition is in flight.
-        if (!state.transition && input.desiredMode !== state.currentMode) {
+        // Transition management:
+        // 1. If we're already in a transition and the user retargets, update
+        //    toMode but keep elapsedMs so oscillation can't freeze us.
+        // 2. If we're not in a transition and the desired mode differs from
+        //    current, start one.
+        // 3. If we're already in a transition and desiredMode equals the
+        //    current fromMode (flap-back), cancel the transition.
+        if (state.transition) {
+          if (input.desiredMode === state.transition.fromMode) {
+            state.transition = null
+          } else if (input.desiredMode !== state.transition.toMode) {
+            state.transition.toMode = input.desiredMode
+            state.transition.config = resolveEdge(
+              opts.transitions,
+              state.transition.fromMode,
+              input.desiredMode,
+            )
+          }
+        } else if (input.desiredMode !== state.currentMode) {
           state.transition = {
             fromMode: state.currentMode,
             toMode: input.desiredMode,

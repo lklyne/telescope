@@ -162,4 +162,41 @@ describe('createPresenceEmitterMachine — transitions', () => {
     expect(out).toHaveLength(1)
     expect(out[0].mode).toBe('orbit_sphere')
   })
+
+  it('retargets toMode mid-transition without resetting elapsed', () => {
+    const machine = createPresenceEmitterMachine({
+      modes: MODES,
+      transitions: { default: { durationMs: 200, exitEffect: 'fade', easing: 'linear' } },
+    })
+    machine.update([input({ desiredMode: 'trail' })], 16)
+    // Start trail → orbit_sphere transition, advance 100ms.
+    machine.update([input({ desiredMode: 'orbit_sphere', isMoving: false })], 100)
+    // Retarget to orbit_rect mid-flight, advance another 100ms → total 200ms.
+    const rect = { x: 0, y: 0, width: 100, height: 100 }
+    const out = machine.update(
+      [input({ desiredMode: 'orbit_rect', isMoving: false, targetRect: rect })],
+      100,
+    )
+    // Elapsed preserved → transition should collapse at the new target.
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      id: 'c1',
+      mode: 'orbit_rect',
+      targetRect: rect,
+    })
+  })
+
+  it('keeps fromMode stable when desiredMode flaps back during transition', () => {
+    const machine = createPresenceEmitterMachine({
+      modes: MODES,
+      transitions: { default: { durationMs: 200, exitEffect: 'fade', easing: 'linear' } },
+    })
+    machine.update([input({ desiredMode: 'trail' })], 16)
+    machine.update([input({ desiredMode: 'orbit_sphere', isMoving: false })], 100)
+    // Flap back to trail mid-flight. fromMode stays 'trail', toMode becomes 'trail'
+    // — i.e. transition cancels cleanly.
+    const out = machine.update([input({ desiredMode: 'trail', isMoving: true })], 100)
+    expect(out).toHaveLength(1)
+    expect(out[0].mode).toBe('trail')
+  })
 })

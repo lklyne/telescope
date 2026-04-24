@@ -1590,7 +1590,7 @@ export interface DevtoolsPanelElectronAPI {
   setAutoFix: (origin: string, enabled: boolean) => void
   pickRepoForOrigin: (origin: string) => void
   removeOriginBinding: (origin: string) => void
-  setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
+  setFixConfig: (config: FixConfigPatch) => void
   updateTextEntity: (id: string, patch: { color?: string }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
@@ -1735,13 +1735,26 @@ export type OriginBindings = Record<string, OriginBinding>
 
 // --- Fix config (model + permissions for the Claude subprocess) ---
 
-export type FixModel = 'opus' | 'sonnet' | 'haiku'
+export type FixModel = 'opus' | 'sonnet' | 'haiku' | 'local'
 export type FixPermissions = 'dangerously' | 'default'
 
 export interface FixConfig {
   model: FixModel
   permissions: FixPermissions
   configured: boolean
+  // Used only when model === 'local'. Points Claude Code at an
+  // Anthropic-compatible endpoint such as LM Studio's /v1/messages.
+  baseUrl?: string
+  modelId?: string
+  authToken?: string
+}
+
+export interface FixConfigPatch {
+  model?: FixModel
+  permissions?: FixPermissions
+  baseUrl?: string
+  modelId?: string
+  authToken?: string
 }
 
 // --- Fix progress (live stream of `claude -p` events per annotation) ---

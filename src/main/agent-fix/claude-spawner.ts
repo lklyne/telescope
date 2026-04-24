@@ -1,8 +1,42 @@
 import { spawn } from 'child_process'
-import type { FixProgressEvent } from '../../shared/types'
+import type { FixConfig, FixProgressEvent } from '../../shared/types'
 import { truncate } from '../../shared/annotation-utils'
 import { getFixConfig } from '../runtime/preferences'
 import { parseStreamLine } from './stream-json-parser'
+
+const DEFAULT_LOCAL_BASE_URL = 'http://localhost:1234'
+const DEFAULT_LOCAL_AUTH_TOKEN = 'lmstudio'
+
+export function buildClaudeInvocation(
+  prompt: string,
+  config: FixConfig,
+): { args: string[]; env: Record<string, string> } {
+  const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose']
+  const env: Record<string, string> = { NO_COLOR: '1' }
+
+  if (config.model === 'local') {
+    // Point Claude Code's CLI at an Anthropic-compatible local server
+    // (LM Studio ≥ 0.4.1 exposes /v1/messages). The CLI still handles
+    // skills, permissions, and stream-json on the client side.
+    const baseUrl = config.baseUrl?.trim() || DEFAULT_LOCAL_BASE_URL
+    const authToken = config.authToken?.trim() || DEFAULT_LOCAL_AUTH_TOKEN
+    env.ANTHROPIC_BASE_URL = baseUrl
+    env.ANTHROPIC_AUTH_TOKEN = authToken
+    const modelId = config.modelId?.trim()
+    if (modelId) {
+      env.ANTHROPIC_MODEL = modelId
+      args.push('--model', modelId)
+    }
+  } else if (config.model !== 'opus') {
+    args.push('--model', `claude-${config.model}-4-6`)
+  }
+
+  if (config.permissions === 'dangerously') {
+    args.push('--dangerously-skip-permissions')
+  }
+
+  return { args, env }
+}
 
 export interface FixResult {
   summary: string
@@ -38,25 +72,14 @@ export function invokeClaude(
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS
 
   return new Promise<FixResult>((resolve, reject) => {
-    const config = getFixConfig()
-    const args = [
-      '-p', prompt,
-      '--output-format', 'stream-json',
-      '--verbose',
-    ]
-    if (config.model !== 'opus') {
-      args.push('--model', `claude-${config.model}-4-6`)
-    }
-    if (config.permissions === 'dangerously') {
-      args.push('--dangerously-skip-permissions')
-    }
+    const { args, env } = buildClaudeInvocation(prompt, getFixConfig())
     const child = spawn(
       'claude',
       args,
       {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: repoPath,
-        env: { ...process.env, NO_COLOR: '1' },
+        env: { ...process.env, ...env },
       },
     )
 

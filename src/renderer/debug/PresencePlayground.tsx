@@ -30,7 +30,6 @@ import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
   CURSOR_TRAIL_OFFSET,
   PresenceParticleTrail,
-  type PresenceParticleCursor,
   type PresenceParticleTargetRect,
 } from '../shared/PresenceParticleTrail'
 
@@ -262,7 +261,6 @@ export function PresencePlayground({
   }
 
   const {
-    outputs: emitterOutputs,
     push: emitterPush,
     controls: emitterControls,
     onReady: emitterOnReady,
@@ -299,17 +297,6 @@ export function PresencePlayground({
     emitterPush,
   ])
 
-  // Map machine outputs to the shape PresenceParticleTrail expects.
-  const trailCursors: PresenceParticleCursor[] = emitterOutputs.map((o) => ({
-    id: o.id,
-    x: o.x,
-    y: o.y,
-    color: o.color,
-    intensity: o.intensity,
-    emitterMode: o.mode,
-    targetRect: o.targetRect,
-  }))
-
   return (
     <div className="relative flex h-full w-full min-w-0 flex-col">
       <div
@@ -324,7 +311,6 @@ export function PresencePlayground({
       >
         <DemoRectOverlay rect={DEMO_RECT} active={rectActive} />
         <PresenceParticleTrail
-          cursors={trailCursors}
           onReady={emitterOnReady}
           size={trail.size}
           lifetimeSeconds={trail.lifetimeSeconds}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   createPresenceEmitterMachine,
   type EmitterModes,
@@ -7,7 +7,10 @@ import {
   type PresenceEmitterMachine,
   type TransitionTable,
 } from '../../shared/presence-emitter-machine'
-import type { PresenceParticleControls } from './PresenceParticleTrail'
+import type {
+  PresenceParticleControls,
+  PresenceParticleCursor,
+} from './PresenceParticleTrail'
 
 const STATIONARY_DEBOUNCE_MS = 250
 const MOVE_THRESHOLD_PX = 2
@@ -26,10 +29,21 @@ export interface MachineCursorInputWithoutMovement
 }
 
 export interface UsePresenceEmitterResult {
-  outputs: MachineCursorOutput[]
   push: (inputs: ReadonlyArray<MachineCursorInputWithoutMovement>) => void
   controls: { triggerBurst: (cursorId: string) => void }
   onReady: (c: PresenceParticleControls) => void
+}
+
+function toParticleCursor(o: MachineCursorOutput): PresenceParticleCursor {
+  return {
+    id: o.id,
+    x: o.x,
+    y: o.y,
+    color: o.color,
+    intensity: o.intensity,
+    emitterMode: o.mode,
+    targetRect: o.targetRect,
+  }
 }
 
 export function usePresenceEmitter(
@@ -50,8 +64,9 @@ export function usePresenceEmitter(
   const lastTickMsRef = useRef<number>(performance.now())
   const debounceMs = args.stationaryDebounceMs ?? STATIONARY_DEBOUNCE_MS
 
-  const [outputs, setOutputs] = useState<MachineCursorOutput[]>([])
-
+  // push() runs per caller tick. It mutates refs and calls into the particle
+  // system imperatively — no React state is set here, so the caller tree
+  // does not re-render on each RAF even though this fires ~60 times/sec.
   const push = useCallback(
     (inputs: ReadonlyArray<MachineCursorInputWithoutMovement>) => {
       const now = performance.now()
@@ -66,9 +81,7 @@ export function usePresenceEmitter(
         }
         const prev = positions.get(i.cursorId)
         let isMoving = false
-        if (!prev) {
-          isMoving = false
-        } else {
+        if (prev) {
           const dx = i.x - prev.x
           const dy = i.y - prev.y
           const moved = Math.hypot(dx, dy) > MOVE_THRESHOLD_PX
@@ -78,8 +91,7 @@ export function usePresenceEmitter(
           } else {
             isMoving = now - prev.tMs < debounceMs
           }
-        }
-        if (!positions.has(i.cursorId)) {
+        } else {
           positions.set(i.cursorId, { x: i.x, y: i.y, tMs: now })
         }
         return { ...i, isMoving } as MachineCursorInput
@@ -93,10 +105,9 @@ export function usePresenceEmitter(
 
       const { outputs, bursts } = machineRef.current!.flush(resolved, dtMs)
       const controls = particleControlsRef.current
-      if (controls) {
-        for (const id of bursts) controls.triggerBurst(id)
-      }
-      setOutputs(outputs)
+      if (!controls) return
+      controls.pushCursors(outputs.map(toParticleCursor))
+      for (const id of bursts) controls.triggerBurst(id)
     },
     [debounceMs],
   )
@@ -119,5 +130,5 @@ export function usePresenceEmitter(
     lastTickMsRef.current = performance.now()
   }, [])
 
-  return { outputs, push, controls, onReady }
+  return { push, controls, onReady }
 }

@@ -29,7 +29,6 @@ import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
   CURSOR_TRAIL_OFFSET,
   PresenceParticleTrail,
-  type PresenceParticleCursor,
   type PresenceParticleTargetRect,
 } from '../shared/PresenceParticleTrail'
 
@@ -431,7 +430,6 @@ export function AgentCursorLayer({
   const showLabels = useShowPresenceLabels()
 
   const {
-    outputs: emitterOutputs,
     push: emitterPush,
     controls: emitterControls,
     onReady: emitterOnReady,
@@ -503,17 +501,6 @@ export function AgentCursorLayer({
     }
   }, [cursors, emitterControls])
 
-  // Map machine outputs to the shape PresenceParticleTrail expects.
-  const trailCursors: PresenceParticleCursor[] = emitterOutputs.map((o) => ({
-    id: o.id,
-    x: o.x,
-    y: o.y,
-    color: o.color,
-    intensity: o.intensity,
-    emitterMode: o.mode,
-    targetRect: o.targetRect,
-  }))
-
   if (cursors.length === 0) return null
 
   return (
@@ -526,7 +513,6 @@ export function AgentCursorLayer({
 @keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(1); opacity: 0; } }`}
       </style>
       <PresenceParticleTrail
-        cursors={trailCursors}
         onReady={emitterOnReady}
         orbitSphereRadiusPx={DEFAULT_EMITTER_MODES.orbit_sphere.radiusPx}
         orbitSphereAngularVelocityRadPerSec={

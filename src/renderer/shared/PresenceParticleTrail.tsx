@@ -105,7 +105,12 @@ export interface PresenceParticleCursor {
 }
 
 interface Props {
-  cursors: PresenceParticleCursor[]
+  /**
+   * Initial cursor list. Callers that use the imperative `pushCursors` on the
+   * `onReady` controls (e.g. usePresenceEmitter) can omit this — empty array
+   * is fine since per-frame updates come through the imperative path.
+   */
+  cursors?: PresenceParticleCursor[]
   holdSeconds?: number
   lifetimeSeconds?: number
   size?: number
@@ -154,6 +159,12 @@ interface Props {
 }
 
 export interface PresenceParticleControls {
+  /**
+   * Imperatively sync the cursor list. Lets callers (e.g. usePresenceEmitter)
+   * push per-frame updates without round-tripping through React state — the
+   * component never has to re-render when cursor positions or modes change.
+   */
+  pushCursors: (cursors: PresenceParticleCursor[]) => void
   /**
    * Convert the given cursor's orbit particles into a radial burst. No-op
    * if the id isn't currently in the cursor list.
@@ -958,10 +969,11 @@ export function PresenceParticleTrail({
           burstDragPerSecond,
         })
         handleRef.current = system.handle
-        system.handle.pushCursors(cursors)
+        if (cursors) system.handle.pushCursors(cursors)
         system.init(renderer)
         resize()
         onReadyRef.current?.({
+          pushCursors: (next) => system!.handle.pushCursors(next),
           triggerBurst: (id) => system!.handle.triggerBurst(id),
         })
 
@@ -1000,6 +1012,7 @@ export function PresenceParticleTrail({
   }, [])
 
   useEffect(() => {
+    if (!cursors) return
     handleRef.current?.pushCursors(cursors)
   }, [cursors])
 

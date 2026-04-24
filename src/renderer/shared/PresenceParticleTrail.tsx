@@ -37,9 +37,11 @@ const PARTICLE_MODE_ORBIT_RECT = 2
 const PARTICLE_MODE_BURST = 3
 
 // Orbit sphere tuning. Radius is in the same units as particle positions (CSS
-// pixels after the cursor offset). Angular velocity is radians per second; small
-// so the sphere reads as a gentle revolve, not a flicker.
-const ORBIT_SPHERE_RADIUS_PX = 28
+// pixels after the cursor offset). Kept tight so the cluster reads as a small
+// ball sitting off the cursor (down-and-right, per CURSOR_TRAIL_OFFSET) rather
+// than a halo surrounding the icon. Angular velocity is radians per second;
+// small so the sphere reads as a gentle revolve, not a flicker.
+const ORBIT_SPHERE_RADIUS_PX = 8
 const ORBIT_SPHERE_ANGULAR_VELOCITY = 0.6
 // Particles grow from the cursor center out to ORBIT_SPHERE_RADIUS_PX over this
 // many seconds of their life — the "inhalation" into the sphere.
@@ -78,11 +80,12 @@ function hashStringToUnit(s: string): number {
   return (h >>> 0) / 0xffffffff
 }
 
-// Screen-space offset from the cursor's translate origin to the tip of the
-// FilledCursorIcon, so trail particles emit from the tip rather than the
-// top-left of the icon. Shared by AgentCursorLayer (production) and
-// PresencePlayground (debug defaults).
-export const CURSOR_TRAIL_OFFSET = { x: 12, y: 16 } as const
+// Screen-space offset from the cursor's translate origin to the particle
+// emission point — below-and-right of the arrow body, so both trail and
+// orbit_sphere sit clearly off the icon rather than emerging from it.
+// orbit_rect ignores this (it uses targetRect directly). Shared by
+// AgentCursorLayer (production) and PresencePlayground (debug defaults).
+export const CURSOR_TRAIL_OFFSET = { x: 24, y: 24 } as const
 
 export type PresenceParticleEmitterMode =
   | 'trail'

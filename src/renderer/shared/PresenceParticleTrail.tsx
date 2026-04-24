@@ -28,6 +28,11 @@ const MAX_CURSORS = 8
 // and may be anything in [2, EMIT_PER_FRAME_MAX].
 const EMIT_PER_FRAME_MAX = 16
 
+// Per-particle behavior mode, stored in stateBuffer.z. The sim kernel dispatches
+// on this so orbit/burst particles share the same pool and render path as trail.
+// Keep in sync with any shader-side constants below.
+const PARTICLE_MODE_TRAIL = 0
+
 // Screen-space offset from the cursor's translate origin to the tip of the
 // FilledCursorIcon, so trail particles emit from the tip rather than the
 // top-left of the icon. Shared by AgentCursorLayer (production) and
@@ -124,9 +129,9 @@ function buildSystem(initial: {
   emitSpeedBias: number
   emitsPerFrame: number
 }) {
-  const positionBuffer = instancedArray(MAX_POOL_SIZE, 'vec3') // (x, y, 0)
-  const stateBuffer = instancedArray(MAX_POOL_SIZE, 'vec3')    // (age, cursorIdx, unused)
-  const velocityBuffer = instancedArray(MAX_POOL_SIZE, 'vec3') // (vx, vy, 0)
+  const positionBuffer = instancedArray(MAX_POOL_SIZE, 'vec3') // (x, y, z)
+  const stateBuffer = instancedArray(MAX_POOL_SIZE, 'vec3')    // (age, cursorIdx, mode)
+  const velocityBuffer = instancedArray(MAX_POOL_SIZE, 'vec3') // (vx, vy, vz)
 
   const cursorPos = uniformArray(
     Array.from({ length: MAX_CURSORS }, () => new THREE.Vector2(-10000, -10000)),
@@ -188,7 +193,10 @@ function buildSystem(initial: {
 
   const initKernel = Fn(() => {
     positionBuffer.element(instanceIndex).assign(vec3(float(-10000), float(-10000), float(0)))
-    stateBuffer.element(instanceIndex).assign(vec3(lifetimeU.add(1), float(0), float(0)))
+    // Dead slot: age > lifetime so the sim's age-gate skips it; mode defaults to TRAIL.
+    stateBuffer
+      .element(instanceIndex)
+      .assign(vec3(lifetimeU.add(1), float(0), float(PARTICLE_MODE_TRAIL)))
     velocityBuffer.element(instanceIndex).assign(vec3(0, 0, 0))
   })().compute(MAX_POOL_SIZE)
 
@@ -218,7 +226,9 @@ function buildSystem(initial: {
         positionBuffer
           .element(slot)
           .assign(vec3(originX.add(jx), originY.add(jy), float(0)))
-        stateBuffer.element(slot).assign(vec3(float(0), float(cIdx), float(0)))
+        stateBuffer
+          .element(slot)
+          .assign(vec3(float(0), float(cIdx), float(PARTICLE_MODE_TRAIL)))
         velocityBuffer.element(slot).assign(vec3(0, 0, 0))
       })
     })
@@ -228,37 +238,42 @@ function buildSystem(initial: {
     const pos = positionBuffer.element(instanceIndex)
     const vel = velocityBuffer.element(instanceIndex)
     const state = stateBuffer.element(instanceIndex)
+    const mode = state.z
     const age = state.x.add(deltaU).toVar()
 
     If(age.greaterThan(lifetimeU), () => {
       pos.assign(vec3(float(-10000), float(-10000), float(0)))
       state.x.assign(lifetimeU)
     }).Else(() => {
-      If(age.greaterThan(holdU), () => {
-        // Direction is sampled from a noise field at (seed + pos*flowScale,
-        // time*turnRate). turnRate controls how fast each particle's
-        // direction evolves; flowScale controls how much neighbors share a
-        // direction (0 = fully independent random walk, >0 = flow field).
-        const seed = float(instanceIndex).mul(0.137)
-        const t = timeU.mul(driftTurnRateU)
-        const nx = seed.add(pos.x.mul(driftFlowScaleU))
-        const ny = seed.add(float(31.7)).add(pos.y.mul(driftFlowScaleU))
-        const n = mx_noise_vec3(vec3(nx, ny, t))
-        const dir = vec3(n.x, n.y, float(0))
+      // Mode dispatch. Each mode is responsible for updating pos/vel as it sees
+      // fit (trail integrates velocity; orbit/burst will compute differently).
+      If(mode.equal(float(PARTICLE_MODE_TRAIL)), () => {
+        If(age.greaterThan(holdU), () => {
+          // Direction is sampled from a noise field at (seed + pos*flowScale,
+          // time*turnRate). turnRate controls how fast each particle's
+          // direction evolves; flowScale controls how much neighbors share a
+          // direction (0 = fully independent random walk, >0 = flow field).
+          const seed = float(instanceIndex).mul(0.137)
+          const t = timeU.mul(driftTurnRateU)
+          const nx = seed.add(pos.x.mul(driftFlowScaleU))
+          const ny = seed.add(float(31.7)).add(pos.y.mul(driftFlowScaleU))
+          const n = mx_noise_vec3(vec3(nx, ny, t))
+          const dir = vec3(n.x, n.y, float(0))
 
-        // Drift strength eases from 0 (near cursor) to max (far from cursor).
-        // This means particles clustered at a resting cursor stay calm, while
-        // particles at the far end of a motion trail scatter.
-        const cIdx = uint(state.y)
-        const cursor = cursorPos.element(cIdx)
-        const deltaX = pos.x.sub(cursor.x)
-        const deltaY = pos.y.sub(cursor.y)
-        const dist = deltaX.mul(deltaX).add(deltaY.mul(deltaY)).sqrt()
-        const distFactor = smoothstep(0, driftReferenceDistanceU, dist)
-        const strength = driftStrengthU.mul(distFactor)
-        vel.assign(dir.mul(strength))
+          // Drift strength eases from 0 (near cursor) to max (far from cursor).
+          // This means particles clustered at a resting cursor stay calm, while
+          // particles at the far end of a motion trail scatter.
+          const cIdx = uint(state.y)
+          const cursor = cursorPos.element(cIdx)
+          const deltaX = pos.x.sub(cursor.x)
+          const deltaY = pos.y.sub(cursor.y)
+          const dist = deltaX.mul(deltaX).add(deltaY.mul(deltaY)).sqrt()
+          const distFactor = smoothstep(0, driftReferenceDistanceU, dist)
+          const strength = driftStrengthU.mul(distFactor)
+          vel.assign(dir.mul(strength))
+        })
+        pos.addAssign(vel.mul(deltaU))
       })
-      pos.addAssign(vel.mul(deltaU))
       state.x.assign(age)
     })
   })().compute(MAX_POOL_SIZE)

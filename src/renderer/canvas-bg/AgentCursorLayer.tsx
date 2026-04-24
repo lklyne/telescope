@@ -5,7 +5,6 @@ import type {
   PresenceActivity,
 } from '../../shared/types'
 import {
-  emitterModeForPresenceCursor,
   labelForPresenceCursor,
 } from '../../shared/agent-presence'
 import {
@@ -20,13 +19,16 @@ import {
   PRESENCE_TRAVEL_MS,
   PRESENCE_STEP_DELAY_MS,
 } from '../../shared/presence-timing'
+import { defaultAutoPolicy } from '../../shared/presence-emitter-policy'
+import {
+  DEFAULT_EMITTER_MODES,
+  DEFAULT_TRANSITION_TABLE,
+} from '../../shared/presence-emitter-config'
+import { usePresenceEmitter } from '../shared/usePresenceEmitter'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
   CURSOR_TRAIL_OFFSET,
-  ORBIT_RECT_INTENSITY,
-  ORBIT_SPHERE_INTENSITY,
   PresenceParticleTrail,
-  type PresenceParticleControls,
   type PresenceParticleCursor,
   type PresenceParticleTargetRect,
 } from '../shared/PresenceParticleTrail'
@@ -427,11 +429,56 @@ export function AgentCursorLayer({
 }) {
   const animated = useAnimatedCursors(cursors)
   const showLabels = useShowPresenceLabels()
-  const particleControlsRef = useRef<PresenceParticleControls | null>(null)
+
+  const emitter = usePresenceEmitter({
+    modes: DEFAULT_EMITTER_MODES,
+    transitions: DEFAULT_TRANSITION_TABLE,
+  })
 
   // Track previous activity per cursor so we can fire burst on the same
   // activity→acting+click_target transition that already drives ClickRipple.
   const prevActivityRef = useRef<Map<string, PresenceActivity>>(new Map())
+
+  useEffect(() => {
+    const inputs = animated.map(({ cursor, point, isAnimating }) => {
+      const frame = cursor.frameId
+        ? (frames.find((f) => f.id === cursor.frameId) ?? null)
+        : null
+      const desiredBase = defaultAutoPolicy.pick({
+        isMoving: isAnimating,
+        targetRect: null,
+        activity: cursor.activity,
+        labelKey: cursor.labelKey,
+      })
+      const targetRect =
+        desiredBase === 'orbit_rect'
+          ? resolveTargetRectScreen(cursor, frame, overlayOffsetY)
+          : null
+      // Re-pick with the resolved rect so the policy can downgrade if needed.
+      const desiredMode = defaultAutoPolicy.pick({
+        isMoving: isAnimating,
+        targetRect,
+        activity: cursor.activity,
+        labelKey: cursor.labelKey,
+      })
+      return {
+        cursorId: cursor.sessionId,
+        x: canvasOrigin.x + pan.x + point.x * zoom + CURSOR_TRAIL_OFFSET.x,
+        y:
+          canvasOrigin.y +
+          pan.y -
+          overlayOffsetY +
+          point.y * zoom +
+          CURSOR_TRAIL_OFFSET.y,
+        color: cursor.color,
+        desiredMode,
+        targetRect,
+        isMoving: isAnimating,
+      }
+    })
+    emitter.push(inputs)
+  }, [animated, frames, canvasOrigin, pan, zoom, overlayOffsetY, emitter])
+
   useEffect(() => {
     const prev = prevActivityRef.current
     for (const cursor of cursors) {
@@ -441,7 +488,7 @@ export function AgentCursorLayer({
         cursor.labelKey === 'click_target' &&
         last !== 'acting'
       if (justClicked) {
-        particleControlsRef.current?.triggerBurst(cursor.sessionId)
+        emitter.controls.triggerBurst(cursor.sessionId)
       }
       prev.set(cursor.sessionId, cursor.activity)
     }
@@ -449,47 +496,18 @@ export function AgentCursorLayer({
     for (const id of prev.keys()) {
       if (!active.has(id)) prev.delete(id)
     }
-  }, [cursors])
+  }, [cursors, emitter])
 
-  // animated is a fresh array per render, so memoizing trailCursors would
-  // invalidate every tick — just compute inline.
-  const trailCursors: PresenceParticleCursor[] = animated.map(
-    ({ cursor, point, isAnimating }) => {
-      const desiredMode = emitterModeForPresenceCursor(cursor)
-      const frame = cursor.frameId
-        ? (frames.find((f) => f.id === cursor.frameId) ?? null)
-        : null
-      const rect =
-        desiredMode === 'orbit_rect'
-          ? resolveTargetRectScreen(cursor, frame, overlayOffsetY)
-          : null
-      // Downgrade to sphere if rect can't be resolved (e.g., labelKey is
-      // inspect_page but the frame isn't in the scene yet).
-      const emitterMode =
-        desiredMode === 'orbit_rect' && !rect ? 'orbit_sphere' : desiredMode
-      return {
-        id: cursor.sessionId,
-        x: canvasOrigin.x + pan.x + point.x * zoom + CURSOR_TRAIL_OFFSET.x,
-        y:
-          canvasOrigin.y +
-          pan.y -
-          overlayOffsetY +
-          point.y * zoom +
-          CURSOR_TRAIL_OFFSET.y,
-        color: cursor.color,
-        intensity:
-          emitterMode === 'orbit_sphere'
-            ? ORBIT_SPHERE_INTENSITY
-            : emitterMode === 'orbit_rect'
-              ? ORBIT_RECT_INTENSITY
-              : isAnimating
-                ? 1
-                : 0,
-        emitterMode,
-        targetRect: emitterMode === 'orbit_rect' ? rect : null,
-      }
-    },
-  )
+  // Map machine outputs to the shape PresenceParticleTrail expects.
+  const trailCursors: PresenceParticleCursor[] = emitter.outputs.map((o) => ({
+    id: o.id,
+    x: o.x,
+    y: o.y,
+    color: o.color,
+    intensity: o.intensity,
+    emitterMode: o.mode,
+    targetRect: o.targetRect,
+  }))
 
   if (cursors.length === 0) return null
 
@@ -504,9 +522,37 @@ export function AgentCursorLayer({
       </style>
       <PresenceParticleTrail
         cursors={trailCursors}
-        onReady={(controls) => {
-          particleControlsRef.current = controls
-        }}
+        onReady={emitter.onReady}
+        orbitSphereRadiusPx={DEFAULT_EMITTER_MODES.orbit_sphere.radiusPx}
+        orbitSphereAngularVelocityRadPerSec={
+          DEFAULT_EMITTER_MODES.orbit_sphere.angularVelocityRadPerSec
+        }
+        orbitSphereRadiusFadeInSeconds={
+          DEFAULT_EMITTER_MODES.orbit_sphere.radiusFadeInSeconds
+        }
+        orbitRectCrossJitterPx={DEFAULT_EMITTER_MODES.orbit_rect.crossJitterPx}
+        orbitRectAngularVelocityRadPerSec={
+          DEFAULT_EMITTER_MODES.orbit_rect.angularVelocityRadPerSec
+        }
+        orbitRectFadeInSeconds={DEFAULT_EMITTER_MODES.orbit_rect.fadeInSeconds}
+        burstSpeedPxPerSec={DEFAULT_EMITTER_MODES.burst.speedPxPerSec}
+        burstSpeedJitter={DEFAULT_EMITTER_MODES.burst.speedJitter}
+        burstLifetimeSeconds={DEFAULT_EMITTER_MODES.burst.lifetimeSeconds}
+        burstDragPerSecond={DEFAULT_EMITTER_MODES.burst.dragPerSecond}
+        lifetimeSeconds={DEFAULT_EMITTER_MODES.trail.lifetimeSeconds}
+        emitsPerFrame={DEFAULT_EMITTER_MODES.trail.emitsPerFrame}
+        emitSpeedReferencePxPerSec={
+          DEFAULT_EMITTER_MODES.trail.emitSpeedReferencePxPerSec
+        }
+        emitSpeedBias={DEFAULT_EMITTER_MODES.trail.emitSpeedBias}
+        driftStrength={DEFAULT_EMITTER_MODES.trail.driftStrength}
+        driftReferenceDistance={DEFAULT_EMITTER_MODES.trail.driftReferenceDistance}
+        driftTurnRate={DEFAULT_EMITTER_MODES.trail.driftTurnRate}
+        driftFlowScale={DEFAULT_EMITTER_MODES.trail.driftFlowScale}
+        holdSeconds={DEFAULT_EMITTER_MODES.trail.holdSeconds}
+        fadeOutGraceSeconds={DEFAULT_EMITTER_MODES.trail.fadeOutGraceSeconds}
+        fadeOutSeconds={DEFAULT_EMITTER_MODES.trail.fadeOutSeconds}
+        fadeOutEasing={DEFAULT_EMITTER_MODES.trail.fadeOutEasing}
       />
       {cursors.map((cursor) => (
         <TargetHalo

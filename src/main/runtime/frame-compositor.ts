@@ -35,13 +35,6 @@ export async function captureFrameComposited(
 ): Promise<CompositedCapture | null> {
   if (page.pageView.webContents.isDestroyed()) return null
 
-  const pageImage = await page.pageView.webContents.capturePage()
-  if (pageImage.isEmpty()) return null
-
-  const pageSize = pageImage.getSize()
-  if (pageSize.width === 0 || pageSize.height === 0) return null
-
-  // Resolve device pixel ratio.
   const dpr =
     opts?.dpr ??
     (win && !win.isDestroyed()
@@ -50,57 +43,73 @@ export async function captureFrameComposited(
 
   // Capture the annotations/comments overlay (aboveView WCV) and the agent
   // presence cursor overlay (a child BrowserWindow — lives outside the WCV
-  // stack for click-through, see view-refs.ts). Crop each to the page region
-  // and alpha-blend in z-order: page < aboveView < cursor overlay.
-  const baseBitmap = pageImage.toBitmap()
+  // stack for click-through, see view-refs.ts). All three captures run in
+  // parallel; we then alpha-blend in z-order: page < aboveView < cursor overlay.
   const canCapture = win && !win.isDestroyed()
-  const aboveCursor =
-    canCapture && aboveView && !aboveView.webContents.isDestroyed()
-      ? await captureAndCropToPage(aboveView.webContents, aboveView.getBounds(), page, dpr)
-      : null
-  blendOnto(baseBitmap, aboveCursor, pageSize)
+  const pageRect = boundScreenBoundsForPage(page).page
 
+  const abovePromise =
+    canCapture && aboveView && !aboveView.webContents.isDestroyed()
+      ? captureAndCropToRect(aboveView.webContents, aboveView.getBounds(), pageRect, dpr)
+      : Promise.resolve(null)
+
+  // BrowserWindow.getBounds() is in screen coords; aboveView.getBounds() is
+  // window-relative. Translate to window-relative so both overlays share the
+  // coordinate space pageRect uses.
   const cursorWc = cursorOverlayWindow?.webContents
-  let cursorOverlay: NativeImage | null = null
+  let cursorPromise: Promise<NativeImage | null> = Promise.resolve(null)
   if (canCapture && cursorWc && !cursorWc.isDestroyed() && cursorOverlayWindow) {
-    // BrowserWindow.getBounds() is in screen coords; aboveView.getBounds()
-    // is window-relative. Translate to window-relative so both overlays
-    // share the coordinate space bounds.page.* uses.
     const contentBounds = win!.getContentBounds()
     const cursorScreenBounds = cursorOverlayWindow.getBounds()
-    const cursorBounds = {
-      x: cursorScreenBounds.x - contentBounds.x,
-      y: cursorScreenBounds.y - contentBounds.y,
-      width: cursorScreenBounds.width,
-      height: cursorScreenBounds.height,
-    }
-    cursorOverlay = await captureAndCropToPage(cursorWc, cursorBounds, page, dpr)
+    cursorPromise = captureAndCropToRect(
+      cursorWc,
+      {
+        x: cursorScreenBounds.x - contentBounds.x,
+        y: cursorScreenBounds.y - contentBounds.y,
+        width: cursorScreenBounds.width,
+        height: cursorScreenBounds.height,
+      },
+      pageRect,
+      dpr,
+    )
   }
+
+  const [pageImage, aboveOverlay, cursorOverlay] = await Promise.all([
+    page.pageView.webContents.capturePage(),
+    abovePromise,
+    cursorPromise,
+  ])
+
+  if (pageImage.isEmpty()) return null
+  const pageSize = pageImage.getSize()
+  if (pageSize.width === 0 || pageSize.height === 0) return null
+
+  const baseBitmap = pageImage.toBitmap()
+  blendOnto(baseBitmap, aboveOverlay, pageSize)
   blendOnto(baseBitmap, cursorOverlay, pageSize)
 
   return { bitmap: baseBitmap, width: pageSize.width, height: pageSize.height }
 }
 
 /**
- * Capture an overlay WebContents and crop the result to the given page's
- * on-screen rect. Works for both WebContentsView overlays (aboveView) and
- * child BrowserWindow overlays (cursorOverlayWindow) — both expose getBounds()
- * in the same window coordinate space.
+ * Capture an overlay WebContents and crop to the given target rect (in the
+ * overlay's coordinate space). Works for both WebContentsView overlays and
+ * child BrowserWindow overlays — callers pass each overlay's bounds in the
+ * same coordinate space as `targetRect`.
  */
-async function captureAndCropToPage(
+async function captureAndCropToRect(
   wc: WebContents,
   overlayBounds: { x: number; y: number; width: number; height: number },
-  page: Page,
+  targetRect: { x: number; y: number; width: number; height: number },
   dpr: number,
 ): Promise<NativeImage | null> {
-  const bounds = boundScreenBoundsForPage(page)
-  const cropX = Math.round(Math.max(0, bounds.page.x - overlayBounds.x) * dpr)
-  const cropY = Math.round(Math.max(0, bounds.page.y - overlayBounds.y) * dpr)
+  const cropX = Math.round(Math.max(0, targetRect.x - overlayBounds.x) * dpr)
+  const cropY = Math.round(Math.max(0, targetRect.y - overlayBounds.y) * dpr)
   const cropW = Math.round(
-    Math.min(bounds.page.width, overlayBounds.width - (bounds.page.x - overlayBounds.x)) * dpr,
+    Math.min(targetRect.width, overlayBounds.width - (targetRect.x - overlayBounds.x)) * dpr,
   )
   const cropH = Math.round(
-    Math.min(bounds.page.height, overlayBounds.height - (bounds.page.y - overlayBounds.y)) * dpr,
+    Math.min(targetRect.height, overlayBounds.height - (targetRect.y - overlayBounds.y)) * dpr,
   )
   if (cropW <= 0 || cropH <= 0) return null
 

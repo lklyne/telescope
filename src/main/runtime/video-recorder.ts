@@ -115,49 +115,49 @@ class VideoRecorderInstance {
       if (this.captureWidth === 0 || this.captureHeight === 0) {
         throw new Error('Canvas view has zero dimensions')
       }
+
+      // Spawn ffmpeg to accept raw BGRA frames on stdin.
+      // Use VP9 with realtime deadline for fast encoding at high resolution.
+      this.ffmpeg = spawn('ffmpeg', [
+        '-y',
+        '-f', 'rawvideo',
+        '-pixel_format', 'bgra',
+        '-video_size', `${this.captureWidth}x${this.captureHeight}`,
+        '-framerate', String(this.fps),
+        '-i', 'pipe:0',
+        '-c:v', 'libvpx-vp9',
+        '-crf', String(this.crf),
+        '-b:v', '0',
+        '-deadline', 'realtime',
+        '-cpu-used', '8',
+        '-row-mt', '1',
+        this.outputPath,
+      ], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+
+      this.ffmpeg.on('error', (err) => {
+        console.error('[video-recorder] ffmpeg error:', err.message)
+      })
+
+      this.ffmpeg.stderr?.on('data', (chunk: Buffer) => {
+        // Log ffmpeg progress/errors but don't spam.
+        const msg = chunk.toString().trim()
+        if (msg.includes('Error') || msg.includes('error')) {
+          console.error('[video-recorder] ffmpeg:', msg)
+        }
+      })
+
+      this.startedAt = Date.now()
+      this.activityTracker.start()
+
+      // Start the capture loop.
+      const intervalMs = Math.round(1000 / this.fps)
+      this.captureTimer = setInterval(() => this.captureFrame(), intervalMs)
     } catch (error) {
       this.restoreCamera()
       throw error
     }
-
-    // Spawn ffmpeg to accept raw BGRA frames on stdin.
-    // Use VP9 with realtime deadline for fast encoding at high resolution.
-    this.ffmpeg = spawn('ffmpeg', [
-      '-y',
-      '-f', 'rawvideo',
-      '-pixel_format', 'bgra',
-      '-video_size', `${this.captureWidth}x${this.captureHeight}`,
-      '-framerate', String(this.fps),
-      '-i', 'pipe:0',
-      '-c:v', 'libvpx-vp9',
-      '-crf', String(this.crf),
-      '-b:v', '0',
-      '-deadline', 'realtime',
-      '-cpu-used', '8',
-      '-row-mt', '1',
-      this.outputPath,
-    ], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
-
-    this.ffmpeg.on('error', (err) => {
-      console.error('[video-recorder] ffmpeg error:', err.message)
-    })
-
-    this.ffmpeg.stderr?.on('data', (chunk: Buffer) => {
-      // Log ffmpeg progress/errors but don't spam.
-      const msg = chunk.toString().trim()
-      if (msg.includes('Error') || msg.includes('error')) {
-        console.error('[video-recorder] ffmpeg:', msg)
-      }
-    })
-
-    this.startedAt = Date.now()
-    this.activityTracker.start()
-
-    // Start the capture loop.
-    const intervalMs = Math.round(1000 / this.fps)
-    this.captureTimer = setInterval(() => this.captureFrame(), intervalMs)
   }
 
   private async captureFrame(): Promise<void> {

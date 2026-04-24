@@ -11,7 +11,8 @@ export let devtoolsBackgroundView: WebContentsView | null = null
 export let devtoolsHeaderView: WebContentsView | null = null
 export let devtoolsView: WebContentsView | null = null
 export let devtoolsResizeHandleView: WebContentsView | null = null
-/** Consolidated above-pages WCV: input gate + marquee + comments + presence + annotations + drawing + floating-ui. */
+/** Consolidated above-pages WCV: input gate + marquee + comments + annotations + drawing + floating-ui.
+ *  Agent-presence cursors render in cursorOverlayWindow (below), not here. */
 export let aboveView: WebContentsView | null = null
 /** Child BrowserWindow sibling of `win` — transparent, frameless, mouse-inert.
  *  Hosts agent-presence cursors only. Lives outside the WCV stack because

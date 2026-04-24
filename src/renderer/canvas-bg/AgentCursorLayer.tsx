@@ -23,6 +23,7 @@ import {
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
   CURSOR_TRAIL_OFFSET,
+  ORBIT_SPHERE_INTENSITY,
   PresenceParticleTrail,
   type PresenceParticleCursor,
 } from '../shared/PresenceParticleTrail'
@@ -37,12 +38,6 @@ const PRODUCTION_CURSOR_MOTION = {
   distanceScaling: 0,
 }
 const POSITION_EPSILON = 0.5
-
-// Emission intensity for orbit_sphere cursors. Tuned so the sphere holds
-// ~300 particles in flight at the default 2.5s lifetime — dense enough to
-// read as a shell without flooding the pool. Trail intensity stays on the
-// existing 0/1 "is animating" switch.
-const ORBIT_SPHERE_INTENSITY = 0.15
 
 // Dev flag (localStorage-backed) to reveal the text status chip. Off by
 // default so particle effects are the primary presence cue; toggle via

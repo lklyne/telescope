@@ -43,6 +43,12 @@ const ORBIT_SPHERE_ANGULAR_VELOCITY = 0.6
 // many seconds of their life — the "inhalation" into the sphere.
 const ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS = 0.35
 
+// Spawn threshold multiplier for orbit cursors. Tuned so the sphere holds
+// ~300 particles in flight at the default 2.5s lifetime — dense enough to
+// read as a shell without flooding the pool. Exported so callers (production
+// layer + debug playground) agree on density without each picking their own.
+export const ORBIT_SPHERE_INTENSITY = 0.15
+
 function hashStringToUnit(s: string): number {
   let h = 2166136261 >>> 0
   for (let i = 0; i < s.length; i++) {

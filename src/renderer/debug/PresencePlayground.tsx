@@ -20,7 +20,24 @@ import {
   distanceSpeedScale,
 } from '../../shared/cursor-tuning'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
-import { CURSOR_TRAIL_OFFSET, PresenceParticleTrail } from '../shared/PresenceParticleTrail'
+import {
+  CURSOR_TRAIL_OFFSET,
+  ORBIT_SPHERE_INTENSITY,
+  PresenceParticleTrail,
+  type PresenceParticleEmitterMode,
+} from '../shared/PresenceParticleTrail'
+
+// Options driving the mode selector overlay. Keep in sync with
+// PresenceParticleEmitterMode. Labels mirror the states a real presence cursor
+// would be in so designers can match the effect to the production trigger.
+const EMITTER_MODE_OPTIONS: Array<{
+  value: PresenceParticleEmitterMode
+  label: string
+  hint: string
+}> = [
+  { value: 'trail', label: 'Trail', hint: 'Traveling / default' },
+  { value: 'orbit_sphere', label: 'Orbit sphere', hint: 'Thinking / waiting' },
+]
 
 const TRAIL_LIMIT = 6
 const CURSOR_COLOR = '#2563eb'
@@ -106,6 +123,8 @@ export function PresencePlayground({
 
   const [displayPos, setDisplayPos] = useState<Vec2>({ x: 160, y: 160 })
   const [isTraveling, setIsTraveling] = useState(false)
+  const [emitterMode, setEmitterMode] =
+    useState<PresenceParticleEmitterMode>('trail')
   const [trails, setTrails] = useState<Trail[]>([])
   const [activeSplinePolyline, setActiveSplinePolyline] = useState<Vec2[] | null>(
     null,
@@ -244,11 +263,15 @@ export function PresencePlayground({
               x: displayPos.x + trail.offsetX,
               y: displayPos.y + trail.offsetY,
               color: CURSOR_COLOR,
-              intensity: isTraveling
-                ? 1
-                : trail.emitWhenIdle
-                  ? 0.8
-                  : 0,
+              emitterMode,
+              intensity:
+                emitterMode === 'orbit_sphere'
+                  ? ORBIT_SPHERE_INTENSITY
+                  : isTraveling
+                    ? 1
+                    : trail.emitWhenIdle
+                      ? 0.8
+                      : 0,
             },
           ]}
         />
@@ -262,6 +285,7 @@ export function PresencePlayground({
           <FilledCursorIcon color={CURSOR_COLOR} size={24} />
         </div>
         <InstructionHint />
+        <EmitterModeSelector mode={emitterMode} onChange={setEmitterMode} />
         <StatsOverlay tuning={tuning} stats={stats} />
       </div>
     </div>
@@ -352,6 +376,42 @@ function InstructionHint() {
       }}
     >
       Click anywhere to retarget the cursor
+    </div>
+  )
+}
+
+function EmitterModeSelector({
+  mode,
+  onChange,
+}: {
+  mode: PresenceParticleEmitterMode
+  onChange: (next: PresenceParticleEmitterMode) => void
+}) {
+  const active = EMITTER_MODE_OPTIONS.find((o) => o.value === mode)
+  return (
+    <div
+      className="absolute left-4 top-12 flex items-center gap-2 rounded px-2 py-1 text-[11px]"
+      style={{
+        background: 'color-mix(in srgb, var(--surface-panel) 88%, transparent)',
+      }}
+    >
+      <span className="opacity-60">Mode</span>
+      <select
+        value={mode}
+        onChange={(e) =>
+          onChange(e.target.value as PresenceParticleEmitterMode)
+        }
+        className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] dark:border-zinc-700 dark:bg-zinc-900"
+      >
+        {EMITTER_MODE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {active ? (
+        <span className="opacity-50">· {active.hint}</span>
+      ) : null}
     </div>
   )
 }

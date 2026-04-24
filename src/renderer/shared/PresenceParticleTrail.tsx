@@ -36,27 +36,17 @@ const PARTICLE_MODE_ORBIT_SPHERE = 1
 const PARTICLE_MODE_ORBIT_RECT = 2
 const PARTICLE_MODE_BURST = 3
 
-// Orbit sphere tuning. Radius is in the same units as particle positions (CSS
-// pixels after the cursor offset). Kept tight so the cluster reads as a small
-// ball sitting off the cursor (down-and-right, per CURSOR_TRAIL_OFFSET) rather
-// than a halo surrounding the icon. Angular velocity is radians per second;
-// small so the sphere reads as a gentle revolve, not a flicker.
+// Orbit sphere tuning defaults. These are used as the fallback when the
+// corresponding props are not supplied. See Props for the prop names.
 const ORBIT_SPHERE_RADIUS_PX = 8
 const ORBIT_SPHERE_ANGULAR_VELOCITY = 0.6
-// Particles grow from the cursor center out to ORBIT_SPHERE_RADIUS_PX over this
-// many seconds of their life — the "inhalation" into the sphere.
 const ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS = 0.35
 
-// Orbit rect tuning. Same fade-in window as the sphere so the two modes share
-// visual language. Cross jitter is the max distance a particle may sit
-// perpendicular to the perimeter (inside or outside), giving the ring some
-// thickness.
+// Orbit rect tuning defaults.
 const ORBIT_RECT_CROSS_JITTER_PX = 5
 const ORBIT_RECT_FADE_IN_SECONDS = 0.35
 
-// Burst tuning. Speed is the outward velocity applied at the moment of
-// conversion; lifetime is how long burst particles live before the normal
-// age-gate kills them. Short lifetime keeps the click impact crisp.
+// Burst tuning defaults.
 const BURST_SPEED_PX_PER_SEC = 360
 const BURST_SPEED_JITTER = 0.25 // ± fraction of base speed
 const BURST_LIFETIME_SECONDS = 0.7
@@ -141,6 +131,19 @@ interface Props {
   emitSpeedBias?: number
   /** Max particles spawned per cursor per frame. Clamped to [2, 16]. */
   emitsPerFrame?: number
+  /** Orbit sphere tuning. Defaults match the existing constants. */
+  orbitSphereRadiusPx?: number
+  orbitSphereAngularVelocityRadPerSec?: number
+  orbitSphereRadiusFadeInSeconds?: number
+  /** Orbit rect tuning. */
+  orbitRectCrossJitterPx?: number
+  orbitRectAngularVelocityRadPerSec?: number
+  orbitRectFadeInSeconds?: number
+  /** Burst (click transient) tuning. */
+  burstSpeedPxPerSec?: number
+  burstSpeedJitter?: number
+  burstLifetimeSeconds?: number
+  burstDragPerSecond?: number
   /**
    * Fires once after the WebGPU system is initialized. Callers can capture
    * the returned controls (e.g. triggerBurst) into a ref and call them in
@@ -216,6 +219,16 @@ function buildSystem(initial: {
   emitSpeedReferencePxPerSec: number
   emitSpeedBias: number
   emitsPerFrame: number
+  orbitSphereRadiusPx: number
+  orbitSphereAngularVelocity: number
+  orbitSphereRadiusFadeInSeconds: number
+  orbitRectCrossJitterPx: number
+  orbitRectAngularVelocity: number
+  orbitRectFadeInSeconds: number
+  burstSpeedPxPerSec: number
+  burstSpeedJitter: number
+  burstLifetimeSeconds: number
+  burstDragPerSecond: number
 }) {
   const positionBuffer = instancedArray(MAX_POOL_SIZE, 'vec3') // (x, y, z)
   const stateBuffer = instancedArray(MAX_POOL_SIZE, 'vec3')    // (age, cursorIdx, mode)
@@ -306,6 +319,16 @@ function buildSystem(initial: {
   const driftReferenceDistanceU = uniform(initial.driftReferenceDistance)
   const driftTurnRateU = uniform(initial.driftTurnRate)
   const driftFlowScaleU = uniform(initial.driftFlowScale)
+  const orbitSphereRadiusU = uniform(initial.orbitSphereRadiusPx)
+  const orbitSphereAngularVelocityU = uniform(initial.orbitSphereAngularVelocity)
+  const orbitSphereRadiusFadeInU = uniform(initial.orbitSphereRadiusFadeInSeconds)
+  const orbitRectCrossJitterU = uniform(initial.orbitRectCrossJitterPx)
+  const orbitRectAngularVelocityU = uniform(initial.orbitRectAngularVelocity)
+  const orbitRectFadeInU = uniform(initial.orbitRectFadeInSeconds)
+  const burstSpeedU = uniform(initial.burstSpeedPxPerSec)
+  const burstSpeedJitterU = uniform(initial.burstSpeedJitter)
+  const burstLifetimeU = uniform(initial.burstLifetimeSeconds)
+  const burstDragU = uniform(initial.burstDragPerSecond)
   const timeU = uniform(0)
   const poolSizeU = uniform(
     Math.max(64, Math.min(MAX_POOL_SIZE, initial.particleCount)),
@@ -348,7 +371,7 @@ function buildSystem(initial: {
           const sinLat = u.mul(2).sub(1)
           const lonInit = v.mul(float(Math.PI * 2))
           const velMult = float(0.85).add(w.mul(0.3)) // 0.85..1.15
-          const radius = float(ORBIT_SPHERE_RADIUS_PX)
+          const radius = orbitSphereRadiusU
 
           // Spawn at cursor center; sim kernel fades radius in from 0 over
           // ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS so particles read as
@@ -370,7 +393,7 @@ function buildSystem(initial: {
             const v = hash(jitterSeed.add(uint(53)))
             const w = hash(jitterSeed.add(uint(97)))
             const tInit = u
-            const crossOffset = v.sub(0.5).mul(2).mul(float(ORBIT_RECT_CROSS_JITTER_PX))
+            const crossOffset = v.sub(0.5).mul(2).mul(orbitRectCrossJitterU)
             const velMult = float(0.85).add(w.mul(0.3))
 
             // Spawn at cursor; sim kernel lerps from cursor → perimeter over
@@ -419,7 +442,7 @@ function buildSystem(initial: {
     // lifetimeU (tunable via props).
     const effectiveLifetime = mode
       .equal(float(PARTICLE_MODE_BURST))
-      .select(float(BURST_LIFETIME_SECONDS), lifetimeU)
+      .select(burstLifetimeU, lifetimeU)
 
     If(age.greaterThan(effectiveLifetime), () => {
       pos.assign(vec3(float(-10000), float(-10000), float(0)))
@@ -471,7 +494,7 @@ function buildSystem(initial: {
           const cosLat = float(1).sub(sinLat.mul(sinLat)).max(0).sqrt()
           // Ease radius from 0 → full over the first fade-in window so the
           // sphere "inhales" from the cursor rather than popping in.
-          const radiusT = smoothstep(0, ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS, age)
+          const radiusT = smoothstep(float(0), orbitSphereRadiusFadeInU, age)
           const effectiveR = radius.mul(radiusT)
           const ox = effectiveR.mul(cosLat).mul(lon.cos())
           const oz = effectiveR.mul(cosLat).mul(lon.sin())
@@ -551,7 +574,7 @@ function buildSystem(initial: {
           const perimY = py.add(nyN.mul(crossOffset))
 
           // Inhale from cursor to perimeter over the fade-in window.
-          const fadeT = smoothstep(0, ORBIT_RECT_FADE_IN_SECONDS, age)
+          const fadeT = smoothstep(float(0), orbitRectFadeInU, age)
           const finalX = mix(cursor.x, perimX, fadeT)
           const finalY = mix(cursor.y, perimY, fadeT)
           pos.assign(vec3(finalX, finalY, float(0)))
@@ -559,7 +582,7 @@ function buildSystem(initial: {
         .ElseIf(mode.equal(float(PARTICLE_MODE_BURST)), () => {
           // Burst: integrate velocity with exponential drag. Velocity was
           // seeded at convert-time (radial outward from cursor).
-          const drag = float(1).sub(float(BURST_DRAG_PER_SECOND).mul(deltaU)).max(0)
+          const drag = float(1).sub(burstDragU.mul(deltaU)).max(0)
           vel.assign(vel.mul(drag))
           pos.addAssign(vel.mul(deltaU))
         })
@@ -597,9 +620,9 @@ function buildSystem(initial: {
       const nx = useFallback.select(fallbackAngle.cos(), dx.div(dist))
       const ny = useFallback.select(fallbackAngle.sin(), dy.div(dist))
       const jitter = float(1)
-        .sub(float(BURST_SPEED_JITTER))
-        .add(seed2.mul(float(BURST_SPEED_JITTER * 2)))
-      const speed = float(BURST_SPEED_PX_PER_SEC).mul(jitter)
+        .sub(burstSpeedJitterU)
+        .add(seed2.mul(burstSpeedJitterU.mul(2)))
+      const speed = burstSpeedU.mul(jitter)
       vel.assign(vec3(nx.mul(speed), ny.mul(speed), float(0)))
       state.z.assign(float(PARTICLE_MODE_BURST))
       state.x.assign(float(0))
@@ -616,12 +639,12 @@ function buildSystem(initial: {
   })
 
   // Mode-aware effective lifetime: burst particles age against a shorter
-  // lifetime so their fade-out curve compresses into the ~0.7s burst window
-  // instead of the global 2.5s trail/orbit lifetime.
+  // lifetime so their fade-out curve compresses into the burst window
+  // instead of the global trail/orbit lifetime.
   const effectiveLifetimeFor = (mode: ReturnType<typeof float>) =>
     mode
       .equal(float(PARTICLE_MODE_BURST))
-      .select(float(BURST_LIFETIME_SECONDS), lifetimeU)
+      .select(burstLifetimeU, lifetimeU)
 
   material.positionNode = Fn(() => {
     const state = stateBuffer.toAttribute()
@@ -762,8 +785,11 @@ function buildSystem(initial: {
           cursorPrevPos.array[i].set(c.x, c.y)
           knownIds.add(c.id)
           const h = hashStringToUnit(c.id)
-          cursorOrbitAngularVelocity[i] =
-            ORBIT_SPHERE_ANGULAR_VELOCITY * (0.7 + 0.6 * h)
+          const baseAngularVelocity =
+            c.emitterMode === 'orbit_rect'
+              ? orbitRectAngularVelocityU.value
+              : orbitSphereAngularVelocityU.value
+          cursorOrbitAngularVelocity[i] = baseAngularVelocity * (0.7 + 0.6 * h)
           cursorOrbitAngle.array[i] = h * Math.PI * 2
         }
         cursorIndexById.set(c.id, i)
@@ -851,6 +877,16 @@ export function PresenceParticleTrail({
   emitSpeedReferencePxPerSec = 1250,
   emitSpeedBias = 2.35,
   emitsPerFrame = 16,
+  orbitSphereRadiusPx = ORBIT_SPHERE_RADIUS_PX,
+  orbitSphereAngularVelocityRadPerSec = ORBIT_SPHERE_ANGULAR_VELOCITY,
+  orbitSphereRadiusFadeInSeconds = ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS,
+  orbitRectCrossJitterPx = ORBIT_RECT_CROSS_JITTER_PX,
+  orbitRectAngularVelocityRadPerSec = ORBIT_SPHERE_ANGULAR_VELOCITY,
+  orbitRectFadeInSeconds = ORBIT_RECT_FADE_IN_SECONDS,
+  burstSpeedPxPerSec = BURST_SPEED_PX_PER_SEC,
+  burstSpeedJitter = BURST_SPEED_JITTER,
+  burstLifetimeSeconds = BURST_LIFETIME_SECONDS,
+  burstDragPerSecond = BURST_DRAG_PER_SECOND,
   onReady,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
@@ -910,6 +946,16 @@ export function PresenceParticleTrail({
           emitSpeedReferencePxPerSec,
           emitSpeedBias,
           emitsPerFrame,
+          orbitSphereRadiusPx,
+          orbitSphereAngularVelocity: orbitSphereAngularVelocityRadPerSec,
+          orbitSphereRadiusFadeInSeconds,
+          orbitRectCrossJitterPx,
+          orbitRectAngularVelocity: orbitRectAngularVelocityRadPerSec,
+          orbitRectFadeInSeconds,
+          burstSpeedPxPerSec,
+          burstSpeedJitter,
+          burstLifetimeSeconds,
+          burstDragPerSecond,
         })
         handleRef.current = system.handle
         system.handle.pushCursors(cursors)

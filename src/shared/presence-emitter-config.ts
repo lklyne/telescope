@@ -27,6 +27,7 @@ export const DEFAULT_EMITTER_MODES: EmitterModes = {
     radiusPx: 8,
     angularVelocityRadPerSec: 0.6,
     radiusFadeInSeconds: 0.35,
+    movingRadiusScale: 0.2,
     baseIntensity: 0.15,
   },
   orbit_rect: {

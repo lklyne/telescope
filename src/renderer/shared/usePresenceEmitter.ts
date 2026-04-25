@@ -43,6 +43,7 @@ function toParticleCursor(o: MachineCursorOutput): PresenceParticleCursor {
     intensity: o.intensity,
     emitterMode: o.mode,
     targetRect: o.targetRect,
+    isMoving: o.isMoving,
   }
 }
 

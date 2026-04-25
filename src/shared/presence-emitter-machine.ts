@@ -24,6 +24,10 @@ export interface OrbitSphereParams {
   radiusPx: number
   angularVelocityRadPerSec: number
   radiusFadeInSeconds: number
+  // Multiplier on the orbit radius while the cursor is moving. Smoothly
+  // lerped CPU-side, so the sphere collapses to a tight ball around the
+  // cursor and re-expands when it settles. 1 = unchanged.
+  movingRadiusScale: number
   baseIntensity: number
 }
 
@@ -79,6 +83,7 @@ export interface MachineCursorOutput {
   mode: EmitterMode
   intensity: number
   targetRect: PresenceEmitterRect | null
+  isMoving: boolean
 }
 
 export interface MachineFlushResult {
@@ -176,9 +181,11 @@ export function createPresenceEmitterMachine(
         lockedY: input.y,
       }
       if (config.exitEffect === 'burst') {
-        // Target the outgoing layer so the orbit particles that are about to
-        // fade are the ones that burst.
-        pendingBursts.push(`${input.cursorId}:out`)
+        // Target the unsuffixed slot — that's where the in-flight orbit
+        // particles live. The :out crossfade slot is freshly allocated by
+        // the particle system on transition start, so it has no particles
+        // to convert.
+        pendingBursts.push(input.cursorId)
       }
     }
   }
@@ -201,6 +208,7 @@ export function createPresenceEmitterMachine(
         mode: state.transition.fromMode,
         intensity: baseIntensity(opts.modes, state.transition.fromMode) * (1 - eased),
         targetRect: null,
+        isMoving: input.isMoving,
       })
       outputs.push({
         id: `${input.cursorId}:in`,
@@ -210,6 +218,7 @@ export function createPresenceEmitterMachine(
         mode: state.transition.toMode,
         intensity: baseIntensity(opts.modes, state.transition.toMode) * eased,
         targetRect: input.targetRect,
+        isMoving: input.isMoving,
       })
     } else {
       outputs.push({
@@ -220,6 +229,7 @@ export function createPresenceEmitterMachine(
         mode: state.currentMode,
         intensity: baseIntensity(opts.modes, state.currentMode),
         targetRect: input.targetRect,
+        isMoving: input.isMoving,
       })
     }
   }
@@ -265,14 +275,7 @@ export function createPresenceEmitterMachine(
       if (!seen.has(id)) states.delete(id)
     }
 
-    const bursts = pendingBursts.slice().map((id) => {
-      // If id already has a :out or :in suffix (e.g., from exitEffect), keep as-is.
-      if (id.endsWith(':out') || id.endsWith(':in')) return id
-      // Otherwise, route to the dominant layer based on state.
-      const state = states.get(id)
-      if (state?.transition) return `${id}:in`
-      return id
-    })
+    const bursts = pendingBursts.slice()
     pendingBursts.length = 0
     return { outputs, bursts }
   }
@@ -283,7 +286,12 @@ export function createPresenceEmitterMachine(
     },
     flush,
     triggerBurst(cursorId) {
-      pendingBursts.push(cursorId)
+      // Resolve routing now: if the cursor is mid-transition, the visible
+      // particles for that id live in the :in slot (the unsuffixed slot is
+      // in grace with intensity=0). Otherwise the unsuffixed slot is where
+      // the particles are.
+      const state = states.get(cursorId)
+      pendingBursts.push(state?.transition ? `${cursorId}:in` : cursorId)
     },
   }
 }

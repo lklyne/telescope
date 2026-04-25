@@ -26,6 +26,7 @@ const MODES: EmitterModes = {
     radiusPx: 8,
     angularVelocityRadPerSec: 0.6,
     radiusFadeInSeconds: 0.35,
+    movingRadiusScale: 0.2,
     baseIntensity: 0.15,
   },
   orbit_rect: {
@@ -250,10 +251,10 @@ describe('createPresenceEmitterMachine — burst routing', () => {
       [input({ desiredMode: 'trail', isMoving: true })],
       16,
     )
-    expect(bursts).toEqual(['c1:out'])
+    expect(bursts).toEqual(['c1'])
   })
 
-  it('targets the outgoing layer when bursting mid-transition', () => {
+  it('targets the unsuffixed slot on transition-exit burst', () => {
     const machine = createPresenceEmitterMachine({
       modes: MODES,
       transitions: {
@@ -261,14 +262,14 @@ describe('createPresenceEmitterMachine — burst routing', () => {
       },
     })
     machine.flush([input({ desiredMode: 'orbit_sphere', isMoving: false })], 16)
-    // Transition starts — this call enqueues an exit burst. The burst id should
-    // match the outgoing layer id ('c1:out') so the particle system targets
-    // the orbit particles that are about to fade.
+    // Transition starts — exitEffect targets the unsuffixed slot, where the
+    // in-flight orbit particles live. The :out crossfade slot is a fresh
+    // allocation with no particles to convert.
     const { bursts } = machine.flush(
       [input({ desiredMode: 'trail', isMoving: true })],
       16,
     )
-    expect(bursts).toEqual(['c1:out'])
+    expect(bursts).toEqual(['c1'])
   })
 
   it('rewrites imperative burst id to :in layer during transition', () => {

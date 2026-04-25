@@ -41,6 +41,7 @@ const PARTICLE_MODE_BURST = 3
 const ORBIT_SPHERE_RADIUS_PX = 8
 const ORBIT_SPHERE_ANGULAR_VELOCITY = 0.6
 const ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS = 0.35
+const ORBIT_SPHERE_MOVING_RADIUS_SCALE = 0.2
 
 // Orbit rect tuning defaults.
 const ORBIT_RECT_CROSS_JITTER_PX = 5
@@ -102,6 +103,12 @@ export interface PresenceParticleCursor {
    * coordinate frame as (x, y). Ignored by other modes.
    */
   targetRect?: PresenceParticleTargetRect | null
+  /**
+   * Drives the per-cursor orbit radius scale: true → lerps toward
+   * `orbitSphereMovingRadiusScale`, false → lerps back to 1. Defaults to
+   * false when omitted.
+   */
+  isMoving?: boolean
 }
 
 interface Props {
@@ -140,6 +147,11 @@ interface Props {
   orbitSphereRadiusPx?: number
   orbitSphereAngularVelocityRadPerSec?: number
   orbitSphereRadiusFadeInSeconds?: number
+  /**
+   * Multiplier applied to the orbit radius while a cursor reports
+   * `isMoving=true`. Smoothly lerped CPU-side. Defaults to 0.2.
+   */
+  orbitSphereMovingRadiusScale?: number
   /** Orbit rect tuning. */
   orbitRectCrossJitterPx?: number
   orbitRectAngularVelocityRadPerSec?: number
@@ -233,6 +245,7 @@ function buildSystem(initial: {
   orbitSphereRadiusPx: number
   orbitSphereAngularVelocity: number
   orbitSphereRadiusFadeInSeconds: number
+  orbitSphereMovingRadiusScale: number
   orbitRectCrossJitterPx: number
   orbitRectAngularVelocity: number
   orbitRectFadeInSeconds: number
@@ -305,9 +318,22 @@ function buildSystem(initial: {
   const cursorTargetRect = uniformArray(
     Array.from({ length: MAX_CURSORS }, () => new THREE.Vector4(0, 0, 0, 0)),
   )
-  // Burst trigger: when burstCursorIdx >= 0, the convert kernel runs this
-  // frame for that cursor's orbit particles. CPU sets, reads nothing back.
+  // Per-cursor orbit-radius scale. Smoothly lerps toward
+  // orbitSphereMovingRadiusScaleU when the cursor reports isMoving=true,
+  // back to 1 when it stops. Sim kernel multiplies the orbit_sphere
+  // radius by this so the sphere collapses to a tight ball during motion.
+  const cursorOrbitRadiusScale = uniformArray(
+    Array.from({ length: MAX_CURSORS }, () => 1),
+  )
+  const cursorRadiusScaleStates = Array.from({ length: MAX_CURSORS }, () => ({
+    current: 1,
+    target: 1,
+  }))
+  // Burst trigger: stepCompute pumps queued slot indices through this
+  // single uniform, dispatching the convert kernel once per index, so
+  // multiple bursts queued in the same frame don't overwrite each other.
   const burstCursorIdxU = uniform(-1, 'int')
+  const pendingBurstSlots: number[] = []
   const emitSpeedReferenceU = uniform(initial.emitSpeedReferencePxPerSec)
   const emitSpeedBiasU = uniform(initial.emitSpeedBias)
   const clampedInitialEmits = Math.max(
@@ -345,6 +371,7 @@ function buildSystem(initial: {
   const orbitSphereRadiusU = uniform(initial.orbitSphereRadiusPx)
   const orbitSphereAngularVelocityU = uniform(initial.orbitSphereAngularVelocity)
   const orbitSphereRadiusFadeInU = uniform(initial.orbitSphereRadiusFadeInSeconds)
+  const orbitSphereMovingRadiusScaleU = uniform(initial.orbitSphereMovingRadiusScale)
   const orbitRectCrossJitterU = uniform(initial.orbitRectCrossJitterPx)
   const orbitRectAngularVelocityU = uniform(initial.orbitRectAngularVelocity)
   const orbitRectFadeInU = uniform(initial.orbitRectFadeInSeconds)
@@ -519,7 +546,8 @@ function buildSystem(initial: {
           const lon = lonInit.add(cursorAngle.mul(velMult))
           const cosLat = float(1).sub(sinLat.mul(sinLat)).max(0).sqrt()
           const radiusT = smoothstep(float(0), orbitSphereRadiusFadeInU, age)
-          const effectiveR = radius.mul(radiusT)
+          const radiusScale = cursorOrbitRadiusScale.element(cIdx)
+          const effectiveR = radius.mul(radiusT).mul(radiusScale)
           const ox = effectiveR.mul(cosLat).mul(lon.cos())
           const oz = effectiveR.mul(cosLat).mul(lon.sin())
           const oy = effectiveR.mul(sinLat)
@@ -764,13 +792,26 @@ function buildSystem(initial: {
       }
     }
 
-    // Burst conversion dispatches before spawn/sim so new orbit particles
-    // emitted this frame aren't immediately converted. burstCursorIdxU < 0
-    // makes the kernel a no-op.
-    if (burstCursorIdxU.value >= 0) {
-      renderer.compute(convertToBurstKernel)
-      burstCursorIdxU.value = -1
+    // Smoothly lerp each cursor's orbit-radius scale toward its target.
+    // Half-life ~46ms at rate=15 — fast enough to track a click-and-drag,
+    // gentle enough to avoid a snap on threshold flips.
+    const radiusLerpRate = 15
+    const radiusBlend = 1 - Math.exp(-dt * radiusLerpRate)
+    for (let i = 0; i < MAX_CURSORS; i++) {
+      const s = cursorRadiusScaleStates[i]
+      s.current += (s.target - s.current) * radiusBlend
+      cursorOrbitRadiusScale.array[i] = s.current
     }
+
+    // Burst conversion dispatches before spawn/sim so new orbit particles
+    // emitted this frame aren't immediately converted. Drain the queue —
+    // multiple slots may have been bursted in one frame (e.g., a transition
+    // exit-burst plus an imperative click-burst).
+    while (pendingBurstSlots.length > 0) {
+      burstCursorIdxU.value = pendingBurstSlots.shift()!
+      renderer.compute(convertToBurstKernel)
+    }
+    burstCursorIdxU.value = -1
     renderer.compute(spawnKernel)
     renderer.compute(simulateKernel)
     writeHeadJS = (writeHeadJS + emitPerFrameU.value * MAX_CURSORS) % activePoolSize
@@ -855,6 +896,11 @@ function buildSystem(initial: {
               : orbitSphereAngularVelocityU.value
           cursorOrbitAngularVelocity[slot] = baseAngularVelocity * (0.7 + 0.6 * h)
           cursorOrbitAngle.array[slot] = h * Math.PI * 2
+          // Snap radius scale to the target so a brand-new slot doesn't
+          // animate from a stale prior value (e.g., last cursor's state).
+          const initialTarget = c.isMoving ? orbitSphereMovingRadiusScaleU.value : 1
+          cursorRadiusScaleStates[slot].current = initialTarget
+          cursorRadiusScaleStates[slot].target = initialTarget
         }
         cursorPos.array[slot].set(c.x, c.y)
         cursorColor.array[slot].set(c.color)
@@ -865,6 +911,9 @@ function buildSystem(initial: {
             : c.emitterMode === 'orbit_rect'
               ? PARTICLE_MODE_ORBIT_RECT
               : PARTICLE_MODE_TRAIL
+        cursorRadiusScaleStates[slot].target = c.isMoving
+          ? orbitSphereMovingRadiusScaleU.value
+          : 1
         if (c.emitterMode === 'orbit_rect' && c.targetRect) {
           cursorTargetRect.array[slot].set(
             c.targetRect.x,
@@ -901,7 +950,7 @@ function buildSystem(initial: {
     triggerBurst(id: string) {
       const idx = cursorIndexById.get(id)
       if (idx === undefined) return
-      burstCursorIdxU.value = idx
+      pendingBurstSlots.push(idx)
     },
     setParams(p) {
       holdU.value = p.holdSeconds
@@ -958,6 +1007,7 @@ export function PresenceParticleTrail({
   orbitSphereRadiusPx = ORBIT_SPHERE_RADIUS_PX,
   orbitSphereAngularVelocityRadPerSec = ORBIT_SPHERE_ANGULAR_VELOCITY,
   orbitSphereRadiusFadeInSeconds = ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS,
+  orbitSphereMovingRadiusScale = ORBIT_SPHERE_MOVING_RADIUS_SCALE,
   orbitRectCrossJitterPx = ORBIT_RECT_CROSS_JITTER_PX,
   orbitRectAngularVelocityRadPerSec = ORBIT_SPHERE_ANGULAR_VELOCITY,
   orbitRectFadeInSeconds = ORBIT_RECT_FADE_IN_SECONDS,
@@ -1027,6 +1077,7 @@ export function PresenceParticleTrail({
           orbitSphereRadiusPx,
           orbitSphereAngularVelocity: orbitSphereAngularVelocityRadPerSec,
           orbitSphereRadiusFadeInSeconds,
+          orbitSphereMovingRadiusScale,
           orbitRectCrossJitterPx,
           orbitRectAngularVelocity: orbitRectAngularVelocityRadPerSec,
           orbitRectFadeInSeconds,

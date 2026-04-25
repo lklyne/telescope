@@ -51,26 +51,14 @@ const MODE_SELECTION_OPTIONS: Array<{
   { value: 'orbit_rect', label: 'Orbit rect', hint: 'Force' },
 ]
 
-// Playground transitions disperse via a slow burst on exit — the existing
-// burst kernel converts orbit particles to outward-velocity drift, but with
-// the playground burst tuning below it reads as a gentle scatter rather
-// than the pop the production tuning produces.
+// Playground transitions crossfade without burst. The orbit_sphere keeps
+// its particles during the move and shrinks via movingRadiusScale instead;
+// the manual Burst button is the only way to fire a radial dispersal here.
 const PLAYGROUND_TRANSITION_TABLE: TransitionTable = {
-  default: { durationMs: 250, exitEffect: 'burst', easing: 'ease-in-out' },
+  default: { durationMs: 250, exitEffect: 'fade', easing: 'ease-in-out' },
 }
 
-// Override only the burst tuning; everything else inherits production
-// defaults. Slower outward speed + longer lifetime + softer drag → the
-// dispersing ball drifts apart over ~2s instead of popping in 0.7s.
-const PLAYGROUND_MODES: EmitterModes = {
-  ...DEFAULT_EMITTER_MODES,
-  burst: {
-    speedPxPerSec: 70,
-    speedJitter: 0.3,
-    lifetimeSeconds: 2.0,
-    dragPerSecond: 0.6,
-  },
-}
+const PLAYGROUND_MODES: EmitterModes = DEFAULT_EMITTER_MODES
 
 // Demo rect that's always visible. Clicks inside/outside drive the targetRect
 // signal so auto mode can select orbit_rect vs orbit_sphere accordingly.
@@ -354,6 +342,9 @@ export function PresencePlayground({
           }
           orbitSphereRadiusFadeInSeconds={
             PLAYGROUND_MODES.orbit_sphere.radiusFadeInSeconds
+          }
+          orbitSphereMovingRadiusScale={
+            PLAYGROUND_MODES.orbit_sphere.movingRadiusScale
           }
           orbitRectCrossJitterPx={PLAYGROUND_MODES.orbit_rect.crossJitterPx}
           orbitRectAngularVelocityRadPerSec={

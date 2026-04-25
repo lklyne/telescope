@@ -113,6 +113,11 @@ interface ActiveTransition {
   toMode: EmitterMode
   elapsedMs: number
   config: TransitionConfig
+  // Position the cursor was at when the transition started. The outgoing
+  // layer is anchored here so the dispersing mode dissipates from where it
+  // lived rather than chasing the cursor's new position.
+  lockedX: number
+  lockedY: number
 }
 
 interface CursorState {
@@ -173,6 +178,11 @@ export function createPresenceEmitterMachine(
         toMode: input.desiredMode,
         elapsedMs: 0,
         config,
+        // Lock the outgoing layer to the position the cursor was at when the
+        // transition started — so the dispersing mode dissipates from where
+        // it lived rather than chasing the cursor's new position.
+        lockedX: input.x,
+        lockedY: input.y,
       }
       if (config.exitEffect === 'burst') {
         // Target the outgoing layer so the orbit particles that are about to
@@ -192,8 +202,10 @@ export function createPresenceEmitterMachine(
       const eased = applyEase(t, state.transition.config.easing)
       outputs.push({
         id: `${input.cursorId}:out`,
-        x: input.x,
-        y: input.y,
+        // Outgoing layer stays at the locked transition-start position so
+        // the dispersing mode doesn't track the moving cursor.
+        x: state.transition.lockedX,
+        y: state.transition.lockedY,
         color: input.color,
         mode: state.transition.fromMode,
         intensity: baseIntensity(opts.modes, state.transition.fromMode) * (1 - eased),

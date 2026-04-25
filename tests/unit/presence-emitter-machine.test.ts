@@ -153,6 +153,25 @@ describe('createPresenceEmitterMachine — transitions', () => {
     expect(outLayer.targetRect).toBeNull()
   })
 
+  it('locks the outgoing layer position at transition start', () => {
+    const machine = setup()
+    // Stationary at (100, 100). Trigger transition to orbit_sphere.
+    machine.update([input({ desiredMode: 'orbit_sphere', isMoving: false, x: 100, y: 100 })], 50)
+    // Cursor moves to (300, 400) while transition is in flight.
+    const out = machine.update(
+      [input({ desiredMode: 'orbit_sphere', isMoving: false, x: 300, y: 400 })],
+      50,
+    )
+    const outLayer = out.find((o) => o.id === 'c1:out')!
+    const inLayer = out.find((o) => o.id === 'c1:in')!
+    // :out stays anchored where the transition started.
+    expect(outLayer.x).toBe(100)
+    expect(outLayer.y).toBe(100)
+    // :in tracks the live cursor.
+    expect(inLayer.x).toBe(300)
+    expect(inLayer.y).toBe(400)
+  })
+
   it('honors per-edge transition config when provided', () => {
     const machine = createPresenceEmitterMachine({
       modes: MODES,

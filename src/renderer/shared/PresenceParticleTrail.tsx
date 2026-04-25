@@ -35,6 +35,7 @@ const PARTICLE_MODE_TRAIL = 0
 const PARTICLE_MODE_ORBIT_SPHERE = 1
 const PARTICLE_MODE_ORBIT_RECT = 2
 const PARTICLE_MODE_BURST = 3
+const PARTICLE_MODE_COALESCE = 4
 
 // Orbit sphere tuning defaults. These are used as the fallback when the
 // corresponding props are not supplied. See Props for the prop names.
@@ -52,6 +53,7 @@ const BURST_SPEED_PX_PER_SEC = 360
 const BURST_SPEED_JITTER = 0.25 // ± fraction of base speed
 const BURST_LIFETIME_SECONDS = 0.7
 const BURST_DRAG_PER_SECOND = 1.8
+const CLICK_COALESCE_SECONDS = 0.12
 
 // Spawn threshold multiplier for orbit cursors. Tuned so the sphere holds
 // ~300 particles in flight at the default 2.5s lifetime — dense enough to
@@ -109,6 +111,10 @@ export interface PresenceParticleCursor {
    * false when omitted.
    */
   isMoving?: boolean
+  /** Multiplies the orbit radius for visual-state variants. */
+  orbitRadiusScale?: number
+  /** Multiplies the per-cursor orbit angular velocity for visual-state variants. */
+  orbitAngularVelocityScale?: number
 }
 
 interface Props {
@@ -329,11 +335,13 @@ function buildSystem(initial: {
     current: 1,
     target: 1,
   }))
-  // Burst trigger: stepCompute pumps queued slot indices through this
-  // single uniform, dispatching the convert kernel once per index, so
-  // multiple bursts queued in the same frame don't overwrite each other.
+  const cursorVisualRadiusScale = new Float64Array(MAX_CURSORS).fill(1)
+  const cursorVisualAngularVelocityScale = new Float64Array(MAX_CURSORS).fill(1)
+  // Click feedback is two-phase: coalesce existing particles toward the
+  // cursor tip, then convert that gathered population to a radial burst.
   const burstCursorIdxU = uniform(-1, 'int')
-  const pendingBurstSlots: number[] = []
+  const pendingCoalesceStartSlots: number[] = []
+  const pendingCoalesceSlots: Array<{ slot: number; releaseAtSeconds: number }> = []
   const emitSpeedReferenceU = uniform(initial.emitSpeedReferencePxPerSec)
   const emitSpeedBiasU = uniform(initial.emitSpeedBias)
   const clampedInitialEmits = Math.max(
@@ -379,6 +387,7 @@ function buildSystem(initial: {
   const burstSpeedJitterU = uniform(initial.burstSpeedJitter)
   const burstLifetimeU = uniform(initial.burstLifetimeSeconds)
   const burstDragU = uniform(initial.burstDragPerSecond)
+  const coalesceSecondsU = uniform(CLICK_COALESCE_SECONDS)
   const timeU = uniform(0)
   const poolSizeU = uniform(
     Math.max(64, Math.min(MAX_POOL_SIZE, initial.particleCount)),
@@ -638,24 +647,49 @@ function buildSystem(initial: {
           vel.assign(vel.mul(drag))
           pos.addAssign(vel.mul(deltaU))
         })
+        .ElseIf(mode.equal(float(PARTICLE_MODE_COALESCE)), () => {
+          // Click coalescence: current particles gather at the cursor tip
+          // before a separate kernel releases them into burst mode.
+          const cIdx = uint(state.y)
+          const cursor = cursorPos.element(cIdx)
+          const t = smoothstep(float(0), coalesceSecondsU, age)
+          pos.assign(vec3(mix(pos.x, cursor.x, t), mix(pos.y, cursor.y, t), float(0)))
+          vel.assign(vec3(0, 0, 0))
+        })
       state.x.assign(age)
     })
   })().compute(MAX_POOL_SIZE)
 
-  // Convert orbit_sphere / orbit_rect particles owned by burstCursorIdx into
-  // burst mode: radial velocity outward from cursor, small speed jitter, age
-  // reset so the burst fade-in starts fresh. Dispatched on demand by
-  // triggerBurst(); no-op when burstCursorIdxU < 0.
+  const convertToCoalesceKernel = Fn(() => {
+    const state = stateBuffer.element(instanceIndex)
+    const vel = velocityBuffer.element(instanceIndex)
+    const mode = state.z
+    const cIdx = state.y
+    const isLiveVisualParticle = mode
+      .equal(float(PARTICLE_MODE_TRAIL))
+      .or(mode.equal(float(PARTICLE_MODE_ORBIT_SPHERE)))
+      .or(mode.equal(float(PARTICLE_MODE_ORBIT_RECT)))
+      .or(mode.equal(float(PARTICLE_MODE_COALESCE)))
+    const matches = isLiveVisualParticle.and(
+      cIdx.equal(float(burstCursorIdxU)).and(burstCursorIdxU.greaterThanEqual(0)),
+    )
+    If(matches, () => {
+      state.z.assign(float(PARTICLE_MODE_COALESCE))
+      state.x.assign(float(0))
+      vel.assign(vec3(0, 0, 0))
+    })
+  })().compute(MAX_POOL_SIZE)
+
+  // Convert gathered particles owned by burstCursorIdx into burst mode:
+  // radial velocity outward from cursor, small speed jitter, age reset so
+  // the burst fade-out curve starts fresh.
   const convertToBurstKernel = Fn(() => {
     const state = stateBuffer.element(instanceIndex)
     const pos = positionBuffer.element(instanceIndex)
     const vel = velocityBuffer.element(instanceIndex)
     const mode = state.z
     const cIdx = state.y
-    const isOrbit = mode
-      .equal(float(PARTICLE_MODE_ORBIT_SPHERE))
-      .or(mode.equal(float(PARTICLE_MODE_ORBIT_RECT)))
-    const matches = isOrbit.and(
+    const matches = mode.equal(float(PARTICLE_MODE_COALESCE)).and(
       cIdx.equal(float(burstCursorIdxU)).and(burstCursorIdxU.greaterThanEqual(0)),
     )
     If(matches, () => {
@@ -696,7 +730,10 @@ function buildSystem(initial: {
   const effectiveLifetimeFor = (mode: ReturnType<typeof float>) =>
     mode
       .equal(float(PARTICLE_MODE_BURST))
-      .select(burstLifetimeU, lifetimeU)
+      .select(
+        burstLifetimeU,
+        mode.equal(float(PARTICLE_MODE_COALESCE)).select(coalesceSecondsU, lifetimeU),
+      )
 
   material.positionNode = Fn(() => {
     const state = stateBuffer.toAttribute()
@@ -777,7 +814,8 @@ function buildSystem(initial: {
           // Orbit modes bypass the speed gate — emission should continue
           // while the cursor sits still thinking/inspecting.
           cursorEmitScale.array[i] = 1
-          cursorOrbitAngle.array[i] += cursorOrbitAngularVelocity[i] * dt
+          cursorOrbitAngle.array[i] +=
+            cursorOrbitAngularVelocity[i] * cursorVisualAngularVelocityScale[i] * dt
         } else {
           const curr = cursorPos.array[i]
           const prev = cursorPrevPos.array[i]
@@ -803,12 +841,29 @@ function buildSystem(initial: {
       cursorOrbitRadiusScale.array[i] = s.current
     }
 
-    // Burst conversion dispatches before spawn/sim so new orbit particles
-    // emitted this frame aren't immediately converted. Drain the queue —
-    // multiple slots may have been bursted in one frame (e.g., a transition
-    // exit-burst plus an imperative click-burst).
-    while (pendingBurstSlots.length > 0) {
-      burstCursorIdxU.value = pendingBurstSlots.shift()!
+    const startCoalesceSlots = pendingCoalesceStartSlots.splice(0)
+    while (startCoalesceSlots.length > 0) {
+      const slot = startCoalesceSlots.shift()!
+      burstCursorIdxU.value = slot
+      renderer.compute(convertToCoalesceKernel)
+      pendingCoalesceSlots.push({
+        slot,
+        releaseAtSeconds: timeU.value + CLICK_COALESCE_SECONDS,
+      })
+    }
+
+    const dueBurstSlots: number[] = []
+    for (let i = pendingCoalesceSlots.length - 1; i >= 0; i--) {
+      if (timeU.value >= pendingCoalesceSlots[i].releaseAtSeconds) {
+        dueBurstSlots.push(pendingCoalesceSlots[i].slot)
+        pendingCoalesceSlots.splice(i, 1)
+      }
+    }
+
+    // Click conversion dispatches before spawn/sim so particles emitted this
+    // frame don't immediately join an already-started click event.
+    while (dueBurstSlots.length > 0) {
+      burstCursorIdxU.value = dueBurstSlots.shift()!
       renderer.compute(convertToBurstKernel)
     }
     burstCursorIdxU.value = -1
@@ -911,9 +966,11 @@ function buildSystem(initial: {
             : c.emitterMode === 'orbit_rect'
               ? PARTICLE_MODE_ORBIT_RECT
               : PARTICLE_MODE_TRAIL
-        cursorRadiusScaleStates[slot].target = c.isMoving
-          ? orbitSphereMovingRadiusScaleU.value
-          : 1
+        cursorVisualRadiusScale[slot] = c.orbitRadiusScale ?? 1
+        cursorVisualAngularVelocityScale[slot] = c.orbitAngularVelocityScale ?? 1
+        cursorRadiusScaleStates[slot].target =
+          (c.isMoving ? orbitSphereMovingRadiusScaleU.value : 1) *
+          cursorVisualRadiusScale[slot]
         if (c.emitterMode === 'orbit_rect' && c.targetRect) {
           cursorTargetRect.array[slot].set(
             c.targetRect.x,
@@ -950,7 +1007,7 @@ function buildSystem(initial: {
     triggerBurst(id: string) {
       const idx = cursorIndexById.get(id)
       if (idx === undefined) return
-      pendingBurstSlots.push(idx)
+      pendingCoalesceStartSlots.push(idx)
     },
     setParams(p) {
       holdU.value = p.holdSeconds

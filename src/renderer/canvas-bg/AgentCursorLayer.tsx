@@ -15,16 +15,14 @@ import {
 } from '../../shared/cursor-motion'
 import { foldSpline } from '../../shared/cursor-spline'
 import { framePointMatchesTargetRect } from '../../shared/presence-targeting'
+import { PRESENCE_TRAVEL_MS } from '../../shared/presence-timing'
 import {
-  PRESENCE_TRAVEL_MS,
-  PRESENCE_STEP_DELAY_MS,
-} from '../../shared/presence-timing'
-import { defaultAutoPolicy } from '../../shared/presence-emitter-policy'
-import {
-  DEFAULT_EMITTER_MODES,
-  DEFAULT_TRANSITION_TABLE,
-} from '../../shared/presence-emitter-config'
-import { usePresenceEmitter } from '../shared/usePresenceEmitter'
+  DEFAULT_PRESENCE_CHOREOGRAPHY_MODES,
+  DEFAULT_PRESENCE_TRANSITIONS,
+  DEFAULT_PRESENCE_VISUAL_STATES,
+} from '../../shared/presence-choreography-config'
+import { defaultPresenceChoreographyPolicy } from '../../shared/presence-choreography-policy'
+import { usePresenceChoreography } from '../shared/usePresenceChoreography'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
   CURSOR_TRAIL_OFFSET,
@@ -137,29 +135,6 @@ function TargetHalo({
   )
 }
 
-const RIPPLE_SIZE = 96
-const RIPPLE_DURATION_MS = 100
-
-const RIPPLE_DELAY_MS = PRESENCE_STEP_DELAY_MS - RIPPLE_DURATION_MS
-
-function ClickRipple({ color }: { color: string }) {
-  return (
-    <div
-      className="absolute rounded-full"
-      style={{
-        width: RIPPLE_SIZE,
-        height: RIPPLE_SIZE,
-        left: -(RIPPLE_SIZE / 2),
-        top: -(RIPPLE_SIZE / 2),
-        background: `color-mix(in srgb, ${color} 40%, transparent)`,
-        animation: `agent-click-ripple ${RIPPLE_DURATION_MS}ms ease-out ${RIPPLE_DELAY_MS}ms forwards`,
-        opacity: 0,
-        pointerEvents: 'none',
-      }}
-    />
-  )
-}
-
 function AgentCursor({
   cursor,
   point,
@@ -172,20 +147,6 @@ function AgentCursor({
   showLabel: boolean
 }) {
   const label = labelForPresenceCursor(cursor)
-  const [rippleKey, setRippleKey] = useState<number | null>(null)
-  const rippleCounterRef = useRef(0)
-  const prevActivity = useRef(cursor.activity)
-
-  useEffect(() => {
-    const wasClick =
-      cursor.activity === 'acting' &&
-      cursor.labelKey === 'click_target' &&
-      prevActivity.current !== 'acting'
-    prevActivity.current = cursor.activity
-    if (wasClick) {
-      setRippleKey(++rippleCounterRef.current)
-    }
-  }, [cursor.activity, cursor.labelKey])
 
   const positionStyle: CSSProperties = useMemo(
     () => ({
@@ -215,9 +176,6 @@ function AgentCursor({
     <div className="absolute" style={positionStyle}>
       <div style={counterScaleStyle}>
         <div style={activityTransformStyle}>
-          {rippleKey !== null && (
-            <ClickRipple key={rippleKey} color={cursor.color} />
-          )}
           <FilledCursorIcon color={cursor.color} size={24} />
           {showLabel && label ? (
             <div
@@ -433,13 +391,14 @@ export function AgentCursorLayer({
     push: emitterPush,
     controls: emitterControls,
     onReady: emitterOnReady,
-  } = usePresenceEmitter({
-    modes: DEFAULT_EMITTER_MODES,
-    transitions: DEFAULT_TRANSITION_TABLE,
+  } = usePresenceChoreography({
+    modes: DEFAULT_PRESENCE_CHOREOGRAPHY_MODES,
+    transitions: DEFAULT_PRESENCE_TRANSITIONS,
+    visualStates: DEFAULT_PRESENCE_VISUAL_STATES,
   })
 
-  // Track previous activity per cursor so we can fire burst on the same
-  // activity→acting+click_target transition that already drives ClickRipple.
+  // Track previous activity per cursor so click remains a one-shot visual
+  // event rather than a durable presence state.
   const prevActivityRef = useRef<Map<string, PresenceActivity>>(new Map())
 
   useEffect(() => {
@@ -447,18 +406,18 @@ export function AgentCursorLayer({
       const frame = cursor.frameId
         ? (frames.find((f) => f.id === cursor.frameId) ?? null)
         : null
-      const desiredBase = defaultAutoPolicy.pick({
+      const visualStateBase = defaultPresenceChoreographyPolicy.pick({
         isMoving: isAnimating,
         targetRect: null,
         activity: cursor.activity,
         labelKey: cursor.labelKey,
       })
       const targetRect =
-        desiredBase === 'orbit_rect'
+        visualStateBase === 'inspecting'
           ? resolveTargetRectScreen(cursor, frame, overlayOffsetY)
           : null
       // Re-pick with the resolved rect so the policy can downgrade if needed.
-      const desiredMode = defaultAutoPolicy.pick({
+      const visualState = defaultPresenceChoreographyPolicy.pick({
         isMoving: isAnimating,
         targetRect,
         activity: cursor.activity,
@@ -474,7 +433,7 @@ export function AgentCursorLayer({
           point.y * zoom +
           CURSOR_TRAIL_OFFSET.y,
         color: cursor.color,
-        desiredMode,
+        visualState,
         targetRect,
         isMoving: isAnimating,
       }
@@ -484,6 +443,9 @@ export function AgentCursorLayer({
 
   useEffect(() => {
     const prev = prevActivityRef.current
+    const animatedById = new Map(
+      animated.map(({ cursor, point }) => [cursor.sessionId, point]),
+    )
     for (const cursor of cursors) {
       const last = prev.get(cursor.sessionId)
       const justClicked =
@@ -491,7 +453,22 @@ export function AgentCursorLayer({
         cursor.labelKey === 'click_target' &&
         last !== 'acting'
       if (justClicked) {
-        emitterControls.triggerBurst(cursor.sessionId)
+        const point = animatedById.get(cursor.sessionId) ?? {
+          x: cursor.canvasX,
+          y: cursor.canvasY,
+        }
+        emitterControls.triggerEvent(cursor.sessionId, {
+          type: 'click',
+          at: {
+            x: canvasOrigin.x + pan.x + point.x * zoom + CURSOR_TRAIL_OFFSET.x,
+            y:
+              canvasOrigin.y +
+              pan.y -
+              overlayOffsetY +
+              point.y * zoom +
+              CURSOR_TRAIL_OFFSET.y,
+          },
+        })
       }
       prev.set(cursor.sessionId, cursor.activity)
     }
@@ -499,7 +476,7 @@ export function AgentCursorLayer({
     for (const id of prev.keys()) {
       if (!active.has(id)) prev.delete(id)
     }
-  }, [cursors, emitterControls])
+  }, [cursors, animated, emitterControls, canvasOrigin, pan, zoom, overlayOffsetY])
 
   if (cursors.length === 0) return null
 
@@ -510,43 +487,43 @@ export function AgentCursorLayer({
     >
       <style>
         {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-@keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(1); opacity: 0; } }`}
+`}
       </style>
       <PresenceParticleTrail
         onReady={emitterOnReady}
-        orbitSphereRadiusPx={DEFAULT_EMITTER_MODES.orbit_sphere.radiusPx}
+        orbitSphereRadiusPx={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.orbit_sphere.radiusPx}
         orbitSphereAngularVelocityRadPerSec={
-          DEFAULT_EMITTER_MODES.orbit_sphere.angularVelocityRadPerSec
+          DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.orbit_sphere.angularVelocityRadPerSec
         }
         orbitSphereRadiusFadeInSeconds={
-          DEFAULT_EMITTER_MODES.orbit_sphere.radiusFadeInSeconds
+          DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.orbit_sphere.radiusFadeInSeconds
         }
         orbitSphereMovingRadiusScale={
-          DEFAULT_EMITTER_MODES.orbit_sphere.movingRadiusScale
+          DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.orbit_sphere.movingRadiusScale
         }
-        orbitRectCrossJitterPx={DEFAULT_EMITTER_MODES.orbit_rect.crossJitterPx}
+        orbitRectCrossJitterPx={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.orbit_rect.crossJitterPx}
         orbitRectAngularVelocityRadPerSec={
-          DEFAULT_EMITTER_MODES.orbit_rect.angularVelocityRadPerSec
+          DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.orbit_rect.angularVelocityRadPerSec
         }
-        orbitRectFadeInSeconds={DEFAULT_EMITTER_MODES.orbit_rect.fadeInSeconds}
-        burstSpeedPxPerSec={DEFAULT_EMITTER_MODES.burst.speedPxPerSec}
-        burstSpeedJitter={DEFAULT_EMITTER_MODES.burst.speedJitter}
-        burstLifetimeSeconds={DEFAULT_EMITTER_MODES.burst.lifetimeSeconds}
-        burstDragPerSecond={DEFAULT_EMITTER_MODES.burst.dragPerSecond}
-        lifetimeSeconds={DEFAULT_EMITTER_MODES.trail.lifetimeSeconds}
-        emitsPerFrame={DEFAULT_EMITTER_MODES.trail.emitsPerFrame}
+        orbitRectFadeInSeconds={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.orbit_rect.fadeInSeconds}
+        burstSpeedPxPerSec={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.burst.speedPxPerSec}
+        burstSpeedJitter={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.burst.speedJitter}
+        burstLifetimeSeconds={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.burst.lifetimeSeconds}
+        burstDragPerSecond={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.burst.dragPerSecond}
+        lifetimeSeconds={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.lifetimeSeconds}
+        emitsPerFrame={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.emitsPerFrame}
         emitSpeedReferencePxPerSec={
-          DEFAULT_EMITTER_MODES.trail.emitSpeedReferencePxPerSec
+          DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.emitSpeedReferencePxPerSec
         }
-        emitSpeedBias={DEFAULT_EMITTER_MODES.trail.emitSpeedBias}
-        driftStrength={DEFAULT_EMITTER_MODES.trail.driftStrength}
-        driftReferenceDistance={DEFAULT_EMITTER_MODES.trail.driftReferenceDistance}
-        driftTurnRate={DEFAULT_EMITTER_MODES.trail.driftTurnRate}
-        driftFlowScale={DEFAULT_EMITTER_MODES.trail.driftFlowScale}
-        holdSeconds={DEFAULT_EMITTER_MODES.trail.holdSeconds}
-        fadeOutGraceSeconds={DEFAULT_EMITTER_MODES.trail.fadeOutGraceSeconds}
-        fadeOutSeconds={DEFAULT_EMITTER_MODES.trail.fadeOutSeconds}
-        fadeOutEasing={DEFAULT_EMITTER_MODES.trail.fadeOutEasing}
+        emitSpeedBias={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.emitSpeedBias}
+        driftStrength={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.driftStrength}
+        driftReferenceDistance={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.driftReferenceDistance}
+        driftTurnRate={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.driftTurnRate}
+        driftFlowScale={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.driftFlowScale}
+        holdSeconds={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.holdSeconds}
+        fadeOutGraceSeconds={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.fadeOutGraceSeconds}
+        fadeOutSeconds={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.fadeOutSeconds}
+        fadeOutEasing={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.trail.fadeOutEasing}
       />
       {cursors.map((cursor) => (
         <TargetHalo

@@ -11,7 +11,7 @@
  * or a waypoint rect that's farther from the cursor than expected.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CursorTuningParams } from '../../shared/types'
 import { easeAt, type Vec2 } from '../../shared/cursor-motion'
 import { foldSpline, type CatmullRomSpline } from '../../shared/cursor-spline'
@@ -19,14 +19,20 @@ import {
   CURSOR_DISTANCE_REFERENCE_PX,
   distanceSpeedScale,
 } from '../../shared/cursor-tuning'
-import { defaultAutoPolicy } from '../../shared/presence-emitter-policy'
 import type {
-  EmitterMode,
-  EmitterModes,
-  TransitionTable,
-} from '../../shared/presence-emitter-machine'
-import { DEFAULT_EMITTER_MODES } from '../../shared/presence-emitter-config'
-import { usePresenceEmitter } from '../shared/usePresenceEmitter'
+  ChoreographyTransitionTable,
+  PresenceChoreographyModes,
+} from '../../shared/presence-choreography-config'
+import {
+  DEFAULT_PRESENCE_CHOREOGRAPHY_MODES,
+  DEFAULT_PRESENCE_VISUAL_STATES,
+} from '../../shared/presence-choreography-config'
+import { defaultPresenceChoreographyPolicy } from '../../shared/presence-choreography-policy'
+import type {
+  PresenceTransitionStrategy,
+  PresenceVisualState,
+} from '../../shared/presence-visual-state'
+import { usePresenceChoreography } from '../shared/usePresenceChoreography'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
   CURSOR_TRAIL_OFFSET,
@@ -36,29 +42,47 @@ import {
 
 type PlaygroundModeSelection =
   | 'auto'
-  | 'trail'
-  | 'orbit_sphere'
-  | 'orbit_rect'
+  | 'idle'
+  | 'moving'
+  | 'thinking'
+  | 'waiting'
+  | 'inspecting'
 
 const MODE_SELECTION_OPTIONS: Array<{
   value: PlaygroundModeSelection
   label: string
   hint: string
 }> = [
-  { value: 'auto', label: 'Auto', hint: 'Moving → trail, stationary → orbit' },
-  { value: 'trail', label: 'Trail', hint: 'Force' },
-  { value: 'orbit_sphere', label: 'Orbit sphere', hint: 'Force' },
-  { value: 'orbit_rect', label: 'Orbit rect', hint: 'Force' },
+  { value: 'auto', label: 'Auto', hint: 'Moving, idle, inspecting' },
+  { value: 'idle', label: 'Idle', hint: 'Sphere' },
+  { value: 'moving', label: 'Moving', hint: 'Trail' },
+  { value: 'thinking', label: 'Thinking', hint: 'Sphere variant' },
+  { value: 'waiting', label: 'Waiting', hint: 'Sphere variant' },
+  { value: 'inspecting', label: 'Inspecting', hint: 'Rect' },
 ]
 
-// Playground transitions crossfade without burst. The orbit_sphere keeps
-// its particles during the move and shrinks via movingRadiusScale instead;
-// the manual Burst button is the only way to fire a radial dispersal here.
-const PLAYGROUND_TRANSITION_TABLE: TransitionTable = {
-  default: { durationMs: 250, exitEffect: 'fade', easing: 'ease-in-out' },
+const TRANSITION_STRATEGY_OPTIONS: Array<{
+  value: PresenceTransitionStrategy
+  label: string
+}> = [
+  { value: 'default', label: 'Default' },
+  { value: 'stretch', label: 'Stretch' },
+  { value: 'burst', label: 'Burst' },
+  { value: 'crossfade', label: 'Crossfade' },
+  { value: 'direct-morph', label: 'Direct morph' },
+  { value: 'continuity', label: 'Continuity' },
+]
+
+const PLAYGROUND_TRANSITION_TABLE: ChoreographyTransitionTable = {
+  default: {
+    durationMs: 250,
+    strategy: 'crossfade',
+    exitEffect: 'fade',
+    easing: 'ease-in-out',
+  },
 }
 
-const PLAYGROUND_MODES: EmitterModes = DEFAULT_EMITTER_MODES
+const PLAYGROUND_MODES: PresenceChoreographyModes = DEFAULT_PRESENCE_CHOREOGRAPHY_MODES
 
 // Demo rect that's always visible. Clicks inside/outside drive the targetRect
 // signal so auto mode can select orbit_rect vs orbit_sphere accordingly.
@@ -154,6 +178,8 @@ export function PresencePlayground({
   const [displayPos, setDisplayPos] = useState<Vec2>({ x: 160, y: 160 })
   const [isTraveling, setIsTraveling] = useState(false)
   const [modeSelection, setModeSelection] = useState<PlaygroundModeSelection>('auto')
+  const [transitionStrategy, setTransitionStrategy] =
+    useState<PresenceTransitionStrategy>('default')
   const [rectActive, setRectActive] = useState(false)
   const [trails, setTrails] = useState<Trail[]>([])
   const [activeSplinePolyline, setActiveSplinePolyline] = useState<Vec2[] | null>(
@@ -270,20 +296,30 @@ export function PresencePlayground({
     ensureRaf()
   }
 
+  const playgroundTransitions = useMemo(
+    () => ({
+      ...PLAYGROUND_TRANSITION_TABLE,
+      overrideStrategy:
+        transitionStrategy === 'default' ? null : transitionStrategy,
+    }),
+    [transitionStrategy],
+  )
+
   const {
     push: emitterPush,
     controls: emitterControls,
     onReady: emitterOnReady,
-  } = usePresenceEmitter({
+  } = usePresenceChoreography({
     modes: PLAYGROUND_MODES,
-    transitions: PLAYGROUND_TRANSITION_TABLE,
+    transitions: playgroundTransitions,
+    visualStates: DEFAULT_PRESENCE_VISUAL_STATES,
   })
 
   useEffect(() => {
     const targetRect = rectActive ? DEMO_RECT : null
-    const desiredMode: EmitterMode =
+    const visualState: PresenceVisualState =
       modeSelection === 'auto'
-        ? defaultAutoPolicy.pick({ isMoving: isTraveling, targetRect })
+        ? defaultPresenceChoreographyPolicy.pick({ isMoving: isTraveling, targetRect })
         : modeSelection
     emitterPush([
       {
@@ -291,10 +327,10 @@ export function PresencePlayground({
         x: displayPos.x + trail.offsetX,
         y: displayPos.y + trail.offsetY,
         color: CURSOR_COLOR,
-        desiredMode,
-        targetRect,
+        visualState,
+        targetRect: visualState === 'inspecting' ? DEMO_RECT : targetRect,
         // Explicit override — we already know whether the cursor is tweening.
-        isMoving: isTraveling,
+        isMoving: visualState === 'moving' || isTraveling,
       },
     ])
   }, [
@@ -302,6 +338,7 @@ export function PresencePlayground({
     trail.offsetX,
     trail.offsetY,
     modeSelection,
+    transitionStrategy,
     isTraveling,
     rectActive,
     emitterPush,
@@ -369,7 +406,17 @@ export function PresencePlayground({
         <EmitterModeSelector
           selection={modeSelection}
           onChange={setModeSelection}
-          onTriggerBurst={() => emitterControls.triggerBurst('playground')}
+          transitionStrategy={transitionStrategy}
+          onTransitionStrategyChange={setTransitionStrategy}
+          onTriggerClick={() =>
+            emitterControls.triggerEvent('playground', {
+              type: 'click',
+              at: {
+                x: displayPos.x + trail.offsetX,
+                y: displayPos.y + trail.offsetY,
+              },
+            })
+          }
         />
         <StatsOverlay tuning={tuning} stats={stats} />
       </div>
@@ -468,17 +515,20 @@ function InstructionHint() {
 function EmitterModeSelector({
   selection,
   onChange,
-  onTriggerBurst,
+  transitionStrategy,
+  onTransitionStrategyChange,
+  onTriggerClick,
 }: {
   selection: PlaygroundModeSelection
   onChange: (next: PlaygroundModeSelection) => void
-  onTriggerBurst: () => void
+  transitionStrategy: PresenceTransitionStrategy
+  onTransitionStrategyChange: (next: PresenceTransitionStrategy) => void
+  onTriggerClick: () => void
 }) {
   const active = MODE_SELECTION_OPTIONS.find((o) => o.value === selection)
-  const canBurst = selection === 'orbit_sphere' || selection === 'orbit_rect' || selection === 'auto'
   return (
     <div
-      className="absolute left-4 top-12 flex items-center gap-2 rounded px-2 py-1 text-[11px]"
+      className="absolute left-4 top-12 flex flex-wrap items-center gap-2 rounded px-2 py-1 text-[11px]"
       style={{
         background: 'color-mix(in srgb, var(--surface-panel) 88%, transparent)',
       }}
@@ -496,21 +546,30 @@ function EmitterModeSelector({
         ))}
       </select>
       {active ? <span className="opacity-50">· {active.hint}</span> : null}
+      <span className="ml-1 opacity-60">Transition</span>
+      <select
+        value={transitionStrategy}
+        onChange={(e) =>
+          onTransitionStrategyChange(e.target.value as PresenceTransitionStrategy)
+        }
+        className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] dark:border-zinc-700 dark:bg-zinc-900"
+      >
+        {TRANSITION_STRATEGY_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          onTriggerBurst()
+          onTriggerClick()
         }}
-        disabled={!canBurst}
-        title={
-          canBurst
-            ? 'Convert the current orbit particles to a radial burst'
-            : 'Burst only applies when the cursor is in an orbit mode'
-        }
+        title="Coalesce and burst particles at the cursor tip"
         className="ml-1 rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900"
       >
-        Burst
+        Click
       </button>
     </div>
   )

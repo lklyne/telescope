@@ -337,12 +337,24 @@ function buildSystem(initial: {
   const emitPerFrameU = uniform(clampedInitialEmits, 'uint')
   const cursorCount = uniform(0, 'uint')
   const writeHead = uniform(0, 'uint')
-  // Track which cursor ids we've seen so we can snap prev=curr on first
-  // appearance (otherwise the first frame interpolates from (-10000,-10000)).
-  const knownIds = new Set<string>()
-  // id → index-in-uniformArray, so triggerBurst(id) can resolve the GPU index
-  // without re-scanning the cursor list.
-  const cursorIndexById = new Map<string, number>()
+  // Stable slot allocation. Each cursor id keeps its slot for the grace
+  // window even if the id stops appearing in pushCursors — particles in
+  // flight reference slots by index, so reassigning a slot mid-flight
+  // would yank them to a new cursor's position. Slots are reclaimed once
+  // their last-seen timestamp is older than the grace window.
+  //
+  // Grace ≥ max particle lifetime so any in-flight particle has aged out
+  // before its slot can be reused. Plays nicely with crossfade transitions:
+  // when the machine emits c1:out, that id keeps c1's old slot's position
+  // (already frozen there), and after the transition the base id c1 picks
+  // a fresh slot — orbit particles in the abandoned slot disperse cleanly.
+  const SLOT_GRACE_MS = 3500
+  const slotByCursorId = new Map<string, number>()
+  const slotLastSeenMs = new Array<number>(MAX_CURSORS).fill(-Infinity)
+  const slotAssignedId = new Array<string | null>(MAX_CURSORS).fill(null)
+  // For triggerBurst(id) lookup. Same as slotByCursorId but kept named for
+  // clarity at the call site.
+  const cursorIndexById = slotByCursorId
   const holdU = uniform(initial.holdSeconds)
   const lifetimeU = uniform(initial.lifetimeSeconds)
   const sizeU = uniform(initial.size)
@@ -845,53 +857,107 @@ function buildSystem(initial: {
 
   const handle: Handle = {
     pushCursors(cursors) {
-      const n = Math.min(cursors.length, MAX_CURSORS)
-      cursorCount.value = n
-      const seen = new Set<string>()
-      for (let i = 0; i < n; i++) {
-        const c = cursors[i]
-        seen.add(c.id)
-        // First time we see this id, snap prev=curr so the first emission
-        // doesn't interpolate from a stale/off-screen previous position and
-        // hash-seed a per-agent angular velocity so sphere rotations differ.
-        if (!knownIds.has(c.id)) {
-          cursorPrevPos.array[i].set(c.x, c.y)
-          knownIds.add(c.id)
+      const now = performance.now()
+      const seenSlots = new Set<number>()
+
+      // Reclaim slots whose last-seen is past the grace window — their
+      // particles have aged out by now.
+      for (let s = 0; s < MAX_CURSORS; s++) {
+        const id = slotAssignedId[s]
+        if (id !== null && now - slotLastSeenMs[s] > SLOT_GRACE_MS) {
+          slotByCursorId.delete(id)
+          slotAssignedId[s] = null
+          slotLastSeenMs[s] = -Infinity
+          cursorIntensity.array[s] = 0
+          cursorEmitScale.array[s] = 0
+        }
+      }
+
+      const cursorsToProcess = cursors.slice(0, MAX_CURSORS)
+      for (const c of cursorsToProcess) {
+        let slot = slotByCursorId.get(c.id)
+        const isNewSlot = slot === undefined
+        if (slot === undefined) {
+          // Allocate a slot: prefer never-used > stale-grace > steal-oldest.
+          let chosen = -1
+          let oldestTime = Infinity
+          let oldestSlot = -1
+          for (let s = 0; s < MAX_CURSORS; s++) {
+            if (slotAssignedId[s] === null) {
+              chosen = s
+              break
+            }
+            if (slotLastSeenMs[s] < oldestTime) {
+              oldestTime = slotLastSeenMs[s]
+              oldestSlot = s
+            }
+          }
+          if (chosen < 0) chosen = oldestSlot >= 0 ? oldestSlot : 0
+          slot = chosen
+          // Evict whoever was there.
+          const prevId = slotAssignedId[slot]
+          if (prevId !== null) slotByCursorId.delete(prevId)
+          slotAssignedId[slot] = c.id
+          slotByCursorId.set(c.id, slot)
+        }
+        seenSlots.add(slot)
+        slotLastSeenMs[slot] = now
+
+        if (isNewSlot) {
+          // Snap prev=curr so the first emission doesn't interpolate from
+          // a stale (or off-screen) previous position.
+          cursorPrevPos.array[slot].set(c.x, c.y)
+          // Hash-seed angular velocity + initial angle so different cursors
+          // (and re-spawned slots) orbit at subtly different rates/phases.
           const h = hashStringToUnit(c.id)
           const baseAngularVelocity =
             c.emitterMode === 'orbit_rect'
               ? orbitRectAngularVelocityU.value
               : orbitSphereAngularVelocityU.value
-          cursorOrbitAngularVelocity[i] = baseAngularVelocity * (0.7 + 0.6 * h)
-          cursorOrbitAngle.array[i] = h * Math.PI * 2
+          cursorOrbitAngularVelocity[slot] = baseAngularVelocity * (0.7 + 0.6 * h)
+          cursorOrbitAngle.array[slot] = h * Math.PI * 2
         }
-        cursorIndexById.set(c.id, i)
-        cursorPos.array[i].set(c.x, c.y)
-        cursorColor.array[i].set(c.color)
-        cursorIntensity.array[i] = c.intensity
-        cursorEmitterModeU.array[i] =
+        cursorPos.array[slot].set(c.x, c.y)
+        cursorColor.array[slot].set(c.color)
+        cursorIntensity.array[slot] = c.intensity
+        cursorEmitterModeU.array[slot] =
           c.emitterMode === 'orbit_sphere'
             ? PARTICLE_MODE_ORBIT_SPHERE
             : c.emitterMode === 'orbit_rect'
               ? PARTICLE_MODE_ORBIT_RECT
               : PARTICLE_MODE_TRAIL
         if (c.emitterMode === 'orbit_rect' && c.targetRect) {
-          cursorTargetRect.array[i].set(
+          cursorTargetRect.array[slot].set(
             c.targetRect.x,
             c.targetRect.y,
             c.targetRect.width,
             c.targetRect.height,
           )
         } else {
-          cursorTargetRect.array[i].set(0, 0, 0, 0)
+          cursorTargetRect.array[slot].set(0, 0, 0, 0)
         }
       }
-      for (const id of knownIds) {
-        if (!seen.has(id)) {
-          knownIds.delete(id)
-          cursorIndexById.delete(id)
+
+      // For slots assigned but not present this frame (in grace), drop
+      // intensity to 0 so they stop spawning. Keep cursorPos frozen so
+      // in-flight particles continue to reference a stable orbit center
+      // and disperse cleanly.
+      for (let s = 0; s < MAX_CURSORS; s++) {
+        if (slotAssignedId[s] !== null && !seenSlots.has(s)) {
+          cursorIntensity.array[s] = 0
+          cursorEmitScale.array[s] = 0
         }
       }
+
+      // cursorCount must include any slot that's holding state — including
+      // grace-period slots whose particles are still alive — so the spawn
+      // kernel's bound covers them. (Their intensity is 0, so they won't
+      // actually spawn.)
+      let activeCount = 0
+      for (let s = 0; s < MAX_CURSORS; s++) {
+        if (slotAssignedId[s] !== null) activeCount = s + 1
+      }
+      cursorCount.value = activeCount
     },
     triggerBurst(id: string) {
       const idx = cursorIndexById.get(id)

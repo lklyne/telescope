@@ -20,9 +20,12 @@ import {
   distanceSpeedScale,
 } from '../../shared/cursor-tuning'
 import { defaultAutoPolicy } from '../../shared/presence-emitter-policy'
-import type { EmitterMode } from '../../shared/presence-emitter-machine'
+import type {
+  EmitterMode,
+  EmitterModes,
+  TransitionTable,
+} from '../../shared/presence-emitter-machine'
 import { DEFAULT_EMITTER_MODES } from '../../shared/presence-emitter-config'
-import type { TransitionTable } from '../../shared/presence-emitter-machine'
 import { usePresenceEmitter } from '../shared/usePresenceEmitter'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
@@ -48,10 +51,25 @@ const MODE_SELECTION_OPTIONS: Array<{
   { value: 'orbit_rect', label: 'Orbit rect', hint: 'Force' },
 ]
 
-// Playground transitions crossfade without burst — the Burst button is the
-// only way to fire one here, so the debug surface doesn't pop on every click.
+// Playground transitions disperse via a slow burst on exit — the existing
+// burst kernel converts orbit particles to outward-velocity drift, but with
+// the playground burst tuning below it reads as a gentle scatter rather
+// than the pop the production tuning produces.
 const PLAYGROUND_TRANSITION_TABLE: TransitionTable = {
-  default: { durationMs: 250, exitEffect: 'fade', easing: 'ease-in-out' },
+  default: { durationMs: 250, exitEffect: 'burst', easing: 'ease-in-out' },
+}
+
+// Override only the burst tuning; everything else inherits production
+// defaults. Slower outward speed + longer lifetime + softer drag → the
+// dispersing ball drifts apart over ~2s instead of popping in 0.7s.
+const PLAYGROUND_MODES: EmitterModes = {
+  ...DEFAULT_EMITTER_MODES,
+  burst: {
+    speedPxPerSec: 70,
+    speedJitter: 0.3,
+    lifetimeSeconds: 2.0,
+    dragPerSecond: 0.6,
+  },
 }
 
 // Demo rect that's always visible. Clicks inside/outside drive the targetRect
@@ -269,7 +287,7 @@ export function PresencePlayground({
     controls: emitterControls,
     onReady: emitterOnReady,
   } = usePresenceEmitter({
-    modes: DEFAULT_EMITTER_MODES,
+    modes: PLAYGROUND_MODES,
     transitions: PLAYGROUND_TRANSITION_TABLE,
   })
 
@@ -330,31 +348,22 @@ export function PresencePlayground({
           emitSpeedReferencePxPerSec={trail.emitSpeedReferencePxPerSec}
           emitSpeedBias={trail.emitSpeedBias}
           emitsPerFrame={trail.emitsPerFrame}
-          orbitSphereRadiusPx={DEFAULT_EMITTER_MODES.orbit_sphere.radiusPx}
+          orbitSphereRadiusPx={PLAYGROUND_MODES.orbit_sphere.radiusPx}
           orbitSphereAngularVelocityRadPerSec={
-            DEFAULT_EMITTER_MODES.orbit_sphere.angularVelocityRadPerSec
+            PLAYGROUND_MODES.orbit_sphere.angularVelocityRadPerSec
           }
           orbitSphereRadiusFadeInSeconds={
-            DEFAULT_EMITTER_MODES.orbit_sphere.radiusFadeInSeconds
+            PLAYGROUND_MODES.orbit_sphere.radiusFadeInSeconds
           }
-          orbitSphereConstraintStrength={
-            DEFAULT_EMITTER_MODES.orbit_sphere.constraintStrength
-          }
-          orbitSphereDampingPerSecond={
-            DEFAULT_EMITTER_MODES.orbit_sphere.dampingPerSecond
-          }
-          orbitSphereDispersalSpeedPxPerSec={
-            DEFAULT_EMITTER_MODES.orbit_sphere.dispersalSpeedPxPerSec
-          }
-          orbitRectCrossJitterPx={DEFAULT_EMITTER_MODES.orbit_rect.crossJitterPx}
+          orbitRectCrossJitterPx={PLAYGROUND_MODES.orbit_rect.crossJitterPx}
           orbitRectAngularVelocityRadPerSec={
-            DEFAULT_EMITTER_MODES.orbit_rect.angularVelocityRadPerSec
+            PLAYGROUND_MODES.orbit_rect.angularVelocityRadPerSec
           }
-          orbitRectFadeInSeconds={DEFAULT_EMITTER_MODES.orbit_rect.fadeInSeconds}
-          burstSpeedPxPerSec={DEFAULT_EMITTER_MODES.burst.speedPxPerSec}
-          burstSpeedJitter={DEFAULT_EMITTER_MODES.burst.speedJitter}
-          burstLifetimeSeconds={DEFAULT_EMITTER_MODES.burst.lifetimeSeconds}
-          burstDragPerSecond={DEFAULT_EMITTER_MODES.burst.dragPerSecond}
+          orbitRectFadeInSeconds={PLAYGROUND_MODES.orbit_rect.fadeInSeconds}
+          burstSpeedPxPerSec={PLAYGROUND_MODES.burst.speedPxPerSec}
+          burstSpeedJitter={PLAYGROUND_MODES.burst.speedJitter}
+          burstLifetimeSeconds={PLAYGROUND_MODES.burst.lifetimeSeconds}
+          burstDragPerSecond={PLAYGROUND_MODES.burst.dragPerSecond}
         />
         <TrailsSvg trails={trails} activeId={activeRef.current?.id ?? null} />
         <ActiveSpline polyline={activeSplinePolyline} />

@@ -1,7 +1,17 @@
 # Presence Emitter State Machine
 
 **Date:** 2026-04-24
-**Status:** Proposed
+**Status:** Superseded on 2026-04-25 by
+`docs/superpowers/plans/2026-04-25-presence-choreography-refactor.md`.
+
+The emitter-machine modules described in this document were removed in favor of
+the semantic choreography model:
+
+- `src/shared/presence-visual-state.ts`
+- `src/shared/presence-choreography-config.ts`
+- `src/shared/presence-choreography-policy.ts`
+- `src/shared/presence-choreographer.ts`
+- `src/renderer/shared/usePresenceChoreography.ts`
 
 ## Purpose
 

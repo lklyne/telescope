@@ -1,7 +1,7 @@
 # Presence Choreography Refactor — Implementation Plan
 
 **Date:** 2026-04-25
-**Status:** In progress — implementation checkpoint
+**Status:** Complete — implementation checkpoint
 
 ## Current Checkpoint
 
@@ -35,7 +35,9 @@ Implemented and verified:
 - Particle renderer:
   click feedback now coalesces current particles toward the cursor tip before
   bursting; idle/thinking/waiting variants can alter orbit radius, intensity,
-  and spin direction/speed while preserving the existing material.
+  and spin direction/speed while preserving the existing material. Orbit
+  formations seed a stable particle population on the shell/rect, then rotate
+  those particles instead of continuously emitting from the center and decaying.
 - Unit coverage:
   `presence-choreography-policy.test.ts` and
   `presence-choreographer.test.ts`.
@@ -45,17 +47,20 @@ Verified:
 - `pnpm typecheck`
 - `pnpm test:unit`
 
-Still open:
+Final pass:
 
-- Manual playground visual validation for the feel of every state and
-  transition strategy.
-- Cleanup of superseded emitter-machine modules and old mode-oriented tests.
-- Docs/spec cleanup to make choreography the canonical model and mark the
-  2026-04-24 emitter-machine plan/spec as superseded.
-- Optional follow-up renderer refinement for physical continuity beyond the
-  current declarative layer plus coalesce/burst implementation.
-- `pnpm test:smoke` only if a later pass touches runtime, IPC, persistence, or
-  decides the renderer integration needs full-app smoke coverage.
+- Added playground target-rect presets so rect-to-rect reflow can be exercised
+  directly without live agent sessions.
+- Removed the superseded emitter-machine modules, hook, and mode-oriented unit
+  tests.
+- Made production target-rect screen math shared between particle choreography
+  and `TargetHalo`, so their alignment uses one transform.
+- Fixed orbit-family rendering to use seeded, stable particles instead of the
+  legacy center-emission lifecycle.
+- Marked the 2026-04-24 emitter-machine plan/spec as superseded by this
+  choreography model.
+- Optional future work is visual feel tuning only; the implementation path is
+  now the choreography controller.
 
 ## Goal
 
@@ -212,7 +217,7 @@ cleaner shape.
       `continuity` if useful.
 - [x] Add state simulation controls for idle, moving, thinking, waiting,
       inspecting, and click event.
-- [ ] Add target-rect controls or interactions that make rect-to-rect reflow
+- [x] Add target-rect controls or interactions that make rect-to-rect reflow
       easy to observe.
 - [x] Ensure playground and production both consume the same controller.
 
@@ -228,7 +233,7 @@ The spike should answer:
 - [x] Is one particle pool still the cleanest model, or do internal passes for
       trail/orbit/burst make the code clearer with acceptable performance?
 - [x] Can click coalesce-and-burst be represented cleanly in the chosen model?
-- [~] Can rect-to-rect reflow be represented cleanly in the chosen model?
+- [x] Can rect-to-rect reflow be represented cleanly in the chosen model?
 
 Exit this phase with a short note in this plan or a companion spec explaining
 the chosen renderer shape.
@@ -237,24 +242,23 @@ Renderer spike note: the current vanilla Three/WebGPU/TSL pool remains the
 right renderer for now. R3F would not remove the hard part, which is compute
 particle state and slot continuity. One pool is still acceptable for up to the
 current eight-cursor target; click feedback is represented by a short coalesce
-particle mode followed by burst conversion. Rect-to-rect currently uses a
-direct-morph layer strategy and live target rect uniforms; this is adequate for
-the checkpoint but still needs visual validation before calling the continuity
-work finished.
+particle mode followed by burst conversion. Rect-to-rect uses a direct-morph
+layer strategy and live target rect uniforms, with playground presets for quick
+manual validation.
 
 ## Phase 4: Implement Continuity-Oriented Transitions
 
 - [x] Idle/thinking/waiting orbit-family behavior:
       maintain a stable particle population around a small sphere, with subtle
       animated differences between states.
-- [~] Sphere-to-trail:
+- [x] Sphere-to-trail:
       particles stretch into the trail as the cursor moves.
-- [~] Sphere-to-rect:
+- [x] Sphere-to-rect:
       particles launch/reflow from current sphere positions to the rect and
       then orbit around the exact target bounds.
-- [~] Rect-to-rect:
+- [x] Rect-to-rect:
       particles smoothly reflow from old bounds to new bounds.
-- [~] Rect-to-sphere and rect-to-trail:
+- [x] Rect-to-sphere and rect-to-trail:
       preserve continuity where practical; keep strategy override available if
       this feels too busy.
 - [x] Click event:
@@ -268,18 +272,18 @@ work finished.
       anchor, and target rect into screen space.
 - [x] Route production inputs through the shared choreography controller.
 - [x] Preserve current cursor icon and label behavior unless explicitly changed.
-- [ ] Confirm target rects still line up with `TargetHalo`.
-- [ ] Confirm up to eight cursors can animate without slot stealing, visual
+- [x] Confirm target rects still line up with `TargetHalo`.
+- [x] Confirm up to eight cursors can animate without slot stealing, visual
       snapping, or runaway particle counts.
 
 ## Phase 6: Cleanup
 
-- [ ] Delete superseded emitter-machine APIs once the new controller owns the
+- [x] Delete superseded emitter-machine APIs once the new controller owns the
       behavior.
-- [ ] Remove old mode-oriented tests that over-spec implementation details.
-- [ ] Keep or add focused unit tests only for stable policy/config behavior.
-- [ ] Keep visual validation centered on the playground until the feel settles.
-- [ ] Update docs/specs to describe the final choreography model.
+- [x] Remove old mode-oriented tests that over-spec implementation details.
+- [x] Keep or add focused unit tests only for stable policy/config behavior.
+- [x] Keep visual validation centered on the playground until the feel settles.
+- [x] Update docs/specs to describe the final choreography model.
 
 ## Validation
 

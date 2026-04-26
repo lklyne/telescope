@@ -45,6 +45,7 @@ const POSITION_EPSILON = 0.5
 // default so particle effects are the primary presence cue; toggle via
 // `localStorage.setItem('telescope.showPresenceLabels', 'true')` in devtools.
 const SHOW_PRESENCE_LABELS_KEY = 'telescope.showPresenceLabels'
+const TARGET_HALO_INSET_PX = 6
 
 function readShowPresenceLabels(): boolean {
   if (typeof window === 'undefined') return false
@@ -117,16 +118,16 @@ function TargetHalo({
   ) {
     return null
   }
-  const scaleX = frame.screenWidth / Math.max(frame.width, 1)
-  const scaleY = frame.screenHeight / Math.max(frame.height, 1)
+  const targetRect = resolvePresenceTargetRectScreen(cursor, frame, overlayOffsetY)
+  if (!targetRect) return null
   return (
     <div
       className="absolute rounded-xl border"
       style={{
-        left: frame.screenX + cursor.targetRect.x * scaleX - 6,
-        top: frame.screenY + cursor.targetRect.y * scaleY - overlayOffsetY - 6,
-        width: cursor.targetRect.width * scaleX + 12,
-        height: cursor.targetRect.height * scaleY + 12,
+        left: targetRect.x - TARGET_HALO_INSET_PX,
+        top: targetRect.y - TARGET_HALO_INSET_PX,
+        width: targetRect.width + TARGET_HALO_INSET_PX * 2,
+        height: targetRect.height + TARGET_HALO_INSET_PX * 2,
         borderColor: cursor.color,
         boxShadow: `0 0 0 2px color-mix(in srgb, ${cursor.color} 32%, transparent)`,
         background: `color-mix(in srgb, ${cursor.color} 14%, transparent)`,
@@ -353,7 +354,7 @@ function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
 // Resolve a presence cursor's target rect into screen-space coordinates using
 // the same transform TargetHalo uses (frame screen position + internal scale).
 // Returns null if the cursor doesn't have a valid rect on a resolvable frame.
-function resolveTargetRectScreen(
+export function resolvePresenceTargetRectScreen(
   cursor: AgentPresenceCursor,
   frame: CanvasSceneFrameEntity | null,
   overlayOffsetY: number,
@@ -388,9 +389,9 @@ export function AgentCursorLayer({
   const showLabels = useShowPresenceLabels()
 
   const {
-    push: emitterPush,
-    controls: emitterControls,
-    onReady: emitterOnReady,
+    push: choreographyPush,
+    controls: choreographyControls,
+    onReady: choreographyOnReady,
   } = usePresenceChoreography({
     modes: DEFAULT_PRESENCE_CHOREOGRAPHY_MODES,
     transitions: DEFAULT_PRESENCE_TRANSITIONS,
@@ -414,7 +415,7 @@ export function AgentCursorLayer({
       })
       const targetRect =
         visualStateBase === 'inspecting'
-          ? resolveTargetRectScreen(cursor, frame, overlayOffsetY)
+          ? resolvePresenceTargetRectScreen(cursor, frame, overlayOffsetY)
           : null
       // Re-pick with the resolved rect so the policy can downgrade if needed.
       const visualState = defaultPresenceChoreographyPolicy.pick({
@@ -438,8 +439,8 @@ export function AgentCursorLayer({
         isMoving: isAnimating,
       }
     })
-    emitterPush(inputs)
-  }, [animated, frames, canvasOrigin, pan, zoom, overlayOffsetY, emitterPush])
+    choreographyPush(inputs)
+  }, [animated, frames, canvasOrigin, pan, zoom, overlayOffsetY, choreographyPush])
 
   useEffect(() => {
     const prev = prevActivityRef.current
@@ -457,7 +458,7 @@ export function AgentCursorLayer({
           x: cursor.canvasX,
           y: cursor.canvasY,
         }
-        emitterControls.triggerEvent(cursor.sessionId, {
+        choreographyControls.triggerEvent(cursor.sessionId, {
           type: 'click',
           at: {
             x: canvasOrigin.x + pan.x + point.x * zoom + CURSOR_TRAIL_OFFSET.x,
@@ -476,7 +477,7 @@ export function AgentCursorLayer({
     for (const id of prev.keys()) {
       if (!active.has(id)) prev.delete(id)
     }
-  }, [cursors, animated, emitterControls, canvasOrigin, pan, zoom, overlayOffsetY])
+  }, [cursors, animated, choreographyControls, canvasOrigin, pan, zoom, overlayOffsetY])
 
   if (cursors.length === 0) return null
 
@@ -490,7 +491,7 @@ export function AgentCursorLayer({
 `}
       </style>
       <PresenceParticleTrail
-        onReady={emitterOnReady}
+        onReady={choreographyOnReady}
         orbitSphereRadiusPx={DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.orbit_sphere.radiusPx}
         orbitSphereAngularVelocityRadPerSec={
           DEFAULT_PRESENCE_CHOREOGRAPHY_MODES.orbit_sphere.angularVelocityRadPerSec

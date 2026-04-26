@@ -109,7 +109,7 @@ export const DEFAULT_PRESENCE_CHOREOGRAPHY_MODES: PresenceChoreographyModes = {
     baseIntensity: 0.15,
   },
   orbit_rect: {
-    crossJitterPx: 5,
+    crossJitterPx: 2.5,
     angularVelocityRadPerSec: 0.6,
     fadeInSeconds: 0.35,
     baseIntensity: 0.12,

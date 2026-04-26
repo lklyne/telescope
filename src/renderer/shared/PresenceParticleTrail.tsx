@@ -27,6 +27,11 @@ const MAX_CURSORS = 8
 // Hardcoded dispatch ceiling. The actual emits-per-frame is a runtime uniform
 // and may be anything in [2, EMIT_PER_FRAME_MAX].
 const EMIT_PER_FRAME_MAX = 16
+const ORBIT_SEED_FRAMES = 8
+const ORBIT_SEED_THRESHOLD = 0.62
+const ORBIT_STABLE_LIFETIME_SECONDS = 60 * 60
+const ORBIT_FLOCK_RADIUS_PULSE = 0.06
+const ORBIT_FLOCK_SCREEN_WOBBLE_PX = 0.9
 
 // Per-particle behavior mode, stored in stateBuffer.z. The sim kernel dispatches
 // on this so orbit/burst particles share the same pool and render path as trail.
@@ -45,7 +50,7 @@ const ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS = 0.35
 const ORBIT_SPHERE_MOVING_RADIUS_SCALE = 0.2
 
 // Orbit rect tuning defaults.
-const ORBIT_RECT_CROSS_JITTER_PX = 5
+const ORBIT_RECT_CROSS_JITTER_PX = 2.5
 const ORBIT_RECT_FADE_IN_SECONDS = 0.35
 
 // Burst tuning defaults.
@@ -55,13 +60,10 @@ const BURST_LIFETIME_SECONDS = 0.7
 const BURST_DRAG_PER_SECOND = 1.8
 const CLICK_COALESCE_SECONDS = 0.12
 
-// Spawn threshold multiplier for orbit cursors. Tuned so the sphere holds
-// ~300 particles in flight at the default 2.5s lifetime — dense enough to
-// read as a shell without flooding the pool. Exported so callers (production
-// layer + debug playground) agree on density without each picking their own.
+// Spawn threshold multiplier for orbit cursors. Orbit modes seed a fixed
+// population and then stop spawning; this value is retained as the visual
+// density requested by choreography/config.
 export const ORBIT_SPHERE_INTENSITY = 0.15
-// Rect perimeters are larger than the sphere shell, so a lower per-slot
-// probability still fills the ring adequately.
 export const ORBIT_RECT_INTENSITY = 0.12
 
 function hashStringToUnit(s: string): number {
@@ -120,8 +122,8 @@ export interface PresenceParticleCursor {
 interface Props {
   /**
    * Initial cursor list. Callers that use the imperative `pushCursors` on the
-   * `onReady` controls (e.g. usePresenceEmitter) can omit this — empty array
-   * is fine since per-frame updates come through the imperative path.
+   * `onReady` controls (e.g. usePresenceChoreography) can omit this — empty
+   * array is fine since per-frame updates come through the imperative path.
    */
   cursors?: PresenceParticleCursor[]
   holdSeconds?: number
@@ -178,9 +180,10 @@ interface Props {
 
 export interface PresenceParticleControls {
   /**
-   * Imperatively sync the cursor list. Lets callers (e.g. usePresenceEmitter)
-   * push per-frame updates without round-tripping through React state — the
-   * component never has to re-render when cursor positions or modes change.
+   * Imperatively sync the cursor list. Lets callers (e.g.
+   * usePresenceChoreography) push per-frame updates without round-tripping
+   * through React state — the component never has to re-render when cursor
+   * positions or modes change.
    */
   pushCursors: (cursors: PresenceParticleCursor[]) => void
   /**
@@ -337,6 +340,8 @@ function buildSystem(initial: {
   }))
   const cursorVisualRadiusScale = new Float64Array(MAX_CURSORS).fill(1)
   const cursorVisualAngularVelocityScale = new Float64Array(MAX_CURSORS).fill(1)
+  const cursorVisualMode = new Float64Array(MAX_CURSORS).fill(PARTICLE_MODE_TRAIL)
+  const cursorOrbitSeedFrames = new Int32Array(MAX_CURSORS)
   // Click feedback is two-phase: coalesce existing particles toward the
   // cursor tip, then convert that gathered population to a radial burst.
   const burstCursorIdxU = uniform(-1, 'int')
@@ -359,9 +364,9 @@ function buildSystem(initial: {
   //
   // Grace ≥ max particle lifetime so any in-flight particle has aged out
   // before its slot can be reused. Plays nicely with crossfade transitions:
-  // when the machine emits c1:out, that id keeps c1's old slot's position
-  // (already frozen there), and after the transition the base id c1 picks
-  // a fresh slot — orbit particles in the abandoned slot disperse cleanly.
+  // when choreography emits c1/leaving, that id keeps the old slot's position
+  // already frozen there; after the transition the base id c1 can keep or
+  // reclaim a live slot without yanking in-flight particles.
   const SLOT_GRACE_MS = 3500
   const slotByCursorId = new Map<string, number>()
   const slotLastSeenMs = new Array<number>(MAX_CURSORS).fill(-Infinity)
@@ -429,17 +434,38 @@ function buildSystem(initial: {
           const w = hash(jitterSeed.add(uint(97)))
           const sinLat = u.mul(2).sub(1)
           const lonInit = v.mul(float(Math.PI * 2))
-          const velMult = float(0.85).add(w.mul(0.3)) // 0.85..1.15
+          const velMult = float(0.96).add(w.mul(0.08)) // 0.96..1.04
           const radius = orbitSphereRadiusU
 
-          // Spawn at cursor center; sim kernel fades radius in from 0 over
-          // ORBIT_SPHERE_RADIUS_FADE_IN_SECONDS so particles read as
-          // "inhaled" into the sphere.
-          const curr = cursorPos.element(cIdx)
-          positionBuffer.element(slot).assign(vec3(curr.x, curr.y, float(0)))
+          const cursor = cursorPos.element(cIdx)
+          const cursorAngle = cursorOrbitAngle.element(cIdx)
+          const lon = lonInit.add(cursorAngle.mul(velMult))
+          const cosLat = float(1).sub(sinLat.mul(sinLat)).max(0).sqrt()
+          const radiusScale = cursorOrbitRadiusScale.element(cIdx)
+          const flockPhase = cursorAngle.mul(1.7).add(sinLat.mul(0.65))
+          const effectiveR = radius
+            .mul(radiusScale)
+            .mul(float(1).add(flockPhase.sin().mul(ORBIT_FLOCK_RADIUS_PULSE)))
+          const ox = effectiveR
+            .mul(cosLat)
+            .mul(lon.cos())
+            .add(flockPhase.cos().mul(ORBIT_FLOCK_SCREEN_WOBBLE_PX))
+          const oz = effectiveR.mul(cosLat).mul(lon.sin())
+          const oy = effectiveR
+            .mul(sinLat)
+            .add(flockPhase.sin().mul(ORBIT_FLOCK_SCREEN_WOBBLE_PX))
+          positionBuffer
+            .element(slot)
+            .assign(vec3(cursor.x.add(ox), cursor.y.add(oy), oz))
           stateBuffer
             .element(slot)
-            .assign(vec3(float(0), float(cIdx), float(PARTICLE_MODE_ORBIT_SPHERE)))
+            .assign(
+              vec3(
+                orbitSphereRadiusFadeInU,
+                float(cIdx),
+                float(PARTICLE_MODE_ORBIT_SPHERE),
+              ),
+            )
           velocityBuffer.element(slot).assign(vec3(0, 0, 0))
           paramsBuffer.element(slot).assign(vec4(sinLat, lonInit, velMult, radius))
         })
@@ -453,15 +479,63 @@ function buildSystem(initial: {
             const w = hash(jitterSeed.add(uint(97)))
             const tInit = u
             const crossOffset = v.sub(0.5).mul(2).mul(orbitRectCrossJitterU)
-            const velMult = float(0.85).add(w.mul(0.3))
+            const velMult = float(0.96).add(w.mul(0.08))
 
-            // Spawn at cursor; sim kernel lerps from cursor → perimeter over
-            // the fade-in window for the "inhale" effect shared with the sphere.
-            const curr = cursorPos.element(cIdx)
-            positionBuffer.element(slot).assign(vec3(curr.x, curr.y, float(0)))
+            const rect = cursorTargetRect.element(cIdx)
+            const rx = rect.x
+            const ry = rect.y
+            const rw = rect.z.max(1)
+            const rh = rect.w.max(1)
+            const perimeter = float(2).mul(rw.add(rh))
+            const cursorAngle = cursorOrbitAngle.element(cIdx)
+            const tRaw = tInit.add(
+              cursorAngle.mul(velMult).div(float(Math.PI * 2)),
+            )
+            const s = tRaw.fract().mul(perimeter)
+            const b1 = rw
+            const b2 = rw.add(rh)
+            const b3 = rw.mul(2).add(rh)
+            const px = rx.add(s).toVar()
+            const py = ry.toVar()
+            const nxN = float(0).toVar()
+            const nyN = float(-1).toVar()
+            If(s.lessThan(b1), () => {
+              px.assign(rx.add(s))
+              py.assign(ry)
+              nxN.assign(float(0))
+              nyN.assign(float(-1))
+            })
+              .ElseIf(s.lessThan(b2), () => {
+                const ls = s.sub(b1)
+                px.assign(rx.add(rw))
+                py.assign(ry.add(ls))
+                nxN.assign(float(1))
+                nyN.assign(float(0))
+              })
+              .ElseIf(s.lessThan(b3), () => {
+                const ls = s.sub(b2)
+                px.assign(rx.add(rw).sub(ls))
+                py.assign(ry.add(rh))
+                nxN.assign(float(0))
+                nyN.assign(float(1))
+              })
+              .Else(() => {
+                const ls = s.sub(b3)
+                px.assign(rx)
+                py.assign(ry.add(rh).sub(ls))
+                nxN.assign(float(-1))
+                nyN.assign(float(0))
+              })
+            positionBuffer
+              .element(slot)
+              .assign(
+                vec3(px.add(nxN.mul(crossOffset)), py.add(nyN.mul(crossOffset)), float(0)),
+              )
             stateBuffer
               .element(slot)
-              .assign(vec3(float(0), float(cIdx), float(PARTICLE_MODE_ORBIT_RECT)))
+              .assign(
+                vec3(orbitRectFadeInU, float(cIdx), float(PARTICLE_MODE_ORBIT_RECT)),
+              )
             velocityBuffer.element(slot).assign(vec3(0, 0, 0))
             paramsBuffer.element(slot).assign(vec4(tInit, crossOffset, velMult, float(0)))
           })
@@ -497,11 +571,17 @@ function buildSystem(initial: {
     const state = stateBuffer.element(instanceIndex)
     const mode = state.z
     const age = state.x.add(deltaU).toVar()
-    // Burst particles are short-lived; every other mode honors the global
-    // lifetimeU (tunable via props).
+    // Burst particles are short-lived, orbit particles are stable seeded
+    // populations, and trails honor the global lifetimeU.
     const effectiveLifetime = mode
       .equal(float(PARTICLE_MODE_BURST))
-      .select(burstLifetimeU, lifetimeU)
+      .select(
+        burstLifetimeU,
+        mode
+          .equal(float(PARTICLE_MODE_ORBIT_SPHERE))
+          .or(mode.equal(float(PARTICLE_MODE_ORBIT_RECT)))
+          .select(float(ORBIT_STABLE_LIFETIME_SECONDS), lifetimeU),
+      )
 
     If(age.greaterThan(effectiveLifetime), () => {
       pos.assign(vec3(float(-10000), float(-10000), float(0)))
@@ -556,10 +636,19 @@ function buildSystem(initial: {
           const cosLat = float(1).sub(sinLat.mul(sinLat)).max(0).sqrt()
           const radiusT = smoothstep(float(0), orbitSphereRadiusFadeInU, age)
           const radiusScale = cursorOrbitRadiusScale.element(cIdx)
-          const effectiveR = radius.mul(radiusT).mul(radiusScale)
-          const ox = effectiveR.mul(cosLat).mul(lon.cos())
+          const flockPhase = cursorAngle.mul(1.7).add(sinLat.mul(0.65))
+          const effectiveR = radius
+            .mul(radiusT)
+            .mul(radiusScale)
+            .mul(float(1).add(flockPhase.sin().mul(ORBIT_FLOCK_RADIUS_PULSE)))
+          const ox = effectiveR
+            .mul(cosLat)
+            .mul(lon.cos())
+            .add(flockPhase.cos().mul(ORBIT_FLOCK_SCREEN_WOBBLE_PX))
           const oz = effectiveR.mul(cosLat).mul(lon.sin())
-          const oy = effectiveR.mul(sinLat)
+          const oy = effectiveR
+            .mul(sinLat)
+            .add(flockPhase.sin().mul(ORBIT_FLOCK_SCREEN_WOBBLE_PX))
           pos.assign(vec3(cursor.x.add(ox), cursor.y.add(oy), oz))
         })
         .ElseIf(mode.equal(float(PARTICLE_MODE_ORBIT_RECT)), () => {
@@ -725,21 +814,28 @@ function buildSystem(initial: {
   })
 
   // Mode-aware effective lifetime: burst particles age against a shorter
-  // lifetime so their fade-out curve compresses into the burst window
-  // instead of the global trail/orbit lifetime.
+  // lifetime, orbit particles remain stable, and trails keep the global
+  // lifetime.
   const effectiveLifetimeFor = (mode: ReturnType<typeof float>) =>
-    mode
-      .equal(float(PARTICLE_MODE_BURST))
-      .select(
-        burstLifetimeU,
-        mode.equal(float(PARTICLE_MODE_COALESCE)).select(coalesceSecondsU, lifetimeU),
-      )
+    mode.equal(float(PARTICLE_MODE_BURST)).select(
+      burstLifetimeU,
+      mode.equal(float(PARTICLE_MODE_COALESCE)).select(
+        coalesceSecondsU,
+        mode
+          .equal(float(PARTICLE_MODE_ORBIT_SPHERE))
+          .or(mode.equal(float(PARTICLE_MODE_ORBIT_RECT)))
+          .select(float(ORBIT_STABLE_LIFETIME_SECONDS), lifetimeU),
+      ),
+    )
 
   material.positionNode = Fn(() => {
     const state = stateBuffer.toAttribute()
     const center = positionBuffer.toAttribute()
+    const isOrbit = state.z
+      .equal(float(PARTICLE_MODE_ORBIT_SPHERE))
+      .or(state.z.equal(float(PARTICLE_MODE_ORBIT_RECT)))
     const lifeT = state.x.div(effectiveLifetimeFor(state.z)).clamp(0, 1)
-    const shrink = float(1).sub(smoothstep(0.4, 1, lifeT))
+    const shrink = isOrbit.select(float(1), float(1).sub(smoothstep(0.4, 1, lifeT)))
     // Depth cue for orbit particles: back of sphere (-radius ≤ z < 0) shrinks
     // toward 0.6×, front (+radius) grows toward 1.1×. Trail particles sit at
     // z=0 so the factor is exactly 1 for them. Scale is a gentle linear map;
@@ -754,9 +850,12 @@ function buildSystem(initial: {
     const age = state.x
     const cIdx = uint(state.y)
     const base = cursorColor.element(cIdx)
+    const isOrbit = state.z
+      .equal(float(PARTICLE_MODE_ORBIT_SPHERE))
+      .or(state.z.equal(float(PARTICLE_MODE_ORBIT_RECT)))
     const lifeT = age.div(effectiveLifetimeFor(state.z)).clamp(0, 1)
-    const fadeIn = smoothstep(0, 0.05, lifeT)
-    const fadeOut = float(1).sub(smoothstep(0.3, 1, lifeT))
+    const fadeIn = isOrbit.select(float(1), smoothstep(0, 0.05, lifeT))
+    const fadeOut = isOrbit.select(float(1), float(1).sub(smoothstep(0.3, 1, lifeT)))
     const globalFade = cursorFadeAlpha.element(cIdx)
     // Radial mask: solid core, smoothstep to 0 before the quad edge so the
     // corners are fully transparent and the particle reads as a round point.
@@ -811,9 +910,16 @@ function buildSystem(initial: {
           mode === PARTICLE_MODE_ORBIT_SPHERE ||
           mode === PARTICLE_MODE_ORBIT_RECT
         if (isOrbit) {
-          // Orbit modes bypass the speed gate — emission should continue
-          // while the cursor sits still thinking/inspecting.
-          cursorEmitScale.array[i] = 1
+          // Orbit modes seed a stable particle population, then stop
+          // spawning. The particles themselves keep rotating from their
+          // deterministic seed params until the cursor leaves the mode.
+          if (cursorOrbitSeedFrames[i] > 0) {
+            const intensity = Math.max(cursorIntensity.array[i], 0.0001)
+            cursorEmitScale.array[i] = ORBIT_SEED_THRESHOLD / intensity
+            cursorOrbitSeedFrames[i] -= 1
+          } else {
+            cursorEmitScale.array[i] = 0
+          }
           cursorOrbitAngle.array[i] +=
             cursorOrbitAngularVelocity[i] * cursorVisualAngularVelocityScale[i] * dt
         } else {
@@ -905,6 +1011,8 @@ function buildSystem(initial: {
           slotLastSeenMs[s] = -Infinity
           cursorIntensity.array[s] = 0
           cursorEmitScale.array[s] = 0
+          cursorOrbitSeedFrames[s] = 0
+          cursorVisualMode[s] = PARTICLE_MODE_TRAIL
         }
       }
 
@@ -960,12 +1068,23 @@ function buildSystem(initial: {
         cursorPos.array[slot].set(c.x, c.y)
         cursorColor.array[slot].set(c.color)
         cursorIntensity.array[slot] = c.intensity
-        cursorEmitterModeU.array[slot] =
+        const nextMode =
           c.emitterMode === 'orbit_sphere'
             ? PARTICLE_MODE_ORBIT_SPHERE
             : c.emitterMode === 'orbit_rect'
               ? PARTICLE_MODE_ORBIT_RECT
               : PARTICLE_MODE_TRAIL
+        const modeChanged = cursorVisualMode[slot] !== nextMode
+        cursorVisualMode[slot] = nextMode
+        cursorEmitterModeU.array[slot] = nextMode
+        if (
+          nextMode === PARTICLE_MODE_ORBIT_SPHERE ||
+          nextMode === PARTICLE_MODE_ORBIT_RECT
+        ) {
+          if (isNewSlot || modeChanged) cursorOrbitSeedFrames[slot] = ORBIT_SEED_FRAMES
+        } else {
+          cursorOrbitSeedFrames[slot] = 0
+        }
         cursorVisualRadiusScale[slot] = c.orbitRadiusScale ?? 1
         cursorVisualAngularVelocityScale[slot] = c.orbitAngularVelocityScale ?? 1
         cursorRadiusScaleStates[slot].target =
@@ -991,6 +1110,7 @@ function buildSystem(initial: {
         if (slotAssignedId[s] !== null && !seenSlots.has(s)) {
           cursorIntensity.array[s] = 0
           cursorEmitScale.array[s] = 0
+          cursorOrbitSeedFrames[s] = 0
         }
       }
 

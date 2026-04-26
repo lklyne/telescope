@@ -84,14 +84,11 @@ const PLAYGROUND_TRANSITION_TABLE: ChoreographyTransitionTable = {
 
 const PLAYGROUND_MODES: PresenceChoreographyModes = DEFAULT_PRESENCE_CHOREOGRAPHY_MODES
 
-// Demo rect that's always visible. Clicks inside/outside drive the targetRect
-// signal so auto mode can select orbit_rect vs orbit_sphere accordingly.
-const DEMO_RECT: PresenceParticleTargetRect = {
-  x: 100,
-  y: 120,
-  width: 360,
-  height: 220,
-}
+const DEMO_RECTS: PresenceParticleTargetRect[] = [
+  { x: 100, y: 120, width: 360, height: 220 },
+  { x: 520, y: 92, width: 240, height: 160 },
+  { x: 300, y: 380, width: 420, height: 120 },
+]
 
 const TRAIL_LIMIT = 6
 const CURSOR_COLOR = '#2563eb'
@@ -181,6 +178,7 @@ export function PresencePlayground({
   const [transitionStrategy, setTransitionStrategy] =
     useState<PresenceTransitionStrategy>('default')
   const [rectActive, setRectActive] = useState(false)
+  const [activeRectIndex, setActiveRectIndex] = useState(0)
   const [trails, setTrails] = useState<Trail[]>([])
   const [activeSplinePolyline, setActiveSplinePolyline] = useState<Vec2[] | null>(
     null,
@@ -190,6 +188,7 @@ export function PresencePlayground({
     speedPxS: number
     durationMs: number
   } | null>(null)
+  const activeDemoRect = DEMO_RECTS[activeRectIndex]
 
   useEffect(() => {
     tuningRef.current = tuning
@@ -251,14 +250,15 @@ export function PresencePlayground({
       y: event.clientY - rect.top,
     }
 
-    // Detect whether the click is inside the dotted rect; this is the
-    // playground's targetRect signal.
-    const inside =
-      target.x >= DEMO_RECT.x &&
-      target.x <= DEMO_RECT.x + DEMO_RECT.width &&
-      target.y >= DEMO_RECT.y &&
-      target.y <= DEMO_RECT.y + DEMO_RECT.height
-    setRectActive(inside)
+    const hitRectIndex = DEMO_RECTS.findIndex(
+      (candidate) =>
+        target.x >= candidate.x &&
+        target.x <= candidate.x + candidate.width &&
+        target.y >= candidate.y &&
+        target.y <= candidate.y + candidate.height,
+    )
+    if (hitRectIndex >= 0) setActiveRectIndex(hitRectIndex)
+    setRectActive(hitRectIndex >= 0)
 
     const from = positionRef.current
     const distance = Math.hypot(target.x - from.x, target.y - from.y)
@@ -306,9 +306,9 @@ export function PresencePlayground({
   )
 
   const {
-    push: emitterPush,
-    controls: emitterControls,
-    onReady: emitterOnReady,
+    push: choreographyPush,
+    controls: choreographyControls,
+    onReady: choreographyOnReady,
   } = usePresenceChoreography({
     modes: PLAYGROUND_MODES,
     transitions: playgroundTransitions,
@@ -316,19 +316,19 @@ export function PresencePlayground({
   })
 
   useEffect(() => {
-    const targetRect = rectActive ? DEMO_RECT : null
+    const targetRect = rectActive ? activeDemoRect : null
     const visualState: PresenceVisualState =
       modeSelection === 'auto'
         ? defaultPresenceChoreographyPolicy.pick({ isMoving: isTraveling, targetRect })
         : modeSelection
-    emitterPush([
+    choreographyPush([
       {
         cursorId: 'playground',
         x: displayPos.x + trail.offsetX,
         y: displayPos.y + trail.offsetY,
         color: CURSOR_COLOR,
         visualState,
-        targetRect: visualState === 'inspecting' ? DEMO_RECT : targetRect,
+        targetRect: visualState === 'inspecting' ? activeDemoRect : targetRect,
         // Explicit override — we already know whether the cursor is tweening.
         isMoving: visualState === 'moving' || isTraveling,
       },
@@ -341,7 +341,8 @@ export function PresencePlayground({
     transitionStrategy,
     isTraveling,
     rectActive,
-    emitterPush,
+    activeDemoRect,
+    choreographyPush,
   ])
 
   return (
@@ -356,9 +357,16 @@ export function PresencePlayground({
           backgroundSize: '32px 32px',
         }}
       >
-        <DemoRectOverlay rect={DEMO_RECT} active={rectActive} />
+        {DEMO_RECTS.map((rect, index) => (
+          <DemoRectOverlay
+            key={index}
+            rect={rect}
+            active={rectActive && index === activeRectIndex}
+            selected={index === activeRectIndex}
+          />
+        ))}
         <PresenceParticleTrail
-          onReady={emitterOnReady}
+          onReady={choreographyOnReady}
           size={trail.size}
           lifetimeSeconds={trail.lifetimeSeconds}
           holdSeconds={trail.driftGraceSeconds}
@@ -403,13 +411,19 @@ export function PresencePlayground({
           <FilledCursorIcon color={CURSOR_COLOR} size={24} />
         </div>
         <InstructionHint />
-        <EmitterModeSelector
+        <PresenceChoreographyControls
           selection={modeSelection}
           onChange={setModeSelection}
           transitionStrategy={transitionStrategy}
           onTransitionStrategyChange={setTransitionStrategy}
+          activeRectIndex={activeRectIndex}
+          rectCount={DEMO_RECTS.length}
+          onSelectRect={(index) => {
+            setActiveRectIndex(index)
+            setRectActive(true)
+          }}
           onTriggerClick={() =>
-            emitterControls.triggerEvent('playground', {
+            choreographyControls.triggerEvent('playground', {
               type: 'click',
               at: {
                 x: displayPos.x + trail.offsetX,
@@ -512,17 +526,23 @@ function InstructionHint() {
   )
 }
 
-function EmitterModeSelector({
+function PresenceChoreographyControls({
   selection,
   onChange,
   transitionStrategy,
   onTransitionStrategyChange,
+  activeRectIndex,
+  rectCount,
+  onSelectRect,
   onTriggerClick,
 }: {
   selection: PlaygroundModeSelection
   onChange: (next: PlaygroundModeSelection) => void
   transitionStrategy: PresenceTransitionStrategy
   onTransitionStrategyChange: (next: PresenceTransitionStrategy) => void
+  activeRectIndex: number
+  rectCount: number
+  onSelectRect: (index: number) => void
   onTriggerClick: () => void
 }) {
   const active = MODE_SELECTION_OPTIONS.find((o) => o.value === selection)
@@ -546,6 +566,25 @@ function EmitterModeSelector({
         ))}
       </select>
       {active ? <span className="opacity-50">· {active.hint}</span> : null}
+      <span className="ml-1 opacity-60">Rect</span>
+      {Array.from({ length: rectCount }, (_, index) => (
+        <button
+          key={index}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelectRect(index)
+          }}
+          title={`Use target rect ${index + 1}`}
+          className={`rounded border px-1.5 py-0.5 text-[11px] ${
+            index === activeRectIndex
+              ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200'
+              : 'border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900'
+          }`}
+        >
+          {index + 1}
+        </button>
+      ))}
       <span className="ml-1 opacity-60">Transition</span>
       <select
         value={transitionStrategy}
@@ -578,9 +617,11 @@ function EmitterModeSelector({
 function DemoRectOverlay({
   rect,
   active,
+  selected,
 }: {
   rect: PresenceParticleTargetRect
   active: boolean
+  selected: boolean
 }) {
   return (
     <div
@@ -590,7 +631,9 @@ function DemoRectOverlay({
         top: rect.y,
         width: rect.width,
         height: rect.height,
-        borderColor: `color-mix(in srgb, var(--text-primary) ${active ? 70 : 35}%, transparent)`,
+        borderColor: `color-mix(in srgb, var(--text-primary) ${
+          active ? 70 : selected ? 52 : 26
+        }%, transparent)`,
         background: active
           ? 'color-mix(in srgb, var(--text-primary) 8%, transparent)'
           : 'color-mix(in srgb, var(--text-primary) 4%, transparent)',

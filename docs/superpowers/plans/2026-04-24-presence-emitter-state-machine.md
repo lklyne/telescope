@@ -1,5 +1,12 @@
 # Presence Emitter State Machine — Implementation Plan
 
+> **Status: Superseded.** This plan was replaced on 2026-04-25 by
+> `docs/superpowers/plans/2026-04-25-presence-choreography-refactor.md`.
+> The emitter-machine modules and tests described here have been removed; the
+> canonical implementation is now the semantic choreography controller in
+> `src/shared/presence-choreographer.ts` with renderer glue in
+> `src/renderer/shared/usePresenceChoreography.ts`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the current instant activity-to-mode mapping with a pure state machine that owns mode transitions (trail ↔ orbit_sphere ↔ orbit_rect) via crossfade + burst punctuation, driven by a pluggable auto-mode policy that reads from live cursor state (moving / stationary / over-rect).

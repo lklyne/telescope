@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Collapsible } from '@base-ui/react/collapsible'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
-import { ChevronDown, ChevronRight, FolderOpen, Image, PenLine, StickyNote } from 'lucide-react'
+import { ChevronDown, ChevronRight, Folder, FolderOpen, Image, PenLine, StickyNote } from 'lucide-react'
 import type { LeftSidebarElectronAPI, SidebarCanvasItem, SidebarFileItem, SidebarFrameItem, SidebarGroupItem, SidebarTextItem } from '../../shared/types'
 import { FrameListItem } from '../shared/frameListItem'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
@@ -154,28 +154,32 @@ function GroupTreeItem({
     if (next && next !== group.label) api.renameGroup(group.id, next)
   }
 
+  const rowPaddingLeft = LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP
+  const rowPaddingRight = LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING
+  const chevronLeft = rowPaddingLeft - 16
+  const rowClassName = `flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
+    isSelected
+      ? isDark
+        ? 'bg-[var(--surface-interactive)] text-zinc-100'
+        : 'bg-[var(--surface-interactive)] text-zinc-900'
+      : isDark
+        ? 'text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
+        : 'text-zinc-800 hover:bg-[var(--surface-interactive-hover)]'
+  }`
+  const rowStyle = { paddingLeft: rowPaddingLeft, paddingRight: rowPaddingRight }
+
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger className="block w-full">
         <Collapsible.Root open={expanded} onOpenChange={setExpanded}>
-          <div>
+          <div className="relative">
             {isEditing ? (
-              <div
-                className={`flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
-                  isSelected
-                    ? isDark
-                      ? 'bg-[var(--surface-interactive)] text-zinc-100'
-                      : 'bg-[var(--surface-interactive)] text-zinc-900'
-                    : isDark
-                      ? 'text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
-                      : 'text-zinc-800 hover:bg-[var(--surface-interactive-hover)]'
-                }`}
-                style={{
-                  paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP,
-                  paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
-                }}
-              >
-                <FolderOpen size={14} className="shrink-0 text-zinc-500" />
+              <div className={rowClassName} style={rowStyle}>
+                {expanded ? (
+                  <FolderOpen size={14} className="shrink-0 text-zinc-500" />
+                ) : (
+                  <Folder size={14} className="shrink-0 text-zinc-500" />
+                )}
                 <InlineEditLabel
                   value={group.label}
                   isEditing
@@ -184,49 +188,33 @@ function GroupTreeItem({
                   variant="sidebar-row"
                   isDark={isDark}
                 />
-                <button
-                  type="button"
-                  className="flex shrink-0 items-center justify-center text-zinc-500"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    setExpanded((value) => !value)
-                  }}
-                >
-                  {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                </button>
                 <span className="ml-auto shrink-0 text-xs text-zinc-400">{group.entityCount}</span>
               </div>
             ) : (
               <button
                 type="button"
-                className={`flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
-                  isSelected
-                    ? isDark
-                      ? 'bg-[var(--surface-interactive)] text-zinc-100'
-                      : 'bg-[var(--surface-interactive)] text-zinc-900'
-                    : isDark
-                      ? 'text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
-                      : 'text-zinc-800 hover:bg-[var(--surface-interactive-hover)]'
-                }`}
-                style={{
-                  paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP,
-                  paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
-                }}
+                className={rowClassName}
+                style={rowStyle}
                 onClick={() => api.revealGroup(group.id)}
                 onDoubleClick={startRename}
                 title={group.label}
               >
-                <FolderOpen size={14} className="shrink-0 text-zinc-500" />
+                {expanded ? (
+                  <FolderOpen size={14} className="shrink-0 text-zinc-500" />
+                ) : (
+                  <Folder size={14} className="shrink-0 text-zinc-500" />
+                )}
                 <span className="min-w-0 truncate">{group.label}</span>
-                <Collapsible.Trigger
-                  className="flex shrink-0 items-center justify-center text-zinc-500"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                </Collapsible.Trigger>
                 <span className="ml-auto shrink-0 text-xs text-zinc-400">{group.entityCount}</span>
               </button>
             )}
+            <Collapsible.Trigger
+              className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center text-zinc-500"
+              style={{ left: chevronLeft }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </Collapsible.Trigger>
           </div>
           <Collapsible.Panel>
             {group.children.map((child) => (

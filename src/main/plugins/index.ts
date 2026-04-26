@@ -8,9 +8,19 @@
 import { registerEntityRenderer, unregisterEntityRenderer } from './registry'
 import { componentRenderPlugin } from './builtin/component-render'
 import { imageRenderPlugin } from './builtin/image-render'
+import { markdownRenderPlugin } from './builtin/markdown-render'
 import { videoRenderPlugin } from './builtin/video-render'
+import { wireframeRenderPlugin } from './builtin/wireframe-render'
 
-const builtIns = [imageRenderPlugin, videoRenderPlugin, componentRenderPlugin]
+// Order matters: wireframe before markdown (the .wireframe.json case),
+// component last so anything more specific wins first.
+const builtIns = [
+  wireframeRenderPlugin,
+  markdownRenderPlugin,
+  imageRenderPlugin,
+  videoRenderPlugin,
+  componentRenderPlugin,
+]
 
 let registered = false
 

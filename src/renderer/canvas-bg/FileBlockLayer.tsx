@@ -52,10 +52,12 @@ function FileBlockCard({
   onGroupDrag: (groupId: string, dx: number, dy: number) => void
   onGroupDragEnd: () => void
 }) {
-  const isImage = IMAGE_EXTENSIONS.test(entity.file)
-  const isVideo = VIDEO_EXTENSIONS.test(entity.file)
-  const isMarkdown = MARKDOWN_EXTENSIONS.test(entity.file)
-  const isWireframe = WIREFRAME_EXTENSIONS.test(entity.file)
+  // Prefer the registry-provided rendererTag; fall back to extension regex
+  // for entities that haven't been re-broadcast since boot.
+  const isImage = entity.rendererTag === 'image' || IMAGE_EXTENSIONS.test(entity.file)
+  const isVideo = entity.rendererTag === 'video' || VIDEO_EXTENSIONS.test(entity.file)
+  const isMarkdown = entity.rendererTag === 'markdown' || MARKDOWN_EXTENSIONS.test(entity.file)
+  const isWireframe = entity.rendererTag === 'wireframe' || WIREFRAME_EXTENSIONS.test(entity.file)
   const isComponent = entity.rendererTag === 'component'
   const fileName = entity.file.split('/').pop() ?? entity.file
   const fileApi = (window as unknown as { electronAPI: { showFileInFinder: (path: string) => void; readNoteFile: (path: string) => Promise<string | null>; writeNoteFile: (path: string, content: string) => Promise<boolean>; renameNoteFile: (path: string, newName: string) => Promise<string | null> } }).electronAPI

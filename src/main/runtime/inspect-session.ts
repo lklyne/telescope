@@ -284,9 +284,8 @@ function buildTextEntityDetail(entityId: string): PanelTextEntityDetail | undefi
 }
 
 function detectFileType(filePath: string): PanelFileType {
-  // Built-in plugins claim by extension; the registry is the source of truth.
-  // Markdown + wireframe are still claimed by the regex fallback below until
-  // their built-in plugins migrate (Phase 3).
+  // The registry owns all built-in renderer claims (image, video, markdown,
+  // wireframe, component). Anything unclaimed is 'other'.
   const tag = getRendererTagFor({
     kind: 'file',
     id: '__inspect__',
@@ -296,14 +295,10 @@ function detectFileType(filePath: string): PanelFileType {
     width: 0,
     height: 0,
   })
-  if (tag === 'image') return 'image'
-  if (tag === 'video') return 'video'
-  if (tag === 'component') return 'component'
-  if (tag === 'markdown') return 'markdown'
-  if (tag === 'wireframe') return 'wireframe'
-  const lower = filePath.toLowerCase()
-  if (/\.wireframe\.json$/.test(lower)) return 'wireframe'
-  if (/\.md$/.test(lower)) return 'markdown'
+  if (tag === 'image' || tag === 'video' || tag === 'markdown' ||
+      tag === 'wireframe' || tag === 'component') {
+    return tag
+  }
   return 'other'
 }
 

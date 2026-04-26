@@ -26,6 +26,11 @@ import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } f
 import { configureBundledAgentBrowser } from './agent-browser-install'
 import { autoUpdateSkillsIfSafe } from './skill-auto-update'
 import { registerBuiltInPlugins } from './plugins'
+import {
+  initDevServerManager,
+  shutdownDevServerManager,
+} from './runtime/dev-server-manager'
+import { spawn as nodeSpawn } from 'node:child_process'
 import { initializeDocObservers } from './runtime/workspace-observers'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
 import { sendInteractiveState } from './runtime/overlay-manager'
@@ -125,6 +130,11 @@ app.whenReady().then(async () => {
   identifyInstall()
   configureBundledAgentBrowser()
   registerBuiltInPlugins()
+  initDevServerManager({
+    userDataDir: app.getPath('userData'),
+    spawn: (command, args, options) =>
+      nodeSpawn(command, args as string[], { ...options, shell: process.platform === 'win32' }),
+  })
 
   setupAppMenu()
   registerIpcHandlers()
@@ -248,4 +258,5 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   quitRequested = true
   flushWorkspaceAutosaveSync()
+  void shutdownDevServerManager()
 })

@@ -63,10 +63,20 @@ export function unregisterEntityRenderer(id: string): boolean {
 /**
  * First registered claim that matches wins. Order is stable across the
  * process lifetime; built-in plugins register in a known order at boot.
+ *
+ * A throwing claims() predicate is logged and treated as "did not claim"
+ * so one buggy plugin can't blank out every file behind it.
  */
 export function pickRenderer(entity: PersistedFileEntity): EntityRendererClaim | null {
   for (const claim of claims) {
-    if (claim.claims(entity)) return claim
+    try {
+      if (claim.claims(entity)) return claim
+    } catch (err) {
+      console.error(
+        `[entity-renderer] claim "${claim.id}" threw in claims(); skipping:`,
+        err,
+      )
+    }
   }
   return null
 }

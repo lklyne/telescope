@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   __resetRegistryForTests,
   getRendererTagFor,
@@ -108,6 +108,31 @@ describe('entity-renderer registry', () => {
       })
     }
     expect(listRegisteredRenderers().map((c) => c.id)).toEqual(ids)
+  })
+
+  it('a throwing claims() predicate does not blank out later plugins', () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    registerEntityRenderer({
+      id: 'broken',
+      kind: 'inline',
+      rendererTag: 'markdown',
+      claims: () => {
+        throw new Error('boom')
+      },
+    })
+    registerEntityRenderer({
+      id: 'healthy',
+      kind: 'inline',
+      rendererTag: 'image',
+      claims: (e) => /\.png$/i.test(e.file),
+    })
+    const picked = pickRenderer(fileEntity({ file: 'photo.png' }))
+    expect(picked?.id).toBe('healthy')
+    expect(errSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"broken"'),
+      expect.any(Error),
+    )
+    errSpy.mockRestore()
   })
 })
 

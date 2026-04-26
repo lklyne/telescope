@@ -75,6 +75,19 @@ Each renderer is an isolated React app. The main surface is canvas-bg/.
 Others (toolbar, chrome-header, left-sidebar, right-details-panel) are
 smaller overlay panels with their own preload bridge.
 
+### Entity-renderer plugins
+
+File entities pick a renderer through a small registry, not an extension switch.
+
+- `src/main/plugins/registry.ts` — internal API (`registerEntityRenderer`, `pickRenderer`, `getRendererTagFor`).
+- `src/main/plugins/builtin/` — one claim per renderer (image, video, markdown, wireframe, component).
+- `src/renderer/canvas-bg/entity-renderers/` — the React mounts plus `RendererSwitch.tsx`.
+
+Main calls `getRendererTagFor` in `buildFileEntitySceneEntity` and broadcasts the
+tag on every file scene entity; the renderer reads `entity.rendererTag` and
+`RendererSwitch` picks the component. To add a renderer, add a claim file under
+`builtin/`, a React file under `entity-renderers/`, and a case in `RendererSwitch.tsx`.
+
 ## Layer rules
 
 - `src/renderer/` must NOT import from `src/main/`

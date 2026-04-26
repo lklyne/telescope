@@ -25,6 +25,7 @@ import { loadOnboardingState } from './runtime/preferences'
 import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
 import { configureBundledAgentBrowser } from './agent-browser-install'
 import { autoUpdateSkillsIfSafe } from './skill-auto-update'
+import { registerBuiltInPlugins } from './plugins'
 import { initializeDocObservers } from './runtime/workspace-observers'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
 import { sendInteractiveState } from './runtime/overlay-manager'
@@ -123,6 +124,7 @@ app.whenReady().then(async () => {
 
   identifyInstall()
   configureBundledAgentBrowser()
+  registerBuiltInPlugins()
 
   setupAppMenu()
   registerIpcHandlers()

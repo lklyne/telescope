@@ -1,0 +1,22 @@
+{
+  "name": "@telescope/vite",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vite plugin that lets Telescope render single React components live from your repo.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "vite": "^5 || ^6 || ^7"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

@@ -4,11 +4,11 @@
  * rendererTag broadcast in scene data.
  */
 
-import type { EntityRendererClaim } from '../registry'
+import type { InlineRendererClaim } from '../registry'
 
 const MARKDOWN_EXTENSIONS = /\.md$/i
 
-export const markdownRenderPlugin: EntityRendererClaim = {
+export const markdownRenderPlugin: InlineRendererClaim = {
   id: 'telescope.markdown',
   kind: 'inline',
   rendererTag: 'markdown',

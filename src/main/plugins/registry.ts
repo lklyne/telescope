@@ -22,10 +22,9 @@ export type EntityRendererTag =
   | 'video'
   | 'component'
 
-export interface EntityRendererClaim {
+interface BaseRendererClaim {
   /** Stable id used for telemetry, debugging, and unregister. */
   id: string
-  kind: EntityRendererKind
   /**
    * Renderer-side dispatch key, broadcast as part of the scene data so
    * canvas-bg/entity-renderers/RendererSwitch can pick a React component
@@ -36,13 +35,23 @@ export interface EntityRendererClaim {
   rendererTag: EntityRendererTag
   /** Pure predicate: does this plugin claim the entity? */
   claims: (entity: PersistedFileEntity) => boolean
-  /**
-   * For 'wcv-page' renderers: produce the URL the page WebContents loads.
-   * Async because resolving may require a dev-server lookup. Returning null
-   * tells the host to render a placeholder.
-   */
-  resolveUrl?: (entity: PersistedFileEntity) => Promise<string | null> | string | null
 }
+
+export interface InlineRendererClaim extends BaseRendererClaim {
+  kind: 'inline'
+}
+
+export interface WcvPageRendererClaim extends BaseRendererClaim {
+  kind: 'wcv-page'
+  /**
+   * Produce the URL the page WebContents loads. Async because resolving
+   * may require a dev-server lookup. Returning null tells the host to
+   * render a placeholder.
+   */
+  resolveUrl: (entity: PersistedFileEntity) => Promise<string | null> | string | null
+}
+
+export type EntityRendererClaim = InlineRendererClaim | WcvPageRendererClaim
 
 const claims: EntityRendererClaim[] = []
 

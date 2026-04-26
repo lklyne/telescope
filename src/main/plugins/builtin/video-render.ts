@@ -3,11 +3,11 @@
  * "registry as single source of truth" rationale.
  */
 
-import type { EntityRendererClaim } from '../registry'
+import type { InlineRendererClaim } from '../registry'
 
 const VIDEO_EXTENSIONS = /\.(webm|mp4|mov|ogg)$/i
 
-export const videoRenderPlugin: EntityRendererClaim = {
+export const videoRenderPlugin: InlineRendererClaim = {
   id: 'telescope.video',
   kind: 'inline',
   rendererTag: 'video',

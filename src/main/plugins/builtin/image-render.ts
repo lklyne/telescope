@@ -5,11 +5,11 @@
  * scene builder broadcast for this file?"
  */
 
-import type { EntityRendererClaim } from '../registry'
+import type { InlineRendererClaim } from '../registry'
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i
 
-export const imageRenderPlugin: EntityRendererClaim = {
+export const imageRenderPlugin: InlineRendererClaim = {
   id: 'telescope.image',
   kind: 'inline',
   rendererTag: 'image',

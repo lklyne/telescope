@@ -4,11 +4,11 @@
  * rendererTag broadcast in scene data.
  */
 
-import type { EntityRendererClaim } from '../registry'
+import type { InlineRendererClaim } from '../registry'
 
 const WIREFRAME_EXTENSIONS = /\.wireframe\.json$/i
 
-export const wireframeRenderPlugin: EntityRendererClaim = {
+export const wireframeRenderPlugin: InlineRendererClaim = {
   id: 'telescope.wireframe',
   kind: 'inline',
   rendererTag: 'wireframe',

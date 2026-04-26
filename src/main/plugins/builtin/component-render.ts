@@ -6,11 +6,11 @@
  * wired; the host treats null as "render a placeholder."
  */
 
-import type { EntityRendererClaim } from '../registry'
+import type { WcvPageRendererClaim } from '../registry'
 
 const COMPONENT_EXTENSIONS = /\.(tsx|jsx)$/i
 
-export const componentRenderPlugin: EntityRendererClaim = {
+export const componentRenderPlugin: WcvPageRendererClaim = {
   id: 'telescope.component-render',
   kind: 'wcv-page',
   rendererTag: 'component',

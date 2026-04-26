@@ -13,6 +13,7 @@ const COMPONENT_EXTENSIONS = /\.(tsx|jsx)$/i
 export const componentRenderPlugin: EntityRendererClaim = {
   id: 'telescope.component-render',
   kind: 'wcv-page',
+  rendererTag: 'component',
   claims: (entity) => COMPONENT_EXTENSIONS.test(entity.file),
   resolveUrl: () => null,
 }

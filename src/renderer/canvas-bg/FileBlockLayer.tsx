@@ -56,6 +56,7 @@ function FileBlockCard({
   const isVideo = VIDEO_EXTENSIONS.test(entity.file)
   const isMarkdown = MARKDOWN_EXTENSIONS.test(entity.file)
   const isWireframe = WIREFRAME_EXTENSIONS.test(entity.file)
+  const isComponent = entity.rendererTag === 'component'
   const fileName = entity.file.split('/').pop() ?? entity.file
   const fileApi = (window as unknown as { electronAPI: { showFileInFinder: (path: string) => void; readNoteFile: (path: string) => Promise<string | null>; writeNoteFile: (path: string, content: string) => Promise<boolean>; renameNoteFile: (path: string, newName: string) => Promise<string | null> } }).electronAPI
 
@@ -196,7 +197,31 @@ function FileBlockCard({
     >
       <ContextMenu.Root>
         <ContextMenu.Trigger className="block" style={{ width: '100%', height: '100%' }}>
-          {isVideo ? (
+          {isComponent ? (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: 16,
+                fontFamily: 'system-ui, sans-serif',
+                color: isDark ? '#a8a29e' : '#78716c',
+                fontSize: 11,
+                textAlign: 'center',
+              }}
+            >
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+              </svg>
+              <span style={{ wordBreak: 'break-all', maxWidth: '100%' }}>{fileName}</span>
+              <span style={{ fontSize: 10, opacity: 0.7 }}>Connect a Vite repo to render this component</span>
+            </div>
+          ) : isVideo ? (
             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
               <video
                 src={filePathToSrc(entity.file)}
@@ -364,6 +389,7 @@ const MemoFileBlockCard = memo(FileBlockCard, (prev, next) => {
     prev.entity.showDeviceFrame === next.entity.showDeviceFrame &&
     prev.entity.deviceId === next.entity.deviceId &&
     prev.entity.deviceOrientation === next.entity.deviceOrientation &&
+    prev.entity.rendererTag === next.entity.rendererTag &&
     prev.isDark === next.isDark &&
     prev.isSelected === next.isSelected &&
     prev.isMarqueePreview === next.isMarqueePreview &&

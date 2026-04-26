@@ -3,6 +3,7 @@ import type { PanelFileEntityDetail } from '../../../shared/types'
 import { paneDeleteBtnClass as deleteBtnClass, dividerClass, paneActionBtnClass as iconBtnClass, mutedClass } from '../rightDetailsPanelHelpers'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import { ImageFilePane } from './ImageFilePane'
+import { ComponentFilePane } from './ComponentFilePane'
 import { MarkdownFilePane } from './MarkdownFilePane'
 import { WireframeFilePane } from './WireframeFilePane'
 import { FileDeviceSection } from './FileDeviceSection'
@@ -91,6 +92,8 @@ export function FileEntityPane({
       return <MarkdownFilePane fileEntity={fileEntity} isDark={isDark} />
     case 'wireframe':
       return <WireframeFilePane fileEntity={fileEntity} isDark={isDark} />
+    case 'component':
+      return <ComponentFilePane fileEntity={fileEntity} isDark={isDark} />
     case 'video':
       return <ImageFilePane fileEntity={fileEntity} isDark={isDark} />
     default:

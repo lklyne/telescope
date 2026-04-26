@@ -16,6 +16,7 @@ import {
   zoom,
 } from '../runtime/surface-layout'
 import { saveImageBuffer } from '../runtime/image-assets'
+import { findRepoForPath } from '../runtime/dev-server-manager'
 import { imageSizeFromBuffer } from '../runtime/image-sizing'
 import {
   cancelPendingPlacement,
@@ -407,6 +408,37 @@ export function registerCanvasIpc(): void {
       const file = saveImageBuffer(buffer, ext)
       const { width, height } = imageSizeFromBuffer(buffer)
       createFileEntity({ canvasX, canvasY, file, width, height })
+    },
+  )
+
+  ipcMain.on(
+    'canvas-drop-component-path',
+    (
+      _event,
+      {
+        absolutePath,
+        canvasX,
+        canvasY,
+        dragId,
+      }: { absolutePath: string; canvasX: number; canvasY: number; dragId?: string },
+    ) => {
+      if (!absolutePath) return
+      if (dragId && consumeDragId(dragId)) return
+      const repo = findRepoForPath(absolutePath)
+      const repoRelativePath = repo
+        ? absolutePath.startsWith(repo.absolutePath + '/')
+          ? absolutePath.slice(repo.absolutePath.length + 1)
+          : absolutePath === repo.absolutePath
+            ? ''
+            : null
+        : null
+      const metadata: Record<string, unknown> = {
+        componentRender: {
+          repoId: repo?.id ?? null,
+          repoRelativePath: repoRelativePath ?? null,
+        },
+      }
+      createFileEntity({ canvasX, canvasY, file: absolutePath, metadata })
     },
   )
 

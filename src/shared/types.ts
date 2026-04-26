@@ -133,6 +133,8 @@ export interface CanvasSceneFileEntity {
   screenHeight: number
   parentGroupId?: string
   objectFit?: FileObjectFit
+  /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
+  rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component'
   /** Device frame state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
@@ -636,7 +638,7 @@ export interface PanelTextEntityDetail {
   height: number
 }
 
-export type PanelFileType = 'image' | 'video' | 'markdown' | 'wireframe' | 'other'
+export type PanelFileType = 'image' | 'video' | 'markdown' | 'wireframe' | 'component' | 'other'
 
 export interface PanelFileEntityDetail {
   id: string
@@ -1432,6 +1434,9 @@ export interface CanvasBgElectronAPI {
   renameTextEntity: (entityId: string, name: string) => void
   renameDrawingEntity: (entityId: string, name: string) => void
   dropFileBuffer: (buffer: Uint8Array, ext: string, canvasX: number, canvasY: number) => void
+  /** Drop a .tsx/.jsx file into the canvas without copying its bytes — the file
+   *  stays in the user's repo and the entity references it by absolute path. */
+  dropComponentFile: (file: File, canvasX: number, canvasY: number) => void
   selectEntity: (
     entityId: string,
     entityKind: CanvasEntityKind,

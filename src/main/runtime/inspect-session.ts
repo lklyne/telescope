@@ -288,6 +288,7 @@ function detectFileType(filePath: string): PanelFileType {
   if (/\.(png|jpe?g|gif|svg|webp|bmp|ico)$/.test(lower)) return 'image'
   if (/\.(webm|mp4|mov|ogg)$/.test(lower)) return 'video'
   if (/\.md$/.test(lower)) return 'markdown'
+  if (/\.(tsx|jsx)$/.test(lower)) return 'component'
   return 'other'
 }
 

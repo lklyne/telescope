@@ -19,6 +19,7 @@ import {
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
+import { getRendererTagFor } from '../plugins/registry'
 
 export type FileObjectFit = 'contain' | 'cover' | 'fill'
 
@@ -153,6 +154,7 @@ export function buildFileEntitySceneEntity(
     contentScreenY: showShell ? contentScreenY : undefined,
     contentScreenWidth: showShell ? contentScreenW : undefined,
     contentScreenHeight: showShell ? contentScreenH : undefined,
+    rendererTag: getRendererTagFor(persistFileEntity(entity)) ?? undefined,
   }
 }
 

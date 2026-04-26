@@ -15,7 +15,7 @@ import type { PersistedFileEntity } from '../../shared/types'
 
 export type EntityRendererKind = 'inline' | 'wcv-page'
 
-export type EntityRendererInlineTag =
+export type EntityRendererTag =
   | 'markdown'
   | 'wireframe'
   | 'image'
@@ -26,6 +26,14 @@ export interface EntityRendererClaim {
   /** Stable id used for telemetry, debugging, and unregister. */
   id: string
   kind: EntityRendererKind
+  /**
+   * Renderer-side dispatch key, broadcast as part of the scene data so
+   * canvas-bg/entity-renderers/RendererSwitch can pick a React component
+   * without importing from src/main/. Required regardless of kind:
+   * inline plugins use it to pick their inline component, wcv-page
+   * plugins use it to pick a placeholder shown while the WCV materializes.
+   */
+  rendererTag: EntityRendererTag
   /** Pure predicate: does this plugin claim the entity? */
   claims: (entity: PersistedFileEntity) => boolean
   /**
@@ -34,12 +42,6 @@ export interface EntityRendererClaim {
    * tells the host to render a placeholder.
    */
   resolveUrl?: (entity: PersistedFileEntity) => Promise<string | null> | string | null
-  /**
-   * For 'inline' renderers: a tag broadcast to the renderer over
-   * LayoutUpdateData so the renderer-side dispatcher can pick a React
-   * component without importing from src/main/.
-   */
-  inlineTag?: EntityRendererInlineTag
 }
 
 const claims: EntityRendererClaim[] = []
@@ -69,11 +71,9 @@ export function pickRenderer(entity: PersistedFileEntity): EntityRendererClaim |
   return null
 }
 
-/** Convenience for the LayoutUpdateData broadcast — null when no inline match. */
-export function getInlineTagFor(entity: PersistedFileEntity): EntityRendererInlineTag | null {
-  const claim = pickRenderer(entity)
-  if (!claim || claim.kind !== 'inline') return null
-  return claim.inlineTag ?? null
+/** Convenience: tag broadcast to the renderer; null when no plugin claims. */
+export function getRendererTagFor(entity: PersistedFileEntity): EntityRendererTag | null {
+  return pickRenderer(entity)?.rendererTag ?? null
 }
 
 /** Snapshot for debugging; not part of any IPC contract. */

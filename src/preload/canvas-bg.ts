@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   AnnotationCreateRequest,
   CanvasBgElectronAPI,
@@ -146,6 +146,11 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-rename-drawing-entity', { entityId, name }),
   dropFileBuffer: (buffer: Uint8Array, ext: string, canvasX: number, canvasY: number) =>
     ipcRenderer.send('canvas-drop-file-buffer', { buffer: Buffer.from(buffer), ext, canvasX, canvasY }),
+  dropComponentFile: (file: File, canvasX: number, canvasY: number) => {
+    const absolutePath = webUtils.getPathForFile(file)
+    if (!absolutePath) return
+    ipcRenderer.send('canvas-drop-component-path', { absolutePath, canvasX, canvasY })
+  },
   selectEntity: (entityId, entityKind, modifiers) =>
     ipcRenderer.send('canvas-select-entity', { entityId, entityKind, modifiers }),
   selectGroup: (groupId: string) =>

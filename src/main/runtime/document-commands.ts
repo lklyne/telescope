@@ -301,6 +301,7 @@ export function createFileEntity(input: {
   width?: number
   height?: number
   id?: string
+  metadata?: Record<string, unknown>
 }): FileEntity {
   const entity = createFileEntityInState(input)
   scheduleWorkspaceAutosave()

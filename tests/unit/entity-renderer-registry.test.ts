@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   __resetRegistryForTests,
-  getInlineTagFor,
+  getRendererTagFor,
   listRegisteredRenderers,
   pickRenderer,
   registerEntityRenderer,
@@ -30,20 +30,20 @@ afterEach(() => {
 describe('entity-renderer registry', () => {
   it('returns null when no renderer claims the entity', () => {
     expect(pickRenderer(fileEntity())).toBeNull()
-    expect(getInlineTagFor(fileEntity())).toBeNull()
+    expect(getRendererTagFor(fileEntity())).toBeNull()
   })
 
   it('first registered claim that matches wins', () => {
     const first: EntityRendererClaim = {
       id: 'first',
       kind: 'inline',
-      inlineTag: 'markdown',
+      rendererTag: 'markdown',
       claims: (e) => /\.md$/i.test(e.file),
     }
     const second: EntityRendererClaim = {
       id: 'second',
       kind: 'inline',
-      inlineTag: 'markdown',
+      rendererTag: 'markdown',
       claims: (e) => /\.md$/i.test(e.file),
     }
     registerEntityRenderer(first)
@@ -51,33 +51,34 @@ describe('entity-renderer registry', () => {
     expect(pickRenderer(fileEntity({ file: 'notes.md' }))?.id).toBe('first')
   })
 
-  it('inline plugins surface their tag via getInlineTagFor', () => {
+  it('plugins surface their rendererTag via getRendererTagFor', () => {
     registerEntityRenderer({
       id: 'md',
       kind: 'inline',
-      inlineTag: 'markdown',
+      rendererTag: 'markdown',
       claims: (e) => /\.md$/i.test(e.file),
     })
-    expect(getInlineTagFor(fileEntity({ file: 'a.md' }))).toBe('markdown')
+    expect(getRendererTagFor(fileEntity({ file: 'a.md' }))).toBe('markdown')
   })
 
-  it('wcv-page plugins do not contribute an inline tag', () => {
+  it('wcv-page plugins surface their tag too (for placeholder rendering)', () => {
     registerEntityRenderer({
       id: 'comp',
       kind: 'wcv-page',
+      rendererTag: 'component',
       claims: (e) => /\.tsx$/i.test(e.file),
       resolveUrl: () => 'http://example.test',
     })
     const entity = fileEntity({ file: 'Button.tsx' })
     expect(pickRenderer(entity)?.id).toBe('comp')
-    expect(getInlineTagFor(entity)).toBeNull()
+    expect(getRendererTagFor(entity)).toBe('component')
   })
 
   it('unregister removes the claim', () => {
     registerEntityRenderer({
       id: 'tmp',
       kind: 'inline',
-      inlineTag: 'markdown',
+      rendererTag: 'markdown',
       claims: () => true,
     })
     expect(unregisterEntityRenderer('tmp')).toBe(true)
@@ -89,7 +90,7 @@ describe('entity-renderer registry', () => {
     const claim: EntityRendererClaim = {
       id: 'dup',
       kind: 'inline',
-      inlineTag: 'markdown',
+      rendererTag: 'markdown',
       claims: () => true,
     }
     registerEntityRenderer(claim)
@@ -102,7 +103,7 @@ describe('entity-renderer registry', () => {
       registerEntityRenderer({
         id,
         kind: 'inline',
-        inlineTag: 'markdown',
+        rendererTag: 'markdown',
         claims: () => false,
       })
     }

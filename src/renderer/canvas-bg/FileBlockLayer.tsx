@@ -1,19 +1,19 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import Markdown from 'react-markdown'
+import { memo } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import type { CanvasSceneFileEntity, SelectionModifiers } from '../../shared/types'
 import { SelectableEntityShell } from './SelectableEntityShell'
-import { aspectRatioResizeModeForCanvasFile, type EntityResizePatch, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from './entityConstants'
-import { MIN_FILE_WIDTH, MIN_FILE_HEIGHT } from './entityConstants'
-import { WireframeRenderer } from './wireframe/WireframeRenderer'
-
-function filePathToSrc(filePath: string): string {
-  if (filePath.startsWith('local-file://') || filePath.startsWith('http://') || filePath.startsWith('https://')) {
-    return filePath
-  }
-  return `local-file://${filePath}`
-}
+import {
+  aspectRatioResizeModeForCanvasFile,
+  type EntityResizePatch,
+  MIN_FILE_HEIGHT,
+  MIN_FILE_WIDTH,
+} from './entityConstants'
+import {
+  RendererSwitch,
+  rendererSuppressesContentDrag,
+} from './entity-renderers/RendererSwitch'
+import { getFileApi } from './entity-renderers/filePathToSrc'
 
 function FileBlockCard({
   entity,
@@ -52,106 +52,7 @@ function FileBlockCard({
   onGroupDrag: (groupId: string, dx: number, dy: number) => void
   onGroupDragEnd: () => void
 }) {
-  // Prefer the registry-provided rendererTag; fall back to extension regex
-  // for entities that haven't been re-broadcast since boot.
-  const isImage = entity.rendererTag === 'image' || IMAGE_EXTENSIONS.test(entity.file)
-  const isVideo = entity.rendererTag === 'video' || VIDEO_EXTENSIONS.test(entity.file)
-  const isMarkdown = entity.rendererTag === 'markdown' || MARKDOWN_EXTENSIONS.test(entity.file)
-  const isWireframe = entity.rendererTag === 'wireframe' || WIREFRAME_EXTENSIONS.test(entity.file)
-  const isComponent = entity.rendererTag === 'component'
-  const fileName = entity.file.split('/').pop() ?? entity.file
-  const fileApi = (window as unknown as { electronAPI: { showFileInFinder: (path: string) => void; readNoteFile: (path: string) => Promise<string | null>; writeNoteFile: (path: string, content: string) => Promise<boolean>; renameNoteFile: (path: string, newName: string) => Promise<string | null> } }).electronAPI
-
-  // Load markdown file content
-  const [mdContent, setMdContent] = useState<string | null>(null)
-  const [localMdText, setLocalMdText] = useState('')
-  const isFocusedRef = useRef(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Load wireframe file content
-  const [wireframeContent, setWireframeContent] = useState<string | null>(null)
-  const wireframeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const fetchNoteContent = useCallback(() => {
-    const src = filePathToSrc(entity.file) + `?t=${Date.now()}`
-    if (isWireframe) {
-      fetch(src)
-        .then((res) => res.text())
-        .then((text) => setWireframeContent(text))
-        .catch(() => {})
-    } else if (isMarkdown) {
-      fetch(src)
-        .then((res) => res.text())
-        .then((text) => {
-          setMdContent(text)
-          if (!isFocusedRef.current) setLocalMdText(text)
-        })
-        .catch(() => {})
-    }
-  }, [entity.file, isWireframe, isMarkdown])
-
-  // Initial load
-  useEffect(() => {
-    if (!isWireframe && !isMarkdown) return
-    let cancelled = false
-    const src = filePathToSrc(entity.file)
-    fetch(src)
-      .then((res) => res.text())
-      .then((text) => {
-        if (cancelled) return
-        if (isWireframe) setWireframeContent(text)
-        if (isMarkdown) {
-          setMdContent(text)
-          if (!isFocusedRef.current) setLocalMdText(text)
-        }
-      })
-      .catch(() => {
-        if (cancelled) return
-        if (isWireframe) setWireframeContent(null)
-        if (isMarkdown) setMdContent(null)
-      })
-    return () => { cancelled = true }
-  }, [isWireframe, isMarkdown, entity.file])
-
-  // Re-fetch when the window regains visibility (covers external edits by agents, editors, etc.)
-  useEffect(() => {
-    if (!isWireframe && !isMarkdown) return
-    const handleVisibility = () => {
-      if (document.visibilityState !== 'visible') return
-      // Skip if user has a pending local write
-      if (wireframeDebounceRef.current || debounceRef.current) return
-      if (isFocusedRef.current) return
-      fetchNoteContent()
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [isWireframe, isMarkdown, fetchNoteContent])
-
-  const handleWireframeChange = useCallback((json: string) => {
-    setWireframeContent(json)
-    if (wireframeDebounceRef.current) clearTimeout(wireframeDebounceRef.current)
-    wireframeDebounceRef.current = setTimeout(() => {
-      fileApi.writeNoteFile(entity.file, json)
-      wireframeDebounceRef.current = null
-    }, 300)
-  }, [entity.file, fileApi])
-
-  // Clear editing state when edit mode is lost
-  useEffect(() => {
-    if (!canEdit && isFocusedRef.current) {
-      isFocusedRef.current = false
-      onTextEditingChange(false)
-    }
-  }, [canEdit, onTextEditingChange])
-
-  const handleMdTextChange = (value: string) => {
-    setLocalMdText(value)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      fileApi.writeNoteFile(entity.file, value)
-      debounceRef.current = null
-    }, 300)
-  }
+  const fileApi = getFileApi()
 
   const menuPopupClass = `z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
     isDark
@@ -177,7 +78,7 @@ function FileBlockCard({
       isDark={isDark}
       isSelected={isSelected}
       isMarqueePreview={isMarqueePreview}
-      background={entity.showDeviceFrame ? 'transparent' : (isDark ? '#1c1917' : '#fafaf9')}
+      background={entity.showDeviceFrame ? 'transparent' : isDark ? '#1c1917' : '#fafaf9'}
       borderRadius={entity.showDeviceFrame ? 0 : 4}
       showCardShadow={!entity.showDeviceFrame}
       onSelect={onSelect}
@@ -191,7 +92,7 @@ function FileBlockCard({
       onGroupDragEnd={onGroupDragEnd}
       aspectRatioResizeMode={aspectRatioResizeModeForCanvasFile(entity.file)}
       shouldStartDrag={(event) => {
-        if (canEdit && (isMarkdown || isVideo || isWireframe)) return false
+        if (canEdit && rendererSuppressesContentDrag(entity)) return false
         const target = event.target as HTMLElement | null
         if (target?.closest('button, textarea, input')) return false
         return true
@@ -199,175 +100,21 @@ function FileBlockCard({
     >
       <ContextMenu.Root>
         <ContextMenu.Trigger className="block" style={{ width: '100%', height: '100%' }}>
-          {isComponent ? (
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: 16,
-                fontFamily: 'system-ui, sans-serif',
-                color: isDark ? '#a8a29e' : '#78716c',
-                fontSize: 11,
-                textAlign: 'center',
-              }}
-            >
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="16 18 22 12 16 6" />
-                <polyline points="8 6 2 12 8 18" />
-              </svg>
-              <span style={{ wordBreak: 'break-all', maxWidth: '100%' }}>{fileName}</span>
-              <span style={{ fontSize: 10, opacity: 0.7 }}>Connect a Vite repo to render this component</span>
-            </div>
-          ) : isVideo ? (
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              <video
-                src={filePathToSrc(entity.file)}
-                autoPlay
-                loop
-                muted
-                controls={canEdit}
-                playsInline
-                draggable={false}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: entity.objectFit ?? 'contain',
-                }}
-              />
-              {!canEdit && (
-                <div style={{ position: 'absolute', inset: 0 }} />
-              )}
-            </div>
-          ) : isImage ? (
-            <img
-              src={filePathToSrc(entity.file)}
-              alt={fileName}
-              draggable={false}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: entity.objectFit ?? 'contain',
-                pointerEvents: 'none',
-              }}
-            />
-          ) : isMarkdown ? (
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                overflow: 'auto',
-                padding: 12,
-              }}
-            >
-              {canEdit ? (
-                <textarea
-                  className="text-block-textarea w-full h-full resize-none border-none outline-none bg-transparent"
-                  style={{
-                    fontSize: 12,
-                    color: isDark ? '#e7e5e4' : '#1c1917',
-                    fontFamily: 'system-ui, sans-serif',
-                  }}
-                  value={localMdText}
-                  placeholder="Write your note..."
-                  onChange={(e) => handleMdTextChange(e.target.value)}
-                  onFocus={() => { isFocusedRef.current = true; onTextEditingChange(true) }}
-                  onBlur={() => {
-                    isFocusedRef.current = false
-                    onTextEditingChange(false)
-                    if (debounceRef.current) {
-                      clearTimeout(debounceRef.current)
-                      debounceRef.current = null
-                    }
-                    fileApi.writeNoteFile(entity.file, localMdText)
-                    setMdContent(localMdText)
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <div
-                  className="text-block-markdown"
-                  style={{
-                    fontSize: 12,
-                    color: isDark ? '#e7e5e4' : '#1c1917',
-                    fontFamily: 'system-ui, sans-serif',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {mdContent != null ? (
-                    mdContent ? <Markdown>{mdContent}</Markdown> : <span style={{ opacity: 0.4 }}>Write your note...</span>
-                  ) : (
-                    <span style={{ opacity: 0.4 }}>Loading...</span>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : isWireframe ? (
-            wireframeContent != null ? (
-              <div style={{ width: '100%', height: '100%', pointerEvents: canEdit ? 'auto' : 'none' }}>
-                <WireframeRenderer
-                  content={wireframeContent}
-                  canEdit={canEdit}
-                  jsonMode={wireframeJsonMode && canEdit}
-                  onContentChange={handleWireframeChange}
-                />
-              </div>
-            ) : (
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: isDark ? '#a8a29e' : '#78716c',
-                  fontSize: 13,
-                  fontFamily: 'system-ui, sans-serif',
-                }}
-              >
-                Loading...
-              </div>
-            )
-          ) : (
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: 16,
-              }}
-            >
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#a8a29e' : '#78716c'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-              </svg>
-              <span
-                style={{
-                  fontSize: 11,
-                  color: isDark ? '#a8a29e' : '#78716c',
-                  fontFamily: 'system-ui, sans-serif',
-                  textAlign: 'center',
-                  wordBreak: 'break-all',
-                  maxWidth: '100%',
-                }}
-              >
-                {fileName}
-              </span>
-            </div>
-          )}
+          <RendererSwitch
+            entity={entity}
+            canEdit={canEdit}
+            isDark={isDark}
+            wireframeJsonMode={wireframeJsonMode}
+            onTextEditingChange={onTextEditingChange}
+          />
         </ContextMenu.Trigger>
         <Menu.Portal>
           <Menu.Positioner sideOffset={6}>
             <Menu.Popup className={menuPopupClass}>
-              <Menu.Item className={menuItemClass} onClick={() => fileApi.showFileInFinder(entity.file)}>
+              <Menu.Item
+                className={menuItemClass}
+                onClick={() => fileApi.showFileInFinder(entity.file)}
+              >
                 Show in Finder
               </Menu.Item>
             </Menu.Popup>

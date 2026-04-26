@@ -7,18 +7,22 @@
 
 import { registerEntityRenderer, unregisterEntityRenderer } from './registry'
 import { componentRenderPlugin } from './builtin/component-render'
+import { imageRenderPlugin } from './builtin/image-render'
+import { videoRenderPlugin } from './builtin/video-render'
+
+const builtIns = [imageRenderPlugin, videoRenderPlugin, componentRenderPlugin]
 
 let registered = false
 
 export function registerBuiltInPlugins(): void {
   if (registered) return
-  registerEntityRenderer(componentRenderPlugin)
+  for (const plugin of builtIns) registerEntityRenderer(plugin)
   registered = true
 }
 
 /** Test-only: undo registerBuiltInPlugins so a fresh registration round can run. */
 export function __unregisterBuiltInPluginsForTests(): void {
   if (!registered) return
-  unregisterEntityRenderer(componentRenderPlugin.id)
+  for (const plugin of builtIns) unregisterEntityRenderer(plugin.id)
   registered = false
 }

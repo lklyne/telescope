@@ -60,6 +60,7 @@ import {
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
+import { getRendererTagFor } from '../plugins/registry'
 import {
   annotationMode as uiAnnotationMode,
   devtoolsPanelTab as uiDevtoolsPanelTab,
@@ -283,12 +284,26 @@ function buildTextEntityDetail(entityId: string): PanelTextEntityDetail | undefi
 }
 
 function detectFileType(filePath: string): PanelFileType {
+  // Built-in plugins claim by extension; the registry is the source of truth.
+  // Markdown + wireframe are still claimed by the regex fallback below until
+  // their built-in plugins migrate (Phase 3).
+  const tag = getRendererTagFor({
+    kind: 'file',
+    id: '__inspect__',
+    file: filePath,
+    canvasX: 0,
+    canvasY: 0,
+    width: 0,
+    height: 0,
+  })
+  if (tag === 'image') return 'image'
+  if (tag === 'video') return 'video'
+  if (tag === 'component') return 'component'
+  if (tag === 'markdown') return 'markdown'
+  if (tag === 'wireframe') return 'wireframe'
   const lower = filePath.toLowerCase()
   if (/\.wireframe\.json$/.test(lower)) return 'wireframe'
-  if (/\.(png|jpe?g|gif|svg|webp|bmp|ico)$/.test(lower)) return 'image'
-  if (/\.(webm|mp4|mov|ogg)$/.test(lower)) return 'video'
   if (/\.md$/.test(lower)) return 'markdown'
-  if (/\.(tsx|jsx)$/.test(lower)) return 'component'
   return 'other'
 }
 

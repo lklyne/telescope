@@ -35,6 +35,14 @@ interface BaseRendererClaim {
   rendererTag: EntityRendererTag
   /** Pure predicate: does this plugin claim the entity? */
   claims: (entity: PersistedFileEntity) => boolean
+  /**
+   * Higher priority claims are tested first. Defaults to 0. Use a higher
+   * value when the file pattern is more specific than another plugin's
+   * (e.g. wireframe's `.wireframe.json` is more specific than a future
+   * generic `.json`). Same-priority claims fall back to registration
+   * order for tie-breaking.
+   */
+  priority?: number
 }
 
 export interface InlineRendererClaim extends BaseRendererClaim {
@@ -55,11 +63,25 @@ export type EntityRendererClaim = InlineRendererClaim | WcvPageRendererClaim
 
 const claims: EntityRendererClaim[] = []
 
+function priorityOf(claim: EntityRendererClaim): number {
+  return claim.priority ?? 0
+}
+
 export function registerEntityRenderer(claim: EntityRendererClaim): void {
   if (claims.some((c) => c.id === claim.id)) {
     throw new Error(`entity renderer already registered: ${claim.id}`)
   }
-  claims.push(claim)
+  // Insertion sort: walk to the first existing claim with strictly lower
+  // priority and insert there. Equal priorities keep registration order.
+  const newPriority = priorityOf(claim)
+  let index = claims.length
+  for (let i = 0; i < claims.length; i++) {
+    if (priorityOf(claims[i]) < newPriority) {
+      index = i
+      break
+    }
+  }
+  claims.splice(index, 0, claim)
 }
 
 export function unregisterEntityRenderer(id: string): boolean {

@@ -12,14 +12,14 @@ import { markdownRenderPlugin } from './builtin/markdown-render'
 import { videoRenderPlugin } from './builtin/video-render'
 import { wireframeRenderPlugin } from './builtin/wireframe-render'
 
-// Order matters: wireframe before markdown (the .wireframe.json case),
-// component last so anything more specific wins first.
+// Precedence is declared on each claim's `priority` field, not on this
+// list's order. Listed alphabetically for readability.
 const builtIns = [
-  wireframeRenderPlugin,
-  markdownRenderPlugin,
-  imageRenderPlugin,
-  videoRenderPlugin,
   componentRenderPlugin,
+  imageRenderPlugin,
+  markdownRenderPlugin,
+  videoRenderPlugin,
+  wireframeRenderPlugin,
 ]
 
 let registered = false

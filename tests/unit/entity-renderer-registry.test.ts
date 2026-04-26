@@ -110,6 +110,40 @@ describe('entity-renderer registry', () => {
     expect(listRegisteredRenderers().map((c) => c.id)).toEqual(ids)
   })
 
+  it('higher-priority claims are tested before lower-priority ones', () => {
+    registerEntityRenderer({
+      id: 'low',
+      kind: 'inline',
+      rendererTag: 'markdown',
+      claims: (e) => /\.json$/i.test(e.file),
+    })
+    registerEntityRenderer({
+      id: 'high',
+      kind: 'inline',
+      rendererTag: 'wireframe',
+      priority: 10,
+      claims: (e) => /\.wireframe\.json$/i.test(e.file),
+    })
+    expect(pickRenderer(fileEntity({ file: 'foo.wireframe.json' }))?.id).toBe('high')
+    expect(pickRenderer(fileEntity({ file: 'foo.json' }))?.id).toBe('low')
+  })
+
+  it('same-priority claims fall back to registration order', () => {
+    registerEntityRenderer({
+      id: 'first',
+      kind: 'inline',
+      rendererTag: 'markdown',
+      claims: (e) => /\.txt$/i.test(e.file),
+    })
+    registerEntityRenderer({
+      id: 'second',
+      kind: 'inline',
+      rendererTag: 'image',
+      claims: (e) => /\.txt$/i.test(e.file),
+    })
+    expect(pickRenderer(fileEntity({ file: 'a.txt' }))?.id).toBe('first')
+  })
+
   it('a throwing claims() predicate does not blank out later plugins', () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     registerEntityRenderer({

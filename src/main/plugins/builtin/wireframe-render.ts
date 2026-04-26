@@ -12,8 +12,8 @@ export const wireframeRenderPlugin: InlineRendererClaim = {
   id: 'telescope.wireframe',
   kind: 'inline',
   rendererTag: 'wireframe',
-  // Order matters: wireframe must be registered BEFORE markdown so that a
-  // file ending in `.wireframe.json` is not also half-claimed by markdown
-  // (it isn't today — different regex — but the precedence is intentional).
+  // `.wireframe.json` is more specific than a generic `.json` would be,
+  // so claim ahead of any future plugin that matches by parent extension.
+  priority: 10,
   claims: (entity) => WIREFRAME_EXTENSIONS.test(entity.file),
 }

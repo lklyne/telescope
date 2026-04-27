@@ -23,6 +23,17 @@ export interface ConnectedRepo {
   lastError?: string
 }
 
+/**
+ * Per-file-entity metadata stamped at drop time by the component-render
+ * plugin. Lives at `entity.metadata.componentRender`. Both fields can be
+ * null when the file was dropped from outside any connected repo —
+ * resolveUrl then returns null and the host renders the placeholder.
+ */
+export interface ComponentRenderMetadata {
+  repoId: string | null
+  repoRelativePath: string | null
+}
+
 export interface ViewportPreset {
   label: string
   width: number

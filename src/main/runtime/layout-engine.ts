@@ -70,6 +70,8 @@ import {
 } from './canvas-layout-data'
 import { textEntityMenuViewBounds } from '../../shared/selectedFrameMenu'
 import { textEntities, buildTextEntitySceneEntity } from './text-entity-state'
+import { fileEntities } from './file-entity-state'
+import { listComponentViews, syncComponentViews } from './component-page-factory'
 import { getPresenceCursors } from '../app-control-server'
 import {
   notifyDevtoolsPanelData,
@@ -451,6 +453,54 @@ export function layoutAllViews(): void {
   }
 
   // (above-view bounds are now handled in the consolidated block above)
+
+  // --- Per-component bounds + emulation ---
+  // Reconcile the component-view set against the current file entities,
+  // then position each view to match its entity's canvas footprint. Hidden
+  // entirely in browser mode — components are design artifacts, not
+  // navigable web content, so they don't get tabs.
+  syncComponentViews(fileEntities)
+  const componentsHidden = viewMode === 'browser'
+  const canvasOrigin = boundCanvasOrigin()
+  const nativeScale = screen.getPrimaryDisplay().scaleFactor
+  for (const cv of listComponentViews()) {
+    const entity = fileEntities.find((e) => e.id === cv.entityId)
+    if (!entity || componentsHidden) {
+      cv.lastBoundsKey = setBoundsIfChanged(cv.view, HIDDEN_BOUNDS, cv.lastBoundsKey)
+      continue
+    }
+    const bounds = {
+      x: Math.round(canvasOrigin.x + entity.canvasX * zoom + pan.x),
+      y: Math.round(canvasOrigin.y + entity.canvasY * zoom + pan.y),
+      width: Math.max(0, Math.round(entity.width * zoom)),
+      height: Math.max(0, Math.round(entity.height * zoom)),
+    }
+
+    // Cull when fully off-screen, but stay visible during drags so a
+    // component that briefly leaves the viewport doesn't blink.
+    const onScreen = boundsOverlap(bounds, windowRect)
+    if (!onScreen && interactionState.kind !== 'dragging-entities') {
+      cv.lastBoundsKey = setBoundsIfChanged(cv.view, HIDDEN_BOUNDS, cv.lastBoundsKey)
+      continue
+    }
+
+    cv.lastBoundsKey = setBoundsIfChanged(cv.view, bounds, cv.lastBoundsKey)
+
+    // Emulate the entity's logical viewport and let canvas zoom drive the
+    // paint scale. Mirrors page emulation so components reflow the same way.
+    const emulationKey = `${entity.width}:${entity.height}:${zoom}:${nativeScale}`
+    if (emulationKey !== cv.lastEmulationKey) {
+      cv.view.webContents.enableDeviceEmulation({
+        screenPosition: 'desktop',
+        screenSize: { width: entity.width, height: entity.height },
+        viewSize: { width: entity.width, height: entity.height },
+        viewPosition: { x: 0, y: 0 },
+        deviceScaleFactor: nativeScale,
+        scale: zoom,
+      })
+      cv.lastEmulationKey = emulationKey
+    }
+  }
 
   // --- Devtools ---
   layoutDevtoolsViews()

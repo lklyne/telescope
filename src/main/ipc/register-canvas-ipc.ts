@@ -16,7 +16,6 @@ import {
   zoom,
 } from '../runtime/surface-layout'
 import { saveImageBuffer } from '../runtime/image-assets'
-import { findRepoForPath } from '../runtime/dev-server-manager'
 import { imageSizeFromBuffer } from '../runtime/image-sizing'
 import {
   cancelPendingPlacement,
@@ -424,21 +423,11 @@ export function registerCanvasIpc(): void {
     ) => {
       if (!absolutePath) return
       if (dragId && consumeDragId(dragId)) return
-      const repo = findRepoForPath(absolutePath)
-      const repoRelativePath = repo
-        ? absolutePath.startsWith(repo.absolutePath + '/')
-          ? absolutePath.slice(repo.absolutePath.length + 1)
-          : absolutePath === repo.absolutePath
-            ? ''
-            : null
-        : null
-      const metadata: Record<string, unknown> = {
-        componentRender: {
-          repoId: repo?.id ?? null,
-          repoRelativePath: repoRelativePath ?? null,
-        },
-      }
-      createFileEntity({ canvasX, canvasY, file: absolutePath, metadata })
+      // No metadata stamp here — componentRenderPlugin.resolveUrl re-derives
+      // the repo from entity.file every time, so a file dropped before its
+      // repo is connected (or while the wrong parent repo was the only
+      // match) heals automatically once the right repo shows up.
+      createFileEntity({ canvasX, canvasY, file: absolutePath })
     },
   )
 

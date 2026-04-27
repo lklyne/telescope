@@ -5,26 +5,25 @@ import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
 import { Readable } from 'node:stream'
 import type { ChildProcess } from 'node:child_process'
-import { readComponentRenderMetadata } from '../../src/main/plugins/builtin/component-render-metadata'
 import { componentRenderPlugin } from '../../src/main/plugins/builtin/component-render'
 import {
   __resetDevServerManagerForTests,
   connectRepo,
+  findRepoForPath,
   initDevServerManager,
   shutdownDevServerManager,
 } from '../../src/main/runtime/dev-server-manager'
 import type { PersistedFileEntity } from '../../src/shared/types'
 
-function fileEntity(overrides: Partial<PersistedFileEntity> = {}): PersistedFileEntity {
+function fileEntity(file: string): PersistedFileEntity {
   return {
     kind: 'file',
     id: 'fe_test',
-    file: '/repo/src/Button.tsx',
+    file,
     canvasX: 0,
     canvasY: 0,
     width: 320,
     height: 240,
-    ...overrides,
   }
 }
 
@@ -48,37 +47,33 @@ function makeFakeChild(): FakeChild {
   return child
 }
 
-describe('readComponentRenderMetadata', () => {
-  it('returns null when metadata is absent', () => {
-    expect(readComponentRenderMetadata(fileEntity())).toBeNull()
+describe('findRepoForPath', () => {
+  let dir: string
+
+  beforeEach(() => {
+    __resetDevServerManagerForTests()
+    dir = mkdtempSync(join(tmpdir(), 'telescope-find-repo-'))
+    initDevServerManager({
+      userDataDir: dir,
+      spawn: () => makeFakeChild() as unknown as ChildProcess,
+    })
   })
 
-  it('returns null when the componentRender key is malformed', () => {
-    expect(
-      readComponentRenderMetadata(fileEntity({ metadata: { componentRender: 'oops' } })),
-    ).toBeNull()
+  afterEach(async () => {
+    await shutdownDevServerManager()
+    rmSync(dir, { recursive: true, force: true })
   })
 
-  it('parses a fully populated entry', () => {
-    const meta = readComponentRenderMetadata(
-      fileEntity({
-        metadata: {
-          componentRender: { repoId: 'abc123', repoRelativePath: 'src/Button.tsx' },
-        },
-      }),
-    )
-    expect(meta).toEqual({ repoId: 'abc123', repoRelativePath: 'src/Button.tsx' })
+  it('prefers the longest matching prefix when nested repos overlap', () => {
+    connectRepo('/Users/alice')
+    const inner = connectRepo('/Users/alice/Developer/my-app')
+    const match = findRepoForPath('/Users/alice/Developer/my-app/src/Button.tsx')
+    expect(match?.id).toBe(inner.id)
   })
 
-  it('coerces non-string fields to null', () => {
-    const meta = readComponentRenderMetadata(
-      fileEntity({
-        metadata: {
-          componentRender: { repoId: 123, repoRelativePath: null },
-        },
-      }),
-    )
-    expect(meta).toEqual({ repoId: null, repoRelativePath: null })
+  it('returns null when the file is outside every connected repo', () => {
+    connectRepo('/Users/alice/Developer/my-app')
+    expect(findRepoForPath('/elsewhere/file.tsx')).toBeNull()
   })
 })
 
@@ -105,32 +100,18 @@ describe('componentRenderPlugin.resolveUrl', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  it('returns null when no metadata is present', async () => {
-    expect(await componentRenderPlugin.resolveUrl(fileEntity())).toBeNull()
+  it('returns null when the file is outside every connected repo', async () => {
+    connectRepo('/abs/path/to/repo')
+    expect(await componentRenderPlugin.resolveUrl(fileEntity('/elsewhere/x.tsx'))).toBeNull()
   })
 
-  it('returns null when metadata names an unknown repo', async () => {
-    const url = await componentRenderPlugin.resolveUrl(
-      fileEntity({
-        metadata: {
-          componentRender: { repoId: 'no-such-repo', repoRelativePath: 'x.tsx' },
-        },
-      }),
-    )
-    expect(url).toBeNull()
-  })
-
-  it('spawns vite and resolves to a __telescope URL once the dev server reports ready', async () => {
-    const repo = connectRepo('/abs/path/to/repo')
+  it('spawns vite for the most specific connected repo and returns a __telescope URL', async () => {
+    connectRepo('/Users/alice')
+    connectRepo('/Users/alice/Developer/my-app')
     const promise = componentRenderPlugin.resolveUrl(
-      fileEntity({
-        metadata: {
-          componentRender: { repoId: repo.id, repoRelativePath: 'src/Button.tsx' },
-        },
-      }),
+      fileEntity('/Users/alice/Developer/my-app/src/Button.tsx'),
     )
 
-    // Wait a microtask for spawn to be invoked, then push the local-url line.
     await Promise.resolve()
     expect(pendingChildren).toHaveLength(1)
     pendingChildren[0].stdout.push('  Local:   http://localhost:5173/\n')

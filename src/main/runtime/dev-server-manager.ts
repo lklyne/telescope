@@ -139,11 +139,19 @@ export function getRepo(id: string): ConnectedRepo | null {
 }
 
 export function findRepoForPath(absolutePath: string): ConnectedRepo | null {
+  // Prefer the longest matching prefix: if the user has both ~/Developer
+  // and ~/Developer/my-app connected, a file inside my-app should resolve
+  // to my-app, not the parent. Otherwise nested repos silently lose.
+  let best: InternalRepo | null = null
   for (const r of repos.values()) {
-    if (absolutePath === r.absolutePath) return toPublic(r)
-    if (absolutePath.startsWith(r.absolutePath + '/')) return toPublic(r)
+    if (absolutePath !== r.absolutePath && !absolutePath.startsWith(r.absolutePath + '/')) {
+      continue
+    }
+    if (!best || r.absolutePath.length > best.absolutePath.length) {
+      best = r
+    }
   }
-  return null
+  return best ? toPublic(best) : null
 }
 
 export function connectRepo(absolutePath: string, label?: string): ConnectedRepo {

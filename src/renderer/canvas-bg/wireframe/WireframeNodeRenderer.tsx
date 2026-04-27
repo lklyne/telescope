@@ -635,6 +635,28 @@ function SpacerRenderer() {
 export function WireframeNodeRenderer(props: WireframeNodeRendererProps) {
   const { node, theme } = props
 
+  // Defensive: a malformed children array (a JSON entry that's `null` or
+  // shaped like `{}` without a `type`) used to crash the whole canvas here.
+  // Render an inline marker so the rest of the wireframe still draws.
+  if (!node || typeof node !== 'object' || typeof (node as { type?: unknown }).type !== 'string') {
+    return (
+      <span
+        style={{
+          display: 'inline-block',
+          padding: '2px 6px',
+          fontSize: 10,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          color: '#7f1d1d',
+          background: '#fee2e2',
+          border: '1px dashed #b91c1c',
+          borderRadius: 4,
+        }}
+      >
+        invalid wireframe node
+      </span>
+    )
+  }
+
   switch (node.type) {
     case 'frame':
       return <FrameNodeRenderer node={node} props={props} />

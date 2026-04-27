@@ -24,7 +24,6 @@ import { pickRenderer } from '../plugins/registry'
 import { wireRendererLogging } from '../crash-log'
 import { breadcrumb } from '../sentry-context'
 import { CARD_BORDER_RADIUS } from './runtime-constants'
-import { markDirty } from './layout-dirty'
 import { requestLayout } from './viewport-control'
 import { persistFileEntity, type FileEntity } from './file-entity-state'
 
@@ -158,7 +157,6 @@ export function syncComponentViews(entities: readonly FileEntity[]): void {
     const cv = createView(id)
     componentViews.set(id, cv)
     void resolveAndLoad(cv)
-    markDirty('canvas')
   }
 
   // Component-render metadata can change in place (e.g. user moves a file

@@ -46,6 +46,7 @@ export type BreadcrumbCategory =
   | 'view-mode'
   | 'mcp'
   | 'onboarding'
+  | 'component'
 
 export function breadcrumb(
   category: BreadcrumbCategory,

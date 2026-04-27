@@ -73,6 +73,16 @@ by other tools. Telescope adds:
 - `parentGroupId` — group membership
 - `metadata` — open-ended key-value store
 
+**On file nodes:**
+- `objectFit` — how the file content fits its bounds (`contain` / `cover` / `fill`)
+- `presetIndex` — viewport preset (device catalog index), used by component renderers
+- `metadata` — open-ended, namespaced by plugin id. Known keys:
+  - `metadata.componentRender` — `{ repoId, repoRelativePath }` for `.tsx` / `.jsx`
+    files dropped from a connected Vite repo. The component-render plugin reads
+    these to look up the repo and ask the dev server for a live URL. Either
+    field may be `null` when the file was dropped from outside any connected
+    repo, in which case the host renders a placeholder.
+
 **On group nodes:**
 - `groupKind` — type of group (e.g., breakpoint set)
 - `layoutMode` — auto-layout algorithm

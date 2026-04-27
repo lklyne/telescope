@@ -50,7 +50,7 @@ Same five steps, except:
 
 - The claim has `kind: 'wcv-page'` and **must** carry `resolveUrl(entity) → URL | null`. Returning `null` tells the host to render a placeholder.
 - The renderer-side component is a **placeholder** shown while the WCV materializes (or when no URL can be resolved). See `ComponentPlaceholderRenderer.tsx`.
-- The actual `WebContentsView` lifecycle is **plugin-specific runtime**, not part of the registry contract. For component-render, that lives in `src/main/runtime/dev-server-manager.ts` and `component-page-factory.ts` (the latter doesn't exist yet — it's the next concrete step). A new wcv-page plugin should put its lifecycle code in a sibling file under `runtime/`.
+- The actual `WebContentsView` lifecycle is **plugin-specific runtime**, not part of the registry contract. For component-render, that lives in `src/main/runtime/dev-server-manager.ts` (which spawns `vite dev` per connected repo) and `src/main/runtime/component-page-factory.ts` (which mounts a WCV per `.tsx`/`.jsx` file entity, reconciled from the layout pass). A new wcv-page plugin should put its lifecycle code in a sibling file under `runtime/`.
 
 ## Conventions
 

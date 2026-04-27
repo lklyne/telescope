@@ -11,6 +11,18 @@ import type { PresenceDebugEntry } from './presence-debug'
 
 // --- IPC Channel Types ---
 
+export type RepoStatus = 'stopped' | 'starting' | 'running' | 'errored'
+
+export interface ConnectedRepo {
+  id: string
+  absolutePath: string
+  label: string
+  status: RepoStatus
+  port: number | null
+  baseUrl: string | null
+  lastError?: string
+}
+
 export interface ViewportPreset {
   label: string
   width: number
@@ -1366,6 +1378,10 @@ export interface ToolbarElectronAPI {
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onAgentPresenceChanged: (callback: (cursors: AgentPresenceCursor[]) => void) => () => void
   onFocusAddressBar: (callback: () => void) => () => void
+  repoList: () => Promise<ConnectedRepo[]>
+  repoConnectViaPicker: () => Promise<ConnectedRepo | null>
+  repoDisconnect: (id: string) => Promise<void>
+  onReposChanged: (callback: (repos: ConnectedRepo[]) => void) => () => void
 }
 
 export interface CanvasBgElectronAPI {

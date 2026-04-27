@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AgentPresenceCursor, AnnotationMode, ToolbarElectronAPI, ToolbarSelectionData } from '../shared/types'
+import type {
+  AgentPresenceCursor,
+  AnnotationMode,
+  ConnectedRepo,
+  ToolbarElectronAPI,
+  ToolbarSelectionData,
+} from '../shared/types'
 
 const api: ToolbarElectronAPI = {
   zoomIn: () => ipcRenderer.send('zoom-in'),
@@ -81,6 +87,14 @@ const api: ToolbarElectronAPI = {
     const handler = () => callback()
     ipcRenderer.on('focus-address-bar', handler)
     return () => ipcRenderer.removeListener('focus-address-bar', handler)
+  },
+  repoList: () => ipcRenderer.invoke('repo-list'),
+  repoConnectViaPicker: () => ipcRenderer.invoke('repo-connect-via-picker'),
+  repoDisconnect: (id) => ipcRenderer.invoke('repo-disconnect', { id }),
+  onReposChanged: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, repos: ConnectedRepo[]) => callback(repos)
+    ipcRenderer.on('repo-changed', handler)
+    return () => ipcRenderer.removeListener('repo-changed', handler)
   },
 }
 

@@ -19,18 +19,9 @@ import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import type { ChildProcess } from 'node:child_process'
+import type { ConnectedRepo, RepoStatus } from '../../shared/types'
 
-export type RepoStatus = 'stopped' | 'starting' | 'running' | 'errored'
-
-export interface ConnectedRepo {
-  id: string
-  absolutePath: string
-  label: string
-  status: RepoStatus
-  port: number | null
-  baseUrl: string | null
-  lastError?: string
-}
+export type { ConnectedRepo, RepoStatus }
 
 export interface PersistedRepo {
   id: string

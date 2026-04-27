@@ -135,9 +135,19 @@ export default function telescope(options: TelescopePluginOptions = {}): Plugin 
           return
         }
 
-        res.setHeader('Content-Type', 'text/html; charset=utf-8')
-        res.setHeader('Cache-Control', 'no-store')
-        res.end(buildShell(path, exportName))
+        // Pass the shell HTML through Vite's transformIndexHtml so other
+        // plugins (notably @vitejs/plugin-react) can inject their preambles.
+        // Without this, plugin-react throws "can't detect preamble" when the
+        // user's component module loads, because the @react-refresh runtime
+        // never gets a chance to register itself on window.
+        server
+          .transformIndexHtml(req.url ?? '/__telescope', buildShell(path, exportName))
+          .then((html) => {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8')
+            res.setHeader('Cache-Control', 'no-store')
+            res.end(html)
+          })
+          .catch(next)
       })
     },
   }

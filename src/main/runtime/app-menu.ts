@@ -1,4 +1,4 @@
-import { app, dialog, Menu } from 'electron'
+import { app, dialog, Menu, type WebContents } from 'electron'
 import { deleteFrames } from '../workspace-entities'
 import { pages, selectedPageId } from './runtime-context'
 import { workspaceViewMode } from '../ui-state'
@@ -6,6 +6,14 @@ import { selectBrowserTab } from './runtime-core'
 import { checkForUpdatesManually } from '../auto-updater'
 import { showOnboardingWindow } from '../onboarding-window'
 import { showDebugWindow } from '../debug-window'
+import {
+  aboveView,
+  bgView,
+  cursorOverlayWindow,
+  devtoolsHeaderView,
+  leftSidebarView,
+  toolbarView,
+} from './view-refs'
 import {
   bundledSkillHash,
   installedSkillHash,
@@ -121,11 +129,54 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
       ],
     },
 
-    // View — skip reload/zoom since the app manages those
+    // View — skip reload/zoom since the app manages those.
+    // The built-in `toggleDevTools` role assumes a focused webContents on the
+    // BrowserWindow; Telescope has none (everything is a WebContentsView), so
+    // it throws "Cannot read properties of undefined (reading 'toggleDevTools')".
+    // We dispatch by hand to the named overlay instead.
     {
       label: 'View',
       submenu: [
-        { role: 'toggleDevTools' },
+        {
+          label: 'Toggle DevTools (Canvas)',
+          accelerator: 'CmdOrCtrl+Alt+I',
+          click: () => toggleViewDevTools(bgView?.webContents),
+        },
+        {
+          label: 'DevTools',
+          submenu: [
+            {
+              label: 'Canvas (canvas-bg)',
+              click: () => toggleViewDevTools(bgView?.webContents),
+            },
+            {
+              label: 'Above-pages overlay (above-view)',
+              click: () => toggleViewDevTools(aboveView?.webContents),
+            },
+            {
+              label: 'Toolbar',
+              click: () => toggleViewDevTools(toolbarView?.webContents),
+            },
+            {
+              label: 'Left sidebar',
+              click: () => toggleViewDevTools(leftSidebarView?.webContents),
+            },
+            {
+              label: 'Right details panel',
+              click: () => toggleViewDevTools(devtoolsHeaderView?.webContents),
+            },
+            {
+              label: 'Agent cursor overlay',
+              click: () => toggleViewDevTools(cursorOverlayWindow?.webContents),
+            },
+            { type: 'separator' as const },
+            {
+              label: 'Selected page',
+              accelerator: 'CmdOrCtrl+Alt+Shift+I',
+              click: () => toggleSelectedPageDevTools(),
+            },
+          ],
+        },
         {
           label: 'Open Motion Debug Window',
           accelerator: 'CmdOrCtrl+Shift+D',
@@ -169,6 +220,37 @@ export function setupAppMenu(): void {
  * refresh the "(N updates)" suffix on the Setup item. */
 export function refreshAppMenu(): void {
   setupAppMenu()
+}
+
+/** Toggle a detached DevTools window for the given UI overlay's webContents. */
+function toggleViewDevTools(wc: WebContents | undefined): void {
+  if (!wc || wc.isDestroyed()) {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'DevTools',
+      message: 'That view is not available right now.',
+    })
+    return
+  }
+  if (wc.isDevToolsOpened()) {
+    wc.closeDevTools()
+    return
+  }
+  wc.openDevTools({ mode: 'detach' })
+}
+
+function toggleSelectedPageDevTools(): void {
+  const id = selectedPageId()
+  const page = id ? pages.find((p) => p.id === id) : null
+  if (!page) {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'DevTools',
+      message: 'Select a frame first to open its DevTools.',
+    })
+    return
+  }
+  toggleViewDevTools(page.pageView.webContents)
 }
 
 function showAboutDialog(): void {

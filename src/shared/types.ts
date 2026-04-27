@@ -11,6 +11,18 @@ import type { PresenceDebugEntry } from './presence-debug'
 
 // --- IPC Channel Types ---
 
+export type RepoStatus = 'stopped' | 'starting' | 'running' | 'errored'
+
+export interface ConnectedRepo {
+  id: string
+  absolutePath: string
+  label: string
+  status: RepoStatus
+  port: number | null
+  baseUrl: string | null
+  lastError?: string
+}
+
 export interface ViewportPreset {
   label: string
   width: number
@@ -133,6 +145,22 @@ export interface CanvasSceneFileEntity {
   screenHeight: number
   parentGroupId?: string
   objectFit?: FileObjectFit
+  /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
+  rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component'
+  /**
+   * For component file entities: whether some connected repo claims this
+   * file (i.e. resolveUrl will succeed). The renderer suppresses the
+   * placeholder when true so the WCV shows through cleanly without a
+   * faded "Connect a Vite repo" copy bleeding behind transparent content.
+   */
+  componentHasRepo?: boolean
+  /**
+   * For component file entities without a connected repo: the nearest
+   * ancestor folder that contains a package.json. Surfaced so the
+   * placeholder can offer one-click reconnect without prompting the user
+   * to re-pick the folder.
+   */
+  componentInferredRepoPath?: string
   /** Device frame state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
@@ -636,7 +664,7 @@ export interface PanelTextEntityDetail {
   height: number
 }
 
-export type PanelFileType = 'image' | 'video' | 'markdown' | 'wireframe' | 'other'
+export type PanelFileType = 'image' | 'video' | 'markdown' | 'wireframe' | 'component' | 'other'
 
 export interface PanelFileEntityDetail {
   id: string
@@ -1364,6 +1392,10 @@ export interface ToolbarElectronAPI {
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onAgentPresenceChanged: (callback: (cursors: AgentPresenceCursor[]) => void) => () => void
   onFocusAddressBar: (callback: () => void) => () => void
+  repoList: () => Promise<ConnectedRepo[]>
+  repoConnectViaPicker: () => Promise<ConnectedRepo | null>
+  repoDisconnect: (id: string) => Promise<void>
+  onReposChanged: (callback: (repos: ConnectedRepo[]) => void) => () => void
 }
 
 export interface CanvasBgElectronAPI {
@@ -1432,6 +1464,9 @@ export interface CanvasBgElectronAPI {
   renameTextEntity: (entityId: string, name: string) => void
   renameDrawingEntity: (entityId: string, name: string) => void
   dropFileBuffer: (buffer: Uint8Array, ext: string, canvasX: number, canvasY: number) => void
+  /** Drop a .tsx/.jsx file into the canvas without copying its bytes — the file
+   *  stays in the user's repo and the entity references it by absolute path. */
+  dropComponentFile: (file: File, canvasX: number, canvasY: number) => void
   selectEntity: (
     entityId: string,
     entityKind: CanvasEntityKind,
@@ -1481,6 +1516,9 @@ export interface CanvasBgElectronAPI {
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
   getInitialData: () => Promise<CanvasLayoutBootstrapData>
+  /** Connect a Vite repo at the given absolute folder path. Returns the
+   *  connected repo, or null if connection fails. */
+  repoConnect: (absolutePath: string) => Promise<unknown>
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
   onFixProgressUpdate: (
     callback: (data: LayoutUpdateData['fixProgress']) => void,

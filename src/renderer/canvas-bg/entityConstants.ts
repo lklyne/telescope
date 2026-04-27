@@ -13,10 +13,13 @@ export type ResizeEdge = 'top' | 'right' | 'bottom' | 'left'
 /** How Shift interacts with aspect ratio while resizing. */
 export type AspectRatioResizeMode = 'off' | 'shift-unlocks' | 'shift-locks'
 
-export const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i
-export const VIDEO_EXTENSIONS = /\.(webm|mp4|mov|ogg)$/i
-export const MARKDOWN_EXTENSIONS = /\.md$/i
-export const WIREFRAME_EXTENSIONS = /\.wireframe\.json$/i
+export {
+  IMAGE_EXTENSIONS,
+  VIDEO_EXTENSIONS,
+  MARKDOWN_EXTENSIONS,
+  WIREFRAME_EXTENSIONS,
+} from '../../shared/file-extensions'
+import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../../shared/file-extensions'
 
 /** Images/videos: lock aspect unless Shift. Other files: free resize unless Shift (then lock). */
 export function aspectRatioResizeModeForCanvasFile(filePath: string): AspectRatioResizeMode {

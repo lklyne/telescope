@@ -5,6 +5,7 @@ import {
 } from '../../src/main/runtime/json-canvas-serializer'
 import type {
   PersistedDrawingEntity,
+  PersistedFileEntity,
   WorkspaceSnapshot,
 } from '../../src/shared/types'
 
@@ -55,6 +56,43 @@ describe('json-canvas-serializer drawings', () => {
     const { snapshot: restored } = deserializeFromJsonCanvas(doc)
     expect(restored.entities?.['d1']).toEqual(drawing)
     expect(restored.entityOrder).toEqual(['d1'])
+  })
+
+  it('round-trips file entities with metadata, presetIndex, and objectFit', () => {
+    const file: PersistedFileEntity = {
+      kind: 'file',
+      id: 'f1',
+      file: 'src/Button.tsx',
+      canvasX: 50,
+      canvasY: 75,
+      width: 320,
+      height: 240,
+      objectFit: 'contain',
+      presetIndex: 2,
+      metadata: {
+        componentRender: {
+          repoId: 'repo-abc',
+          repoRelativePath: 'src/Button.tsx',
+          lastKnownGoodUrl: 'http://localhost:5173/__telescope?path=src/Button.tsx',
+        },
+      },
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['f1'] = file
+    snapshot.entityOrder = ['f1']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes).toHaveLength(1)
+    expect(doc.nodes[0]).toMatchObject({
+      type: 'file',
+      id: 'f1',
+      file: 'src/Button.tsx',
+      objectFit: 'contain',
+      presetIndex: 2,
+    })
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['f1']).toEqual(file)
   })
 
   it('preserves drawing z-order among other entities', () => {

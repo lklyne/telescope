@@ -410,4 +410,25 @@ export function registerCanvasIpc(): void {
     },
   )
 
+  ipcMain.on(
+    'canvas-drop-component-path',
+    (
+      _event,
+      {
+        absolutePath,
+        canvasX,
+        canvasY,
+        dragId,
+      }: { absolutePath: string; canvasX: number; canvasY: number; dragId?: string },
+    ) => {
+      if (!absolutePath) return
+      if (dragId && consumeDragId(dragId)) return
+      // No metadata stamp here — componentRenderPlugin.resolveUrl re-derives
+      // the repo from entity.file every time, so a file dropped before its
+      // repo is connected (or while the wrong parent repo was the only
+      // match) heals automatically once the right repo shows up.
+      createFileEntity({ canvasX, canvasY, file: absolutePath })
+    },
+  )
+
 }

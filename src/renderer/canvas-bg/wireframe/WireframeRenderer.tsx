@@ -209,7 +209,12 @@ export function WireframeRenderer({
     }
   }
 
-  if (!wireframe) {
+  // A wireframe file with no `root` (e.g. an empty `{}` or a stub written by
+  // a tool that hasn't filled it in) used to crash WireframeNodeRenderer
+  // when it tried to read `node.type` on undefined. Treat it the same as a
+  // parse failure — there's nothing to draw.
+  if (!wireframe || !wireframe.root) {
+    const message = !wireframe ? 'Invalid wireframe JSON' : 'Empty wireframe (no root)'
     return (
       <div
         style={{
@@ -223,7 +228,7 @@ export function WireframeRenderer({
           fontFamily: 'system-ui, sans-serif',
         }}
       >
-        Invalid wireframe JSON
+        {message}
       </div>
     )
   }

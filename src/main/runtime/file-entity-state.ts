@@ -8,6 +8,8 @@
  */
 
 import { randomUUID } from 'crypto'
+import { existsSync } from 'fs'
+import { dirname } from 'path'
 import type {
   CanvasSceneFileEntity,
   PersistedFileEntity,
@@ -19,6 +21,8 @@ import {
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
+import { getRendererTagFor } from '../plugins/registry'
+import { findRepoForPath } from './dev-server-manager'
 
 export type FileObjectFit = 'contain' | 'cover' | 'fill'
 
@@ -153,7 +157,43 @@ export function buildFileEntitySceneEntity(
     contentScreenY: showShell ? contentScreenY : undefined,
     contentScreenWidth: showShell ? contentScreenW : undefined,
     contentScreenHeight: showShell ? contentScreenH : undefined,
+    ...componentSceneFields(entity),
   }
+}
+
+function componentSceneFields(entity: FileEntity): {
+  rendererTag: CanvasSceneFileEntity['rendererTag']
+  componentHasRepo: CanvasSceneFileEntity['componentHasRepo']
+  componentInferredRepoPath: CanvasSceneFileEntity['componentInferredRepoPath']
+} {
+  const tag = getRendererTagFor(persistFileEntity(entity)) ?? undefined
+  if (tag !== 'component') {
+    return { rendererTag: tag, componentHasRepo: undefined, componentInferredRepoPath: undefined }
+  }
+  const hasRepo = findRepoForPath(entity.file) !== null
+  return {
+    rendererTag: tag,
+    componentHasRepo: hasRepo,
+    componentInferredRepoPath: hasRepo ? undefined : inferRepoRoot(entity.file),
+  }
+}
+
+/**
+ * Walk up from a component file looking for the nearest package.json. Used
+ * to suggest a one-click reconnect target on the placeholder when the file
+ * isn't claimed by any currently-connected repo. Capped at 8 levels so a
+ * pathological deep path can't sit in a long fs.existsSync loop on every
+ * scene rebuild.
+ */
+function inferRepoRoot(filePath: string): string | undefined {
+  let dir = dirname(filePath)
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(`${dir}/package.json`)) return dir
+    const parent = dirname(dir)
+    if (parent === dir) return undefined
+    dir = parent
+  }
+  return undefined
 }
 
 export function persistFileEntity(entity: FileEntity): PersistedFileEntity {

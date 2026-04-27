@@ -43,6 +43,10 @@ export interface JsonCanvasFileNode extends JsonCanvasNodeBase {
   type: 'file'
   file: string
   subpath?: string
+  // App-specific extensions (other tools ignore per spec extensibility model)
+  objectFit?: 'contain' | 'cover' | 'fill'
+  presetIndex?: number
+  metadata?: Record<string, unknown>
 }
 
 export interface JsonCanvasGroupNode extends JsonCanvasNodeBase {

@@ -3,9 +3,12 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
+import { installRendererErrorReporter } from '../shared/install-error-reporter'
+import { RendererErrorBoundary } from '../shared/RendererErrorBoundary'
 import type { CanvasBgElectronAPI } from '../../shared/types'
 
 initRendererSentry()
+installRendererErrorReporter('canvas-bg')
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -15,10 +18,12 @@ async function bootstrap() {
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App
-        initialLayoutData={initialData.layoutData}
-        initialTheme={initialData.theme}
-      />
+      <RendererErrorBoundary label="canvas-bg">
+        <App
+          initialLayoutData={initialData.layoutData}
+          initialTheme={initialData.theme}
+        />
+      </RendererErrorBoundary>
     </StrictMode>,
   )
 }

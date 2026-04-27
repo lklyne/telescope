@@ -255,11 +255,15 @@ export function useCanvasViewportGestures({
       const canvasY = snapToGrid(point.y)
 
       Array.from(event.dataTransfer.files).forEach((file, i) => {
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png'
+        if (ext === 'tsx' || ext === 'jsx') {
+          api.dropComponentFile(file, canvasX + i * 20, canvasY + i * 20)
+          return
+        }
         const reader = new FileReader()
         reader.onload = () => {
           if (!reader.result) return
           const buffer = new Uint8Array(reader.result as ArrayBuffer)
-          const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png'
           api.dropFileBuffer(buffer, ext, canvasX + i * 20, canvasY + i * 20)
         }
         reader.readAsArrayBuffer(file)

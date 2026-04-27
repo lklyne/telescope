@@ -60,6 +60,7 @@ import {
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
+import { getRendererTagFor } from '../plugins/registry'
 import {
   annotationMode as uiAnnotationMode,
   devtoolsPanelTab as uiDevtoolsPanelTab,
@@ -283,12 +284,16 @@ function buildTextEntityDetail(entityId: string): PanelTextEntityDetail | undefi
 }
 
 function detectFileType(filePath: string): PanelFileType {
-  const lower = filePath.toLowerCase()
-  if (/\.wireframe\.json$/.test(lower)) return 'wireframe'
-  if (/\.(png|jpe?g|gif|svg|webp|bmp|ico)$/.test(lower)) return 'image'
-  if (/\.(webm|mp4|mov|ogg)$/.test(lower)) return 'video'
-  if (/\.md$/.test(lower)) return 'markdown'
-  return 'other'
+  const tag = getRendererTagFor({
+    kind: 'file',
+    id: '__inspect__',
+    file: filePath,
+    canvasX: 0,
+    canvasY: 0,
+    width: 0,
+    height: 0,
+  })
+  return tag ?? 'other'
 }
 
 function buildFileEntityDetail(entityId: string): PanelFileEntityDetail | undefined {

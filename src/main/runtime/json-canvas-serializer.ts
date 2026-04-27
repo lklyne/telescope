@@ -152,6 +152,9 @@ function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNod
     height: entity.height,
     file: entity.file,
     subpath: entity.subpath,
+    objectFit: entity.objectFit,
+    presetIndex: entity.presetIndex,
+    metadata: entity.metadata,
   }
 }
 
@@ -317,6 +320,9 @@ function deserializeFileNodeToFile(node: JsonCanvasFileNode): PersistedFileEntit
     canvasY: node.y,
     width: node.width,
     height: node.height,
+    objectFit: node.objectFit,
+    presetIndex: node.presetIndex,
+    metadata: node.metadata,
   }
 }
 

@@ -1,7 +1,6 @@
 import { app, crashReporter, net, nativeTheme, protocol } from 'electron'
-import { appendFileSync, mkdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { DEFAULT_PAGES } from '../shared/constants'
+import { logCrash } from './crash-log'
 import {
   flushWorkspaceAutosaveSync,
   loadWorkspace,
@@ -25,6 +24,12 @@ import { loadOnboardingState } from './runtime/preferences'
 import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
 import { configureBundledAgentBrowser } from './agent-browser-install'
 import { autoUpdateSkillsIfSafe } from './skill-auto-update'
+import { registerBuiltInPlugins } from './plugins'
+import {
+  initDevServerManager,
+  shutdownDevServerManager,
+} from './runtime/dev-server-manager'
+import { spawn as nodeSpawn } from 'node:child_process'
 import { initializeDocObservers } from './runtime/workspace-observers'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
 import { sendInteractiveState } from './runtime/overlay-manager'
@@ -55,16 +60,6 @@ app.setName('Telescope')
 initSentry()
 
 crashReporter.start({ submitURL: '', uploadToServer: false, ignoreSystemCrashHandler: false })
-
-const logsDir = app.getPath('logs')
-try { mkdirSync(logsDir, { recursive: true }) } catch {}
-const errorLogPath = join(logsDir, 'errors.log')
-
-function logCrash(kind: string, detail: unknown): void {
-  const line = `[${new Date().toISOString()}] ${kind}\n${detail instanceof Error ? (detail.stack ?? detail.message) : JSON.stringify(detail)}\n\n`
-  try { appendFileSync(errorLogPath, line) } catch {}
-  console.error(kind, detail)
-}
 
 process.on('uncaughtException', (err) => logCrash('uncaughtException', err))
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', reason))
@@ -123,6 +118,12 @@ app.whenReady().then(async () => {
 
   identifyInstall()
   configureBundledAgentBrowser()
+  registerBuiltInPlugins()
+  initDevServerManager({
+    userDataDir: app.getPath('userData'),
+    spawn: (command, args, options) =>
+      nodeSpawn(command, args as string[], { ...options, shell: process.platform === 'win32' }),
+  })
 
   setupAppMenu()
   registerIpcHandlers()
@@ -246,4 +247,5 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   quitRequested = true
   flushWorkspaceAutosaveSync()
+  void shutdownDevServerManager()
 })

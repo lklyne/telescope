@@ -1,7 +1,8 @@
 import { app, dialog, Menu, type WebContents } from 'electron'
 import { deleteFrames } from '../workspace-entities'
 import { pages, selectedPageId } from './runtime-context'
-import { workspaceViewMode } from '../ui-state'
+import { selectedEntityIds, workspaceViewMode } from '../ui-state'
+import { getComponentView } from './component-page-factory'
 import { selectBrowserTab } from './runtime-core'
 import { checkForUpdatesManually } from '../auto-updater'
 import { showOnboardingWindow } from '../onboarding-window'
@@ -175,6 +176,10 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
               accelerator: 'CmdOrCtrl+Alt+Shift+I',
               click: () => toggleSelectedPageDevTools(),
             },
+            {
+              label: 'Selected component',
+              click: () => toggleSelectedComponentDevTools(),
+            },
           ],
         },
         {
@@ -251,6 +256,21 @@ function toggleSelectedPageDevTools(): void {
     return
   }
   toggleViewDevTools(page.pageView.webContents)
+}
+
+function toggleSelectedComponentDevTools(): void {
+  for (const entityId of selectedEntityIds()) {
+    const cv = getComponentView(entityId)
+    if (cv) {
+      toggleViewDevTools(cv.view.webContents)
+      return
+    }
+  }
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'DevTools',
+    message: 'Select a component first to open its DevTools.',
+  })
 }
 
 function showAboutDialog(): void {

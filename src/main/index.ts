@@ -53,7 +53,7 @@ import {
 import { subscribe as subscribeInteraction } from './runtime/interaction-controller'
 import * as Sentry from '@sentry/electron/main'
 
-app.setName('Telescope')
+app.setName('Specular')
 
 // Sentry sets up its own crashReporter when a DSN is configured, so it must
 // run before the local crashReporter.start() call below.
@@ -76,7 +76,7 @@ app.on('render-process-gone', (_e, wc, details) => {
 })
 app.on('child-process-gone', (_e, details) => logCrash('child-process-gone', details))
 
-const remoteDebuggingPort = process.env.TELESCOPE_REMOTE_DEBUGGING_PORT ?? '9229'
+const remoteDebuggingPort = process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? '9229'
 app.commandLine.appendSwitch('remote-debugging-port', remoteDebuggingPort)
 app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
 app.commandLine.appendSwitch('enable-unsafe-webgpu')
@@ -134,7 +134,7 @@ app.whenReady().then(async () => {
   autoUpdateSkillsIfSafe()
   refreshAppMenu()
 
-  const skipOnboarding = process.env.TELESCOPE_SKIP_ONBOARDING === '1'
+  const skipOnboarding = process.env.SPECULAR_SKIP_ONBOARDING === '1'
   if (!skipOnboarding && !loadOnboardingState().completed) {
     breadcrumb('onboarding', 'shown')
     const reason = await showOnboardingWindow('welcome')
@@ -234,7 +234,7 @@ app.whenReady().then(async () => {
 
   initAutoUpdater()
 
-  console.log('\n=== Telescope ===')
+  console.log('\n=== Specular ===')
   console.log('Cmd+scroll to zoom, trackpad scroll to pan.')
   console.log('Chrome headers: drag to reposition, arrows to cycle presets.\n')
 })

@@ -41,7 +41,7 @@ export function initSentry(): void {
 
   Sentry.init({
     dsn,
-    release: `telescope@${app.getVersion()}`,
+    release: `specular@${app.getVersion()}`,
     environment: process.env.NODE_ENV === 'development' ? 'development' : 'production',
     sendDefaultPii: false,
     tracesSampleRate: 0,

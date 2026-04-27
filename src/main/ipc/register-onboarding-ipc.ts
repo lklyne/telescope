@@ -66,8 +66,8 @@ export function registerOnboardingIpc(): void {
     ): Promise<OnboardingStatusSnapshot> => {
       await runInstall('cli', selections.cli, () => installCli())
       await runInstall('skill', selections.skill, () => {
-        const result = installSkill('telescope')
-        if (result.success) recordInstalledSkillHash('telescope')
+        const result = installSkill('specular')
+        if (result.success) recordInstalledSkillHash('specular')
         return result
       })
       await runInstall('agentBrowser', selections.agentBrowser, async () => {

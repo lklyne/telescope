@@ -18,9 +18,9 @@ fi
 # Use the grandparent PID as the stable session anchor.
 # Claude Code spawns a fresh subshell ($PPID) per bash command,
 # but its own PID (the grandparent) stays constant across the conversation.
-if [ -z "$TELESCOPE_PARENT_PID" ]; then
-  TELESCOPE_PARENT_PID=$(ps -o ppid= -p $PPID 2>/dev/null | tr -d ' ')
-  TELESCOPE_PARENT_PID="${TELESCOPE_PARENT_PID:-$PPID}"
+if [ -z "$SPECULAR_PARENT_PID" ]; then
+  SPECULAR_PARENT_PID=$(ps -o ppid= -p $PPID 2>/dev/null | tr -d ' ')
+  SPECULAR_PARENT_PID="${SPECULAR_PARENT_PID:-$PPID}"
 fi
-export TELESCOPE_PARENT_PID
+export SPECULAR_PARENT_PID
 exec node "$CLI" "$@"

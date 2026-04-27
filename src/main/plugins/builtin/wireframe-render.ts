@@ -2,7 +2,7 @@ import { WIREFRAME_EXTENSIONS } from '../../../shared/file-extensions'
 import type { InlineRendererClaim } from '../registry'
 
 export const wireframeRenderPlugin: InlineRendererClaim = {
-  id: 'telescope.wireframe',
+  id: 'specular.wireframe',
   kind: 'inline',
   rendererTag: 'wireframe',
   // `.wireframe.json` is more specific than a generic `.json` would be,

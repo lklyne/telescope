@@ -42,7 +42,7 @@ const findPlacement: VerbHandler = async (args) => {
 
 const breakpoints: VerbHandler = async (args) => {
   const url = args.positional[0]
-  if (!url) { printError('usage: telescope breakpoints <url>'); return 1 }
+  if (!url) { printError('usage: specular breakpoints <url>'); return 1 }
   printJson(await callApp('/tasks/apply', {
     method: 'POST',
     body: JSON.stringify({
@@ -68,7 +68,7 @@ const upsert: VerbHandler = async (args) => {
     const input = await readStdin()
     items = JSON.parse(input)
   } else {
-    printError('usage: telescope upsert --json < items.json')
+    printError('usage: specular upsert --json < items.json')
     return 1
   }
   const options: UpsertOptions = {}
@@ -82,7 +82,7 @@ const create: VerbHandler = async (args) => {
   const subverb = args.positional[0]
   if (subverb === 'frame') {
     const url = args.positional[1]
-    if (!url) { printError('usage: telescope create frame <url>'); return 1 }
+    if (!url) { printError('usage: specular create frame <url>'); return 1 }
     const item: Record<string, unknown> = { kind: 'frame', url }
     item.presetIndex = args.flags.preset ? Number(args.flags.preset) : 6 // default to Laptop
     if (args.flags.at) {
@@ -97,7 +97,7 @@ const create: VerbHandler = async (args) => {
   }
   if (subverb === 'note') {
     const text = args.positional.slice(1).join(' ')
-    if (!text) { printError('usage: telescope create note <text>'); return 1 }
+    if (!text) { printError('usage: specular create note <text>'); return 1 }
     const item: Record<string, unknown> = { kind: 'text', text }
     if (args.flags.at) {
       const [x, y] = args.flags.at.split(',').map(Number)
@@ -119,13 +119,13 @@ const create: VerbHandler = async (args) => {
     printJson(await upsertEntities([item]))
     return 0
   }
-  printError('usage: telescope create <frame|note> ...')
+  printError('usage: specular create <frame|note> ...')
   return 1
 }
 
 const update: VerbHandler = async (args) => {
   const id = args.positional[0]
-  if (!id) { printError('usage: telescope update <id> [--preset N] [--at x,y] [--text T] [--color C]'); return 1 }
+  if (!id) { printError('usage: specular update <id> [--preset N] [--at x,y] [--text T] [--color C]'); return 1 }
   const kind = kindFromId(id)
   const item: Record<string, unknown> = { kind, id }
   if (args.flags.at) {
@@ -171,14 +171,14 @@ const deleteEntities: VerbHandler = async (args) => {
       body: JSON.stringify({ items }),
     }))
   } else {
-    printError('usage: telescope delete <id> [id...] or telescope delete --json')
+    printError('usage: specular delete <id> [id...] or specular delete --json')
     return 1
   }
   return 0
 }
 
 const focus: VerbHandler = async (args) => {
-  if (args.positional.length === 0) { printError('usage: telescope focus <frameId> [frameId...]'); return 1 }
+  if (args.positional.length === 0) { printError('usage: specular focus <frameId> [frameId...]'); return 1 }
   printJson(await callApp('/camera/focus', {
     method: 'POST',
     body: JSON.stringify({ frameIds: args.positional }),
@@ -198,7 +198,7 @@ const link: VerbHandler = async (args) => {
     return 0
   }
   if (args.positional.length === 1 || (args.positional.length === 0 && process.stdin.isTTY)) {
-    printError('usage: telescope link <fromId> <toId> [--label <text>]  (or pipe a JSON edges array on stdin)')
+    printError('usage: specular link <fromId> <toId> [--label <text>]  (or pipe a JSON edges array on stdin)')
     return 1
   }
   const input = await readStdin()
@@ -210,7 +210,7 @@ const link: VerbHandler = async (args) => {
 }
 
 const unlink: VerbHandler = async (args) => {
-  if (args.positional.length === 0) { printError('usage: telescope unlink <edgeId> [edgeId...]'); return 1 }
+  if (args.positional.length === 0) { printError('usage: specular unlink <edgeId> [edgeId...]'); return 1 }
   printJson(await callApp('/edges/delete', {
     method: 'POST',
     body: JSON.stringify({ edgeIds: args.positional }),
@@ -219,7 +219,7 @@ const unlink: VerbHandler = async (args) => {
 }
 
 const group: VerbHandler = async (args) => {
-  if (args.positional.length === 0) { printError('usage: telescope group <entityId> [entityId...]'); return 1 }
+  if (args.positional.length === 0) { printError('usage: specular group <entityId> [entityId...]'); return 1 }
   printJson(await callApp('/groups/create', {
     method: 'POST',
     body: JSON.stringify({
@@ -232,7 +232,7 @@ const group: VerbHandler = async (args) => {
 
 const ungroup: VerbHandler = async (args) => {
   const groupId = args.positional[0]
-  if (!groupId) { printError('usage: telescope ungroup <groupId>'); return 1 }
+  if (!groupId) { printError('usage: specular ungroup <groupId>'); return 1 }
   printJson(await callApp('/groups/ungroup', {
     method: 'POST',
     body: JSON.stringify({ groupId }),
@@ -257,7 +257,7 @@ const annotations: VerbHandler = async (args) => {
 
 const annotation: VerbHandler = async (args) => {
   const id = args.positional[0]
-  if (!id) { printError('usage: telescope annotation <id>'); return 1 }
+  if (!id) { printError('usage: specular annotation <id>'); return 1 }
   const result = await getAnnotationDetail({
     annotation_id: id,
     include_screenshot: !args.boolFlags.has('no-screenshot'),
@@ -268,7 +268,7 @@ const annotation: VerbHandler = async (args) => {
 
 const annotate: VerbHandler = async (args) => {
   const text = args.positional.join(' ')
-  if (!text) { printError('usage: telescope annotate <text>'); return 1 }
+  if (!text) { printError('usage: specular annotate <text>'); return 1 }
   // Construct anchor: frame-specific if --frame-id given, else viewport
   const anchor = args.flags['frame-id']
     ? { type: 'frame', frameId: args.flags['frame-id'] }
@@ -287,21 +287,21 @@ const annotate: VerbHandler = async (args) => {
 
 const ack: VerbHandler = async (args) => {
   const id = args.positional[0]
-  if (!id) { printError('usage: telescope ack <annotation-id>'); return 1 }
+  if (!id) { printError('usage: specular ack <annotation-id>'); return 1 }
   printJson(await callApp(`/annotations/${id}/acknowledge`, { method: 'POST', body: '{}' }))
   return 0
 }
 
 const resolve: VerbHandler = async (args) => {
   const id = args.positional[0]
-  if (!id) { printError('usage: telescope resolve <annotation-id>'); return 1 }
+  if (!id) { printError('usage: specular resolve <annotation-id>'); return 1 }
   printJson(await callApp(`/annotations/${id}/resolve`, { method: 'POST', body: '{}' }))
   return 0
 }
 
 const dismiss: VerbHandler = async (args) => {
   const id = args.positional[0]
-  if (!id) { printError('usage: telescope dismiss <annotation-id>'); return 1 }
+  if (!id) { printError('usage: specular dismiss <annotation-id>'); return 1 }
   printJson(await callApp(`/annotations/${id}/dismiss`, {
     method: 'POST',
     body: JSON.stringify({ reason: args.flags.reason }),
@@ -312,7 +312,7 @@ const dismiss: VerbHandler = async (args) => {
 const reply: VerbHandler = async (args) => {
   const id = args.positional[0]
   const text = args.positional.slice(1).join(' ')
-  if (!id || !text) { printError('usage: telescope reply <annotation-id> <text>'); return 1 }
+  if (!id || !text) { printError('usage: specular reply <annotation-id> <text>'); return 1 }
   printJson(await callApp(`/annotations/${id}/reply`, {
     method: 'POST',
     body: JSON.stringify({ author: 'agent', text }),
@@ -326,7 +326,7 @@ const record: VerbHandler = async (args) => {
   const sub = args.positional[0]
   if (sub === 'start') {
     const fid = args.positional[1] ?? frameId(args)
-    if (!fid) { printError('usage: telescope record start <frameId>'); return 1 }
+    if (!fid) { printError('usage: specular record start <frameId>'); return 1 }
     printJson(await callApp('/recording/start', {
       method: 'POST',
       body: JSON.stringify({
@@ -348,7 +348,7 @@ const record: VerbHandler = async (args) => {
   }
   if (sub === 'trim') {
     const input = args.positional[1]
-    if (!input) { printError('usage: telescope record trim <input-path>'); return 1 }
+    if (!input) { printError('usage: specular record trim <input-path>'); return 1 }
     printJson(await callApp('/recording/trim', {
       method: 'POST',
       body: JSON.stringify({
@@ -360,7 +360,7 @@ const record: VerbHandler = async (args) => {
     }))
     return 0
   }
-  printError('usage: telescope record <start|stop|status|trim>')
+  printError('usage: specular record <start|stop|status|trim>')
   return 1
 }
 
@@ -383,7 +383,7 @@ const registerDesignSystem: VerbHandler = async () => {
 const componentStates: VerbHandler = async (args) => {
   const component = args.positional[0]
   const url = args.positional[1]
-  if (!component || !url) { printError('usage: telescope component-states <component> <url>'); return 1 }
+  if (!component || !url) { printError('usage: specular component-states <component> <url>'); return 1 }
   printJson(await callApp('/tasks/component-states', {
     method: 'POST',
     body: JSON.stringify({
@@ -422,28 +422,28 @@ const snapshot: VerbHandler = async (args) => {
 
 const click: VerbHandler = async (args) => {
   const ref = args.positional[0]
-  if (!ref) { printError('usage: telescope click <ref>'); return 1 }
+  if (!ref) { printError('usage: specular click <ref>'); return 1 }
   return browseCommand(args, `click ${ref}`)
 }
 
 const fill: VerbHandler = async (args) => {
   const ref = args.positional[0]
   const text = args.positional.slice(1).join(' ')
-  if (!ref || !text) { printError('usage: telescope fill <ref> <text>'); return 1 }
+  if (!ref || !text) { printError('usage: specular fill <ref> <text>'); return 1 }
   return browseCommand(args, `fill ${ref} "${text}"`)
 }
 
 const type_: VerbHandler = async (args) => {
   const ref = args.positional[0]
   const text = args.positional.slice(1).join(' ')
-  if (!ref || !text) { printError('usage: telescope type <ref> <text>'); return 1 }
+  if (!ref || !text) { printError('usage: specular type <ref> <text>'); return 1 }
   return browseCommand(args, `type ${ref} "${text}"`)
 }
 
 const select: VerbHandler = async (args) => {
   const ref = args.positional[0]
   const value = args.positional.slice(1).join(' ')
-  if (!ref || !value) { printError('usage: telescope select <ref> <value>'); return 1 }
+  if (!ref || !value) { printError('usage: specular select <ref> <value>'); return 1 }
   return browseCommand(args, `select ${ref} "${value}"`)
 }
 
@@ -471,20 +471,20 @@ const wait: VerbHandler = async (args) => {
 
 // --- Passthrough: unknown verbs go to agent-browser ---
 
-/** Flags consumed by telescope that must not leak into agent-browser commands. */
-const TELESCOPE_ONLY_FLAGS = new Set(['--frame', '-f'])
+/** Flags consumed by specular that must not leak into agent-browser commands. */
+const SPECULAR_ONLY_FLAGS = new Set(['--frame', '-f'])
 
-function stripTelescopeFlags(argv: string[]): string[] {
+function stripSpecularFlags(argv: string[]): string[] {
   const out: string[] = []
   for (let i = 0; i < argv.length; i++) {
-    if (TELESCOPE_ONLY_FLAGS.has(argv[i])) { i++; continue } // skip flag + value
+    if (SPECULAR_ONLY_FLAGS.has(argv[i])) { i++; continue } // skip flag + value
     out.push(argv[i])
   }
   return out
 }
 
 const browsePassthrough: VerbHandler = async (args) => {
-  const command = [args.verb, ...stripTelescopeFlags(args.rest).map(shellQuote)].join(' ')
+  const command = [args.verb, ...stripSpecularFlags(args.rest).map(shellQuote)].join(' ')
   return browseRaw(args, command)
 }
 
@@ -536,7 +536,7 @@ const VERBS: Record<string, VerbHandler> = {
 export async function dispatch(argv: string[]): Promise<number> {
   const args = parseArgs(argv)
   if (!args.verb || args.verb === '--help' || args.verb === '-h') {
-    printText('usage: telescope <verb> [args...] [--flag value]')
+    printText('usage: specular <verb> [args...] [--flag value]')
     printText('')
     printText('Canvas: workspace, create, update, delete, focus, group, ungroup')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')

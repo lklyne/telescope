@@ -165,7 +165,7 @@ function checkOriginMismatch(output: string, expectedPageUrl: string): string | 
     if (expected !== actual) {
       return `⚠ CDP target mismatch: expected ${expected} but connected to ${actual}. ` +
         `The frame may not have loaded yet, or the webview resolved to a different target. ` +
-        `Try re-running the command or use \`telescope annotation <id>\` for annotation-based inspection.`
+        `Try re-running the command or use \`specular annotation <id>\` for annotation-based inspection.`
     }
   } catch {
     // URL parsing failed — skip the check

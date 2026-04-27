@@ -8,13 +8,13 @@ const isSigning = Boolean(process.env.CSC_LINK)
 
 const config: ForgeConfig = {
   packagerConfig: {
-    appBundleId: 'com.lyleklyne.telescope',
-    name: 'Telescope',
+    appBundleId: 'com.lyleklyne.specular',
+    name: 'Specular',
     icon: 'build/icon',
     extraResource: [
       'out/main/mcp-helper.js',
       'out/main/cli.js',
-      'resources/telescope-cli.sh',
+      'resources/specular-cli.sh',
       'resources/skills',
       'resources/bin',
     ],
@@ -34,7 +34,7 @@ const config: ForgeConfig = {
   ],
   publishers: [
     new PublisherGithub({
-      repository: { owner: 'lklyne', name: 'telescope' },
+      repository: { owner: 'lklyne', name: 'specular' },
       prerelease: false,
       draft: false,
     }),

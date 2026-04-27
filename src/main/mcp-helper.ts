@@ -8,7 +8,7 @@ import {
 import { setClientName } from './shared/app-client'
 import { registerTools } from './mcp-tools'
 
-setClientName('telescope-mcp')
+setClientName('specular-mcp')
 registerTools(server)
 
 async function main(): Promise<void> {

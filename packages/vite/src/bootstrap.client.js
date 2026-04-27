@@ -1,17 +1,17 @@
 /**
- * Telescope component-render bootstrap.
+ * Specular component-render bootstrap.
  *
  * Runs in the user's Vite dev-server origin, inside an Electron WebContentsView
- * embedded in Telescope. There's no contextBridge here — the bootstrap "phones
+ * embedded in Specular. There's no contextBridge here — the bootstrap "phones
  * home" by writing prefixed lines to console.log; the host listens via
- * webContents.on('console-message', ...). See @telescope/vite/types
- * (TelescopeBridgeMessage) for the message shape.
+ * webContents.on('console-message', ...). See @specular/vite/types
+ * (SpecularBridgeMessage) for the message shape.
  */
 
 import { createRoot } from 'react-dom/client'
 import { createElement } from 'react'
 
-const PREFIX = '__telescope__:'
+const PREFIX = '__specular__:'
 
 function bridge(message) {
   try {
@@ -22,7 +22,7 @@ function bridge(message) {
 }
 
 function readTarget() {
-  const node = document.getElementById('telescope-target')
+  const node = document.getElementById('specular-target')
   if (!node || !node.textContent) return null
   try {
     return JSON.parse(node.textContent)
@@ -65,7 +65,7 @@ if (import.meta.hot) {
 async function mount() {
   const target = readTarget()
   if (!target || typeof target.path !== 'string') {
-    bridge({ kind: 'error', message: 'Telescope: missing target path' })
+    bridge({ kind: 'error', message: 'Specular: missing target path' })
     return
   }
   const exportName = typeof target.exportName === 'string' ? target.exportName : 'default'
@@ -90,14 +90,14 @@ async function mount() {
   if (typeof Component !== 'function') {
     bridge({
       kind: 'error',
-      message: `Telescope: export ${exportName} is not a component in ${target.path}`,
+      message: `Specular: export ${exportName} is not a component in ${target.path}`,
     })
     return
   }
 
   const rootEl = document.getElementById('root')
   if (!rootEl) {
-    bridge({ kind: 'error', message: 'Telescope: #root element missing' })
+    bridge({ kind: 'error', message: 'Specular: #root element missing' })
     return
   }
   const root = createRoot(rootEl)

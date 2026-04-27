@@ -252,7 +252,7 @@ export function coercePresenceSurface(value: unknown): PresenceSurface | null {
 }
 
 export function coercePresenceTargetRefSource(value: unknown): PresenceTargetRefSource | null {
-  return value === 'telescope' || value === 'agent-browser'
+  return value === 'specular' || value === 'agent-browser'
     ? value
     : null
 }

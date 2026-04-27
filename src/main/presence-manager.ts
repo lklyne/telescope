@@ -460,7 +460,7 @@ export async function findPresenceTarget(frameId: string, query: {
   if (!best || !Number.isFinite(bestScore)) return null
   return {
     targetRef: best.ref,
-    targetRefSource: 'telescope',
+    targetRefSource: 'specular',
     targetName: best.name ?? best.text ?? null,
     targetRect: best.bounds,
     frameX: best.bounds.x + best.bounds.width / 2,

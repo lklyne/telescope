@@ -14,7 +14,7 @@ export const ANCHOR_OFFSET_X = 80
 export const ANCHOR_OFFSET_Y = 0
 export const APP_CONTROL_PORT = 29979
 export const APP_CONTROL_VERSION = '1'
-export const APP_CONTROL_DISCOVERY_FILE = 'telescope-mcp.json'
+export const APP_CONTROL_DISCOVERY_FILE = 'specular-mcp.json'
 
 export const DEFAULT_PAGES: PageConfig[] = [
   {

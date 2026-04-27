@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       // Baked at build time so distributed .dmg users get error reporting
-      // without needing a runtime env var. Set SENTRY_DSN in telescope/.env
+      // without needing a runtime env var. Set SENTRY_DSN in specular/.env
       // for local dev or as a GitHub Actions secret for release builds.
       'import.meta.env.SENTRY_DSN': JSON.stringify(env.SENTRY_DSN ?? ''),
     },

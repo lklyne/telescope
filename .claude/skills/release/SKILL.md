@@ -1,12 +1,12 @@
 ---
 name: release
-description: Cut a new Telescope release. Bumps the version, updates CHANGELOG.md, tags, and pushes — CI builds and publishes. Use when the user says "cut a release", "ship a release", "release v0.2.6", "bump the version", or wants to update the changelog and tag.
+description: Cut a new Specular release. Bumps the version, updates CHANGELOG.md, tags, and pushes — CI builds and publishes. Use when the user says "cut a release", "ship a release", "release v0.2.6", "bump the version", or wants to update the changelog and tag.
 allowed-tools: Bash(git *), Bash(pnpm *), Bash(npm version*), Edit, Write, Read, AskUserQuestion
 ---
 
 # Release Skill
 
-Cuts a new release of Telescope. Updates the changelog, bumps the version, tags, and pushes. The `release.yml` GitHub Action handles build and publish.
+Cuts a new release of Specular. Updates the changelog, bumps the version, tags, and pushes. The `release.yml` GitHub Action handles build and publish.
 
 ## Guiding principles
 
@@ -134,7 +134,7 @@ Tell the user:
 
 - New version and tag (e.g., `v0.2.6`)
 - Tag has been pushed; the `release.yml` workflow will build and publish
-- Link to the Actions tab: `https://github.com/lklyne/telescope/actions`
+- Link to the Actions tab: `https://github.com/lklyne/specular/actions`
 - Reminder to check the GitHub Release draft and flip "prerelease" off if needed before publishing
 
 ## Notes

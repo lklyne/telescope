@@ -61,9 +61,9 @@ function WelcomeScreen({ onContinue, onSkip }: { onContinue: () => void; onSkip:
     <div className="flex h-full flex-col">
       <div className="titlebar-drag h-[34px] w-full shrink-0" />
       <div className="flex flex-1 flex-col items-center justify-center px-8 pb-8">
-        <h1 className="text-[28px] font-bold tracking-tight">Welcome to Telescope</h1>
+        <h1 className="text-[28px] font-bold tracking-tight">Welcome to Specular</h1>
         <p className="mt-4 max-w-[380px] text-center text-[15px] leading-relaxed text-[var(--surface-toolbar-foreground)] opacity-70">
-          Part browser and part canvas, Telescope is a visual way to build with agents.
+          Part browser and part canvas, Specular is a visual way to build with agents.
         </p>
       </div>
       <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--surface-popover-border)] bg-[var(--surface-panel)] px-8 py-4">
@@ -173,11 +173,11 @@ function SetupScreen({
       <div className="flex-1 min-h-0 overflow-y-auto px-8 pb-8">
         <header className="mb-6 mt-4">
           <h1 className="text-[18px] font-semibold">
-            {isSettingsMode ? 'Telescope Setup' : 'Setup'}
+            {isSettingsMode ? 'Specular Setup' : 'Setup'}
           </h1>
           <p className="mt-2 text-[13px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
             {isSettingsMode
-              ? 'Install or re-check the integrations that let Claude Code drive Telescope.'
+              ? 'Install or re-check the integrations that let Claude Code drive Specular.'
               : "You'll need to set up a few tools so agents know how this thing works."}
           </p>
         </header>
@@ -191,18 +191,18 @@ function SetupScreen({
         <Installer.Root rows={rows} setSelected={setSelected}>
           <Installer.Row
             id="cli"
-            title="Telescope CLI"
-            description="Adds the telescope command so agents can interact with the app."
+            title="Specular CLI"
+            description="Adds the specular command so agents can interact with the app."
           />
           <Installer.Row
             id="skill"
-            title="Telescope Skill"
-            description="Teaches agents how to use the Telescope CLI."
+            title="Specular Skill"
+            description="Teaches agents how to use the Specular CLI."
           />
           <Installer.Row
             id="agentBrowser"
             title="agent-browser"
-            description="Telescope uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev."
+            description="Specular uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev."
           />
         </Installer.Root>
       </div>

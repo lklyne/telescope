@@ -5,10 +5,10 @@ timeout: 120s
 
 ## Scenario
 
-Create or identify a frame on the Telescope canvas using MCP tools, then
+Create or identify a frame on the Specular canvas using MCP tools, then
 use the `browse` tool to inspect the page inside it. Navigate to a
 different page via `browse(command: "click @eN")` and verify the frame
-URL updates back in Telescope. Re-snapshot after navigation to get fresh
+URL updates back in Specular. Re-snapshot after navigation to get fresh
 refs. Then switch to a second frame by specifying a different `frame_id`
 in the `browse` call and repeat the browser workflow there.
 
@@ -18,7 +18,7 @@ browsing the second frame.
 ## Expected outcomes
 - `browse(command: "snapshot -i")` returns an accessibility tree with `@eN` refs
 - `browse(command: "click @eN")` interacts with elements inside the frame
-- Browser navigation updates the frame URL in Telescope
+- Browser navigation updates the frame URL in Specular
 - Switching to a second frame works by passing a different `frame_id` to `browse`
 - The workflow is executed one frame at a time
 - Presence cursor animates during browse operations

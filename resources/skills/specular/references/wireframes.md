@@ -1,15 +1,15 @@
 # Wireframes
 
-Telescope renders `.wireframe.json` files as interactive wireframe editors on the
+Specular renders `.wireframe.json` files as interactive wireframe editors on the
 canvas. Use them to sketch UI layouts, explore variants, and iterate spatially
 alongside live frames.
 
 ## Creating wireframes
 
-Wireframes are file entities. Create them with `telescope upsert --json`:
+Wireframes are file entities. Create them with `specular upsert --json`:
 
 ```bash
-cat << 'EOF' | telescope upsert --json
+cat << 'EOF' | specular upsert --json
 [{
   "kind": "file",
   "file": "/tmp/my-layout.wireframe.json",
@@ -28,7 +28,7 @@ then upsert it as a file entity.
 Place multiple wireframes side-by-side in one call:
 
 ```bash
-cat << 'EOF' | telescope upsert --json
+cat << 'EOF' | specular upsert --json
 [
   { "kind": "file", "file": "/tmp/v1.wireframe.json", "canvasX": 100, "canvasY": 100, "width": 280 },
   { "kind": "file", "file": "/tmp/v2.wireframe.json", "canvasX": 430, "canvasY": 100, "width": 280 },
@@ -37,7 +37,7 @@ cat << 'EOF' | telescope upsert --json
 EOF
 ```
 
-Use `telescope find-placement` to find open canvas space before placing.
+Use `specular find-placement` to find open canvas space before placing.
 
 ## File format
 

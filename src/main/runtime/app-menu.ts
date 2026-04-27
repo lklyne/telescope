@@ -21,7 +21,7 @@ import {
   type SkillId,
 } from '../skill-install'
 
-const SKILL_IDS: SkillId[] = ['telescope', 'agent-browser']
+const SKILL_IDS: SkillId[] = ['specular', 'agent-browser']
 
 function pendingSkillUpdates(): number {
   let count = 0
@@ -37,9 +37,9 @@ function pendingSkillUpdates(): number {
 
 function setupLabel(): string {
   const pending = pendingSkillUpdates()
-  if (pending === 0) return 'Setup Telescope\u2026'
-  if (pending === 1) return 'Setup Telescope\u2026 (1 update)'
-  return `Setup Telescope\u2026 (${pending} updates)`
+  if (pending === 0) return 'Setup Specular\u2026'
+  if (pending === 1) return 'Setup Specular\u2026 (1 update)'
+  return `Setup Specular\u2026 (${pending} updates)`
 }
 
 function buildTemplate(): Electron.MenuItemConstructorOptions[] {
@@ -53,7 +53,7 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
             label: app.name,
             submenu: [
               {
-                label: 'About Telescope',
+                label: 'About Specular',
                 click: showAboutDialog,
               },
               {
@@ -132,7 +132,7 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
 
     // View — skip reload/zoom since the app manages those.
     // The built-in `toggleDevTools` role assumes a focused webContents on the
-    // BrowserWindow; Telescope has none (everything is a WebContentsView), so
+    // BrowserWindow; Specular has none (everything is a WebContentsView), so
     // it throws "Cannot read properties of undefined (reading 'toggleDevTools')".
     // We dispatch by hand to the named overlay instead.
     {
@@ -203,7 +203,7 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
         ...(!isMac
           ? [
               {
-                label: 'About Telescope',
+                label: 'About Specular',
                 click: showAboutDialog,
               },
               {
@@ -276,8 +276,8 @@ function toggleSelectedComponentDevTools(): void {
 function showAboutDialog(): void {
   dialog.showMessageBox({
     type: 'info',
-    title: 'About Telescope',
-    message: 'Telescope',
+    title: 'About Specular',
+    message: 'Specular',
     detail: [
       `Version ${app.getVersion()}`,
       '',

@@ -116,10 +116,10 @@ function mcpEmptyState() {
   )
   const quotedHelperPath = JSON.stringify(helperPath)
   const command = `node ${quotedHelperPath}`
-  const installCommand = `claude mcp add telescope-mcp -- node ${quotedHelperPath}`
+  const installCommand = `claude mcp add specular-mcp -- node ${quotedHelperPath}`
   return {
     kind: 'mcp_setup' as const,
-    serverName: 'telescope-mcp',
+    serverName: 'specular-mcp',
     command,
     installCommand,
     tools,
@@ -155,7 +155,7 @@ export function initWindow(): void {
   setWin(new BaseWindow({
     width: 1600,
     height: 1000,
-    title: 'Telescope',
+    title: 'Specular',
     titleBarStyle: 'hidden',
     ...(process.platform === 'darwin'
       ? { trafficLightPosition: { x: 14, y: 13 } }

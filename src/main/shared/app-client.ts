@@ -34,7 +34,7 @@ function loadDiscovery(): DiscoveryPayload {
     return payload
   } catch (error) {
     throw new Error(
-      `Telescope app is not available. Launch the app first. ${error instanceof Error ? error.message : ''}`.trim(),
+      `Specular app is not available. Launch the app first. ${error instanceof Error ? error.message : ''}`.trim(),
     )
   }
 }
@@ -45,11 +45,11 @@ function loadDiscovery(): DiscoveryPayload {
 
 function resolveSessionId(): string {
   // Explicit override takes priority
-  if (process.env.TELESCOPE_SESSION_ID) return process.env.TELESCOPE_SESSION_ID
+  if (process.env.SPECULAR_SESSION_ID) return process.env.SPECULAR_SESSION_ID
 
   // Fixed session file — all CLI calls share one session ID.
   // Server-side 10s expiry clears the cursor after the last call.
-  const sessionFile = join(tmpdir(), 'telescope-session.id')
+  const sessionFile = join(tmpdir(), 'specular-session.id')
   try {
     return readFileSync(sessionFile, 'utf8').trim()
   } catch {
@@ -60,16 +60,16 @@ function resolveSessionId(): string {
 }
 
 export const sessionId = resolveSessionId()
-// TELESCOPE_CLIENT_NAME wins over setClientName so parallel agents can send
+// SPECULAR_CLIENT_NAME wins over setClientName so parallel agents can send
 // distinct names — otherwise presence-cursor.ts evicts cursors sharing a
 // clientName, leaving only one visible at a time.
-const CLIENT_NAME_OVERRIDE = process.env.TELESCOPE_CLIENT_NAME
-let clientName = CLIENT_NAME_OVERRIDE ?? 'telescope-mcp'
+const CLIENT_NAME_OVERRIDE = process.env.SPECULAR_CLIENT_NAME
+let clientName = CLIENT_NAME_OVERRIDE ?? 'specular-mcp'
 
 export function setClientName(name: string): void {
   if (CLIENT_NAME_OVERRIDE !== undefined) {
     console.warn(
-      `[app-client] setClientName(${JSON.stringify(name)}) ignored; TELESCOPE_CLIENT_NAME=${JSON.stringify(CLIENT_NAME_OVERRIDE)} has precedence`,
+      `[app-client] setClientName(${JSON.stringify(name)}) ignored; SPECULAR_CLIENT_NAME=${JSON.stringify(CLIENT_NAME_OVERRIDE)} has precedence`,
     )
     return
   }
@@ -90,9 +90,9 @@ export async function callApp<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      'x-telescope-secret': discovery.secret,
-      'x-telescope-session-id': sessionId,
-      'x-telescope-client-name': clientName,
+      'x-specular-secret': discovery.secret,
+      'x-specular-session-id': sessionId,
+      'x-specular-client-name': clientName,
       ...(init?.headers ?? {}),
     },
   })

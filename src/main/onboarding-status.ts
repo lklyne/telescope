@@ -46,7 +46,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatusSnapshot> {
 
   return {
     cli: cliStatus(),
-    skill: skillToStatus(getSkillStatus('telescope')),
+    skill: skillToStatus(getSkillStatus('specular')),
     agentBrowser,
     claudeDirExists: claudeDirExists(),
   }

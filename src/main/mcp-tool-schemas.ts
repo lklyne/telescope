@@ -5,7 +5,7 @@
 export const toolSchemas = [
   {
     name: 'get_workspace',
-    description: 'Return the current Telescope workspace graph, selection, and occupied regions. Text entities include a preview of the first 80 characters — use get_text_entities for full content.',
+    description: 'Return the current Specular workspace graph, selection, and occupied regions. Text entities include a preview of the first 80 characters — use get_text_entities for full content.',
     inputSchema: {
       type: 'object',
       properties: {},

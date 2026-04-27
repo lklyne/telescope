@@ -73,7 +73,7 @@ describe('json-canvas-serializer drawings', () => {
         componentRender: {
           repoId: 'repo-abc',
           repoRelativePath: 'src/Button.tsx',
-          lastKnownGoodUrl: 'http://localhost:5173/__telescope?path=src/Button.tsx',
+          lastKnownGoodUrl: 'http://localhost:5173/__specular?path=src/Button.tsx',
         },
       },
     }

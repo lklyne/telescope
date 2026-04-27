@@ -121,7 +121,7 @@ export class RendererErrorBoundary extends Component<Props, State> {
         <div style={{ fontSize: 12, opacity: 0.85 }}>
           Also written to{' '}
           <code style={{ fontFamily: 'ui-monospace, Menlo, monospace' }}>
-            ~/Library/Logs/Telescope/errors.log
+            ~/Library/Logs/Specular/errors.log
           </code>
           . Tail it with{' '}
           <code style={{ fontFamily: 'ui-monospace, Menlo, monospace' }}>

@@ -37,7 +37,7 @@ function createOnboardingWindow(mode: OnboardingMode): BrowserWindow {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    title: 'Telescope Setup',
+    title: 'Specular Setup',
     titleBarStyle: 'hiddenInset',
     show: false,
     backgroundColor: isDark() ? '#292524' : '#f5f5f4',

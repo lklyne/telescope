@@ -132,7 +132,7 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
 }
 
 function authorized(request: IncomingMessage): boolean {
-  return request.headers['x-telescope-secret'] === secret
+  return request.headers['x-specular-secret'] === secret
 }
 
 
@@ -285,7 +285,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
 export async function startAppControlServer(): Promise<void> {
   if (server) return
 
-  const portOverride = process.env.TELESCOPE_PORT ? parseInt(process.env.TELESCOPE_PORT, 10) : null
+  const portOverride = process.env.SPECULAR_PORT ? parseInt(process.env.SPECULAR_PORT, 10) : null
   const effectivePort = portOverride ?? APP_CONTROL_PORT
 
   await cleanupStaleDiscoveryFile()
@@ -817,7 +817,7 @@ export async function startAppControlServer(): Promise<void> {
     const activeAppServer = await probeAppControlServer(effectivePort)
     if (activeAppServer) {
       console.warn(
-        `[app-control] port ${effectivePort} already has an active Telescope app-control server`,
+        `[app-control] port ${effectivePort} already has an active Specular app-control server`,
       )
     } else {
       removeDiscoveryFile()

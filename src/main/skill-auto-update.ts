@@ -16,7 +16,7 @@ import {
   type SkillId,
 } from './skill-install'
 
-const SKILL_IDS: SkillId[] = ['telescope']
+const SKILL_IDS: SkillId[] = ['specular']
 
 export interface AutoUpdateOutcome {
   updated: SkillId[]

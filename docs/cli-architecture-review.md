@@ -178,7 +178,7 @@ the system prompt—and it can read `--help` on demand.
 |----------|------------------------|---------------------|
 | MCP (current) | ~5,160 tokens (all 29 tool schemas) | Tool name + args |
 | CLI-first | ~500-800 tokens (system prompt summary) | Command string |
-| CLI + on-demand help | ~200 tokens (just "use `telescope` CLI") | Command string + optional `--help` read |
+| CLI + on-demand help | ~200 tokens (just "use `specular` CLI") | Command string + optional `--help` read |
 
 A CLI-first approach could reduce context by **6-25x**.
 
@@ -191,88 +191,88 @@ frame, gets the CDP URL, spawns agent-browser, handles presence, manages frame
 locks, encodes images. It's a command-string-within-a-command.
 
 A clean CLI **promotes browser verbs to first-class commands** alongside canvas
-verbs. The agent doesn't think about two tools—it just uses `telescope`:
+verbs. The agent doesn't think about two tools—it just uses `specular`:
 
 ```
 # Browser verbs — resolve frame, spawn agent-browser transparently
-telescope snapshot                     # accessibility tree of selected frame
-telescope snapshot -i                  # with interactive element refs
-telescope snapshot -s "#main"          # scoped to CSS selector
-telescope click @e5                    # click element
-telescope fill @e12 "hello world"     # fill input
-telescope type @e12 "hello world"     # type into element
-telescope select @e8 "option-value"   # select dropdown
-telescope scroll down                  # scroll page
-telescope wait --load networkidle     # wait for page settle
-telescope get text                     # read page content
-telescope get url                      # read current URL
-telescope screenshot                   # capture PNG, print path
-telescope screenshot --annotate        # labeled screenshot with refs
-telescope console                      # page diagnostics
-telescope errors                       # page errors
+specular snapshot                     # accessibility tree of selected frame
+specular snapshot -i                  # with interactive element refs
+specular snapshot -s "#main"          # scoped to CSS selector
+specular click @e5                    # click element
+specular fill @e12 "hello world"     # fill input
+specular type @e12 "hello world"     # type into element
+specular select @e8 "option-value"   # select dropdown
+specular scroll down                  # scroll page
+specular wait --load networkidle     # wait for page settle
+specular get text                     # read page content
+specular get url                      # read current URL
+specular screenshot                   # capture PNG, print path
+specular screenshot --annotate        # labeled screenshot with refs
+specular console                      # page diagnostics
+specular errors                       # page errors
 
 # Canvas verbs — HTTP to control server
-telescope workspace                    # JSON workspace graph
-telescope selection                    # current selection
+specular workspace                    # JSON workspace graph
+specular selection                    # current selection
 
 # Create entities
-telescope create frame <url>                      # default preset (iPhone 14 Pro)
-telescope create frame <url> --preset 7            # Desktop (1440×900)
-telescope create frame <url> --preset 0 --landscape  # iPhone SE landscape
-telescope create frame <url> --at 500,200          # explicit canvas position
-telescope create frame <url> --group grp_abc       # add to existing group
-telescope create note "text"                       # create sticky note
-telescope create note "text" --color red           # colored note
-telescope create file /path/to/image.png           # file attachment
+specular create frame <url>                      # default preset (iPhone 14 Pro)
+specular create frame <url> --preset 7            # Desktop (1440×900)
+specular create frame <url> --preset 0 --landscape  # iPhone SE landscape
+specular create frame <url> --at 500,200          # explicit canvas position
+specular create frame <url> --group grp_abc       # add to existing group
+specular create note "text"                       # create sticky note
+specular create note "text" --color red           # colored note
+specular create file /path/to/image.png           # file attachment
 
 # Update entities (move, resize, change breakpoint)
-telescope update <id> --preset 8                   # switch to Desktop XL (1920×1080)
-telescope update <id> --preset 3 --landscape       # iPad Mini landscape
-telescope update <id> --at 800,400                 # move to canvas position
-telescope update <id> --url https://new-url.com    # navigate to different URL
-telescope update <id> --text "new content"         # update note text
-telescope update <id> --color purple               # change note color
+specular update <id> --preset 8                   # switch to Desktop XL (1920×1080)
+specular update <id> --preset 3 --landscape       # iPad Mini landscape
+specular update <id> --at 800,400                 # move to canvas position
+specular update <id> --url https://new-url.com    # navigate to different URL
+specular update <id> --text "new content"         # update note text
+specular update <id> --color purple               # change note color
 
 # Batch upsert (create and update mixed, JSON on stdin)
 echo '[{"kind":"frame","url":"https://a.com","presetIndex":1},
       {"kind":"frame","id":"frame_abc","presetIndex":7,"canvasX":800}]' \
-  | telescope upsert
+  | specular upsert
 
-telescope delete <id> [id...]          # delete any entity
-telescope group <id> [id...]           # group entities
-telescope ungroup <group-id>           # ungroup
-telescope link <from> <to>             # create edge
-telescope focus [--frame <id>] [--group <id>]
+specular delete <id> [id...]          # delete any entity
+specular group <id> [id...]           # group entities
+specular ungroup <group-id>           # ungroup
+specular link <from> <to>             # create edge
+specular focus [--frame <id>] [--group <id>]
 
 # Annotation verbs
-telescope annotate <text> [--on <anchor>]
-telescope annotations [--status pending]
-telescope annotation <id> [--ack|--resolve|--dismiss|--reply "text"]
+specular annotate <text> [--on <anchor>]
+specular annotations [--status pending]
+specular annotation <id> [--ack|--resolve|--dismiss|--reply "text"]
 
 # Specialized
-telescope record start|stop|status|trim
-telescope layout breakpoints <url>
-telescope layout components <component> <url> --vary <props>
+specular record start|stop|status|trim
+specular layout breakpoints <url>
+specular layout components <component> <url> --vary <props>
 ```
 
 **Frame context** is implicit (selected frame) or explicit (`-f <frame-id>`):
 
 ```
-telescope snapshot                     # selected frame
-telescope -f frame_abc123 snapshot     # explicit frame
-telescope -f frame_abc123 click @e5    # explicit frame
+specular snapshot                     # selected frame
+specular -f frame_abc123 snapshot     # explicit frame
+specular -f frame_abc123 click @e5    # explicit frame
 ```
 
 **Chaining** works with `&&`, just like `mcp-browse.ts` supports today:
 
 ```
-telescope snapshot -i && telescope click @e3 && telescope get url
+specular snapshot -i && specular click @e3 && specular get url
 ```
 
 Or as a single command to preserve element refs across the chain:
 
 ```
-telescope chain "snapshot -i && click @e3 && get url"
+specular chain "snapshot -i && click @e3 && get url"
 ```
 
 ### How it works internally
@@ -348,14 +348,14 @@ Device presets map to real devices:
 
 Dimensions are portrait by default for phones/tablets. `--landscape` swaps.
 
-The `telescope upsert` command (stdin JSON) preserves full batch semantics
+The `specular upsert` command (stdin JSON) preserves full batch semantics
 from the MCP tool — mixed creates and updates across entity types, all fired
 concurrently. This is the power-user path for agents doing complex canvas
 manipulation in one call.
 
 ### Key design principles
 
-1. **Flat verb namespace.** `telescope snapshot`, not `telescope browse
+1. **Flat verb namespace.** `specular snapshot`, not `specular browse
    "snapshot"`. The agent writes one command, not a command-within-a-command.
    Agent-browser is an implementation detail.
 
@@ -363,11 +363,11 @@ manipulation in one call.
    parses it naturally. Snapshots return the accessibility tree text (same as
    agent-browser outputs today).
 
-3. **Screenshots to temp files.** `telescope screenshot` writes to a temp
+3. **Screenshots to temp files.** `specular screenshot` writes to a temp
    file and prints the path. Claude Code reads the file with its Read tool.
-   `telescope screenshot --base64` outputs base64 to stdout for piping.
+   `specular screenshot --base64` outputs base64 to stdout for piping.
 
-4. **Session via environment.** `TELESCOPE_SESSION_ID` env var, set once in
+4. **Session via environment.** `SPECULAR_SESSION_ID` env var, set once in
    a startup hook or system prompt. No heartbeat needed—the control server
    can use a simpler presence model (last-seen timestamp, activity-based).
 
@@ -378,25 +378,25 @@ manipulation in one call.
 6. **System prompt is the schema.** ~400 tokens instead of ~5,160:
 
    ```
-   Use `telescope` to interact with the canvas and frames.
+   Use `specular` to interact with the canvas and frames.
 
    Browser (operates on selected frame, or use -f <id>):
-     telescope snapshot -i          # accessibility tree with refs
-     telescope click @e5            # click element
-     telescope fill @e12 "text"     # fill input
-     telescope screenshot           # capture PNG (prints path)
-     telescope get text|url         # read page content
-     telescope scroll down|up       # scroll page
+     specular snapshot -i          # accessibility tree with refs
+     specular click @e5            # click element
+     specular fill @e12 "text"     # fill input
+     specular screenshot           # capture PNG (prints path)
+     specular get text|url         # read page content
+     specular scroll down|up       # scroll page
 
    Canvas:
-     telescope workspace            # full workspace graph
-     telescope create frame <url>   # create frame (returns ID)
-     telescope create note "text"   # create note
-     telescope delete <id>          # delete entity
-     telescope annotations          # list feedback
-     telescope annotation <id> --resolve
+     specular workspace            # full workspace graph
+     specular create frame <url>   # create frame (returns ID)
+     specular create note "text"   # create note
+     specular delete <id>          # delete entity
+     specular annotations          # list feedback
+     specular annotation <id> --resolve
 
-   Run `telescope --help` for full reference.
+   Run `specular --help` for full reference.
    ```
 
 ### What you gain
@@ -416,8 +416,8 @@ manipulation in one call.
 
 1. **Inline image content.** MCP returns base64 images directly in the response.
    The CLI writes to a temp file and prints the path—two steps for Claude Code
-   (run command, read file). In practice this is fine: `telescope screenshot`
-   prints `/tmp/telescope-shot-1712345.png`, Claude Code reads it. The `--base64`
+   (run command, read file). In practice this is fine: `specular screenshot`
+   prints `/tmp/specular-shot-1712345.png`, Claude Code reads it. The `--base64`
    flag outputs directly to stdout for single-step piping if needed.
 
 2. **Structured error handling.** MCP has `isError` content blocks. CLI uses
@@ -439,7 +439,7 @@ exact same calls with zero changes to the server.
 ### How presence works today (the non-blocking pipeline)
 
 ```
-                    CLI / MCP process                    Telescope app (Electron)
+                    CLI / MCP process                    Specular app (Electron)
                     ─────────────────                    ────────────────────────
 1. Intent fires ──► POST /session/presence/intent ──► Server stores pending intent
    (fire-and-forget,                                   Sets cursor → 'traveling'
@@ -513,8 +513,8 @@ For browser verbs (`snapshot`, `click`, `fill`, etc.):
 callApp('/session/presence/intent', {
   method: 'POST',
   body: JSON.stringify({
-    sessionId,                    // from env var TELESCOPE_SESSION_ID
-    clientName: 'telescope-cli',
+    sessionId,                    // from env var SPECULAR_SESSION_ID
+    clientName: 'specular-cli',
     command: verb,
     labelKey,                     // from COMMAND_LABELS map
     labelHint,
@@ -533,7 +533,7 @@ const result = await spawnAsync(agentBrowser, ['--cdp', cdpUrl, ...argv])
 // 4. Clear presence — fire-and-forget, in finally block
 callApp('/session/presence', {
   method: 'POST',
-  body: JSON.stringify({ sessionId, clientName: 'telescope-cli', eventType: 'done' }),
+  body: JSON.stringify({ sessionId, clientName: 'specular-cli', eventType: 'done' }),
 }).catch(() => {})
 //   → server clears cursor, restores selection, ends automation overlay
 ```
@@ -564,15 +564,15 @@ CLI can use a simpler model:
 **Option A: Activity-based sessions (recommended)**
 
 ```typescript
-// Set TELESCOPE_SESSION_ID once in a startup hook or .claude/hooks.json
-// Every CLI call sends x-telescope-session-id header automatically
+// Set SPECULAR_SESSION_ID once in a startup hook or .claude/hooks.json
+// Every CLI call sends x-specular-session-id header automatically
 // resolveSession() in presence-session.ts already creates sessions on first contact
 // Sessions expire after MCP_SESSION_TIMEOUT_MS (15s) of inactivity
 // No heartbeat needed — each CLI call is a "ping" via the header
 ```
 
 This works because `resolveSession()` (`presence-session.ts:28-60`) already
-handles session auto-creation from the `x-telescope-session-id` header. Every
+handles session auto-creation from the `x-specular-session-id` header. Every
 HTTP call the CLI makes implicitly keeps the session alive.
 
 **The departing animation** (`routes/session.ts:288-315`) fires when a session
@@ -584,10 +584,10 @@ timeout.
 
 ```bash
 # In a Claude Code startup hook:
-telescope session open
+specular session open
 
 # In a shutdown hook:
-telescope session close
+specular session close
 ```
 
 These map to `POST /mcp/session/open` and `POST /mcp/session/close`. The
@@ -660,8 +660,8 @@ parameter schemas, enums — whether the agent needs them or not.
 
 ### Layer 2: Skill files (loaded on demand)
 
-`.agents/skills/telescope/SKILL.md` is the primary reference the agent sees
-when the `telescope` skill activates. It's 111 lines describing:
+`.agents/skills/specular/SKILL.md` is the primary reference the agent sees
+when the `specular` skill activates. It's 111 lines describing:
 - The two-surface model (canvas tools vs `browse` tool)
 - Common `browse` commands (table format)
 - Command chaining with `&&`
@@ -675,7 +675,7 @@ reference (687 lines). It's comprehensive: navigation, snapshot, interactions,
 authentication (5 strategies), security, sessions, iframes, eval, diffing,
 semantic locators, annotated screenshots, iOS simulator, Lightpanda engine.
 
-The telescope skill's "Telescope Note" section in the agent-browser SKILL.md
+The specular skill's "Specular Note" section in the agent-browser SKILL.md
 redirects agents to use the `browse` MCP tool instead of running agent-browser
 directly.
 
@@ -707,7 +707,7 @@ Key patterns worth adopting:
 5. **Security and guardrails inline.** Content boundaries, domain allowlists,
    action policies — documented where agents will find them, not buried.
 
-6. **Commands the telescope `browse` tool doesn't expose.** The agent-browser
+6. **Commands the specular `browse` tool doesn't expose.** The agent-browser
    CLI supports `check`, `uncheck`, `press`, `keyboard`, `hover`, `drag`,
    `upload`, `dblclick`, `focus`, `scrollintoview`, `get html`, `get value`,
    `get attr`, `get count`, `get box`, `get styles`, `is visible`,
@@ -715,68 +715,68 @@ Key patterns worth adopting:
    `pdf`, `back`, `forward`, `reload`, `highlight`, `download`, `network`,
    `diff screenshot`, `diff url`, `set viewport`, `set device`. Many of these
    work through the `browse` tool today (since it passes the raw command
-   string to agent-browser), but they're not documented in the telescope
+   string to agent-browser), but they're not documented in the specular
    skill — agents don't know they can use them.
 
-### What the telescope CLI skill should look like
+### What the specular CLI skill should look like
 
 With a flat-verb CLI, the skill becomes simpler and more like agent-browser's
 own documentation:
 
 ```markdown
-# Telescope
+# Specular
 
-All canvas and frame operations go through the `telescope` CLI.
+All canvas and frame operations go through the `specular` CLI.
 
 ## Core workflow
 
-1. `telescope workspace` — see what's on the canvas
-2. `telescope snapshot -i` — get element refs for the selected frame
-3. `telescope click @e5` / `telescope fill @e3 "text"` — interact
-4. `telescope snapshot -i` — re-snapshot after mutations (refs go stale)
+1. `specular workspace` — see what's on the canvas
+2. `specular snapshot -i` — get element refs for the selected frame
+3. `specular click @e5` / `specular fill @e3 "text"` — interact
+4. `specular snapshot -i` — re-snapshot after mutations (refs go stale)
 
 ## Browser commands (selected frame, or use -f <id>)
 
 | Command | Purpose |
 |---------|---------|
-| `telescope snapshot -i` | Accessibility tree with interactive refs |
-| `telescope click @e5` | Click element |
-| `telescope fill @e3 "text"` | Clear + type into input |
-| `telescope type @e3 "text"` | Type without clearing |
-| `telescope select @e3 "value"` | Select dropdown option |
-| `telescope scroll down` | Scroll page |
-| `telescope screenshot` | Capture PNG (prints file path) |
-| `telescope screenshot --annotate` | Labeled screenshot with ref overlay |
-| `telescope get text` / `telescope get url` | Read page content |
-| `telescope wait --load networkidle` | Wait for page to settle |
-| `telescope diff snapshot` | Show changes since last snapshot |
-| `telescope find text "Sign In" click` | Semantic locator |
-| `telescope eval 'document.title'` | Run JS in page context |
+| `specular snapshot -i` | Accessibility tree with interactive refs |
+| `specular click @e5` | Click element |
+| `specular fill @e3 "text"` | Clear + type into input |
+| `specular type @e3 "text"` | Type without clearing |
+| `specular select @e3 "value"` | Select dropdown option |
+| `specular scroll down` | Scroll page |
+| `specular screenshot` | Capture PNG (prints file path) |
+| `specular screenshot --annotate` | Labeled screenshot with ref overlay |
+| `specular get text` / `specular get url` | Read page content |
+| `specular wait --load networkidle` | Wait for page to settle |
+| `specular diff snapshot` | Show changes since last snapshot |
+| `specular find text "Sign In" click` | Semantic locator |
+| `specular eval 'document.title'` | Run JS in page context |
 
-All agent-browser commands work — `telescope` is a thin wrapper.
-Run `telescope --help` for the full list.
+All agent-browser commands work — `specular` is a thin wrapper.
+Run `specular --help` for the full list.
 
 ## Canvas commands
 
 | Command | Purpose |
 |---------|---------|
-| `telescope workspace` | Full workspace graph (JSON) |
-| `telescope create frame <url>` | Create frame (returns ID) |
-| `telescope create frame <url> --preset 7` | Desktop 1440×900 |
-| `telescope update <id> --preset 0 --landscape` | Change breakpoint |
-| `telescope update <id> --at 800,400` | Move on canvas |
-| `telescope delete <id>` | Delete entity |
-| `telescope create note "text"` | Sticky note |
-| `telescope group <id> <id>` | Group entities |
+| `specular workspace` | Full workspace graph (JSON) |
+| `specular create frame <url>` | Create frame (returns ID) |
+| `specular create frame <url> --preset 7` | Desktop 1440×900 |
+| `specular update <id> --preset 0 --landscape` | Change breakpoint |
+| `specular update <id> --at 800,400` | Move on canvas |
+| `specular delete <id>` | Delete entity |
+| `specular create note "text"` | Sticky note |
+| `specular group <id> <id>` | Group entities |
 
 ## Annotations
 
 | Command | Purpose |
 |---------|---------|
-| `telescope annotations` | List all |
-| `telescope annotations --status pending` | Filter by status |
-| `telescope annotation <id> --resolve` | Mark resolved |
-| `telescope annotation <id> --reply "text"` | Reply to thread |
+| `specular annotations` | List all |
+| `specular annotations --status pending` | Filter by status |
+| `specular annotation <id> --resolve` | Mark resolved |
+| `specular annotation <id> --reply "text"` | Reply to thread |
 
 ## Key rules
 
@@ -794,51 +794,51 @@ available through the flat-verb passthrough.
 
 ## Skill Organization: Two Skills, Layered by Scope
 
-### Recommendation: Keep both `telescope` and `agent-browser` as separate skills
+### Recommendation: Keep both `specular` and `agent-browser` as separate skills
 
-**`telescope` skill** (~350-400 tokens) — the orchestration layer:
+**`specular` skill** (~350-400 tokens) — the orchestration layer:
 - Flat-verb command table: canvas verbs + browser passthrough note
 - Two-surface mental model (canvas vs. frame)
 - Session lifecycle (auto-managed, no agent action needed)
 - Default workflow template (7 steps)
-- One key line: "All agent-browser commands work directly via `telescope`"
+- One key line: "All agent-browser commands work directly via `specular`"
 
 **`agent-browser` skill** (existing 687 lines) — the browser automation reference:
 - Already excellent standalone documentation
 - Core workflow, command chaining, auth strategies, ~30 commands
 - Tiered references in `references/` for deep dives
-- Shared primitive — other tools besides Telescope consume it
+- Shared primitive — other tools besides Specular consume it
 
 ### Why two skills, not one?
 
-1. **Context efficiency.** The telescope skill loads first (~350 tokens). Most
+1. **Context efficiency.** The specular skill loads first (~350 tokens). Most
    tasks only need canvas operations (create frames, check workspace, manage
    annotations). The agent-browser skill loads on demand only when browser
    automation begins. Merging them forces ~700+ lines into every session.
 
 2. **Agent-browser is a shared primitive.** Other tools and workflows use
-   agent-browser outside of Telescope. Folding its documentation into a
-   telescope-only skill breaks reuse. The existing skill file is already
-   consumed by non-Telescope contexts.
+   agent-browser outside of Specular. Folding its documentation into a
+   specular-only skill breaks reuse. The existing skill file is already
+   consumed by non-Specular contexts.
 
-3. **Tiered depth matches agent behavior.** Agents read the telescope skill,
+3. **Tiered depth matches agent behavior.** Agents read the specular skill,
    plan their approach, then pull in agent-browser details only for the browser
    phase. This mirrors how agent-browser.dev structures their own docs —
    workflow first, command reference second.
 
 4. **Maintenance boundary.** Browser commands change with agent-browser
-   releases. Canvas commands change with Telescope releases. Separate files
+   releases. Canvas commands change with Specular releases. Separate files
    mean separate update cadences with no merge conflicts.
 
 ### How loading works in practice
 
 ```
 Agent receives task
-  → Claude Code loads telescope SKILL.md (~350 tokens)
+  → Claude Code loads specular SKILL.md (~350 tokens)
   → Agent plans approach
 
   Canvas-only task:
-  → telescope skill is sufficient
+  → specular skill is sufficient
   → Total context cost: ~350 tokens
 
   Browser task:
@@ -850,19 +850,19 @@ Agent receives task
 
 ### What changes in each skill file
 
-**telescope SKILL.md** — rewrite for CLI:
+**specular SKILL.md** — rewrite for CLI:
 - Replace MCP tool references with CLI command tables
-- Remove `browse` tool indirection ("use `telescope snapshot`" not "`browse` tool")
+- Remove `browse` tool indirection ("use `specular snapshot`" not "`browse` tool")
 - Add canvas verbs that were previously spread across 29 MCP tools
 - Add: "For full browser command reference, see the agent-browser skill"
 
 **agent-browser SKILL.md** — minimal edit:
-- Flip the "Telescope Note" from "use the `browse` MCP tool" to "all commands
-  work via `telescope <command>` directly — do not run agent-browser separately"
+- Flip the "Specular Note" from "use the `browse` MCP tool" to "all commands
+  work via `specular <command>` directly — do not run agent-browser separately"
 - Everything else stays the same — it's already well-structured
 
 **No new skill file needed.** The documentation that exists today covers both
-layers. The reorganization is about making the telescope skill CLI-native and
+layers. The reorganization is about making the specular skill CLI-native and
 keeping the agent-browser skill as the shared browser reference it already is.
 
 ### Comparison with current MCP approach
@@ -875,7 +875,7 @@ keeping the agent-browser skill as the shared browser reference it already is.
 | Canvas-only session | ~5,160 tokens | ~350 tokens |
 | Agent-browser commands visible | ~12 (browse tool docs) | ~30+ (full skill) |
 | Update cadence | Coupled (one MCP) | Independent (two files) |
-| Reusable outside Telescope | No (MCP-specific) | Yes (agent-browser is shared) |
+| Reusable outside Specular | No (MCP-specific) | Yes (agent-browser is shared) |
 
 ---
 
@@ -897,7 +897,7 @@ reference. The skill system already provides this on demand.
 
 ## Incremental Migration Path
 
-1. **Build `telescope` CLI** alongside the existing MCP. Ship it as a single
+1. **Build `specular` CLI** alongside the existing MCP. Ship it as a single
    bundled JS file. Test it manually and with Claude Code.
 
 2. **Slim the MCP schemas.** Regardless of CLI direction, consolidate
@@ -919,17 +919,17 @@ reference. The skill system already provides this on demand.
 ## Recommendation
 
 **Build the flat-verb CLI.** The critical design decision is to **not** have a
-`browse` subcommand that takes a command string. Instead, `telescope snapshot`,
-`telescope click @e5`, `telescope fill @e12 "hello"` are first-class verbs that
+`browse` subcommand that takes a command string. Instead, `specular snapshot`,
+`specular click @e5`, `specular fill @e12 "hello"` are first-class verbs that
 transparently resolve the frame and spawn agent-browser underneath.
 
 This means the agent writes:
 
 ```bash
-telescope snapshot -i
-telescope click @e5
-telescope create frame "https://example.com"
-telescope annotations --status pending
+specular snapshot -i
+specular click @e5
+specular create frame "https://example.com"
+specular annotations --status pending
 ```
 
 Not:

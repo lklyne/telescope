@@ -1,6 +1,6 @@
 # File Formats
 
-Telescope uses open, human-readable, local-first file formats. All data lives
+Specular uses open, human-readable, local-first file formats. All data lives
 on the user's machine as plain files. No proprietary formats, no server
 dependency.
 
@@ -19,7 +19,7 @@ my-project/                      # a space
 ```
 
 Canvases are auto-saved. The location is currently:
-`~/.config/Telescope/workspaces/default/`
+`~/.config/Specular/workspaces/default/`
 
 ## .canvas (JSON Canvas v1.0)
 
@@ -61,10 +61,10 @@ Node types (per JSON Canvas spec):
 | `file` | `file`, `subpath?` | Reference to a local file |
 | `group` | `label?`, `background?` | Visual container for other nodes |
 
-### Telescope extensions
+### Specular extensions
 
 The JSON Canvas spec is designed to be extensible — unknown fields are ignored
-by other tools. Telescope adds:
+by other tools. Specular adds:
 
 **On link nodes:**
 - `presetIndex` — viewport preset (device catalog index)
@@ -107,11 +107,11 @@ Connections between two nodes:
 }
 ```
 
-Telescope extensions: `edgeKind`, `edgeMetadata`.
+Specular extensions: `edgeKind`, `edgeMetadata`.
 
 ### App state (extension)
 
-Telescope stores viewport and UI state in an `appState` field:
+Specular stores viewport and UI state in an `appState` field:
 
 ```json
 {
@@ -177,7 +177,7 @@ See `src/shared/types.ts` for internal entity types.
 
 ## Compatibility
 
-.canvas files created by Telescope should open in Obsidian and other tools
-that support JSON Canvas v1.0. Telescope-specific extensions are ignored by
+.canvas files created by Specular should open in Obsidian and other tools
+that support JSON Canvas v1.0. Specular-specific extensions are ignored by
 those tools. Conversely, .canvas files from other tools should open in
-Telescope (link nodes render as live webviews, text nodes as notes, etc.).
+Specular (link nodes render as live webviews, text nodes as notes, etc.).

@@ -8,7 +8,7 @@ import {
   readFileSync,
 } from 'fs'
 
-export type SkillId = 'telescope' | 'agent-browser'
+export type SkillId = 'specular' | 'agent-browser'
 
 const SKILL_FILENAME = 'SKILL.md'
 

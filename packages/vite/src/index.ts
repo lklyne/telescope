@@ -1,27 +1,27 @@
 /**
- * @telescope/vite — Vite plugin that lets Telescope render a single React
+ * @specular/vite — Vite plugin that lets Specular render a single React
  * component from your repo as a live frame on its canvas.
  *
  * Usage:
  *   // vite.config.ts
- *   import telescope from '@telescope/vite'
- *   export default { plugins: [telescope()] }
+ *   import specular from '@specular/vite'
+ *   export default { plugins: [specular()] }
  *
- * After this plugin is registered, `GET /__telescope?path=src/Button.tsx`
+ * After this plugin is registered, `GET /__specular?path=src/Button.tsx`
  * serves an HTML shell that mounts the named component using the user's
  * own React + Vite HMR pipeline. Errors and HMR phases are forwarded to
- * Telescope via prefixed console lines.
+ * Specular via prefixed console lines.
  */
 
 import { readFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { Plugin, ViteDevServer } from 'vite'
-import type { TelescopePluginOptions } from './types'
+import type { SpecularPluginOptions } from './types'
 
-export type { TelescopePluginOptions, TelescopeBridgeMessage } from './types'
+export type { SpecularPluginOptions, SpecularBridgeMessage } from './types'
 
-const VIRTUAL_BOOTSTRAP_ID = 'virtual:@telescope/vite/bootstrap'
+const VIRTUAL_BOOTSTRAP_ID = 'virtual:@specular/vite/bootstrap'
 const RESOLVED_BOOTSTRAP_ID = '\0' + VIRTUAL_BOOTSTRAP_ID
 const BOOTSTRAP_URL = '/@id/__x00__' + VIRTUAL_BOOTSTRAP_ID
 
@@ -54,7 +54,7 @@ function buildShell(repoRelativePath: string, exportName: string): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Telescope · ${escapeHtml(repoRelativePath)}</title>
+    <title>Specular · ${escapeHtml(repoRelativePath)}</title>
     <style>
       html, body, #root { margin: 0; padding: 0; height: 100%; min-height: 100%; background: transparent; }
       body { font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111; }
@@ -62,7 +62,7 @@ function buildShell(repoRelativePath: string, exportName: string): string {
   </head>
   <body>
     <div id="root"></div>
-    <script type="application/json" id="telescope-target">${target}</script>
+    <script type="application/json" id="specular-target">${target}</script>
     <script type="module" src="${BOOTSTRAP_URL}"></script>
   </body>
 </html>
@@ -91,9 +91,9 @@ function matchesAllow(repoRelativePath: string, allow?: string[]): boolean {
   return false
 }
 
-export default function telescope(options: TelescopePluginOptions = {}): Plugin {
+export default function specular(options: SpecularPluginOptions = {}): Plugin {
   return {
-    name: '@telescope/vite',
+    name: '@specular/vite',
     enforce: 'pre',
 
     resolveId(id) {
@@ -107,7 +107,7 @@ export default function telescope(options: TelescopePluginOptions = {}): Plugin 
     },
 
     configureServer(server: ViteDevServer) {
-      server.middlewares.use('/__telescope', (req, res, next) => {
+      server.middlewares.use('/__specular', (req, res, next) => {
         if (req.method !== 'GET') {
           next()
           return
@@ -118,12 +118,12 @@ export default function telescope(options: TelescopePluginOptions = {}): Plugin 
 
         if (!path) {
           res.statusCode = 400
-          res.end('Telescope: missing ?path=')
+          res.end('Specular: missing ?path=')
           return
         }
         if (!matchesAllow(path, options.allow)) {
           res.statusCode = 403
-          res.end('Telescope: path not in allow list')
+          res.end('Specular: path not in allow list')
           return
         }
 
@@ -131,7 +131,7 @@ export default function telescope(options: TelescopePluginOptions = {}): Plugin 
         const absolute = normalize(resolve(root, path))
         if (!isPathInsideRoot(absolute, root)) {
           res.statusCode = 403
-          res.end('Telescope: path escapes repo root')
+          res.end('Specular: path escapes repo root')
           return
         }
 
@@ -141,7 +141,7 @@ export default function telescope(options: TelescopePluginOptions = {}): Plugin 
         // user's component module loads, because the @react-refresh runtime
         // never gets a chance to register itself on window.
         server
-          .transformIndexHtml(req.url ?? '/__telescope', buildShell(path, exportName))
+          .transformIndexHtml(req.url ?? '/__specular', buildShell(path, exportName))
           .then((html) => {
             res.setHeader('Content-Type', 'text/html; charset=utf-8')
             res.setHeader('Cache-Control', 'no-store')
@@ -154,4 +154,4 @@ export default function telescope(options: TelescopePluginOptions = {}): Plugin 
 }
 
 // Convenience: expose the bootstrap source URL so tests / docs can find it.
-export const TELESCOPE_BOOTSTRAP_PATH = pathToFileURL(BOOTSTRAP_SOURCE_PATH).href
+export const SPECULAR_BOOTSTRAP_PATH = pathToFileURL(BOOTSTRAP_SOURCE_PATH).href

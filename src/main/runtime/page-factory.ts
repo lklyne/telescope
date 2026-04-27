@@ -5,6 +5,7 @@
 import { WebContentsView } from 'electron'
 import { randomUUID } from 'crypto'
 import { loadRenderer, preloadPath } from './load-renderer'
+import { wireRendererLogging } from '../crash-log'
 import type { PageConfig } from '../../shared/types'
 import {
   toolbarView,
@@ -111,6 +112,7 @@ export function createPage(config: PageConfig): Page {
   })
   chromeView.setBackgroundColor('#00000000')
   win.contentView.addChildView(chromeView)
+  wireRendererLogging(chromeView.webContents, 'chrome-header')
   loadRenderer(chromeView, 'chrome-header')
 
   const page: Page = {

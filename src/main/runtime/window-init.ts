@@ -7,6 +7,7 @@ import {
 } from 'electron'
 import { join } from 'path'
 import { loadRenderer, preloadPath } from './load-renderer'
+import { wireRendererLogging } from '../crash-log'
 import {
   bgView,
   aboveView,
@@ -183,8 +184,11 @@ export function initWindow(): void {
   // (canvas-bg, sidebar) so they can load favicon images from any origin.
   // Scoped to UI view webContents only — page views are left untouched.
   const uiWebContentsIds = new Set<number>()
-  const registerUiWebContents = (wc: Electron.WebContents) => uiWebContentsIds.add(wc.id)
-  registerUiWebContents(currentBgView.webContents)
+  const registerUiWebContents = (wc: Electron.WebContents, label: string) => {
+    uiWebContentsIds.add(wc.id)
+    wireRendererLogging(wc, label)
+  }
+  registerUiWebContents(currentBgView.webContents, 'canvas-bg')
   currentBgView.webContents.session.webRequest.onHeadersReceived(
     (details, callback) => {
       if (details.resourceType === 'image' && details.webContentsId !== undefined && uiWebContentsIds.has(details.webContentsId)) {
@@ -224,7 +228,7 @@ export function initWindow(): void {
   }))
   const currentLeftSidebarView = leftSidebarView
   if (!currentLeftSidebarView) return
-  registerUiWebContents(currentLeftSidebarView.webContents)
+  registerUiWebContents(currentLeftSidebarView.webContents, 'left-sidebar')
   currentLeftSidebarView.setBackgroundColor('#00000000')
   loadRenderer(currentLeftSidebarView, 'left-sidebar')
   currentLeftSidebarView.webContents.once('did-finish-load', () => {
@@ -247,6 +251,7 @@ export function initWindow(): void {
   })
   setAboveView(aboveWcv)
   const currentAboveView = aboveWcv
+  registerUiWebContents(currentAboveView.webContents, 'above-view')
   currentAboveView.setBackgroundColor('#00000000')
   loadRenderer(currentAboveView, 'above-view')
   currentAboveView.webContents.once('did-finish-load', () => {
@@ -291,7 +296,7 @@ export function initWindow(): void {
   })
   setCursorOverlayWindow(overlayWin)
   overlayWin.setIgnoreMouseEvents(true, { forward: false })
-  registerUiWebContents(overlayWin.webContents)
+  registerUiWebContents(overlayWin.webContents, 'agent-layer')
   loadRenderer(overlayWin, 'agent-layer')
   overlayWin.webContents.once('did-finish-load', () => {
     if (overlayWin.webContents.isDestroyed()) return
@@ -325,6 +330,7 @@ export function initWindow(): void {
   }))
   const currentToolbarView = toolbarView
   if (!currentToolbarView) return
+  registerUiWebContents(currentToolbarView.webContents, 'toolbar')
   currentToolbarView.setBackgroundColor('#00000000')
   loadRenderer(currentToolbarView, 'toolbar')
   currentWin.contentView.addChildView(currentToolbarView)
@@ -360,6 +366,7 @@ export function initWindow(): void {
   }))
   const currentDevtoolsHeaderView = devtoolsHeaderView
   if (!currentDevtoolsHeaderView) return
+  registerUiWebContents(currentDevtoolsHeaderView.webContents, 'right-details-panel')
   currentDevtoolsHeaderView.setBackgroundColor('#00000000')
   loadRenderer(currentDevtoolsHeaderView, 'right-details-panel')
   currentDevtoolsHeaderView.webContents.once('did-finish-load', () => {
@@ -383,6 +390,7 @@ export function initWindow(): void {
   }))
   const currentDevtoolsResizeHandleView = devtoolsResizeHandleView
   if (!currentDevtoolsResizeHandleView) return
+  registerUiWebContents(currentDevtoolsResizeHandleView.webContents, 'devtools-resize-handle')
   currentDevtoolsResizeHandleView.setBackgroundColor('#00000000')
   loadRenderer(currentDevtoolsResizeHandleView, 'devtools-resize-handle')
   currentDevtoolsResizeHandleView.webContents.once('did-finish-load', () => {

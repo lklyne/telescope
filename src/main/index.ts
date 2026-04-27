@@ -1,7 +1,6 @@
 import { app, crashReporter, net, nativeTheme, protocol } from 'electron'
-import { appendFileSync, mkdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { DEFAULT_PAGES } from '../shared/constants'
+import { logCrash } from './crash-log'
 import {
   flushWorkspaceAutosaveSync,
   loadWorkspace,
@@ -61,16 +60,6 @@ app.setName('Telescope')
 initSentry()
 
 crashReporter.start({ submitURL: '', uploadToServer: false, ignoreSystemCrashHandler: false })
-
-const logsDir = app.getPath('logs')
-try { mkdirSync(logsDir, { recursive: true }) } catch {}
-const errorLogPath = join(logsDir, 'errors.log')
-
-function logCrash(kind: string, detail: unknown): void {
-  const line = `[${new Date().toISOString()}] ${kind}\n${detail instanceof Error ? (detail.stack ?? detail.message) : JSON.stringify(detail)}\n\n`
-  try { appendFileSync(errorLogPath, line) } catch {}
-  console.error(kind, detail)
-}
 
 process.on('uncaughtException', (err) => logCrash('uncaughtException', err))
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', reason))

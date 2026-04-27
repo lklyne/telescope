@@ -7,6 +7,14 @@ export function ComponentPlaceholderRenderer({
   entity: CanvasSceneFileEntity
   isDark: boolean
 }) {
+  // The host overlays a WebContentsView pointed at the dev-server URL on
+  // top of this DOM. When a repo claims the file, the WCV will render
+  // (or be in flight); painting the placeholder underneath bleeds through
+  // any transparent regions of the React component. Suppress it then —
+  // a brief flash of empty canvas while the WCV loads is preferable to
+  // the "Connect a Vite repo" copy ghosting through afterwards.
+  if (entity.componentHasRepo) return null
+
   const fileName = entity.file.split('/').pop() ?? entity.file
   return (
     <div

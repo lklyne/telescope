@@ -20,6 +20,7 @@ import {
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
 import { getRendererTagFor } from '../plugins/registry'
+import { findRepoForPath } from './dev-server-manager'
 
 export type FileObjectFit = 'contain' | 'cover' | 'fill'
 
@@ -155,6 +156,10 @@ export function buildFileEntitySceneEntity(
     contentScreenWidth: showShell ? contentScreenW : undefined,
     contentScreenHeight: showShell ? contentScreenH : undefined,
     rendererTag: getRendererTagFor(persistFileEntity(entity)) ?? undefined,
+    componentHasRepo:
+      getRendererTagFor(persistFileEntity(entity)) === 'component'
+        ? findRepoForPath(entity.file) !== null
+        : undefined,
   }
 }
 

@@ -12,6 +12,8 @@ import {
   onChange,
   type ConnectedRepo,
 } from '../runtime/dev-server-manager'
+import { markDirty } from '../runtime/layout-dirty'
+import { requestLayout } from '../runtime/viewport-control'
 
 function broadcastRepos(repos: ConnectedRepo[]): void {
   for (const view of [bgView, devtoolsHeaderView, toolbarView]) {
@@ -63,5 +65,14 @@ export function registerRepoIpc(): void {
     },
   )
 
-  onChange(broadcastRepos)
+  onChange((repos) => {
+    broadcastRepos(repos)
+    // Component file entities derive `componentHasRepo` from the current
+    // repo set. When that set changes, re-broadcast the canvas scene so
+    // the renderer can drop or restore the placeholder for affected
+    // entities, and lay out so the new component WCV (if any) gets
+    // sized.
+    markDirty('canvas')
+    requestLayout()
+  })
 }

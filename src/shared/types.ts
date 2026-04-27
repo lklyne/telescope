@@ -147,6 +147,13 @@ export interface CanvasSceneFileEntity {
   objectFit?: FileObjectFit
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
   rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component'
+  /**
+   * For component file entities: whether some connected repo claims this
+   * file (i.e. resolveUrl will succeed). The renderer suppresses the
+   * placeholder when true so the WCV shows through cleanly without a
+   * faded "Connect a Vite repo" copy bleeding behind transparent content.
+   */
+  componentHasRepo?: boolean
   /** Device frame state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'

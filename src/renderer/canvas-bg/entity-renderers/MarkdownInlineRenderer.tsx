@@ -31,7 +31,6 @@ export function MarkdownInlineRenderer({
       .catch(() => {})
   }, [entity.file])
 
-  // Initial load.
   useEffect(() => {
     let cancelled = false
     fetch(filePathToSrc(entity.file))
@@ -49,7 +48,7 @@ export function MarkdownInlineRenderer({
     }
   }, [entity.file])
 
-  // Re-fetch when window regains visibility (covers external edits by agents/editors).
+  // Covers external edits by agents/editors while the window was hidden.
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible') return
@@ -61,7 +60,6 @@ export function MarkdownInlineRenderer({
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [fetchContent])
 
-  // Clear editing state when edit mode is lost.
   useEffect(() => {
     if (!canEdit && isFocusedRef.current) {
       isFocusedRef.current = false

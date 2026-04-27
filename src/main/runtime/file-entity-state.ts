@@ -157,16 +157,24 @@ export function buildFileEntitySceneEntity(
     contentScreenY: showShell ? contentScreenY : undefined,
     contentScreenWidth: showShell ? contentScreenW : undefined,
     contentScreenHeight: showShell ? contentScreenH : undefined,
-    rendererTag: getRendererTagFor(persistFileEntity(entity)) ?? undefined,
-    componentHasRepo:
-      getRendererTagFor(persistFileEntity(entity)) === 'component'
-        ? findRepoForPath(entity.file) !== null
-        : undefined,
-    componentInferredRepoPath:
-      getRendererTagFor(persistFileEntity(entity)) === 'component' &&
-      findRepoForPath(entity.file) === null
-        ? inferRepoRoot(entity.file)
-        : undefined,
+    ...componentSceneFields(entity),
+  }
+}
+
+function componentSceneFields(entity: FileEntity): {
+  rendererTag: CanvasSceneFileEntity['rendererTag']
+  componentHasRepo: CanvasSceneFileEntity['componentHasRepo']
+  componentInferredRepoPath: CanvasSceneFileEntity['componentInferredRepoPath']
+} {
+  const tag = getRendererTagFor(persistFileEntity(entity)) ?? undefined
+  if (tag !== 'component') {
+    return { rendererTag: tag, componentHasRepo: undefined, componentInferredRepoPath: undefined }
+  }
+  const hasRepo = findRepoForPath(entity.file) !== null
+  return {
+    rendererTag: tag,
+    componentHasRepo: hasRepo,
+    componentInferredRepoPath: hasRepo ? undefined : inferRepoRoot(entity.file),
   }
 }
 

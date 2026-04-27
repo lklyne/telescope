@@ -1,12 +1,5 @@
-/**
- * Built-in wireframe renderer (inline). The React mount lives in
- * src/renderer/canvas-bg/FileBlockLayer.tsx for now; it switches on the
- * rendererTag broadcast in scene data.
- */
-
+import { WIREFRAME_EXTENSIONS } from '../../../shared/file-extensions'
 import type { InlineRendererClaim } from '../registry'
-
-const WIREFRAME_EXTENSIONS = /\.wireframe\.json$/i
 
 export const wireframeRenderPlugin: InlineRendererClaim = {
   id: 'telescope.wireframe',

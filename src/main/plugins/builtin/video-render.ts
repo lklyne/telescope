@@ -1,11 +1,5 @@
-/**
- * Built-in video renderer (inline). See image-render.ts for the
- * "registry as single source of truth" rationale.
- */
-
+import { VIDEO_EXTENSIONS } from '../../../shared/file-extensions'
 import type { InlineRendererClaim } from '../registry'
-
-const VIDEO_EXTENSIONS = /\.(webm|mp4|mov|ogg)$/i
 
 export const videoRenderPlugin: InlineRendererClaim = {
   id: 'telescope.video',

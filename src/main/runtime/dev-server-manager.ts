@@ -1,5 +1,5 @@
 /**
- * Dev-server manager (Phase 1.4).
+ * Dev-server manager.
  *
  * Owns the runtime side of "which Vite dev servers are connected to Telescope."
  * Each connected repo persists as `{id, absolutePath, label}` in
@@ -43,6 +43,7 @@ export interface InitOptions {
 interface InternalRepo extends ConnectedRepo {
   child: ChildProcess | null
   startupResolvers: Array<(url: string | null) => void>
+  startupTimer: NodeJS.Timeout | null
 }
 
 const repos = new Map<string, InternalRepo>()
@@ -100,6 +101,7 @@ function loadPersisted(): void {
         baseUrl: null,
         child: null,
         startupResolvers: [],
+        startupTimer: null,
       })
     }
   } catch {
@@ -167,6 +169,7 @@ export function connectRepo(absolutePath: string, label?: string): ConnectedRepo
     baseUrl: null,
     child: null,
     startupResolvers: [],
+    startupTimer: null,
   }
   repos.set(id, entry)
   persist()
@@ -222,12 +225,20 @@ function stopChild(entry: InternalRepo): Promise<void> {
   })
 }
 
-function attachChildHandlers(entry: InternalRepo, child: ChildProcess): void {
-  const flushResolvers = (url: string | null) => {
-    const pending = entry.startupResolvers.splice(0)
-    for (const resolve of pending) resolve(url)
+function clearStartupTimer(entry: InternalRepo): void {
+  if (entry.startupTimer) {
+    clearTimeout(entry.startupTimer)
+    entry.startupTimer = null
   }
+}
 
+function flushStartupResolvers(entry: InternalRepo, url: string | null): void {
+  clearStartupTimer(entry)
+  const pending = entry.startupResolvers.splice(0)
+  for (const resolve of pending) resolve(url)
+}
+
+function attachChildHandlers(entry: InternalRepo, child: ChildProcess): void {
   const handleStdoutLine = (line: string) => {
     const match = LOCAL_URL_REGEX.exec(line)
     if (!match) return
@@ -238,14 +249,14 @@ function attachChildHandlers(entry: InternalRepo, child: ChildProcess): void {
       entry.baseUrl = url
       entry.status = 'running'
       entry.lastError = undefined
-      flushResolvers(url)
+      flushStartupResolvers(entry, url)
       notifyChange()
     } catch {
       // ignore malformed URL
     }
   }
 
-  const wireStream = (stream: NodeJS.ReadableStream | null, isError: boolean) => {
+  const wireStdout = (stream: NodeJS.ReadableStream | null) => {
     if (!stream) return
     let buffer = ''
     stream.on('data', (chunk: Buffer | string) => {
@@ -254,13 +265,17 @@ function attachChildHandlers(entry: InternalRepo, child: ChildProcess): void {
       while ((newlineIdx = buffer.indexOf('\n')) >= 0) {
         const line = buffer.slice(0, newlineIdx)
         buffer = buffer.slice(newlineIdx + 1)
-        if (!isError) handleStdoutLine(line)
+        handleStdoutLine(line)
       }
     })
   }
 
-  wireStream(child.stdout, false)
-  wireStream(child.stderr, true)
+  wireStdout(child.stdout)
+  // Surface stderr to the main-process console without buffering — vite emits
+  // useful error context here that would otherwise be lost.
+  child.stderr?.on('data', (chunk: Buffer | string) => {
+    process.stderr.write(typeof chunk === 'string' ? chunk : chunk)
+  })
 
   child.once('exit', (code) => {
     entry.child = null
@@ -273,14 +288,14 @@ function attachChildHandlers(entry: InternalRepo, child: ChildProcess): void {
     }
     entry.port = null
     entry.baseUrl = null
-    flushResolvers(null)
+    flushStartupResolvers(entry, null)
     notifyChange()
   })
 
   child.once('error', (err) => {
     entry.lastError = err.message
     entry.status = 'errored'
-    flushResolvers(null)
+    flushStartupResolvers(entry, null)
     notifyChange()
   })
 }
@@ -301,12 +316,13 @@ function startChild(entry: InternalRepo): Promise<string | null> {
   attachChildHandlers(entry, child)
   return new Promise((resolve) => {
     entry.startupResolvers.push(resolve)
-    setTimeout(() => {
+    if (entry.startupTimer) return
+    entry.startupTimer = setTimeout(() => {
+      entry.startupTimer = null
       if (entry.status === 'starting') {
         entry.status = 'errored'
         entry.lastError = 'startup timed out'
-        const pending = entry.startupResolvers.splice(0)
-        for (const r of pending) r(null)
+        flushStartupResolvers(entry, null)
         notifyChange()
       }
     }, STARTUP_TIMEOUT_MS)

@@ -85,11 +85,12 @@ function createView(entityId: string): ComponentView {
 async function resolveAndLoad(cv: ComponentView): Promise<void> {
   const entity = currentEntities.get(cv.entityId)
   if (!entity) return
-  const claim = pickRenderer(persistFileEntity(entity))
+  const persisted = persistFileEntity(entity)
+  const claim = pickRenderer(persisted)
   if (!claim || claim.kind !== 'wcv-page') return
   cv.resolving = true
   try {
-    const url = await claim.resolveUrl(persistFileEntity(entity))
+    const url = await claim.resolveUrl(persisted)
     if (!url) return
     if (cv.view.webContents.isDestroyed()) return
     if (cv.loadedUrl === url) return

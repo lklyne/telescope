@@ -1,10 +1,9 @@
 import { nativeImage } from 'electron'
 import { execFileSync } from 'child_process'
+import { VIDEO_EXTENSIONS } from '../../shared/file-extensions'
 import { DEFAULT_FILE_WIDTH, DEFAULT_FILE_HEIGHT } from './file-entity-state'
 
 const DEFAULT_FALLBACK = { width: DEFAULT_FILE_WIDTH, height: DEFAULT_FILE_HEIGHT }
-
-const VIDEO_EXTENSIONS = /\.(webm|mp4|mov|ogg)$/i
 
 export function imageSizeFromBuffer(buffer: Buffer): { width: number; height: number } {
   const img = nativeImage.createFromBuffer(buffer)

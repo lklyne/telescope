@@ -12,8 +12,6 @@ import { markdownRenderPlugin } from './builtin/markdown-render'
 import { videoRenderPlugin } from './builtin/video-render'
 import { wireframeRenderPlugin } from './builtin/wireframe-render'
 
-// Precedence is declared on each claim's `priority` field, not on this
-// list's order. Listed alphabetically for readability.
 const builtIns = [
   componentRenderPlugin,
   imageRenderPlugin,

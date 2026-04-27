@@ -284,8 +284,6 @@ function buildTextEntityDetail(entityId: string): PanelTextEntityDetail | undefi
 }
 
 function detectFileType(filePath: string): PanelFileType {
-  // The registry owns all built-in renderer claims (image, video, markdown,
-  // wireframe, component). Anything unclaimed is 'other'.
   const tag = getRendererTagFor({
     kind: 'file',
     id: '__inspect__',
@@ -295,11 +293,7 @@ function detectFileType(filePath: string): PanelFileType {
     width: 0,
     height: 0,
   })
-  if (tag === 'image' || tag === 'video' || tag === 'markdown' ||
-      tag === 'wireframe' || tag === 'component') {
-    return tag
-  }
-  return 'other'
+  return tag ?? 'other'
 }
 
 function buildFileEntityDetail(entityId: string): PanelFileEntityDetail | undefined {

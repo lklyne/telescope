@@ -8,6 +8,8 @@
  */
 
 import { randomUUID } from 'crypto'
+import { existsSync } from 'fs'
+import { dirname } from 'path'
 import type {
   CanvasSceneFileEntity,
   PersistedFileEntity,
@@ -160,7 +162,30 @@ export function buildFileEntitySceneEntity(
       getRendererTagFor(persistFileEntity(entity)) === 'component'
         ? findRepoForPath(entity.file) !== null
         : undefined,
+    componentInferredRepoPath:
+      getRendererTagFor(persistFileEntity(entity)) === 'component' &&
+      findRepoForPath(entity.file) === null
+        ? inferRepoRoot(entity.file)
+        : undefined,
   }
+}
+
+/**
+ * Walk up from a component file looking for the nearest package.json. Used
+ * to suggest a one-click reconnect target on the placeholder when the file
+ * isn't claimed by any currently-connected repo. Capped at 8 levels so a
+ * pathological deep path can't sit in a long fs.existsSync loop on every
+ * scene rebuild.
+ */
+function inferRepoRoot(filePath: string): string | undefined {
+  let dir = dirname(filePath)
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(`${dir}/package.json`)) return dir
+    const parent = dirname(dir)
+    if (parent === dir) return undefined
+    dir = parent
+  }
+  return undefined
 }
 
 export function persistFileEntity(entity: FileEntity): PersistedFileEntity {

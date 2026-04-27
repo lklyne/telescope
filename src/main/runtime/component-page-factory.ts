@@ -19,7 +19,7 @@
 
 import { WebContentsView } from 'electron'
 import { win } from './view-refs'
-import { onChange as onRepoChange } from './dev-server-manager'
+import { findRepoForPath, onChange as onRepoChange } from './dev-server-manager'
 import { pickRenderer } from '../plugins/registry'
 import { wireRendererLogging } from '../crash-log'
 import { breadcrumb } from '../sentry-context'
@@ -127,7 +127,11 @@ function destroyView(cv: ComponentView): void {
 
 function shouldHaveComponentView(entity: FileEntity): boolean {
   const claim = pickRenderer(persistFileEntity(entity))
-  return claim?.kind === 'wcv-page' && claim.rendererTag === 'component'
+  if (claim?.kind !== 'wcv-page' || claim.rendererTag !== 'component') return false
+  // Tie WCV existence to repo connectivity so disconnect tears down the live
+  // view (and reconnect rebuilds it) without leaving stale dev-server URLs
+  // loaded behind the placeholder.
+  return findRepoForPath(entity.file) !== null
 }
 
 /**

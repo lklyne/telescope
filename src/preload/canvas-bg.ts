@@ -240,6 +240,8 @@ const api: CanvasBgElectronAPI = {
   renameNoteFile: (filePath: string, newName: string) =>
     ipcRenderer.invoke('rename-note-file', { filePath, newName }),
   getInitialData: () => ipcRenderer.invoke('get-canvas-layout-bootstrap'),
+  repoConnect: (absolutePath: string) =>
+    ipcRenderer.invoke('repo-connect', { absolutePath }),
   onLayoutUpdate: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: LayoutUpdateData) => callback(data)
     ipcRenderer.on('layout-update', handler)

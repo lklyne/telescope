@@ -1,4 +1,11 @@
-import type { CanvasSceneFileEntity } from '../../../shared/types'
+import { useState } from 'react'
+import type { CanvasBgElectronAPI, CanvasSceneFileEntity } from '../../../shared/types'
+
+declare global {
+  interface Window {
+    electronAPI: CanvasBgElectronAPI
+  }
+}
 
 export function ComponentPlaceholderRenderer({
   entity,
@@ -15,7 +22,22 @@ export function ComponentPlaceholderRenderer({
   // the "Connect a Vite repo" copy ghosting through afterwards.
   if (entity.componentHasRepo) return null
 
-  const fileName = entity.file.split('/').pop() ?? entity.file
+  const repoPath = entity.componentInferredRepoPath
+  const homeMatch = entity.file.match(/^\/Users\/[^/]+/)
+  const displayPath = homeMatch ? `~${entity.file.slice(homeMatch[0].length)}` : entity.file
+  const [connecting, setConnecting] = useState(false)
+
+  const handleConnect = async (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (!repoPath || connecting) return
+    setConnecting(true)
+    try {
+      await window.electronAPI.repoConnect(repoPath)
+    } finally {
+      setConnecting(false)
+    }
+  }
+
   return (
     <div
       style={{
@@ -46,10 +68,27 @@ export function ComponentPlaceholderRenderer({
         <polyline points="16 18 22 12 16 6" />
         <polyline points="8 6 2 12 8 18" />
       </svg>
-      <span style={{ wordBreak: 'break-all', maxWidth: '100%' }}>{fileName}</span>
-      <span style={{ fontSize: 10, opacity: 0.7 }}>
-        Connect a Vite repo to render this component
-      </span>
+      <span style={{ wordBreak: 'break-all', maxWidth: '100%' }}>{displayPath}</span>
+      {repoPath ? (
+        <>
+          <button
+            type="button"
+            onClick={handleConnect}
+            disabled={connecting}
+            className={`mt-1 inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-60 ${
+              isDark
+                ? 'border-zinc-600 bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                : 'border-zinc-300 bg-zinc-50 text-zinc-600 hover:bg-zinc-200'
+            }`}
+          >
+            {connecting ? 'reconnecting…' : 'Reconnect'}
+          </button>
+        </>
+      ) : (
+        <span style={{ fontSize: 10, opacity: 0.7 }}>
+          Connect a Vite repo to render this component
+        </span>
+      )}
     </div>
   )
 }

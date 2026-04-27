@@ -139,6 +139,8 @@ const MemoFileBlockCard = memo(FileBlockCard, (prev, next) => {
     prev.entity.deviceId === next.entity.deviceId &&
     prev.entity.deviceOrientation === next.entity.deviceOrientation &&
     prev.entity.rendererTag === next.entity.rendererTag &&
+    prev.entity.componentHasRepo === next.entity.componentHasRepo &&
+    prev.entity.componentInferredRepoPath === next.entity.componentInferredRepoPath &&
     prev.isDark === next.isDark &&
     prev.isSelected === next.isSelected &&
     prev.isMarqueePreview === next.isMarqueePreview &&

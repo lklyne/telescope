@@ -154,6 +154,13 @@ export interface CanvasSceneFileEntity {
    * faded "Connect a Vite repo" copy bleeding behind transparent content.
    */
   componentHasRepo?: boolean
+  /**
+   * For component file entities without a connected repo: the nearest
+   * ancestor folder that contains a package.json. Surfaced so the
+   * placeholder can offer one-click reconnect without prompting the user
+   * to re-pick the folder.
+   */
+  componentInferredRepoPath?: string
   /** Device frame state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
@@ -1509,6 +1516,9 @@ export interface CanvasBgElectronAPI {
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
   getInitialData: () => Promise<CanvasLayoutBootstrapData>
+  /** Connect a Vite repo at the given absolute folder path. Returns the
+   *  connected repo, or null if connection fails. */
+  repoConnect: (absolutePath: string) => Promise<unknown>
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
   onFixProgressUpdate: (
     callback: (data: LayoutUpdateData['fixProgress']) => void,

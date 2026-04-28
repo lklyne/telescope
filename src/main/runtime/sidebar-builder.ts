@@ -4,14 +4,20 @@
 
 import type {
   LeftSidebarData,
+  SidebarCanvasEntry,
   SidebarCanvasItem,
   SidebarDrawingItem,
   SidebarFileItem,
   SidebarFrameItem,
+  SidebarProjectSection,
   SidebarTextItem,
   WorkspaceBounds,
   WorkspaceGroup,
+  WorkspaceTabSummary,
 } from '../../shared/types'
+import { SCRATCHPAD_PROJECT_ID, getActiveProjectId } from './sidebar-state'
+import { listProjects } from './dev-server-manager'
+import { existsSync } from 'node:fs'
 import {
   findPageById,
   interactionState,
@@ -207,16 +213,79 @@ export function buildSidebarItems(): SidebarCanvasItem[] {
   return sortSidebarItems([...rootLeafItems, ...rootGroupItems])
 }
 
+function tabToCanvasEntry(tab: WorkspaceTabSummary): SidebarCanvasEntry {
+  return {
+    name: tab.name,
+    projectId: tab.projectId ?? SCRATCHPAD_PROJECT_ID,
+    updatedAt: 0, // populated below if we have mtime; unused in v1 since order = sidebar order
+    expanded: tab.expanded,
+    isActive: tab.isActive,
+    frameCount: tab.frameCount,
+    frames: tab.frames,
+  }
+}
+
+export function buildSidebarSections(tabs: WorkspaceTabSummary[]): SidebarProjectSection[] {
+  // Bucket tabs by projectId.
+  const byProject = new Map<string, WorkspaceTabSummary[]>()
+  for (const tab of tabs) {
+    const pid = tab.projectId ?? SCRATCHPAD_PROJECT_ID
+    if (!byProject.has(pid)) byProject.set(pid, [])
+    byProject.get(pid)!.push(tab)
+  }
+
+  const sections: SidebarProjectSection[] = []
+
+  // Scratchpad always first.
+  sections.push({
+    id: SCRATCHPAD_PROJECT_ID,
+    label: 'Scratchpad',
+    isScratchpad: true,
+    health: 'ok',
+    canvases: (byProject.get(SCRATCHPAD_PROJECT_ID) ?? []).map(tabToCanvasEntry),
+  })
+  byProject.delete(SCRATCHPAD_PROJECT_ID)
+
+  // Connected projects, ordered by lastActiveAt desc.
+  const projects = [...listProjects()].sort(
+    (a, b) => (b.lastActiveAt ?? 0) - (a.lastActiveAt ?? 0),
+  )
+  for (const project of projects) {
+    sections.push({
+      id: project.id,
+      label: project.label,
+      isScratchpad: false,
+      health: existsSync(project.absolutePath) ? 'ok' : 'broken',
+      codebasePath: project.absolutePath,
+      url: project.url ?? undefined,
+      canvases: (byProject.get(project.id) ?? []).map(tabToCanvasEntry),
+    })
+    byProject.delete(project.id)
+  }
+
+  // Any leftover projectIds (unknown — e.g., a tab tagged with a project that's been
+  // disconnected). Drop into Scratchpad to avoid losing visibility.
+  for (const [unknownId, leftoverTabs] of byProject) {
+    void unknownId
+    sections[0].canvases.push(...leftoverTabs.map(tabToCanvasEntry))
+  }
+
+  return sections
+}
+
 export function buildLeftSidebarData(): LeftSidebarData {
+  const tabs = workspaceTabSummaries()
   return {
     width: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
     selectedEntityIds: uiSelectedEntityIds(),
     selectedGroupId: uiSelectedGroupId(),
-    tabs: workspaceTabSummaries(),
+    tabs,
     activeTabId: activeWorkspaceTabId,
     viewMode: uiWorkspaceViewMode(),
     hasFrames: pages.length > 0,
     items: buildSidebarItems(),
+    sections: buildSidebarSections(tabs),
+    activeProjectId: getActiveProjectId(),
   }
 }
 

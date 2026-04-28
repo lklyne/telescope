@@ -1670,6 +1670,17 @@ export interface LeftSidebarElectronAPI {
   getInitialData: () => Promise<LeftSidebarBootstrapData>
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onSidebarData: (callback: (data: LeftSidebarData) => void) => () => void
+  // --- Project / sectioned sidebar (Phase 3) ---
+  listProjects: () => Promise<ConnectedProject[]>
+  connectProjectViaPicker: () => Promise<ConnectedProject | null>
+  renameProject: (id: string, label: string) => Promise<ConnectedProject | null>
+  relinkProject: (id: string) => Promise<ConnectedProject | null>
+  setProjectUrl: (id: string, url: string | null) => Promise<void>
+  deleteProject: (id: string) => Promise<boolean>
+  revealProjectFolder: (id: string) => Promise<void>
+  revealCodebase: (id: string) => Promise<void>
+  createCanvasInProject: (projectId: string) => Promise<string | null>
+  setActiveProject: (id: string) => Promise<void>
 }
 
 export interface DevtoolsPanelElectronAPI {

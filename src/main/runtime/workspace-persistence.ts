@@ -83,6 +83,7 @@ export function buildWorkspaceTabSummary(
     name: tab.name,
     expanded: tab.expanded ?? true,
     isActive: tab.id === activeWorkspaceTabId,
+    projectId: tab.projectId ?? SCRATCHPAD_PROJECT_ID,
     frameCount: tab.snapshot.pages.length,
     frames: tab.snapshot.pages.map((page) => {
       const preset = viewportPresetForIndex(page.presetIndex)

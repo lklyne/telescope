@@ -44,6 +44,18 @@ const api: LeftSidebarElectronAPI = {
     ipcRenderer.on('left-sidebar-data', handler)
     return () => ipcRenderer.removeListener('left-sidebar-data', handler)
   },
+  // --- Project / sectioned sidebar (Phase 3) ---
+  listProjects: () => ipcRenderer.invoke('project-list'),
+  connectProjectViaPicker: () => ipcRenderer.invoke('project-connect-via-picker'),
+  renameProject: (id, label) => ipcRenderer.invoke('project-rename', { id, label }),
+  relinkProject: (id) => ipcRenderer.invoke('project-relink', { id }),
+  setProjectUrl: (id, url) => ipcRenderer.invoke('project-set-url', { id, url }),
+  deleteProject: (id) => ipcRenderer.invoke('project-delete', { id }),
+  revealProjectFolder: (id) => ipcRenderer.invoke('project-reveal-folder', { id }),
+  revealCodebase: (id) => ipcRenderer.invoke('project-reveal-codebase', { id }),
+  createCanvasInProject: (projectId) =>
+    ipcRenderer.invoke('project-create-canvas', { projectId }),
+  setActiveProject: (id) => ipcRenderer.invoke('project-set-active', { id }),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

@@ -4,6 +4,7 @@ import { registerCanvasIpc } from './ipc/register-canvas-ipc'
 import { registerOnboardingIpc } from './ipc/register-onboarding-ipc'
 import { registerPageChromeIpc } from './ipc/register-page-chrome-ipc'
 import { registerRepoIpc } from './ipc/register-repo-ipc'
+import { registerProjectIpc } from './ipc/register-project-ipc'
 import { registerRightDetailsPanelIpc } from './ipc/register-right-details-panel-ipc'
 import { registerToolbarIpc } from './ipc/register-toolbar-ipc'
 import { registerDebugIpc } from './ipc/register-debug-ipc'
@@ -16,6 +17,7 @@ export function registerIpcHandlers(): void {
   registerRightDetailsPanelIpc()
   registerPageChromeIpc()
   registerRepoIpc()
+  registerProjectIpc()
   registerAnnotationInspectionIpc()
   registerOnboardingIpc()
 }

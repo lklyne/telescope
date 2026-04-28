@@ -78,9 +78,15 @@ describe('dev-server-manager', () => {
     expect(listRepos()).toHaveLength(1)
 
     const persisted = JSON.parse(readFileSync(join(dir, 'repos.json'), 'utf8'))
-    expect(persisted.repos).toEqual([
-      { id: a.id, absolutePath: '/abs/path/to/my-repo', label: 'my-repo' },
-    ])
+    expect(persisted.repos).toHaveLength(1)
+    expect(persisted.repos[0]).toMatchObject({
+      id: a.id,
+      absolutePath: '/abs/path/to/my-repo',
+      label: 'my-repo',
+      folderName: 'my-repo',
+      url: null,
+    })
+    expect(typeof persisted.repos[0].lastActiveAt).toBe('number')
   })
 
   it('persisted repos are reloaded on init', () => {

@@ -38,6 +38,7 @@
     "@modelcontextprotocol/sdk": "^1.18.0",
     "@sentry/core": "^8.55.0",
     "@sentry/electron": "^5.11.0",
+    "chokidar": "^4.0.3",
     "lucide-react": "^0.576.0",
     "perfect-freehand": "^1.2.3",
     "react": "^19.0.0",

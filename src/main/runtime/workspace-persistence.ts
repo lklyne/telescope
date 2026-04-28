@@ -1,5 +1,14 @@
 import { randomUUID } from 'crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
 import { join } from 'path'
 import type {
   Annotation,
@@ -397,35 +406,54 @@ import {
   deserializeFromJsonCanvas,
 } from './json-canvas-serializer'
 import type { JsonCanvasDocument } from '../../shared/json-canvas-types'
+import { canvasFilePathFor, canvasFolderFor, listCanvasFiles } from './space-manager'
+import {
+  SCRATCHPAD_PROJECT_ID,
+  getOrMintCanvasId,
+  getActiveCanvas,
+  getActiveProjectId,
+  getCanvasExpanded,
+  getViewMode,
+  lookupCanvasId,
+  setActiveCanvas,
+  setActiveProjectId,
+  setCanvasExpanded,
+  setCanvasId as setCanvasIdHelper,
+  setViewMode,
+  pruneCanvasIds,
+} from './sidebar-state'
+import { listProjects } from './dev-server-manager'
 
-const WORKSPACES_DIR = 'workspaces'
+/** Legacy on-disk root for the migration step. */
+const LEGACY_WORKSPACES_DIR = 'workspaces'
 
 export function workspacesDir(userDataPath: string): string {
-  return join(userDataPath, WORKSPACES_DIR)
+  return join(userDataPath, LEGACY_WORKSPACES_DIR)
 }
 
-function ensureWorkspacesDir(userDataPath: string): string {
-  const dir = workspacesDir(userDataPath)
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  return dir
-}
-
-function workspaceDir(userDataPath: string, workspaceId: string): string {
-  const dir = join(ensureWorkspacesDir(userDataPath), workspaceId)
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  return dir
+function legacyWorkspaceDir(userDataPath: string, workspaceId: string): string {
+  return join(userDataPath, LEGACY_WORKSPACES_DIR, workspaceId)
 }
 
 function sanitizeTabName(name: string): string {
   return name.replace(/[/\\:*?"<>|]/g, '_').trim() || 'Untitled'
 }
 
+/** Maps a (legacy) workspaceId to its project id. The single legacy workspace 'default'
+ *  becomes the Scratchpad pseudo-project. Anything else passes through unchanged. */
+function projectIdForWorkspaceId(workspaceId: string): string {
+  return workspaceId === DEFAULT_WORKSPACE_ID ? SCRATCHPAD_PROJECT_ID : workspaceId
+}
+
 export function canvasFilePath(
-  userDataPath: string,
+  _userDataPath: string,
   workspaceId: string,
   tabName: string,
 ): string {
-  return join(workspaceDir(userDataPath, workspaceId), `${sanitizeTabName(tabName)}.canvas`)
+  return canvasFilePathFor(
+    projectIdForWorkspaceId(workspaceId),
+    sanitizeTabName(tabName),
+  )
 }
 
 export function writeCanvasFileSync(
@@ -447,13 +475,18 @@ export function readCanvasFile(filePath: string): JsonCanvasDocument | null {
 }
 
 export function writeTabAsCanvasFile(
-  userDataPath: string,
+  _userDataPath: string,
   workspaceId: string,
   tab: PersistedWorkspaceTab,
 ): void {
+  const projectId = tab.projectId ?? projectIdForWorkspaceId(workspaceId)
+  const folder = canvasFolderFor(projectId)
+  if (!existsSync(folder)) mkdirSync(folder, { recursive: true })
+  const filePath = canvasFilePathFor(projectId, sanitizeTabName(tab.name))
   const doc = serializeToJsonCanvas(tab.snapshot, tab.annotations)
-  const filePath = canvasFilePath(userDataPath, workspaceId, tab.name)
   writeCanvasFileSync(filePath, doc)
+  // Keep the persisted canvas id in sync with the in-memory tab id.
+  setCanvasIdHelper(projectId, sanitizeTabName(tab.name), tab.id)
 }
 
 export function writeAllTabsAsCanvasFiles(
@@ -466,33 +499,165 @@ export function writeAllTabsAsCanvasFiles(
   }
 }
 
+/**
+ * Writes per-tab UI state into userData/sidebar-state.json. The on-disk space is left
+ * pristine — no workspace-meta.json files are produced.
+ */
 export function writeWorkspaceMetaSync(
-  userDataPath: string,
-  workspaceId: string,
+  _userDataPath: string,
+  _workspaceId: string,
   meta: {
     activeTabId: string
     viewMode?: string
-    tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }>
+    tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean; projectId?: string }>
   },
 ): void {
-  const dir = workspaceDir(userDataPath, workspaceId)
-  const filePath = join(dir, 'workspace-meta.json')
-  const tmpFile = `${filePath}.tmp`
-  writeFileSync(tmpFile, JSON.stringify(meta, null, 2), 'utf8')
-  renameSync(tmpFile, filePath)
+  let activeProjectId: string | null = null
+  let activeCanvasName: string | null = null
+  for (const tab of meta.tabs) {
+    const projectId = tab.projectId ?? SCRATCHPAD_PROJECT_ID
+    const sanitized = sanitizeTabName(tab.name)
+    setCanvasIdHelper(projectId, sanitized, tab.id)
+    setCanvasExpanded(projectId, sanitized, tab.expanded ?? true)
+    if (meta.viewMode) setViewMode(projectId, meta.viewMode as WorkspaceViewMode)
+    if (tab.id === meta.activeTabId) {
+      activeProjectId = projectId
+      activeCanvasName = sanitized
+    }
+  }
+  if (activeProjectId && activeCanvasName) {
+    setActiveCanvas(activeProjectId, activeCanvasName)
+    setActiveProjectId(activeProjectId)
+  }
 }
 
+/**
+ * Reconstructs the legacy meta shape from sidebar-state.json. Returned for callers
+ * that haven't been migrated to the sectioned API yet.
+ */
 export function readWorkspaceMeta(
-  userDataPath: string,
-  workspaceId: string,
-): { activeTabId: string; viewMode?: string; tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }> } | null {
-  const filePath = join(workspaceDir(userDataPath, workspaceId), 'workspace-meta.json')
-  if (!existsSync(filePath)) return null
-  try {
-    return JSON.parse(readFileSync(filePath, 'utf8'))
-  } catch {
-    return null
+  _userDataPath: string,
+  _workspaceId: string,
+): { activeTabId: string; viewMode?: string; tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean; projectId?: string }> } | null {
+  const tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean; projectId?: string }> = []
+  let activeTabId: string | null = null
+  let viewMode: string | undefined
+
+  // Walk Scratchpad + every connected project.
+  const sectionIds = [SCRATCHPAD_PROJECT_ID, ...listProjects().map((p) => p.id)]
+  const activeProjectId = getActiveProjectId() ?? SCRATCHPAD_PROJECT_ID
+
+  for (const projectId of sectionIds) {
+    const files = listCanvasFiles(projectId)
+    for (const file of files) {
+      const id = getOrMintCanvasId(projectId, file.name)
+      tabs.push({
+        id,
+        name: file.name,
+        updatedAt: new Date(file.updatedAt).toISOString(),
+        expanded: getCanvasExpanded(projectId, file.name),
+        projectId,
+      })
+    }
+    if (projectId === activeProjectId) {
+      const activeName = getActiveCanvas(projectId)
+      if (activeName) {
+        const id = lookupCanvasId(projectId, activeName)
+        if (id) activeTabId = id
+        viewMode = getViewMode(projectId) as string | undefined
+      }
+    }
+    pruneCanvasIds(projectId, files.map((f) => f.name))
   }
+
+  if (!tabs.length) return null
+  if (!activeTabId) activeTabId = tabs[0].id
+  return { activeTabId, viewMode, tabs }
+}
+
+/**
+ * One-shot migration for Phase B (Q9): moves legacy `<userData>/workspaces/default/*.canvas`
+ * files into the user's space folder, seeding sidebar-state.json so canvas UUIDs and
+ * active-tab state survive. Idempotent — runs only when the legacy directory has files
+ * AND the space is empty.
+ *
+ * Disposable: delete in the next release after Phase B ships.
+ */
+export function migrateLegacyWorkspaceToSpace(userDataPath: string): {
+  ran: boolean
+  movedCount: number
+} {
+  const legacyDir = legacyWorkspaceDir(userDataPath, DEFAULT_WORKSPACE_ID)
+  if (!existsSync(legacyDir)) return { ran: false, movedCount: 0 }
+  const legacyFiles = readdirSync(legacyDir).filter((f) => f.endsWith('.canvas'))
+  if (!legacyFiles.length) return { ran: false, movedCount: 0 }
+
+  // Resolve the space path lazily so callers can install this before space-manager init.
+  const { getSpacePath } = require('./sidebar-state') as typeof import('./sidebar-state')
+  const space = getSpacePath()
+  if (!existsSync(space)) mkdirSync(space, { recursive: true })
+
+  // Refuse if the destination already has canvas files (preserves user-edited spaces).
+  const occupied = readdirSync(space).some((f) => f.endsWith('.canvas'))
+  if (occupied) return { ran: false, movedCount: 0 }
+
+  // Read legacy meta first (it's about to disappear).
+  const legacyMetaPath = join(legacyDir, 'workspace-meta.json')
+  let legacyMeta:
+    | {
+        activeTabId: string
+        viewMode?: string
+        tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }>
+      }
+    | null = null
+  if (existsSync(legacyMetaPath)) {
+    try {
+      legacyMeta = JSON.parse(readFileSync(legacyMetaPath, 'utf8'))
+    } catch {
+      legacyMeta = null
+    }
+  }
+
+  // Copy canvas files (copy, not move — leave originals so the user can verify).
+  let movedCount = 0
+  for (const fileName of legacyFiles) {
+    const src = join(legacyDir, fileName)
+    const dst = join(space, fileName)
+    if (existsSync(dst)) continue
+    try {
+      copyFileSync(src, dst)
+      movedCount++
+    } catch {
+      // skip individual file failures; continue migrating the rest
+    }
+  }
+
+  // Seed sidebar-state for Scratchpad.
+  if (legacyMeta) {
+    for (const tab of legacyMeta.tabs) {
+      const sanitized = sanitizeTabName(tab.name)
+      setCanvasIdHelper(SCRATCHPAD_PROJECT_ID, sanitized, tab.id)
+      setCanvasExpanded(SCRATCHPAD_PROJECT_ID, sanitized, tab.expanded ?? true)
+      if (tab.id === legacyMeta.activeTabId) {
+        setActiveCanvas(SCRATCHPAD_PROJECT_ID, sanitized)
+      }
+    }
+    setActiveProjectId(SCRATCHPAD_PROJECT_ID)
+    if (legacyMeta.viewMode) {
+      setViewMode(SCRATCHPAD_PROJECT_ID, legacyMeta.viewMode as WorkspaceViewMode)
+    }
+  }
+
+  // Park the legacy dir under a `.migrated` suffix so the user can verify but it's no
+  // longer found by `existsSync(legacyDir)` on the next launch.
+  try {
+    const parked = `${legacyDir}.migrated`
+    if (!existsSync(parked)) renameSync(legacyDir, parked)
+  } catch {
+    // ignore — leaving the originals in place is acceptable
+  }
+
+  return { ran: true, movedCount }
 }
 
 /**
@@ -536,7 +701,8 @@ export function loadWorkspaceFromCanvasFiles(
 
   const tabs: PersistedWorkspaceTab[] = []
   for (const tabMeta of meta.tabs) {
-    const filePath = canvasFilePath(userDataPath, workspaceId, tabMeta.name)
+    const projectId = tabMeta.projectId ?? SCRATCHPAD_PROJECT_ID
+    const filePath = canvasFilePathFor(projectId, sanitizeTabName(tabMeta.name))
     const doc = readCanvasFile(filePath)
     if (!doc) continue
     const { snapshot, annotations } = deserializeFromJsonCanvas(doc)
@@ -547,6 +713,7 @@ export function loadWorkspaceFromCanvasFiles(
       name: tabMeta.name,
       updatedAt: tabMeta.updatedAt,
       expanded: tabMeta.expanded ?? true,
+      projectId,
       snapshot,
       annotations,
     })
@@ -568,11 +735,26 @@ export function loadWorkspaceFromCanvasFiles(
  * Delete a .canvas file for a tab. Used when renaming or deleting tabs.
  */
 export function deleteCanvasFile(
-  userDataPath: string,
+  _userDataPath: string,
   workspaceId: string,
   tabName: string,
 ): void {
-  const filePath = canvasFilePath(userDataPath, workspaceId, tabName)
+  const projectId = projectIdForWorkspaceId(workspaceId)
+  const filePath = canvasFilePathFor(projectId, sanitizeTabName(tabName))
+  try {
+    if (existsSync(filePath)) unlinkSync(filePath)
+  } catch {
+    // Ignore — file may already be gone
+  }
+}
+
+/**
+ * Like {@link deleteCanvasFile} but takes a tab object so it can route to the right
+ * project folder using `tab.projectId`. Prefer this in new code.
+ */
+export function deleteTabCanvasFile(tab: PersistedWorkspaceTab): void {
+  const projectId = tab.projectId ?? SCRATCHPAD_PROJECT_ID
+  const filePath = canvasFilePathFor(projectId, sanitizeTabName(tab.name))
   try {
     if (existsSync(filePath)) unlinkSync(filePath)
   } catch {

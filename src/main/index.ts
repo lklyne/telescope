@@ -29,6 +29,9 @@ import {
   initDevServerManager,
   shutdownDevServerManager,
 } from './runtime/dev-server-manager'
+import { initSidebarState } from './runtime/sidebar-state'
+import { initSpaceManager, shutdownSpaceManager } from './runtime/space-manager'
+import { migrateLegacyWorkspaceToSpace } from './runtime/workspace-persistence'
 import { spawn as nodeSpawn } from 'node:child_process'
 import { initializeDocObservers } from './runtime/workspace-observers'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
@@ -119,11 +122,20 @@ app.whenReady().then(async () => {
   identifyInstall()
   configureBundledAgentBrowser()
   registerBuiltInPlugins()
+  // Order matters: sidebar-state owns the persisted spacePath that the migration and
+  // space-manager both read; dev-server-manager owns the project list that
+  // space-manager iterates to build sections.
+  initSidebarState(app.getPath('userData'))
   initDevServerManager({
     userDataDir: app.getPath('userData'),
     spawn: (command, args, options) =>
       nodeSpawn(command, args as string[], { ...options, shell: process.platform === 'win32' }),
   })
+  const migration = migrateLegacyWorkspaceToSpace(app.getPath('userData'))
+  if (migration.ran) {
+    breadcrumb('workspace', 'migrated-to-space', { movedCount: migration.movedCount })
+  }
+  initSpaceManager()
 
   setupAppMenu()
   registerIpcHandlers()
@@ -248,4 +260,5 @@ app.on('before-quit', () => {
   quitRequested = true
   flushWorkspaceAutosaveSync()
   void shutdownDevServerManager()
+  shutdownSpaceManager()
 })

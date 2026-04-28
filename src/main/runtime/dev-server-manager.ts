@@ -27,6 +27,12 @@ export interface PersistedRepo {
   id: string
   absolutePath: string
   label: string
+  /** User-set default URL for new frames; captured lazily from first localhost frame. */
+  url?: string | null
+  /** Folder name in the space (post auto-suffix). Defaults to basename of absolutePath. */
+  folderName?: string
+  /** Last time any canvas in this project was opened or edited. */
+  lastActiveAt?: number
 }
 
 export type SpawnFn = (
@@ -74,6 +80,9 @@ function persist(): void {
       id: r.id,
       absolutePath: r.absolutePath,
       label: r.label,
+      url: r.url ?? null,
+      folderName: r.folderName,
+      lastActiveAt: r.lastActiveAt,
     })),
   }
   if (!userDataDir) return
@@ -96,6 +105,9 @@ function loadPersisted(): void {
         id: r.id,
         absolutePath: r.absolutePath,
         label: r.label ?? basename(r.absolutePath),
+        url: r.url ?? null,
+        folderName: r.folderName ?? basename(r.absolutePath),
+        lastActiveAt: r.lastActiveAt ?? 0,
         status: 'stopped',
         port: null,
         baseUrl: null,
@@ -118,6 +130,10 @@ function toPublic(r: InternalRepo): ConnectedRepo {
     port: r.port,
     baseUrl: r.baseUrl,
     lastError: r.lastError,
+    url: r.url ?? null,
+    folderName: r.folderName,
+    health: existsSync(r.absolutePath) ? 'ok' : 'broken',
+    lastActiveAt: r.lastActiveAt ?? 0,
   }
 }
 
@@ -160,10 +176,15 @@ export function connectRepo(absolutePath: string, label?: string): ConnectedRepo
   const id = repoIdFor(absolutePath)
   const existing = repos.get(id)
   if (existing) return toPublic(existing)
+  const baseLabel = label ?? basename(absolutePath)
+  const folderName = uniqueFolderName(baseLabel)
   const entry: InternalRepo = {
     id,
     absolutePath,
-    label: label ?? basename(absolutePath),
+    label: folderName,
+    folderName,
+    url: null,
+    lastActiveAt: Date.now(),
     status: 'stopped',
     port: null,
     baseUrl: null,
@@ -176,6 +197,69 @@ export function connectRepo(absolutePath: string, label?: string): ConnectedRepo
   notifyChange()
   return toPublic(entry)
 }
+
+/** Produces a folder name unique among already-connected projects' folderNames. */
+function uniqueFolderName(base: string): string {
+  const existing = new Set(
+    Array.from(repos.values()).map((r) => r.folderName ?? basename(r.absolutePath)),
+  )
+  if (!existing.has(base)) return base
+  for (let i = 2; i < 1000; i++) {
+    const candidate = `${base}-${i}`
+    if (!existing.has(candidate)) return candidate
+  }
+  return `${base}-${Date.now()}`
+}
+
+/** Update the manual default URL (Q5/Q6 — captured from first localhost frame). */
+export function setProjectUrl(id: string, url: string | null): void {
+  const entry = repos.get(id)
+  if (!entry) return
+  entry.url = url
+  persist()
+  notifyChange()
+}
+
+/** Update the codebase path after a "Locate folder…" recovery (Q11). Id stays stable. */
+export function relinkProject(id: string, newAbsolutePath: string): ConnectedRepo | null {
+  const entry = repos.get(id)
+  if (!entry) return null
+  entry.absolutePath = newAbsolutePath
+  persist()
+  notifyChange()
+  return toPublic(entry)
+}
+
+/** Bump lastActiveAt to drive sidebar ordering (Q20). */
+export function bumpProjectLastActive(id: string): void {
+  const entry = repos.get(id)
+  if (!entry) return
+  entry.lastActiveAt = Date.now()
+  persist()
+  // No notifyChange — ordering refreshes on next sidebar build.
+}
+
+/** Rename a project's folder name (and label). Caller is responsible for moving the
+ *  on-disk folder inside the space; this only updates the in-memory + persisted state. */
+export function renameProjectLabel(id: string, newLabel: string): ConnectedRepo | null {
+  const entry = repos.get(id)
+  if (!entry) return null
+  const folderName = uniqueFolderName(newLabel)
+  entry.label = folderName
+  entry.folderName = folderName
+  persist()
+  notifyChange()
+  return toPublic(entry)
+}
+
+// --- Project-named read aliases (Q2 — `repo` → `project` rename, additive shims) ---
+// Note: connect/disconnect intentionally NOT aliased here. Higher-level operations
+// (folder creation in the space, on-disk cleanup) live in space-manager.ts; raw
+// connectRepo/disconnectRepo only mutate the in-memory + persisted project list.
+
+export const listProjects = listRepos
+export const getProject = getRepo
+export const findProjectForPath = findRepoForPath
 
 export async function disconnectRepo(id: string): Promise<void> {
   const entry = repos.get(id)

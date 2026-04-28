@@ -12,6 +12,7 @@ import type { PresenceDebugEntry } from './presence-debug'
 // --- IPC Channel Types ---
 
 export type RepoStatus = 'stopped' | 'starting' | 'running' | 'errored'
+export type ProjectStatus = RepoStatus
 
 export interface ConnectedRepo {
   id: string
@@ -21,6 +22,65 @@ export interface ConnectedRepo {
   port: number | null
   baseUrl: string | null
   lastError?: string
+  /** User-set default URL for new frames in this project (e.g., 'http://localhost:5173'). */
+  url?: string | null
+  /** Folder name on disk inside the space (post auto-suffix); equals label in v1. */
+  folderName?: string
+  /** Health of the codebase folder; 'broken' = path no longer exists on disk. */
+  health?: 'ok' | 'broken'
+  /** Sort key — last time any canvas in this project was opened or edited. */
+  lastActiveAt?: number
+}
+
+export type ConnectedProject = ConnectedRepo
+
+/** A section in the sectioned sidebar: Scratchpad pseudo-project + connected projects. */
+export interface SidebarProjectSection {
+  id: string
+  label: string
+  /** True for the always-first Scratchpad section. */
+  isScratchpad: boolean
+  /** Health of the codebase folder; only meaningful for non-scratchpad sections. */
+  health: 'ok' | 'broken'
+  /** Codebase path on disk (undefined for Scratchpad). */
+  codebasePath?: string
+  /** Default URL for new frames (undefined if not yet captured). */
+  url?: string
+  canvases: SidebarCanvasEntry[]
+}
+
+/** One canvas inside a section. */
+export interface SidebarCanvasEntry {
+  /** File basename without `.canvas`. Acts as the canvas identity within its project. */
+  name: string
+  /** Project id this canvas belongs to. */
+  projectId: string
+  /** Filesystem mtime, used for sorting and update indication. */
+  updatedAt: number
+  expanded: boolean
+  isActive: boolean
+  frameCount: number
+  frames: WorkspaceTabFrameSummary[]
+}
+
+/** Shape of userData/sidebar-state.json — ephemeral UI state, not portable. */
+export interface SidebarStateFile {
+  version: 1
+  spacePath: string
+  /** Order of project sections below Scratchpad. Scratchpad is always rendered first regardless. */
+  projectOrder: string[]
+  projects: Record<
+    string,
+    {
+      activeCanvas: string | null
+      expandedMap: Record<string, boolean>
+      /** canvas name → stable UUID. Minted lazily on first sight; survives renames. */
+      canvasIds: Record<string, string>
+      viewMode?: WorkspaceViewMode
+    }
+  >
+  /** The globally active project section (which canvas list owns the entity tree). */
+  activeProjectId: string | null
 }
 
 export interface ViewportPreset {
@@ -498,6 +558,11 @@ export interface LeftSidebarData {
   viewMode: WorkspaceViewMode
   hasFrames: boolean
   items: SidebarCanvasItem[]
+  /** Sectioned canvas list. Optional during phased rollout — when present, the renderer
+   *  uses sections instead of `tabs` for layout. */
+  sections?: SidebarProjectSection[]
+  /** The globally active project's id. Only meaningful when `sections` is present. */
+  activeProjectId?: string | null
 }
 
 export interface ChromeUpdateData {
@@ -1026,6 +1091,9 @@ export interface PersistedWorkspaceTab {
   snapshot: WorkspaceSnapshot
   annotations: Annotation[]
   expanded?: boolean
+  /** Project this canvas belongs to. 'scratchpad' for untagged canvases at the space root.
+   *  Default for legacy persisted records (where projectId is missing) is 'scratchpad'. */
+  projectId?: string
 }
 
 export interface PersistedWorkspaceRecord {
@@ -1216,6 +1284,8 @@ export interface WorkspaceTabSummary {
   isActive: boolean
   frameCount: number
   frames: WorkspaceTabFrameSummary[]
+  /** Project this canvas belongs to (Phase 2). Optional during phased rollout. */
+  projectId?: string
 }
 
 export interface WorkspaceGraph {

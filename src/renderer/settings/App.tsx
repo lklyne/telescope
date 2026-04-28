@@ -1,0 +1,59 @@
+import { useEffect, useState } from 'react'
+import type {
+  FixConfig,
+  OnboardingStatusSnapshot,
+  OriginBindings,
+  SettingsBootstrapData,
+  SettingsElectronAPI,
+} from '../../shared/types'
+import { Sidebar, type SettingsSection } from './Sidebar'
+import { SkillsPane } from './SkillsPane'
+import { FixConfigPane } from './FixConfigPane'
+import { OriginBindingsPane } from './OriginBindingsPane'
+
+export default function App({
+  api,
+  initialData,
+}: {
+  api: SettingsElectronAPI
+  initialData: SettingsBootstrapData
+}) {
+  const [section, setSection] = useState<SettingsSection>('skills')
+  const [status, setStatus] = useState<OnboardingStatusSnapshot>(initialData.status)
+  const [fixConfig, setFixConfig] = useState<FixConfig>(initialData.fixConfig)
+  const [originBindings, setOriginBindings] = useState<OriginBindings>(
+    initialData.originBindings,
+  )
+
+  useEffect(() => {
+    return api.onThemeChanged((data) =>
+      document.documentElement.classList.toggle('dark', data.isDark),
+    )
+  }, [api])
+
+  useEffect(() => {
+    return api.onFixConfigChanged((next) => setFixConfig(next))
+  }, [api])
+
+  useEffect(() => {
+    return api.onOriginBindingsChanged((next) => setOriginBindings(next))
+  }, [api])
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="titlebar-drag h-[34px] w-full shrink-0" />
+      <div className="flex flex-1 min-h-0">
+        <Sidebar active={section} onChange={setSection} />
+        <main className="flex-1 min-w-0 overflow-y-auto px-7 pb-8 pt-2">
+          {section === 'skills' ? (
+            <SkillsPane api={api} status={status} onStatusChange={setStatus} />
+          ) : section === 'fix' ? (
+            <FixConfigPane api={api} fixConfig={fixConfig} />
+          ) : (
+            <OriginBindingsPane api={api} bindings={originBindings} />
+          )}
+        </main>
+      </div>
+    </div>
+  )
+}

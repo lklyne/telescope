@@ -6,6 +6,7 @@ import { getComponentView } from './component-page-factory'
 import { selectBrowserTab } from './runtime-core'
 import { checkForUpdatesManually } from '../auto-updater'
 import { showOnboardingWindow } from '../onboarding-window'
+import { showSettingsWindow } from '../settings-window'
 import { showDebugWindow } from '../debug-window'
 import {
   aboveView,
@@ -66,6 +67,11 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
                 click: () => {
                   void showOnboardingWindow('settings')
                 },
+              },
+              {
+                label: 'Settings…',
+                accelerator: 'CmdOrCtrl+,',
+                click: () => showSettingsWindow(),
               },
               { type: 'separator' as const },
               { role: 'services' as const },

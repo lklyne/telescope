@@ -5,6 +5,7 @@ import { registerOnboardingIpc } from './ipc/register-onboarding-ipc'
 import { registerPageChromeIpc } from './ipc/register-page-chrome-ipc'
 import { registerRepoIpc } from './ipc/register-repo-ipc'
 import { registerRightDetailsPanelIpc } from './ipc/register-right-details-panel-ipc'
+import { registerSettingsIpc } from './ipc/register-settings-ipc'
 import { registerToolbarIpc } from './ipc/register-toolbar-ipc'
 import { registerDebugIpc } from './ipc/register-debug-ipc'
 
@@ -18,4 +19,5 @@ export function registerIpcHandlers(): void {
   registerRepoIpc()
   registerAnnotationInspectionIpc()
   registerOnboardingIpc()
+  registerSettingsIpc()
 }

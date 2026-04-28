@@ -645,6 +645,29 @@ export interface OnboardingElectronAPI {
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 
+// --- Settings window ---
+
+export interface SettingsBootstrapData extends ThemeBootstrapData {
+  status: OnboardingStatusSnapshot
+  fixConfig: FixConfig
+  originBindings: OriginBindings
+}
+
+export interface SettingsElectronAPI {
+  getInitialData: () => Promise<SettingsBootstrapData>
+  refreshStatus: () => Promise<OnboardingStatusSnapshot>
+  installSkills: (
+    selections: Record<OnboardingComponentId, boolean>,
+  ) => Promise<OnboardingStatusSnapshot>
+  setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
+  removeOriginBinding: (origin: string) => void
+  close: () => void
+  onSkillProgress: (callback: (event: OnboardingProgressEvent) => void) => () => void
+  onOriginBindingsChanged: (callback: (bindings: OriginBindings) => void) => () => void
+  onFixConfigChanged: (callback: (config: FixConfig) => void) => () => void
+  onThemeChanged: (callback: (data: ThemeData) => void) => () => void
+}
+
 export interface DebugElectronAPI {
   getInitialData: () => Promise<DebugBootstrapData>
   updateCursorMotion: (params: CursorMotionParams) => void

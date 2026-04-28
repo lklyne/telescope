@@ -10,6 +10,8 @@ import type {
   OnboardingComponentStatus,
 } from '../../shared/types'
 
+export const SKILL_INSTALLER_IDS: OnboardingComponentId[] = ['cli', 'skill', 'agentBrowser']
+
 export type RowProgress = 'idle' | 'installing' | 'success' | 'error'
 
 export type InstallerRowSnapshot = {
@@ -154,4 +156,4 @@ function RowDetail({ snapshot }: { snapshot: InstallerRowSnapshot }) {
   return <p className={cls}>{text}</p>
 }
 
-export const Installer = { Root, Row }
+export const SkillInstaller = { Root, Row }

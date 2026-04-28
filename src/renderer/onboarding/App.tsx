@@ -7,7 +7,7 @@ import type {
   OnboardingProgressEvent,
   OnboardingStatusSnapshot,
 } from '../../shared/types'
-import { Installer, type InstallerRowSnapshot, type RowProgress } from './Installer'
+import { SkillInstaller, type InstallerRowSnapshot, type RowProgress } from '../shared/SkillInstaller'
 
 type RowProgressMap = Record<OnboardingComponentId, { progress: RowProgress; detail?: string }>
 
@@ -188,23 +188,23 @@ function SetupScreen({
           </div>
         ) : null}
 
-        <Installer.Root rows={rows} setSelected={setSelected}>
-          <Installer.Row
+        <SkillInstaller.Root rows={rows} setSelected={setSelected}>
+          <SkillInstaller.Row
             id="cli"
             title="Specular CLI"
             description="Adds the specular command so agents can interact with the app."
           />
-          <Installer.Row
+          <SkillInstaller.Row
             id="skill"
             title="Specular Skill"
             description="Teaches agents how to use the Specular CLI."
           />
-          <Installer.Row
+          <SkillInstaller.Row
             id="agentBrowser"
             title="agent-browser"
             description="Specular uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev."
           />
-        </Installer.Root>
+        </SkillInstaller.Root>
       </div>
 
       <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--surface-popover-border)] bg-[var(--surface-panel)] px-8 py-4">

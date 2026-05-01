@@ -171,21 +171,26 @@ export function ProjectSection({
                     className={itemClass}
                     onClick={() => setEditingHeader(true)}
                   >
-                    <span>rename</span>
+                    <span>Rename</span>
                   </Menu.Item>
                   <div
                     className={`flex flex-col gap-1 rounded-[7px] px-2.5 py-1.5 text-xs ${
                       isDark ? 'text-zinc-200' : 'text-zinc-800'
                     }`}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => event.stopPropagation()}
                   >
                     <span className={isDark ? 'text-zinc-400' : 'text-zinc-500'}>
-                      dev URL
+                      Dev URL
                     </span>
                     <input
                       type="text"
                       value={urlDraft}
                       onChange={(event) => setUrlDraft(event.target.value)}
-                      onKeyDown={onUrlKeyDown}
+                      onKeyDown={(event) => {
+                        event.stopPropagation()
+                        onUrlKeyDown(event)
+                      }}
                       onBlur={() => submitUrl()}
                       placeholder="http://localhost:3000"
                       spellCheck={false}
@@ -202,7 +207,7 @@ export function ProjectSection({
                       void api.revealProjectFolder(section.id)
                     }}
                   >
-                    <span>show in Finder</span>
+                    <span>Show in Finder</span>
                   </Menu.Item>
                   <Menu.Item
                     className={itemClass}
@@ -210,7 +215,7 @@ export function ProjectSection({
                       void api.revealCodebase(section.id)
                     }}
                   >
-                    <span>reveal codebase in Finder</span>
+                    <span>Reveal Codebase in Finder</span>
                   </Menu.Item>
                   <div
                     className={`my-1 h-px ${isDark ? 'bg-zinc-700' : 'bg-zinc-200'}`}
@@ -221,7 +226,7 @@ export function ProjectSection({
                       void api.deleteProject(section.id)
                     }}
                   >
-                    <span>delete project…</span>
+                    <span>Delete Project…</span>
                   </Menu.Item>
                 </Menu.Popup>
               </Menu.Positioner>

@@ -215,6 +215,7 @@ export function buildSidebarItems(): SidebarCanvasItem[] {
 
 function tabToCanvasEntry(tab: WorkspaceTabSummary): SidebarCanvasEntry {
   return {
+    id: tab.id,
     name: tab.name,
     projectId: tab.projectId ?? SCRATCHPAD_PROJECT_ID,
     updatedAt: 0, // populated below if we have mtime; unused in v1 since order = sidebar order

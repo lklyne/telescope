@@ -1,26 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
-import { ContextMenu } from '@base-ui/react/context-menu'
-import { Menu } from '@base-ui/react/menu'
-import { Check, ChevronDown, ChevronRight, File, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import type {
   LeftSidebarData,
   LeftSidebarElectronAPI,
   SidebarCanvasItem,
   ThemeData,
 } from '../../shared/types'
-import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { SidebarCanvasTree } from './SidebarCanvasTree'
+import { ProjectSection } from './ProjectSection'
+import { ConnectProjectRow } from './ConnectProjectRow'
+import { findGloballyActiveCanvas } from './sectioned-data'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
-import { useDragReorder } from './useDragReorder'
 
-const LIST_OUTER_LEFT_PADDING = 14
-const LIST_OUTER_RIGHT_PADDING = 8
-const LIST_ROW_INNER_X_PADDING = 8
+const SCRATCHPAD_PROJECT_ID = 'scratchpad'
 
 const api = (window as unknown as { electronAPI: LeftSidebarElectronAPI }).electronAPI
 
-function findSidebarItemById(items: SidebarCanvasItem[], targetId: string): SidebarCanvasItem | null {
+function findSidebarItemById(
+  items: SidebarCanvasItem[],
+  targetId: string,
+): SidebarCanvasItem | null {
   for (const item of items) {
     if (item.id === targetId) return item
     if (item.kind !== 'group') continue
@@ -39,14 +39,10 @@ export default function App({
 }) {
   const [sidebarData, setSidebarData] = useState<LeftSidebarData>(initialSidebarData)
   const [pagesExpanded, setPagesExpanded] = useState(true)
-  const [editingTabId, setEditingTabId] = useState<string | null>(null)
+  const [editingCanvasId, setEditingCanvasId] = useState<string | null>(null)
   const previousActiveFrameCountRef = useRef<number | null>(null)
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
-
-  const drag = useDragReorder(sidebarData.tabs.length, (tabId, toIndex) =>
-    api.reorderTab(tabId, toIndex),
-  )
 
   useEffect(() => api.onSidebarData((data) => setSidebarData(data)), [])
 
@@ -86,14 +82,14 @@ export default function App({
   }, [sidebarData.items, sidebarData.selectedEntityIds])
 
   useEffect(() => {
-    if (!editingTabId) return
-    if (!sidebarData.tabs.some((tab) => tab.id === editingTabId)) {
-      setEditingTabId(null)
+    if (!editingCanvasId) return
+    if (!sidebarData.tabs.some((tab) => tab.id === editingCanvasId)) {
+      setEditingCanvasId(null)
     }
-  }, [editingTabId, sidebarData.tabs])
+  }, [editingCanvasId, sidebarData.tabs])
 
   const activeTab = sidebarData.tabs.find((tab) => tab.id === sidebarData.activeTabId) ?? null
-  const pagesHeaderLabel = pagesExpanded ? 'Spaces' : activeTab?.name ?? 'Spaces'
+  const headerLabel = pagesExpanded ? 'Canvases' : activeTab?.name ?? 'Canvases'
 
   useEffect(() => {
     const nextCount = activeTab?.frames.length ?? 0
@@ -104,18 +100,33 @@ export default function App({
     previousActiveFrameCountRef.current = nextCount
   }, [activeTab?.id, activeTab?.frames.length])
 
-  function startRenameTab(tabId: string) {
-    setEditingTabId(tabId)
+  const sections = sidebarData.sections ?? []
+  const activeRef = findGloballyActiveCanvas(sidebarData)
+  const activeProjectIdForCreate =
+    sidebarData.activeProjectId ?? activeRef?.projectId ?? SCRATCHPAD_PROJECT_ID
+
+  function startRenameCanvas(canvasId: string) {
+    setEditingCanvasId(canvasId)
   }
 
-  function cancelRenameTab() {
-    setEditingTabId(null)
+  function cancelRenameCanvas() {
+    setEditingCanvasId(null)
   }
 
-  function commitRenameTab(tabId: string, currentName: string, nextName: string) {
-    if (nextName && nextName !== currentName) api.renameTab(tabId, nextName)
-    cancelRenameTab()
+  function commitRenameCanvas(canvasId: string, currentName: string, nextName: string) {
+    if (nextName && nextName !== currentName) api.renameTab(canvasId, nextName)
+    cancelRenameCanvas()
   }
+
+  const treeNode = (
+    <SidebarCanvasTree
+      items={sidebarData.items}
+      selectedEntityIds={sidebarData.selectedEntityIds}
+      selectedGroupId={sidebarData.selectedGroupId ?? null}
+      isDark={isDark}
+      api={api}
+    />
+  )
 
   return (
     <aside
@@ -137,9 +148,9 @@ export default function App({
             type="button"
             className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
             onClick={() => setPagesExpanded((value) => !value)}
-            title={pagesHeaderLabel}
+            title={headerLabel}
           >
-            <span className="truncate text-[12px] font-medium">{pagesHeaderLabel}</span>
+            <span className="truncate text-[12px] font-medium">{headerLabel}</span>
             {pagesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
           <button
@@ -149,130 +160,45 @@ export default function App({
                 ? 'bg-transparent text-zinc-300 hover:bg-zinc-700/70 hover:text-zinc-100'
                 : 'bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 active:bg-zinc-200'
             }`}
-            onClick={() => api.createTab()}
-            title="Add space"
+            onClick={() => {
+              void api.createCanvasInProject(activeProjectIdForCreate)
+            }}
+            title="new canvas"
           >
             <Plus size={14} />
           </button>
         </div>
       </div>
 
-        <div className="thin-scrollbar min-h-0 flex-1 overflow-auto">
+      <div className="thin-scrollbar min-h-0 flex-1 overflow-auto">
         {pagesExpanded ? (
-          <div className="pt-0.5 pb-2" {...drag.containerProps}>
-            {sidebarData.tabs.map((tab, tabIndex) => (
-              <div
-                key={tab.id}
-                {...drag.itemProps(tab.id, tabIndex, editingTabId === tab.id)}
-              >
-                <ContextMenu.Root>
-                  <ContextMenu.Trigger className="block w-full">
-                    {editingTabId === tab.id ? (
-                      <div
-                        className={`flex w-full items-center gap-1 py-1.5 text-xs font-normal ${
-                          isDark
-                            ? 'text-zinc-100 hover:bg-[var(--surface-interactive-hover)]'
-                            : 'text-zinc-900 hover:bg-[var(--surface-interactive-hover)]'
-                        } ${tab.isActive ? '' : isDark ? 'text-zinc-200' : 'text-zinc-800'}`}
-                        style={{
-                          paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING,
-                          paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
-                        }}
-                      >
-                        <File size={14} className="shrink-0 text-zinc-500" />
-                        <InlineEditLabel
-                          value={tab.name}
-                          isEditing
-                          onCommit={(nextName) => commitRenameTab(tab.id, tab.name, nextName)}
-                          onCancel={cancelRenameTab}
-                          variant="sidebar-row"
-                          isDark={isDark}
-                        />
-                        {tab.isActive ? <Check size={14} className="ml-auto shrink-0" /> : null}
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className={`flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
-                          isDark
-                            ? 'text-zinc-100 hover:bg-[var(--surface-interactive-hover)]'
-                            : 'text-zinc-900 hover:bg-[var(--surface-interactive-hover)]'
-                        } ${tab.isActive ? '' : isDark ? 'text-zinc-200' : 'text-zinc-800'}`}
-                        style={{
-                          paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING,
-                          paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
-                        }}
-                        onClick={() => api.selectTab(tab.id)}
-                        onDoubleClick={() => startRenameTab(tab.id)}
-                        title={tab.name}
-                      >
-                        <File size={14} className="shrink-0 text-zinc-500" />
-                        <span className="truncate">{tab.name}</span>
-                        {tab.isActive ? <Check size={14} className="ml-auto shrink-0" /> : null}
-                      </button>
-                    )}
-                  </ContextMenu.Trigger>
-                  <Menu.Portal>
-                    <Menu.Positioner sideOffset={6}>
-                      <Menu.Popup
-                        className={`z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
-                          isDark
-                            ? 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-100'
-                            : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900'
-                        }`}
-                      >
-                        <Menu.Item
-                          className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-                            isDark
-                              ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
-                              : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
-                          }`}
-                          onClick={() => startRenameTab(tab.id)}
-                        >
-                          <span>Rename space</span>
-                        </Menu.Item>
-                        <Menu.Item
-                          className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-                            isDark
-                              ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
-                              : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
-                          }`}
-                          onClick={() => api.deleteTab(tab.id)}
-                        >
-                          <span>Delete space</span>
-                        </Menu.Item>
-                      </Menu.Popup>
-                    </Menu.Positioner>
-                  </Menu.Portal>
-                </ContextMenu.Root>
-              </div>
+          <div className="pt-0.5 pb-2">
+            {sections.map((section) => (
+              <ProjectSection
+                key={section.id}
+                section={section}
+                isDark={isDark}
+                api={api}
+                editingCanvasId={editingCanvasId}
+                onStartRenameCanvas={startRenameCanvas}
+                onCancelRenameCanvas={cancelRenameCanvas}
+                onCommitRenameCanvas={commitRenameCanvas}
+                treeSlot={
+                  activeRef && section.id === activeRef.projectId ? (
+                    <div className="py-1">{treeNode}</div>
+                  ) : null
+                }
+              />
             ))}
+            <div
+              className={`mt-1 border-t pt-1 ${
+                isDark ? 'border-zinc-700/50' : 'border-gray-200/80'
+              }`}
+            >
+              <ConnectProjectRow isDark={isDark} api={api} />
+            </div>
           </div>
         ) : null}
-
-        <div className={isDark ? 'border-t border-zinc-700/50' : 'border-t border-gray-200/80'} />
-
-        <div className="py-2">
-          <SidebarCanvasTree
-            items={sidebarData.items}
-            selectedEntityIds={sidebarData.selectedEntityIds}
-            selectedGroupId={sidebarData.selectedGroupId ?? null}
-            isDark={isDark}
-            api={api}
-          />
-
-          {!sidebarData.items.length ? (
-            <div
-              className="py-1 text-[11px] text-zinc-500"
-              style={{
-                paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING,
-                paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
-              }}
-            >
-              No items
-            </div>
-          ) : null}
-        </div>
       </div>
     </aside>
   )

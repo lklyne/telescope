@@ -51,6 +51,8 @@ export interface SidebarProjectSection {
 
 /** One canvas inside a section. */
 export interface SidebarCanvasEntry {
+  /** Stable workspace tab UUID. Used by IPC channels that key on tab id. */
+  id: string
   /** File basename without `.canvas`. Acts as the canvas identity within its project. */
   name: string
   /** Project id this canvas belongs to. */
@@ -1462,10 +1464,6 @@ export interface ToolbarElectronAPI {
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onAgentPresenceChanged: (callback: (cursors: AgentPresenceCursor[]) => void) => () => void
   onFocusAddressBar: (callback: () => void) => () => void
-  repoList: () => Promise<ConnectedRepo[]>
-  repoConnectViaPicker: () => Promise<ConnectedRepo | null>
-  repoDisconnect: (id: string) => Promise<void>
-  onReposChanged: (callback: (repos: ConnectedRepo[]) => void) => () => void
 }
 
 export interface CanvasBgElectronAPI {

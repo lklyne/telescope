@@ -422,6 +422,7 @@ import {
   setCanvasId as setCanvasIdHelper,
   setViewMode,
   pruneCanvasIds,
+  getSpacePath,
 } from './sidebar-state'
 import { listProjects } from './dev-server-manager'
 
@@ -593,8 +594,6 @@ export function migrateLegacyWorkspaceToSpace(userDataPath: string): {
   const legacyFiles = readdirSync(legacyDir).filter((f) => f.endsWith('.canvas'))
   if (!legacyFiles.length) return { ran: false, movedCount: 0 }
 
-  // Resolve the space path lazily so callers can install this before space-manager init.
-  const { getSpacePath } = require('./sidebar-state') as typeof import('./sidebar-state')
   const space = getSpacePath()
   if (!existsSync(space)) mkdirSync(space, { recursive: true })
 

@@ -3,7 +3,7 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 
 function loadEnv(): { port: number; secret: string } {
-  const raw = readFileSync(join(tmpdir(), 'telescope-smoke-env.json'), 'utf8')
+  const raw = readFileSync(join(tmpdir(), 'specular-smoke-env.json'), 'utf8')
   return JSON.parse(raw)
 }
 
@@ -19,15 +19,15 @@ const secret = () => env().secret
 function headers(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    'X-Telescope-Secret': secret(),
+    'X-Specular-Secret': secret(),
   }
 }
 
 function headersWithSession(sessionId?: string, clientName?: string): Record<string, string> {
   return {
     ...headers(),
-    ...(sessionId ? { 'X-Telescope-Session-Id': sessionId } : {}),
-    ...(clientName ? { 'X-Telescope-Client-Name': clientName } : {}),
+    ...(sessionId ? { 'X-Specular-Session-Id': sessionId } : {}),
+    ...(clientName ? { 'X-Specular-Client-Name': clientName } : {}),
   }
 }
 

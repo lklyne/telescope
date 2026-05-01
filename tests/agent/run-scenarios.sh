@@ -46,7 +46,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Locate the discovery file (macOS tmpdir is not always /tmp)
-DISCOVERY_FILE="$(python3 -c "import tempfile, os; print(os.path.join(tempfile.gettempdir(), 'telescope-mcp.json'))")"
+DISCOVERY_FILE="$(python3 -c "import tempfile, os; print(os.path.join(tempfile.gettempdir(), 'specular-mcp.json'))")"
 
 # Read secret once (populated after server is ready)
 API_SECRET=""
@@ -64,12 +64,12 @@ api() {
   local secret="$API_SECRET"
   if [[ "$method" == "GET" ]]; then
     curl -s "http://127.0.0.1:$SMOKE_PORT$path" \
-      -H "X-Telescope-Secret: $secret"
+      -H "X-Specular-Secret: $secret"
   else
     curl -s "http://127.0.0.1:$SMOKE_PORT$path" \
       -X "$method" \
       -H "Content-Type: application/json" \
-      -H "X-Telescope-Secret: $secret" \
+      -H "X-Specular-Secret: $secret" \
       "$@"
   fi
 }
@@ -80,10 +80,10 @@ cd "$PROJECT_DIR"
 npm run build --silent 2>/dev/null
 
 # --- Launch Electron ---
-SANDBOX_DIR=$(mktemp -d -t telescope-agent-test)
+SANDBOX_DIR=$(mktemp -d -t specular-agent-test)
 echo "Launching Electron (CDP port $CDP_PORT, sandbox $SANDBOX_DIR)..."
 
-TELESCOPE_PORT=$SMOKE_PORT \
+SPECULAR_PORT=$SMOKE_PORT \
   npx electron ./out/main/index.js \
   --remote-debugging-port=$CDP_PORT \
   "--user-data-dir=$SANDBOX_DIR" \
@@ -343,7 +343,7 @@ print(int($SCREENSHOT_W * h / w))
     \"bounds\": {\"x\": 0, \"y\": 0, \"width\": $((40 + INFO_WIDTH + 5 * (SCREENSHOT_W + SCREENSHOT_GAP))), \"height\": $y}
   }" >/dev/null
 
-  echo "Review canvas ready. Check the Telescope window."
+  echo "Review canvas ready. Check the Specular window."
 fi
 
 if [[ "$KEEP_OPEN" != true ]]; then

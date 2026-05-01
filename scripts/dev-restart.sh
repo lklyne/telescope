@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cleanly kill any running Telescope dev process and restart.
+# Cleanly kill any running Specular dev process and restart.
 # Can be run from Claude's sandbox — launches via osascript into a real Terminal window.
 #
 # Usage:
@@ -11,12 +11,12 @@ PROJECT_DIR="/Users/lyleklyne/Developer/web-canvas"
 CDP_PORT=9229
 APP_CONTROL_PORT=29979
 
-# ── Kill existing Telescope processes ──────────────────────────────
-echo "Stopping Telescope..."
+# ── Kill existing Specular processes ──────────────────────────────
+echo "Stopping Specular..."
 
 # Kill the entire process tree: Electron, forge, AND child processes (Vite dev server).
 # SIGKILL doesn't propagate to children on macOS, so kill Vite/node children explicitly.
-pkill -9 -f "Electron.app.*Telescope" 2>/dev/null || true
+pkill -9 -f "Electron.app.*Specular" 2>/dev/null || true
 pkill -9 -f "electron-forge start" 2>/dev/null || true
 
 # Kill orphaned Vite dev servers and node processes from the project directory.
@@ -34,7 +34,7 @@ done
 echo "Launching pnpm dev in Terminal..."
 DEV_CMD="cd ${PROJECT_DIR} && pnpm dev"
 if [[ -n "${CDP:-}" ]]; then
-  DEV_CMD="cd ${PROJECT_DIR} && TELESCOPE_REMOTE_DEBUGGING_PORT=${CDP_PORT} pnpm dev"
+  DEV_CMD="cd ${PROJECT_DIR} && SPECULAR_REMOTE_DEBUGGING_PORT=${CDP_PORT} pnpm dev"
 fi
 
 osascript -e "tell application \"Terminal\" to do script \"${DEV_CMD}\""
@@ -42,10 +42,10 @@ osascript -e "tell application \"Terminal\" to do script \"${DEV_CMD}\""
 # ── Wait for the app to be fully ready ────────────────────────────
 # CDP opens early (before renderers load). Wait for the app-control server
 # health endpoint instead — it starts after initWindow() + renderer loading.
-echo "Waiting for Telescope app-control server on port ${APP_CONTROL_PORT}..."
+echo "Waiting for Specular app-control server on port ${APP_CONTROL_PORT}..."
 for i in {1..60}; do
   if curl -s "http://127.0.0.1:${APP_CONTROL_PORT}/health" 2>/dev/null | grep -q '"version"'; then
-    echo "Telescope ready (${i}s)"
+    echo "Specular ready (${i}s)"
     exit 0
   fi
   sleep 1

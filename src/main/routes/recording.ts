@@ -100,7 +100,7 @@ export const recordingRoutes: Route[] = [
         writeJson(response, 500, { error: 'Window not available' })
         return
       }
-      const tmpPath = join(tmpdir(), `telescope-window-${Date.now()}.png`)
+      const tmpPath = join(tmpdir(), `specular-window-${Date.now()}.png`)
       const windowId = win.getMediaSourceId().split(':')[1]
       if (!/^\d+$/.test(windowId)) {
         writeJson(response, 500, { error: 'Invalid window ID' })

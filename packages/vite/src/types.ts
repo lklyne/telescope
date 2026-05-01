@@ -1,11 +1,11 @@
 /**
- * Shared types for the @telescope/vite plugin and the Telescope host.
+ * Shared types for the @specular/vite plugin and the Specular host.
  *
  * Mirrored by the host at src/main/plugins/builtin/component-render.ts so the
  * postMessage / console-bridge contract has a single source of truth.
  */
 
-export interface TelescopePluginOptions {
+export interface SpecularPluginOptions {
   /**
    * Optional repo-relative glob list. Requests for paths outside this list are
    * rejected by the dev-server middleware. Defaults to allow-all.
@@ -13,7 +13,7 @@ export interface TelescopePluginOptions {
   allow?: string[]
 }
 
-export type TelescopeBridgeMessage =
+export type SpecularBridgeMessage =
   | { kind: 'ready'; path: string }
   | { kind: 'error'; message: string; stack?: string }
   | { kind: 'hmr'; phase: 'beforeUpdate' | 'afterUpdate' | 'error'; detail?: unknown }

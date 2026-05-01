@@ -1,7 +1,7 @@
 /**
  * Centralized crash/error logger.
  *
- * Writes structured lines to `~/Library/Logs/Telescope/errors.log` (or the
+ * Writes structured lines to `~/Library/Logs/Specular/errors.log` (or the
  * platform equivalent under `app.getPath('logs')`) and mirrors them to
  * stdout so `pnpm dev` shows the same record. Used for:
  *

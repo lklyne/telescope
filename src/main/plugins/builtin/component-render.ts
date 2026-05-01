@@ -22,7 +22,7 @@ import type { WcvPageRendererClaim } from '../registry'
 const COMPONENT_EXTENSIONS = /\.(tsx|jsx)$/i
 
 export const componentRenderPlugin: WcvPageRendererClaim = {
-  id: 'telescope.component-render',
+  id: 'specular.component-render',
   kind: 'wcv-page',
   rendererTag: 'component',
   claims: (entity) => COMPONENT_EXTENSIONS.test(entity.file),

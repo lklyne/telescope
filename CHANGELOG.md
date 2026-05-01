@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Telescope will be documented in this file.
+All notable changes to Specular will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/). Do not use prerelease suffixes (`-alpha.N`, `-beta.N`). `update.electronjs.org` filters based on GitHub's "prerelease" release flag (not the SemVer suffix), so tagged-alpha versions *can* reach clients — but mixing SemVer prerelease ordering with GitHub's flag is a footgun. Just increment patch/minor versions and keep releases as non-prereleases.
 
@@ -34,7 +34,7 @@ Lots of refinement to how agent cursors move and retire, plus a new debug window
 - Cursors fade out gracefully on idle-retire and session-done instead of popping
 - Single-item creates, updates, and deletes across text, files, frames, links, groups, annotations, and camera focus all move the cursor now
 - Each frame gets its own agent-browser session, so driving multiple frames in one app session routes to the right place
-- `telescope link <fromId> <toId>` accepts positional args alongside the stdin batch form
+- `specular link <fromId> <toId>` accepts positional args alongside the stdin batch form
 
 ### Fixes
 - Click timing: the cursor actually arrives before mousePressed lands, with a full travel+dwell window
@@ -52,7 +52,7 @@ Lots of refinement to how agent cursors move and retire, plus a new debug window
 - Expanded README with feature list, install instructions, and MCP docs
 - CONTRIBUTING, CODE_OF_CONDUCT, and SECURITY docs
 - `.env.example` covering available environment variables
-- Telescope skill moved into the repo so branch edits stop leaking globally
+- Specular skill moved into the repo so branch edits stop leaking globally
 - Internal planning docs moved to `docs/internal/`
 
 ## [0.2.1-alpha.9] - 2026-04-07

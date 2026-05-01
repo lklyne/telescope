@@ -17,7 +17,7 @@ export function asText(payload: unknown) {
 
 export const server = new Server(
   {
-    name: 'telescope-mcp',
+    name: 'specular-mcp',
     version: '0.1.0',
   },
   {

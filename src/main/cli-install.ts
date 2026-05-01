@@ -11,20 +11,20 @@ import {
   unlinkSync,
 } from 'fs'
 
-const PRIMARY_SYMLINK_PATH = '/usr/local/bin/telescope'
+const PRIMARY_SYMLINK_PATH = '/usr/local/bin/specular'
 
 function userLocalBinDir(): string {
   return join(homedir(), '.local', 'bin')
 }
 
 function userLocalSymlinkPath(): string {
-  return join(userLocalBinDir(), 'telescope')
+  return join(userLocalBinDir(), 'specular')
 }
 
 function getCliWrapperPath(): string {
   return app.isPackaged
-    ? join(process.resourcesPath, 'telescope-cli.sh')
-    : join(process.cwd(), 'resources', 'telescope-cli.sh')
+    ? join(process.resourcesPath, 'specular-cli.sh')
+    : join(process.cwd(), 'resources', 'specular-cli.sh')
 }
 
 function readSymlinkTarget(path: string): string | null {
@@ -111,7 +111,7 @@ export function installCli(): CliInstallResult {
   if (primary.success) {
     return {
       success: true,
-      message: "'telescope' command installed in /usr/local/bin.",
+      message: "'specular' command installed in /usr/local/bin.",
       installedPath: PRIMARY_SYMLINK_PATH,
     }
   }
@@ -142,8 +142,8 @@ export function installCli(): CliInstallResult {
   return {
     success: true,
     message: needsPathUpdate
-      ? `'telescope' installed at ${userLocalSymlinkPath()}. Add ~/.local/bin to your PATH to use it.`
-      : `'telescope' installed at ${userLocalSymlinkPath()}.`,
+      ? `'specular' installed at ${userLocalSymlinkPath()}. Add ~/.local/bin to your PATH to use it.`
+      : `'specular' installed at ${userLocalSymlinkPath()}.`,
     installedPath: userLocalSymlinkPath(),
     needsPathUpdate,
   }
@@ -169,7 +169,7 @@ export function uninstallCli(): { success: boolean; message: string } {
   return {
     success: true,
     message: removed
-      ? "'telescope' command removed from PATH."
-      : "'telescope' command was not installed.",
+      ? "'specular' command removed from PATH."
+      : "'specular' command was not installed.",
   }
 }

@@ -67,7 +67,7 @@ export interface JsonCanvasGroupNode extends JsonCanvasNodeBase {
 }
 
 /**
- * Drawing node (Telescope extension). Other JSON Canvas tools ignore
+ * Drawing node (Specular extension). Other JSON Canvas tools ignore
  * unknown `type` values per the spec's extensibility model.
  */
 export interface JsonCanvasDrawingNode extends JsonCanvasNodeBase {

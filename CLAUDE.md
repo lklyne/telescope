@@ -1,6 +1,6 @@
 # Claude
 
-Telescope is a spatial canvas for designers and frontend developers. Part browser,
+Specular is a spatial canvas for designers and frontend developers. Part browser,
 part design iteration surface. Users pull live web content onto a freeform canvas
 to think, arrange, and iterate spatially.
 
@@ -27,8 +27,8 @@ After changes to runtime, IPC, or persistence, run `test:smoke`.
 ## Crash logs
 
 Set up in `src/main/index.ts`:
-- JS errors, unhandled rejections, and renderer/child process deaths → `~/Library/Logs/Telescope/errors.log`
-- Native crash dumps (Crashpad) → `~/Library/Application Support/Telescope/Crashpad/completed/*.dmp`
+- JS errors, unhandled rejections, and renderer/child process deaths → `~/Library/Logs/Specular/errors.log`
+- Native crash dumps (Crashpad) → `~/Library/Application Support/Specular/Crashpad/completed/*.dmp`
 
 When investigating unexpected quits, `errors.log` is the first place to look — `render-process-gone` entries include a `reason` field (`crashed`, `oom`, `killed`, `launch-failed`).
 
@@ -167,16 +167,16 @@ The HTTP API (src/main/routes/) remains available for runtime interaction.
 - **Agent tests** — scenario scripts. `tests/agent/`
 - **Smoke client** — `AppClient` in `tests/smoke/test-utils.ts` wraps the HTTP API
 
-## Telescope CLI
+## Specular CLI
 
-- Always pass full URLs (including scheme and host) to `telescope create frame`. The canvas can contain frames from different origins, so bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
+- Always pass full URLs (including scheme and host) to `specular create frame`. The canvas can contain frames from different origins, so bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
 
 ## Skill files
 
-The telescope Claude Code skill lives in three places. Knowing which is which avoids silently-wasted edits:
+The specular Claude Code skill lives in three places. Knowing which is which avoids silently-wasted edits:
 
-- **`resources/skills/telescope/SKILL.md`** — canonical source. Bundled into the packaged app via `forge.config.ts` (`extraResource`), then copied into every user's `~/.claude/skills/telescope/` at app launch by `src/main/skill-install.ts`. Default to editing this when updating guidance that should reach end users.
-- **`.claude/skills/telescope/SKILL.md`** — repo-local copy Claude Code auto-loads when working inside this codebase. Keep it in sync with `resources/skills/` so in-repo agents and end users see the same guidance. A few dev-only sections (e.g. the tracking-issue GitHub link) are allowed to live here and not ship.
-- **`~/.claude/skills/telescope/SKILL.md`** — each user's installed copy. Treat as read-only: `src/main/skill-auto-update.ts` compares the bundled hash to what's installed and re-copies the bundled version whenever they differ, so hand-edits here get silently overwritten on the next app launch after a release.
+- **`resources/skills/specular/SKILL.md`** — canonical source. Bundled into the packaged app via `forge.config.ts` (`extraResource`), then copied into every user's `~/.claude/skills/specular/` at app launch by `src/main/skill-install.ts`. Default to editing this when updating guidance that should reach end users.
+- **`.claude/skills/specular/SKILL.md`** — repo-local copy Claude Code auto-loads when working inside this codebase. Keep it in sync with `resources/skills/` so in-repo agents and end users see the same guidance. A few dev-only sections (e.g. the tracking-issue GitHub link) are allowed to live here and not ship.
+- **`~/.claude/skills/specular/SKILL.md`** — each user's installed copy. Treat as read-only: `src/main/skill-auto-update.ts` compares the bundled hash to what's installed and re-copies the bundled version whenever they differ, so hand-edits here get silently overwritten on the next app launch after a release.
 
-When patching the skill, default to updating both `resources/skills/telescope/SKILL.md` and `.claude/skills/telescope/SKILL.md` in the same commit.
+When patching the skill, default to updating both `resources/skills/specular/SKILL.md` and `.claude/skills/specular/SKILL.md` in the same commit.

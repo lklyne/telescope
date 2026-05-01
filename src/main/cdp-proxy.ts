@@ -17,9 +17,9 @@ import { findPageById } from './runtime/runtime-context'
 
 export const APP_CONTROL_HOST = '127.0.0.1'
 const CDP_PROXY_TTL_MS = 5 * 60_000
-const REMOTE_DEBUGGING_PORT = Number.parseInt(process.env.TELESCOPE_REMOTE_DEBUGGING_PORT ?? '9229', 10)
-const CDP_PROXY_LOG_DEBUG = process.env.TELESCOPE_DEBUG_CDP_PROXY === '1'
-const CDP_PROXY_TIMING_DEBUG = process.env.TELESCOPE_DEBUG_CDP_PROXY_TIMING === '1'
+const REMOTE_DEBUGGING_PORT = Number.parseInt(process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? '9229', 10)
+const CDP_PROXY_LOG_DEBUG = process.env.SPECULAR_DEBUG_CDP_PROXY === '1'
+const CDP_PROXY_TIMING_DEBUG = process.env.SPECULAR_DEBUG_CDP_PROXY_TIMING === '1'
 
 // --- Types ---
 

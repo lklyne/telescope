@@ -1,6 +1,6 @@
 # Entity-renderer plugins
 
-This folder is the **main-side** of Telescope's entity-renderer registry. The matching React components live in `src/renderer/canvas-bg/entity-renderers/`. A complete plugin spans both — the layer rule (`src/renderer/` cannot import from `src/main/`) means you can't co-locate them.
+This folder is the **main-side** of Specular's entity-renderer registry. The matching React components live in `src/renderer/canvas-bg/entity-renderers/`. A complete plugin spans both — the layer rule (`src/renderer/` cannot import from `src/main/`) means you can't co-locate them.
 
 ## How dispatch works
 
@@ -32,7 +32,7 @@ Both kinds share one registry because the dispatch key — file extension — is
    ```ts
    import type { InlineRendererClaim } from '../registry'
    export const yourRenderPlugin: InlineRendererClaim = {
-     id: 'telescope.your-renderer',
+     id: 'specular.your-renderer',
      kind: 'inline',
      rendererTag: 'your-tag',
      claims: (entity) => /\.your-ext$/i.test(entity.file),

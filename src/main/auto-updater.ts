@@ -12,7 +12,7 @@ export function initAutoUpdater(): void {
   updateElectronApp({
     updateSource: {
       type: UpdateSourceType.ElectronPublicUpdateService,
-      repo: 'lklyne/telescope',
+      repo: 'lklyne/specular',
     },
     updateInterval: '10 minutes',
     notifyUser: false,
@@ -23,7 +23,7 @@ export function initAutoUpdater(): void {
       .showMessageBox({
         type: 'info',
         title: 'Update Ready',
-        message: `Telescope ${releaseName} has been downloaded. Restart to apply the update.`,
+        message: `Specular ${releaseName} has been downloaded. Restart to apply the update.`,
         buttons: ['Restart Now', 'Later'],
         defaultId: 0,
       })
@@ -48,7 +48,7 @@ export async function checkForUpdatesManually(): Promise<void> {
     dialog.showMessageBox({
       type: 'info',
       title: 'No Updates',
-      message: `Telescope ${app.getVersion()} is the latest version.`,
+      message: `Specular ${app.getVersion()} is the latest version.`,
     })
   })
 

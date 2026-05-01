@@ -1,8 +1,8 @@
 {
-  "name": "@telescope/vite",
+  "name": "@specular/vite",
   "version": "0.0.0",
   "private": true,
-  "description": "Vite plugin that lets Telescope render single React components live from your repo.",
+  "description": "Vite plugin that lets Specular render single React components live from your repo.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -1,6 +1,6 @@
-# @telescope/vite
+# @specular/vite
 
-Vite plugin that lets [Telescope](https://github.com/lklyne/telescope) render
+Vite plugin that lets [Specular](https://github.com/lklyne/specular) render
 a single React component from your repo as a live frame on the canvas.
 
 > Status: skeleton. The middleware, bootstrap, and HMR bridge land in a follow-up commit.
@@ -8,7 +8,7 @@ a single React component from your repo as a live frame on the canvas.
 ## Install
 
 ```sh
-pnpm add -D @telescope/vite
+pnpm add -D @specular/vite
 ```
 
 ## Use
@@ -16,12 +16,12 @@ pnpm add -D @telescope/vite
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
-import telescope from '@telescope/vite'
+import specular from '@specular/vite'
 
 export default defineConfig({
-  plugins: [telescope()],
+  plugins: [specular()],
 })
 ```
 
-Then start your dev server normally and connect Telescope to the repo via the
+Then start your dev server normally and connect Specular to the repo via the
 inspector pane.

@@ -48,8 +48,8 @@ export function resolveSession(
   request: IncomingMessage,
   body?: Record<string, unknown>,
 ): { sessionId: string; session: McpClientSession } | null {
-  const headerId = request.headers['x-telescope-session-id'] as string | undefined
-  const headerClientName = request.headers['x-telescope-client-name'] as string | undefined
+  const headerId = request.headers['x-specular-session-id'] as string | undefined
+  const headerClientName = request.headers['x-specular-client-name'] as string | undefined
   if (headerId) return upsertSession(headerId, headerClientName)
 
   const bodySessionId = typeof body?.sessionId === 'string' ? body.sessionId : undefined

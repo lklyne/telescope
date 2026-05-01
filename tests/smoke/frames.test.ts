@@ -69,14 +69,14 @@ describe('frames', () => {
       frameId: createdFrameIds[0],
       labelKey: 'find_target',
       targetRef: targetNode.ref,
-      targetRefSource: 'telescope',
+      targetRefSource: 'specular',
       targetName: 'Primary action',
     })
 
     const presence = await getPresence()
     const cursor = presence.cursors.find((item) => item.sessionId === 'smoke-agent')
     expect(cursor?.targetRef).toBe(targetNode.ref)
-    expect(cursor?.targetRefSource).toBe('telescope')
+    expect(cursor?.targetRefSource).toBe('specular')
     expect(cursor?.targetRect).toEqual(targetNode.bounds)
   })
 
@@ -85,7 +85,7 @@ describe('frames', () => {
       frameId: createdFrameIds[0],
       name: 'Click me',
     })
-    expect(result.target.targetRefSource).toBe('telescope')
+    expect(result.target.targetRefSource).toBe('specular')
     expect(result.target.targetName).toContain('Click me')
     expect(result.target.targetRect.width).toBeGreaterThan(0)
     expect(result.target.frameX).toBeGreaterThan(0)
@@ -105,7 +105,7 @@ describe('frames', () => {
       frameId: createdFrameIds[0],
       labelKey: 'find_target',
       targetRef: targetNode.ref,
-      targetRefSource: 'telescope',
+      targetRefSource: 'specular',
       targetName: 'Primary action',
     })
 

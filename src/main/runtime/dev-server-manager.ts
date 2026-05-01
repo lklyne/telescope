@@ -1,13 +1,13 @@
 /**
  * Dev-server manager.
  *
- * Owns the runtime side of "which Vite dev servers are connected to Telescope."
+ * Owns the runtime side of "which Vite dev servers are connected to Specular."
  * Each connected repo persists as `{id, absolutePath, label}` in
  * userData/repos.json so connections survive across app launches.
  *
  * The actual `vite dev` child process is started lazily — only when
  * something asks `urlForComponent(repoId, ...)` — so quitting and reopening
- * Telescope doesn't immediately spawn a flotilla of dev servers.
+ * Specular doesn't immediately spawn a flotilla of dev servers.
  *
  * Designed for testability: pass `{ userDataDir, spawn }` to `initDevServerManager`
  * to inject a tmpdir + a fake spawner. In production, src/main/index.ts wires
@@ -338,7 +338,7 @@ export async function urlForComponent(
   const baseUrl = await startChild(entry)
   if (!baseUrl) return null
   const cleaned = repoRelativePath.replace(/^\/+/, '')
-  return `${baseUrl}/__telescope?path=${encodeURIComponent(cleaned)}`
+  return `${baseUrl}/__specular?path=${encodeURIComponent(cleaned)}`
 }
 
 export function onChange(listener: (repos: ConnectedRepo[]) => void): () => void {

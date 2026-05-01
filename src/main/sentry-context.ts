@@ -56,7 +56,7 @@ export function breadcrumb(
   const s = sentry()
   if (!s) return
   s.addBreadcrumb({
-    category: `telescope.${category}`,
+    category: `specular.${category}`,
     message,
     data,
     level: 'info',

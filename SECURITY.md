@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Telescope embeds full Chromium browser processes, so security issues are taken seriously.
+Specular embeds full Chromium browser processes, so security issues are taken seriously.
 
 If you discover a security vulnerability, **please do not open a public issue.** Instead, report it privately:
 
@@ -24,7 +24,7 @@ Please include:
 ## Scope
 
 The following are in scope:
-- The Telescope Electron application
+- The Specular Electron application
 - The MCP server and its tools
 - The CDP proxy
 - IPC and preload scripts

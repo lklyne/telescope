@@ -52,7 +52,7 @@ describe('findRepoForPath', () => {
 
   beforeEach(() => {
     __resetDevServerManagerForTests()
-    dir = mkdtempSync(join(tmpdir(), 'telescope-find-repo-'))
+    dir = mkdtempSync(join(tmpdir(), 'specular-find-repo-'))
     initDevServerManager({
       userDataDir: dir,
       spawn: () => makeFakeChild() as unknown as ChildProcess,
@@ -83,7 +83,7 @@ describe('componentRenderPlugin.resolveUrl', () => {
 
   beforeEach(() => {
     __resetDevServerManagerForTests()
-    dir = mkdtempSync(join(tmpdir(), 'telescope-component-render-'))
+    dir = mkdtempSync(join(tmpdir(), 'specular-component-render-'))
     pendingChildren = []
     initDevServerManager({
       userDataDir: dir,
@@ -105,7 +105,7 @@ describe('componentRenderPlugin.resolveUrl', () => {
     expect(await componentRenderPlugin.resolveUrl(fileEntity('/elsewhere/x.tsx'))).toBeNull()
   })
 
-  it('spawns vite for the most specific connected repo and returns a __telescope URL', async () => {
+  it('spawns vite for the most specific connected repo and returns a __specular URL', async () => {
     connectRepo('/Users/alice')
     connectRepo('/Users/alice/Developer/my-app')
     const promise = componentRenderPlugin.resolveUrl(
@@ -118,7 +118,7 @@ describe('componentRenderPlugin.resolveUrl', () => {
 
     const url = await promise
     expect(url).toBe(
-      'http://localhost:5173/__telescope?path=src%2FButton.tsx',
+      'http://localhost:5173/__specular?path=src%2FButton.tsx',
     )
   })
 })

@@ -49,7 +49,7 @@ describe('dev-server-manager', () => {
 
   beforeEach(() => {
     __resetDevServerManagerForTests()
-    dir = mkdtempSync(join(tmpdir(), 'telescope-dev-server-'))
+    dir = mkdtempSync(join(tmpdir(), 'specular-dev-server-'))
     spawnCalls = []
     nextChild = null
     pendingChildren = []
@@ -96,7 +96,7 @@ describe('dev-server-manager', () => {
     expect(reloaded[0].absolutePath).toBe('/abs/x/repo-a')
   })
 
-  it('urlForComponent spawns vite, parses Local: URL, and returns a __telescope URL', async () => {
+  it('urlForComponent spawns vite, parses Local: URL, and returns a __specular URL', async () => {
     const repo = connectRepo('/abs/path/repo-x')
     const child = makeFakeChild()
     nextChild = child
@@ -107,7 +107,7 @@ describe('dev-server-manager', () => {
     })
     const url = await promise
 
-    expect(url).toBe('http://localhost:5173/__telescope?path=src%2FButton.tsx')
+    expect(url).toBe('http://localhost:5173/__specular?path=src%2FButton.tsx')
     expect(spawnCalls[0]).toMatchObject({
       command: 'npx',
       args: ['vite', 'dev'],
@@ -132,8 +132,8 @@ describe('dev-server-manager', () => {
     })
     const [a, b] = await Promise.all([first, second])
 
-    expect(a).toContain('http://localhost:5179/__telescope?path=a.tsx')
-    expect(b).toContain('http://localhost:5179/__telescope?path=b.tsx')
+    expect(a).toContain('http://localhost:5179/__specular?path=a.tsx')
+    expect(b).toContain('http://localhost:5179/__specular?path=b.tsx')
     expect(spawnCalls).toHaveLength(1)
   })
 

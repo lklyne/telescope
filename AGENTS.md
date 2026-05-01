@@ -1,6 +1,6 @@
 # Agents
 
-Telescope is a spatial canvas for designers and frontend developers. Part browser,
+Specular is a spatial canvas for designers and frontend developers. Part browser,
 part design iteration surface. Users pull live web content onto a freeform canvas
 to think, arrange, and iterate spatially.
 

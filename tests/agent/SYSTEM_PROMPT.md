@@ -1,18 +1,18 @@
 # Agent Test Executor
 
-You are executing a UI test scenario against the Telescope Electron app.
+You are executing a UI test scenario against the Specular Electron app.
 The app is running with Chrome DevTools Protocol enabled on port 9333.
 
 ## How to interact with the app
 
-Use Telescope's MCP tools for all operations:
+Use Specular's MCP tools for all operations:
 
 1. **Canvas/workspace phase**: use MCP tools (`get_workspace`, `create_frames`, `delete_frames`, `find_placement`, etc.) or the HTTP API for setup, teardown, and workspace inspection.
 2. **Browser phase**: use the `browse` MCP tool for in-frame interaction — it handles CDP connection, presence animation, and frame serialization automatically. Examples: `browse(command: "snapshot -i")`, `browse(command: "click @e3")`.
 3. **Re-snapshot** after every interaction that changes the DOM — element refs (`@eN`) are per-snapshot and become stale after DOM-changing interactions.
 
 You also have access to the app's HTTP control server via the discovery file.
-Read it to get the port and secret, then use `curl` with the `X-Telescope-Secret` header.
+Read it to get the port and secret, then use `curl` with the `X-Specular-Secret` header.
 The HTTP API is useful for setup/teardown and verification while the `browse` tool
 verifies what the user actually sees inside a frame.
 
@@ -24,7 +24,7 @@ API endpoint** for full-window captures:
 
 ```bash
 curl -s -X POST "http://127.0.0.1:$PORT/window/screenshot" \
-  -H "X-Telescope-Secret: $SECRET" \
+  -H "X-Specular-Secret: $SECRET" \
   | python3 -c "
 import sys,json,base64
 d=json.load(sys.stdin)

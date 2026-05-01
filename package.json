@@ -1,12 +1,12 @@
 {
-  "name": "telescope",
-  "productName": "Telescope",
+  "name": "specular",
+  "productName": "Specular",
   "version": "0.2.7",
   "description": "A spatial canvas for agent collaboration on the web",
-  "homepage": "https://github.com/lklyne/telescope",
+  "homepage": "https://github.com/lklyne/specular",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lklyne/telescope.git"
+    "url": "https://github.com/lklyne/specular.git"
   },
   "main": ".vite/build/index.js",
   "config": {

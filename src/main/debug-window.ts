@@ -24,7 +24,7 @@ function createDebugWindow(): BrowserWindow {
     minimizable: true,
     maximizable: true,
     fullscreenable: true,
-    title: 'Telescope Debug',
+    title: 'Specular Debug',
     titleBarStyle: 'hiddenInset',
     show: false,
     backgroundColor: isDark() ? '#18181b' : '#fafafa',

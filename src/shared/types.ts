@@ -383,7 +383,7 @@ export interface PresenceCoordinates {
   targetRect?: PresenceTargetRect | null
 }
 
-export type PresenceTargetRefSource = 'telescope' | 'agent-browser'
+export type PresenceTargetRefSource = 'specular' | 'agent-browser'
 
 export interface PresenceEvent {
   sessionId: string
@@ -586,7 +586,7 @@ export interface OnboardingState {
   completedAt?: number
   /** SHA-256 of each skill's content as we last installed it. Used to
    * detect whether the user has hand-edited the file before auto-updating. */
-  skillHashes?: { telescope?: string; 'agent-browser'?: string }
+  skillHashes?: { specular?: string; 'agent-browser'?: string }
 }
 
 export interface OnboardingElectronAPI {

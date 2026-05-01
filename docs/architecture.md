@@ -2,7 +2,7 @@
 
 ## Process model
 
-Telescope is an Electron app with a main process and multiple renderer processes.
+Specular is an Electron app with a main process and multiple renderer processes.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

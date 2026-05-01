@@ -30,7 +30,7 @@ export function printError(message: string): void {
 /** Write a base64-encoded image to a temp file and print the path plus a next-step hint. */
 export function writeImageBlock(block: { data: string; mimeType: string }): void {
   const ext = block.mimeType === 'image/jpeg' ? '.jpg' : '.png'
-  const filePath = join(tmpdir(), `telescope-${randomUUID()}${ext}`)
+  const filePath = join(tmpdir(), `specular-${randomUUID()}${ext}`)
   writeFileSync(filePath, Buffer.from(block.data, 'base64'))
   printText(filePath)
   printText(`(image: use Read("${filePath}") to view)`)

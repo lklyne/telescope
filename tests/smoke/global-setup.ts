@@ -3,12 +3,12 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'fs
 import { join } from 'path'
 import { tmpdir } from 'os'
 
-const DISCOVERY_FILE = join(tmpdir(), 'telescope-mcp.json')
-const SMOKE_ENV_FILE = join(tmpdir(), 'telescope-smoke-env.json')
+const DISCOVERY_FILE = join(tmpdir(), 'specular-mcp.json')
+const SMOKE_ENV_FILE = join(tmpdir(), 'specular-smoke-env.json')
 const POLL_INTERVAL_MS = 500
 const POLL_TIMEOUT_MS = 15_000
 
-// Use a random high port to avoid colliding with a running Telescope instance
+// Use a random high port to avoid colliding with a running Specular instance
 const SMOKE_PORT = 29900 + Math.floor(Math.random() * 99)
 const SMOKE_CDP_PORT = 39000 + Math.floor(Math.random() * 1000)
 
@@ -37,7 +37,7 @@ async function waitForServer(): Promise<{ port: number; secret: string }> {
 }
 
 export async function setup() {
-  sandboxDir = mkdtempSync(join(tmpdir(), 'telescope-smoke-'))
+  sandboxDir = mkdtempSync(join(tmpdir(), 'specular-smoke-'))
 
   const electronBin = join(process.cwd(), 'node_modules', '.bin', 'electron')
   const appEntry = join(process.cwd(), '.vite', 'build', 'index.js')
@@ -48,9 +48,9 @@ export async function setup() {
     env: {
       ...process.env,
       NODE_ENV: 'production',
-      TELESCOPE_PORT: String(SMOKE_PORT),
-      TELESCOPE_REMOTE_DEBUGGING_PORT: String(SMOKE_CDP_PORT),
-      TELESCOPE_SKIP_ONBOARDING: '1',
+      SPECULAR_PORT: String(SMOKE_PORT),
+      SPECULAR_REMOTE_DEBUGGING_PORT: String(SMOKE_CDP_PORT),
+      SPECULAR_SKIP_ONBOARDING: '1',
     },
   })
 

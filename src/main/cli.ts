@@ -2,7 +2,7 @@ import { setClientName } from './shared/app-client'
 import { notifySessionState } from './shared/app-client'
 import { dispatch } from './cli-commands'
 
-setClientName('telescope-cli')
+setClientName('specular-cli')
 
 async function main(): Promise<void> {
   // Ping the session open — but never close it explicitly.

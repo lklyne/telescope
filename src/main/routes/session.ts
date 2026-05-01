@@ -270,7 +270,7 @@ export const sessionRoutes: Route[] = [
       }
       mcpSessions.set(payload.sessionId, {
         id: payload.sessionId,
-        clientName: payload.clientName ?? 'telescope-mcp',
+        clientName: payload.clientName ?? 'specular-mcp',
         lastSeenAt: Date.now(),
       })
       notifyStatusListeners()
@@ -289,7 +289,7 @@ export const sessionRoutes: Route[] = [
       const existing = mcpSessions.get(payload.sessionId)
       mcpSessions.set(payload.sessionId, {
         id: payload.sessionId,
-        clientName: payload.clientName ?? existing?.clientName ?? 'telescope-mcp',
+        clientName: payload.clientName ?? existing?.clientName ?? 'specular-mcp',
         lastSeenAt: Date.now(),
       })
       notifyStatusListeners()

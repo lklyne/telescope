@@ -5,7 +5,6 @@ import {
   relocateProject,
   renameProject,
   canvasFolderFor,
-  createCanvasFile,
   onSpaceChange,
 } from '../runtime/space-manager'
 import {
@@ -19,6 +18,7 @@ import { setActiveProjectId } from '../runtime/sidebar-state'
 import { notifyLeftSidebarData } from '../runtime/sidebar-builder'
 import { markDirty } from '../runtime/layout-dirty'
 import { requestLayout } from '../runtime/viewport-control'
+import { createWorkspaceTab } from '../runtime/workspace-tab-operations'
 
 export function registerProjectIpc(): void {
   ipcMain.handle('project-list', async (): Promise<ConnectedProject[]> => listProjects())
@@ -34,7 +34,11 @@ export function registerProjectIpc(): void {
           })
         : await dialog.showOpenDialog({ properties: ['openDirectory'] })
       if (result.canceled || result.filePaths.length === 0) return null
-      return connectProject({ absolutePath: result.filePaths[0] })
+      const project = connectProject({ absolutePath: result.filePaths[0] })
+      setActiveProjectId(project.id)
+      bumpProjectLastActive(project.id)
+      createWorkspaceTab('Untitled', project.id)
+      return project
     },
   )
 
@@ -137,9 +141,13 @@ export function registerProjectIpc(): void {
     'project-create-canvas',
     async (_event, payload: { projectId?: string }): Promise<string | null> => {
       if (!payload?.projectId) return null
-      const name = createCanvasFile(payload.projectId, 'Untitled')
-      if (payload.projectId !== 'scratchpad') bumpProjectLastActive(payload.projectId)
-      return name
+      if (payload.projectId !== 'scratchpad') {
+        setActiveProjectId(payload.projectId)
+        bumpProjectLastActive(payload.projectId)
+      }
+      const projectId = payload.projectId === 'scratchpad' ? undefined : payload.projectId
+      createWorkspaceTab('Untitled', projectId)
+      return 'Untitled'
     },
   )
 

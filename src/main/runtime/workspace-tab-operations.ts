@@ -100,17 +100,29 @@ export function applyTabState(tab: PersistedWorkspaceTab): void {
   })
 }
 
-export function createWorkspaceTab(name?: string): string {
+export function createWorkspaceTab(name?: string, projectId?: string): string {
   ensureWorkspaceTabsInitialized()
   syncActiveTabRecord()
   const now = new Date().toISOString()
+  const base = name?.trim() || `Canvas ${workspaceTabs.length + 1}`
+  const sameProject = workspaceTabs.filter(
+    (tab) => (tab.projectId ?? null) === (projectId ?? null),
+  )
+  const taken = new Set(sameProject.map((tab) => tab.name))
+  let unique = base
+  let suffix = 2
+  while (taken.has(unique)) {
+    unique = `${base} ${suffix}`
+    suffix++
+  }
   const nextTab: PersistedWorkspaceTab = {
     id: makeWorkspaceTabId(),
-    name: name?.trim() || `Canvas ${workspaceTabs.length + 1}`,
+    name: unique,
     updatedAt: now,
     snapshot: makeEmptyTabSnapshot(),
     annotations: [],
     expanded: true,
+    projectId,
   }
   workspaceTabs.push(nextTab)
   setActiveWorkspaceTab(nextTab.id)

@@ -30,7 +30,7 @@ export function Sidebar({
                 onClick={() => onChange(item.id)}
                 className={`flex w-full items-center gap-2 rounded-[6px] px-2 py-[6px] text-left text-[13px] ${
                   isActive
-                    ? 'bg-[var(--surface-popover-subtle)] text-[var(--surface-toolbar-foreground)]'
+                    ? 'bg-[var(--surface-popover-border)] text-[var(--surface-toolbar-foreground)]'
                     : 'text-[var(--surface-toolbar-foreground)] opacity-70 hover:opacity-100'
                 }`}
               >

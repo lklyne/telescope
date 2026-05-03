@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useReducer, useState } from 'react'
+import { Switch } from '@base-ui/react/switch'
+import { Loader2 } from 'lucide-react'
 import type {
   OnboardingComponentId,
   OnboardingComponentStatus,
@@ -6,31 +8,29 @@ import type {
   OnboardingStatusSnapshot,
   SettingsElectronAPI,
 } from '../../shared/types'
-import {
-  SkillInstaller,
-  SKILL_INSTALLER_IDS,
-  type InstallerRowSnapshot,
-  type RowProgress,
-} from '../shared/SkillInstaller'
 
-type RowProgressMap = Record<OnboardingComponentId, { progress: RowProgress; detail?: string }>
+type RowProgress = 'idle' | 'installing' | 'success' | 'error'
 
-type ProgressAction =
-  | { kind: 'reset' }
-  | { kind: 'start'; id: OnboardingComponentId }
-  | { kind: 'success'; id: OnboardingComponentId; detail?: string }
-  | { kind: 'error'; id: OnboardingComponentId; detail: string }
+type RowState = { progress: RowProgress; detail?: string }
 
-const INITIAL_PROGRESS: RowProgressMap = {
+type ProgressMap = Record<OnboardingComponentId, RowState>
+
+const INITIAL_PROGRESS: ProgressMap = {
   cli: { progress: 'idle' },
   skill: { progress: 'idle' },
   agentBrowser: { progress: 'idle' },
 }
 
-function progressReducer(state: RowProgressMap, action: ProgressAction): RowProgressMap {
+type ProgressAction =
+  | { kind: 'reset'; id: OnboardingComponentId }
+  | { kind: 'start'; id: OnboardingComponentId }
+  | { kind: 'success'; id: OnboardingComponentId; detail?: string }
+  | { kind: 'error'; id: OnboardingComponentId; detail: string }
+
+function progressReducer(state: ProgressMap, action: ProgressAction): ProgressMap {
   switch (action.kind) {
     case 'reset':
-      return INITIAL_PROGRESS
+      return { ...state, [action.id]: { progress: 'idle' } }
     case 'start':
       return { ...state, [action.id]: { progress: 'installing' } }
     case 'success':
@@ -40,8 +40,40 @@ function progressReducer(state: RowProgressMap, action: ProgressAction): RowProg
   }
 }
 
-function isMissingOrOutdated(status: OnboardingComponentStatus): boolean {
-  return status.kind === 'missing' || status.kind === 'outdated'
+type RowConfig = {
+  id: OnboardingComponentId
+  title: string
+  description: string
+}
+
+const ROWS: RowConfig[] = [
+  {
+    id: 'cli',
+    title: 'Specular CLI',
+    description: 'Adds the specular command so agents can interact with the app.',
+  },
+  {
+    id: 'skill',
+    title: 'Specular Skill',
+    description: 'Teaches agents how to use the Specular CLI.',
+  },
+  {
+    id: 'agentBrowser',
+    title: 'agent-browser',
+    description:
+      "Specular uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev.",
+  },
+]
+
+function isInstalled(status: OnboardingComponentStatus): boolean {
+  return status.kind === 'installed'
+}
+
+function statusDetail(status: OnboardingComponentStatus): string | undefined {
+  if (status.kind === 'installed') return status.detail
+  if (status.kind === 'outdated') return status.detail ?? 'update available'
+  if (status.kind === 'blocked') return status.detail
+  return undefined
 }
 
 export function SkillsPane({
@@ -54,18 +86,16 @@ export function SkillsPane({
   onStatusChange: (next: OnboardingStatusSnapshot) => void
 }) {
   const [progress, dispatchProgress] = useReducer(progressReducer, INITIAL_PROGRESS)
-  const [installing, setInstalling] = useState(false)
-  const [selections, setSelections] = useState<Record<OnboardingComponentId, boolean>>({
-    cli: isMissingOrOutdated(status.cli),
-    skill: isMissingOrOutdated(status.skill),
-    agentBrowser: isMissingOrOutdated(status.agentBrowser),
+  const [pending, setPending] = useState<Record<OnboardingComponentId, boolean>>({
+    cli: false,
+    skill: false,
+    agentBrowser: false,
   })
 
   useEffect(() => {
     return api.onSkillProgress((event: OnboardingProgressEvent) => {
       if ('kind' in event && event.kind === 'done') {
         onStatusChange(event.status)
-        setInstalling(false)
         return
       }
       if ('component' in event) {
@@ -80,46 +110,27 @@ export function SkillsPane({
     })
   }, [api, onStatusChange])
 
-  const setSelected = useCallback(
-    (id: OnboardingComponentId, selected: boolean) =>
-      setSelections((prev) => ({ ...prev, [id]: selected })),
-    [],
+  const handleToggle = useCallback(
+    async (id: OnboardingComponentId, next: boolean) => {
+      if (pending[id]) return
+      setPending((prev) => ({ ...prev, [id]: true }))
+      dispatchProgress({ kind: 'start', id })
+      try {
+        const snapshot = await api.setComponentInstalled(id, next)
+        onStatusChange(snapshot)
+      } finally {
+        setPending((prev) => ({ ...prev, [id]: false }))
+      }
+    },
+    [api, onStatusChange, pending],
   )
-
-  const rows = useMemo<Record<OnboardingComponentId, InstallerRowSnapshot>>(() => {
-    return Object.fromEntries(
-      SKILL_INSTALLER_IDS.map((id) => [
-        id,
-        {
-          status: status[id],
-          progress: progress[id].progress,
-          progressDetail: progress[id].detail,
-          selected: selections[id],
-        },
-      ]),
-    ) as Record<OnboardingComponentId, InstallerRowSnapshot>
-  }, [status, progress, selections])
-
-  const anySelected = SKILL_INSTALLER_IDS.some((id) => selections[id])
-
-  const handleInstall = useCallback(async () => {
-    if (installing || !anySelected) return
-    setInstalling(true)
-    dispatchProgress({ kind: 'reset' })
-    try {
-      const next = await api.installSkills(selections)
-      onStatusChange(next)
-    } finally {
-      setInstalling(false)
-    }
-  }, [api, installing, anySelected, selections, onStatusChange])
 
   return (
     <section>
       <header className="mb-4 mt-2">
         <h2 className="text-[15px] font-semibold">Skills</h2>
         <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
-          Install or re-check the integrations that let Claude Code drive Specular.
+          Toggle the integrations that let Claude Code drive Specular.
         </p>
       </header>
 
@@ -129,33 +140,60 @@ export function SkillsPane({
         </div>
       ) : null}
 
-      <SkillInstaller.Root rows={rows} setSelected={setSelected}>
-        <SkillInstaller.Row
-          id="cli"
-          title="Specular CLI"
-          description="Adds the specular command so agents can interact with the app."
-        />
-        <SkillInstaller.Row
-          id="skill"
-          title="Specular Skill"
-          description="Teaches agents how to use the Specular CLI."
-        />
-        <SkillInstaller.Row
-          id="agentBrowser"
-          title="agent-browser"
-          description="Specular uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev."
-        />
-      </SkillInstaller.Root>
+      <div className="flex flex-col gap-2">
+        {ROWS.map((row) => {
+          const componentStatus = status[row.id]
+          const installed = isInstalled(componentStatus)
+          const rowProgress = progress[row.id]
+          const isPending = pending[row.id] || rowProgress.progress === 'installing'
+          const cannotUninstall = row.id === 'agentBrowser' && installed
+          const disabled = isPending || cannotUninstall
+          const detail = rowProgress.progress === 'error'
+            ? rowProgress.detail
+            : rowProgress.progress === 'success'
+              ? rowProgress.detail
+              : statusDetail(componentStatus)
+          const detailClass =
+            rowProgress.progress === 'error' || componentStatus.kind === 'blocked'
+              ? 'mt-1 text-[11px] text-red-600 dark:text-red-400'
+              : 'mt-1 text-[11px] text-[var(--surface-toolbar-foreground)] opacity-60'
+          const title = cannotUninstall
+            ? 'agent-browser cannot be removed from inside Specular.'
+            : undefined
 
-      <div className="mt-4 flex justify-end">
-        <button
-          type="button"
-          onClick={handleInstall}
-          disabled={installing || !anySelected}
-          className="rounded-[6px] bg-emerald-600 px-4 py-[6px] text-[12px] font-medium text-white shadow-sm enabled:hover:bg-emerald-500 disabled:opacity-50"
-        >
-          {installing ? 'Installing…' : 'Install selected'}
-        </button>
+          return (
+            <div
+              key={row.id}
+              className="flex items-start gap-3 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] px-4 py-3"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-medium">{row.title}</span>
+                  {isPending ? (
+                    <Loader2
+                      size={12}
+                      className="animate-spin text-[var(--surface-toolbar-foreground)] opacity-70"
+                    />
+                  ) : null}
+                </div>
+                <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
+                  {row.description}
+                </p>
+                {detail ? <p className={detailClass}>{detail}</p> : null}
+              </div>
+              <div className="pt-[2px]" title={title}>
+                <Switch.Root
+                  disabled={disabled}
+                  checked={installed}
+                  onCheckedChange={(checked) => handleToggle(row.id, checked)}
+                  className="relative inline-flex h-[18px] w-[32px] shrink-0 cursor-pointer items-center rounded-full border border-[var(--surface-popover-border)] bg-[var(--surface-input)] transition-colors data-[checked]:border-transparent data-[checked]:bg-emerald-500 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+                >
+                  <Switch.Thumb className="block h-[14px] w-[14px] translate-x-[1px] rounded-full bg-white shadow-sm transition-transform data-[checked]:translate-x-[15px]" />
+                </Switch.Root>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </section>
   )

@@ -15,7 +15,10 @@ import {
   setFixConfig,
 } from '../runtime/preferences'
 import { getOnboardingStatus } from '../onboarding-status'
-import { runSkillInstallSelections } from '../skill-install-runner'
+import {
+  runComponentToggle,
+  runSkillInstallSelections,
+} from '../skill-install-runner'
 import { refreshAppMenu } from '../runtime/app-menu'
 import { notifyDevtoolsPanelData } from '../runtime/inspect-session'
 import {
@@ -63,6 +66,22 @@ export function registerSettingsIpc(): void {
       selections: Record<OnboardingComponentId, boolean>,
     ): Promise<OnboardingStatusSnapshot> => {
       const status = await runSkillInstallSelections(selections, broadcastProgress)
+      refreshAppMenu()
+      return status
+    },
+  )
+
+  ipcMain.handle(
+    'settings:set-component-installed',
+    async (
+      _event,
+      payload: { component: OnboardingComponentId; installed: boolean },
+    ): Promise<OnboardingStatusSnapshot> => {
+      const status = await runComponentToggle(
+        payload.component,
+        payload.installed,
+        broadcastProgress,
+      )
       refreshAppMenu()
       return status
     },

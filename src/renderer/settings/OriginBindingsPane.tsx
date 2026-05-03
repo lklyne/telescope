@@ -13,15 +13,15 @@ export function OriginBindingsPane({
   return (
     <section>
       <header className="mb-4 mt-2">
-        <h2 className="text-[15px] font-semibold">Bindings</h2>
+        <h2 className="text-[15px] font-semibold">Repos</h2>
         <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
-          Origins linked to local repositories. Telescope uses these for in-place fixes from comments. Add new bindings from the right details panel when viewing a frame.
+          Connect a site's origin to a local repo or folder so Specular can apply in-place fixes from comments. Add new connections from the details panel while viewing a frame.
         </p>
       </header>
 
       {entries.length === 0 ? (
         <div className="rounded-[8px] border border-dashed border-[var(--surface-popover-border)] px-4 py-6 text-center text-[12px] text-[var(--surface-toolbar-foreground)] opacity-60">
-          No origin bindings yet.
+          No repos connected yet.
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -43,7 +43,7 @@ export function OriginBindingsPane({
               </div>
               <button
                 type="button"
-                aria-label={`Remove binding for ${origin}`}
+                aria-label={`Disconnect ${origin}`}
                 onClick={() => api.removeOriginBinding(origin)}
                 className="shrink-0 rounded-[4px] p-1 text-[var(--surface-toolbar-foreground)] opacity-60 hover:bg-[var(--surface-popover-border)] hover:opacity-100"
               >

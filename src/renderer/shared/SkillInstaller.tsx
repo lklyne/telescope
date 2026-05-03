@@ -3,7 +3,7 @@ import {
   useContext,
   type ReactNode,
 } from 'react'
-import { Checkbox } from '@base-ui/react/checkbox'
+import { Switch } from '@base-ui/react/switch'
 import { Check, CircleAlert, Loader2, Minus } from 'lucide-react'
 import type {
   OnboardingComponentId,
@@ -52,8 +52,8 @@ function Root({
 
 function rowBaseClass(progress: RowProgress): string {
   const base =
-    'flex items-start gap-3 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] px-4 py-3 text-left'
-  if (progress === 'installing') return `${base} opacity-90`
+    'flex items-start gap-3 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] px-4 py-3 text-left cursor-pointer select-none'
+  if (progress === 'installing') return `${base} opacity-90 cursor-not-allowed`
   if (progress === 'success') return `${base} border-emerald-500/40`
   if (progress === 'error') return `${base} border-red-500/50`
   return base
@@ -72,21 +72,9 @@ function Row({
   const snapshot = rows[id]
 
   return (
-    <div className={rowBaseClass(snapshot.progress)}>
-      <div className="pt-[2px]">
-        <Checkbox.Root
-          disabled={snapshot.progress === 'installing'}
-          checked={snapshot.selected}
-          onCheckedChange={(checked) => setSelected(id, Boolean(checked))}
-          className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border border-[var(--surface-popover-border)] bg-[var(--surface-input)] data-[checked]:border-transparent data-[checked]:bg-emerald-500 data-[disabled]:opacity-50"
-        >
-          <Checkbox.Indicator className="text-white">
-            <Check size={12} strokeWidth={3} />
-          </Checkbox.Indicator>
-        </Checkbox.Root>
-      </div>
+    <label className={rowBaseClass(snapshot.progress)}>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium">{title}</span>
           <StatusBadge snapshot={snapshot} />
         </div>
@@ -95,7 +83,17 @@ function Row({
         </p>
         <RowDetail snapshot={snapshot} />
       </div>
-    </div>
+      <div className="pt-[2px]">
+        <Switch.Root
+          disabled={snapshot.progress === 'installing'}
+          checked={snapshot.selected}
+          onCheckedChange={(checked) => setSelected(id, checked)}
+          className="relative inline-flex h-[18px] w-[32px] shrink-0 cursor-pointer items-center rounded-full border border-[var(--surface-popover-border)] bg-[var(--surface-input)] transition-colors data-[checked]:border-transparent data-[checked]:bg-emerald-500 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+        >
+          <Switch.Thumb className="block h-[14px] w-[14px] translate-x-[1px] rounded-full bg-white shadow-sm transition-transform data-[checked]:translate-x-[15px]" />
+        </Switch.Root>
+      </div>
+    </label>
   )
 }
 

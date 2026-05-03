@@ -119,7 +119,7 @@ export function SkillsPane({
       <header className="mb-4 mt-2">
         <h2 className="text-[15px] font-semibold">Skills</h2>
         <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
-          Install or re-check the integrations that let Claude Code drive Telescope.
+          Install or re-check the integrations that let Claude Code drive Specular.
         </p>
       </header>
 
@@ -132,18 +132,18 @@ export function SkillsPane({
       <SkillInstaller.Root rows={rows} setSelected={setSelected}>
         <SkillInstaller.Row
           id="cli"
-          title="Telescope CLI"
-          description="Adds the telescope command so agents can interact with the app."
+          title="Specular CLI"
+          description="Adds the specular command so agents can interact with the app."
         />
         <SkillInstaller.Row
           id="skill"
-          title="Telescope Skill"
-          description="Teaches agents how to use the Telescope CLI."
+          title="Specular Skill"
+          description="Teaches agents how to use the Specular CLI."
         />
         <SkillInstaller.Row
           id="agentBrowser"
           title="agent-browser"
-          description="Telescope uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev."
+          description="Specular uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev."
         />
       </SkillInstaller.Root>
 

@@ -659,6 +659,10 @@ export interface SettingsElectronAPI {
   installSkills: (
     selections: Record<OnboardingComponentId, boolean>,
   ) => Promise<OnboardingStatusSnapshot>
+  setComponentInstalled: (
+    component: OnboardingComponentId,
+    installed: boolean,
+  ) => Promise<OnboardingStatusSnapshot>
   setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
   removeOriginBinding: (origin: string) => void
   close: () => void

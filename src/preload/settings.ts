@@ -9,6 +9,8 @@ const api: SettingsElectronAPI = {
   getInitialData: () => ipcRenderer.invoke('settings:get-initial-data'),
   refreshStatus: () => ipcRenderer.invoke('settings:refresh-status'),
   installSkills: (selections) => ipcRenderer.invoke('settings:install-skills', selections),
+  setComponentInstalled: (component, installed) =>
+    ipcRenderer.invoke('settings:set-component-installed', { component, installed }),
   setFixConfig: (config) => ipcRenderer.send('settings:set-fix-config', config),
   removeOriginBinding: (origin) => ipcRenderer.send('settings:remove-origin-binding', origin),
   close: () => ipcRenderer.send('settings:close'),

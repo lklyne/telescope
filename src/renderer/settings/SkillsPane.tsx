@@ -161,11 +161,12 @@ export function SkillsPane({
             ? 'agent-browser cannot be removed from inside Specular.'
             : undefined
 
+          const rowClass = `flex items-start gap-3 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] px-4 py-3 select-none ${
+            disabled ? 'cursor-not-allowed' : 'cursor-pointer'
+          }`
+
           return (
-            <div
-              key={row.id}
-              className="flex items-start gap-3 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] px-4 py-3"
-            >
+            <label key={row.id} className={rowClass} title={title}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-medium">{row.title}</span>
@@ -181,7 +182,7 @@ export function SkillsPane({
                 </p>
                 {detail ? <p className={detailClass}>{detail}</p> : null}
               </div>
-              <div className="pt-[2px]" title={title}>
+              <div className="pt-[2px]">
                 <Switch.Root
                   disabled={disabled}
                   checked={installed}
@@ -191,7 +192,7 @@ export function SkillsPane({
                   <Switch.Thumb className="block h-[14px] w-[14px] translate-x-[1px] rounded-full bg-white shadow-sm transition-transform data-[checked]:translate-x-[15px]" />
                 </Switch.Root>
               </div>
-            </div>
+            </label>
           )
         })}
       </div>

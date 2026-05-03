@@ -9,9 +9,10 @@ function freehandPathD(points: { x: number; y: number }[], size: number): string
     points.map((p) => [p.x, p.y]),
     {
       size: size * 1.6,
-      thinning: 0.5,
+      thinning: 0,
       smoothing: 0.8,
       streamline: 0.75,
+      simulatePressure: false,
       last: true,
     },
   )

@@ -1,44 +1,12 @@
-import { useCallback, useEffect, useReducer, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Switch } from '@base-ui/react/switch'
 import { Loader2 } from 'lucide-react'
 import type {
   OnboardingComponentId,
   OnboardingComponentStatus,
-  OnboardingProgressEvent,
   OnboardingStatusSnapshot,
   SettingsElectronAPI,
 } from '../../shared/types'
-
-type RowProgress = 'idle' | 'installing' | 'success' | 'error'
-
-type RowState = { progress: RowProgress; detail?: string }
-
-type ProgressMap = Record<OnboardingComponentId, RowState>
-
-const INITIAL_PROGRESS: ProgressMap = {
-  cli: { progress: 'idle' },
-  skill: { progress: 'idle' },
-  agentBrowser: { progress: 'idle' },
-}
-
-type ProgressAction =
-  | { kind: 'reset'; id: OnboardingComponentId }
-  | { kind: 'start'; id: OnboardingComponentId }
-  | { kind: 'success'; id: OnboardingComponentId; detail?: string }
-  | { kind: 'error'; id: OnboardingComponentId; detail: string }
-
-function progressReducer(state: ProgressMap, action: ProgressAction): ProgressMap {
-  switch (action.kind) {
-    case 'reset':
-      return { ...state, [action.id]: { progress: 'idle' } }
-    case 'start':
-      return { ...state, [action.id]: { progress: 'installing' } }
-    case 'success':
-      return { ...state, [action.id]: { progress: 'success', detail: action.detail } }
-    case 'error':
-      return { ...state, [action.id]: { progress: 'error', detail: action.detail } }
-  }
-}
 
 type RowConfig = {
   id: OnboardingComponentId
@@ -65,10 +33,6 @@ const ROWS: RowConfig[] = [
   },
 ]
 
-function isInstalled(status: OnboardingComponentStatus): boolean {
-  return status.kind === 'installed'
-}
-
 function statusDetail(status: OnboardingComponentStatus): string | undefined {
   if (status.kind === 'installed') return status.detail
   if (status.kind === 'outdated') return status.detail ?? 'update available'
@@ -85,44 +49,39 @@ export function SkillsPane({
   status: OnboardingStatusSnapshot
   onStatusChange: (next: OnboardingStatusSnapshot) => void
 }) {
-  const [progress, dispatchProgress] = useReducer(progressReducer, INITIAL_PROGRESS)
   const [pending, setPending] = useState<Record<OnboardingComponentId, boolean>>({
     cli: false,
     skill: false,
     agentBrowser: false,
   })
-
-  useEffect(() => {
-    return api.onSkillProgress((event: OnboardingProgressEvent) => {
-      if ('kind' in event && event.kind === 'done') {
-        onStatusChange(event.status)
-        return
-      }
-      if ('component' in event) {
-        if (event.state === 'installing') {
-          dispatchProgress({ kind: 'start', id: event.component })
-        } else if (event.state === 'success') {
-          dispatchProgress({ kind: 'success', id: event.component, detail: event.detail })
-        } else {
-          dispatchProgress({ kind: 'error', id: event.component, detail: event.detail })
-        }
-      }
-    })
-  }, [api, onStatusChange])
+  const [errors, setErrors] = useState<Partial<Record<OnboardingComponentId, string>>>({})
 
   const handleToggle = useCallback(
     async (id: OnboardingComponentId, next: boolean) => {
-      if (pending[id]) return
       setPending((prev) => ({ ...prev, [id]: true }))
-      dispatchProgress({ kind: 'start', id })
+      setErrors((prev) => ({ ...prev, [id]: undefined }))
       try {
         const snapshot = await api.setComponentInstalled(id, next)
         onStatusChange(snapshot)
+        const after = snapshot[id]
+        const wantInstalled = next
+        const isInstalled = after.kind === 'installed'
+        if (wantInstalled !== isInstalled) {
+          setErrors((prev) => ({
+            ...prev,
+            [id]:
+              after.kind === 'blocked'
+                ? after.detail
+                : wantInstalled
+                  ? 'Install failed.'
+                  : 'Uninstall failed.',
+          }))
+        }
       } finally {
         setPending((prev) => ({ ...prev, [id]: false }))
       }
     },
-    [api, onStatusChange, pending],
+    [api, onStatusChange],
   )
 
   return (
@@ -143,30 +102,25 @@ export function SkillsPane({
       <div className="flex flex-col gap-2">
         {ROWS.map((row) => {
           const componentStatus = status[row.id]
-          const installed = isInstalled(componentStatus)
-          const rowProgress = progress[row.id]
-          const isPending = pending[row.id] || rowProgress.progress === 'installing'
+          const installed = componentStatus.kind === 'installed'
+          const isPending = pending[row.id]
           const cannotUninstall = row.id === 'agentBrowser' && installed
           const disabled = isPending || cannotUninstall
-          const detail = rowProgress.progress === 'error'
-            ? rowProgress.detail
-            : rowProgress.progress === 'success'
-              ? rowProgress.detail
-              : statusDetail(componentStatus)
-          const detailClass =
-            rowProgress.progress === 'error' || componentStatus.kind === 'blocked'
-              ? 'mt-1 text-[11px] text-red-600 dark:text-red-400'
-              : 'mt-1 text-[11px] text-[var(--surface-toolbar-foreground)] opacity-60'
+          const error = errors[row.id]
+          const detail = error ?? statusDetail(componentStatus)
+          const detailIsError = !!error || componentStatus.kind === 'blocked'
           const title = cannotUninstall
             ? 'agent-browser cannot be removed from inside Specular.'
             : undefined
 
-          const rowClass = `flex items-start gap-3 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] px-4 py-3 select-none ${
-            disabled ? 'cursor-not-allowed' : 'cursor-pointer'
-          }`
-
           return (
-            <label key={row.id} className={rowClass} title={title}>
+            <label
+              key={row.id}
+              title={title}
+              className={`flex items-start gap-3 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] px-4 py-3 select-none ${
+                disabled ? 'cursor-not-allowed' : 'cursor-pointer'
+              }`}
+            >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-medium">{row.title}</span>
@@ -180,7 +134,17 @@ export function SkillsPane({
                 <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
                   {row.description}
                 </p>
-                {detail ? <p className={detailClass}>{detail}</p> : null}
+                {detail ? (
+                  <p
+                    className={
+                      detailIsError
+                        ? 'mt-1 text-[11px] text-red-600 dark:text-red-400'
+                        : 'mt-1 text-[11px] text-[var(--surface-toolbar-foreground)] opacity-60'
+                    }
+                  >
+                    {detail}
+                  </p>
+                ) : null}
               </div>
               <div className="pt-[2px]">
                 <Switch.Root

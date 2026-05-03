@@ -19,7 +19,7 @@ export function Sidebar({
   return (
     <nav className="flex w-[180px] shrink-0 flex-col border-r border-[var(--surface-popover-border)] bg-[var(--surface-panel)]">
       <div className="titlebar-drag h-[34px] w-full shrink-0" />
-      <ul className="flex flex-col gap-[2px] px-2 pb-3">
+      <ul className="flex flex-col gap-[2px] px-2 pb-3 pt-2">
         {ITEMS.map((item) => {
           const Icon = item.icon
           const isActive = active === item.id

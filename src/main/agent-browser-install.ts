@@ -147,3 +147,16 @@ export async function installAgentBrowser(): Promise<AgentBrowserInstallResult> 
     message: `agent-browser ${status.binary.version} ready; skill installed.`,
   }
 }
+
+export interface AgentBrowserUninstallResult {
+  success: boolean
+  message: string
+}
+
+export async function uninstallAgentBrowser(): Promise<AgentBrowserUninstallResult> {
+  return {
+    success: false,
+    message:
+      'agent-browser cannot be removed from inside Specular. Uninstall it from the system if it was installed globally; otherwise the bundled binary ships with the app.',
+  }
+}

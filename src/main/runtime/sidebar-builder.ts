@@ -8,6 +8,7 @@ import type {
   SidebarDrawingItem,
   SidebarFileItem,
   SidebarFrameItem,
+  SidebarShapeItem,
   SidebarTextItem,
   WorkspaceBounds,
   WorkspaceGroup,
@@ -28,11 +29,17 @@ import {
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntitiesForUi } from './drawing-entity-state'
+import { shapeEntities } from './shape-entity-state'
 import { frameDisplayLabel } from './runtime-serialization'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
 
-type SidebarLeafItem = SidebarFrameItem | SidebarTextItem | SidebarFileItem | SidebarDrawingItem
+type SidebarLeafItem =
+  | SidebarFrameItem
+  | SidebarTextItem
+  | SidebarFileItem
+  | SidebarDrawingItem
+  | SidebarShapeItem
 type SidebarNodeBuild = {
   group: WorkspaceGroup
   bounds: WorkspaceBounds
@@ -110,6 +117,20 @@ function buildSidebarLeafItem(entityId: string): (SidebarLeafItem & { sortKey: S
     }
   }
 
+  const se = shapeEntities.find((entity) => entity.id === entityId)
+  if (se) {
+    const trimmed = se.text.trim()
+    const defaultLabel =
+      se.shapeKind === 'ellipse' ? 'Ellipse' : se.shapeKind === 'diamond' ? 'Diamond' : 'Rectangle'
+    return {
+      kind: 'shape',
+      id: entityId,
+      label: se.label || trimmed || defaultLabel,
+      shapeKind: se.shapeKind,
+      sortKey: { y: se.canvasY, x: se.canvasX, priority: 0 },
+    }
+  }
+
   return null
 }
 
@@ -118,7 +139,8 @@ function countSidebarLeafDescendants(groupId: string): number {
     pages.filter((page) => page.parentGroupId === groupId).length +
     textEntities.filter((entity) => entity.parentGroupId === groupId).length +
     fileEntities.filter((entity) => entity.parentGroupId === groupId).length +
-    drawingEntitiesForUi().filter((entity) => entity.parentGroupId === groupId).length
+    drawingEntitiesForUi().filter((entity) => entity.parentGroupId === groupId).length +
+    shapeEntities.filter((entity) => entity.parentGroupId === groupId).length
 
   const nestedLeafCount = workspaceGroups
     .filter((group) => group.parentGroupId === groupId)
@@ -164,6 +186,7 @@ export function buildSidebarItems(): SidebarCanvasItem[] {
       ...textEntities.filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
       ...fileEntities.filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
       ...drawingEntitiesForUi().filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
+      ...shapeEntities.filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
     ]
       .map(buildSidebarLeafItem)
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
@@ -183,6 +206,7 @@ export function buildSidebarItems(): SidebarCanvasItem[] {
     ...textEntities.filter((entity) => entity.parentGroupId).map((entity) => entity.id),
     ...fileEntities.filter((entity) => entity.parentGroupId).map((entity) => entity.id),
     ...drawingEntitiesForUi().filter((entity) => entity.parentGroupId).map((entity) => entity.id),
+    ...shapeEntities.filter((entity) => entity.parentGroupId).map((entity) => entity.id),
   ])
   const rootLeafItems = [
     ...pages
@@ -195,6 +219,9 @@ export function buildSidebarItems(): SidebarCanvasItem[] {
       .filter((entity) => !groupedEntityIds.has(entity.id))
       .map((entity) => buildSidebarLeafItem(entity.id)),
     ...drawingEntitiesForUi()
+      .filter((entity) => !groupedEntityIds.has(entity.id))
+      .map((entity) => buildSidebarLeafItem(entity.id)),
+    ...shapeEntities
       .filter((entity) => !groupedEntityIds.has(entity.id))
       .map((entity) => buildSidebarLeafItem(entity.id)),
   ].filter((item): item is NonNullable<typeof item> => Boolean(item))

@@ -510,6 +510,13 @@ export interface SidebarDrawingItem {
   strokeCount: number
 }
 
+export interface SidebarShapeItem {
+  kind: 'shape'
+  id: string
+  label: string
+  shapeKind: ShapeKind
+}
+
 export interface SidebarGroupItem {
   kind: 'group'
   id: string
@@ -523,6 +530,7 @@ export type SidebarCanvasItem =
   | SidebarTextItem
   | SidebarFileItem
   | SidebarDrawingItem
+  | SidebarShapeItem
   | SidebarGroupItem
 
 export interface LeftSidebarData {
@@ -1181,6 +1189,11 @@ export interface ClipboardEntityPayload {
   file?: string
   subpath?: string
   objectFit?: FileObjectFit
+  // Shape entity-specific
+  shapeKind?: ShapeKind
+  strokeWidth?: number
+  theme?: string
+  label?: string
 }
 
 export interface ClipboardEntitySelectionPayload {

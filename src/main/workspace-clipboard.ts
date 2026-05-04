@@ -15,8 +15,10 @@ import {
 } from './runtime/ui-actions'
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
+import { shapeEntities } from './runtime/shape-entity-state'
 import { createTextEntity as createTextEntityInState } from './runtime/text-entity-state'
 import { createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
+import { createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
 import { layoutAllViews, snapToGrid } from './runtime/surface-layout'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
 import { cloneMetadata } from './workspace-utils'
@@ -71,6 +73,11 @@ export function copyableSelectionPayload():
     const file = fileEntities.find((f) => f.id === id)
     if (file) {
       allPositions.push({ canvasX: file.canvasX, canvasY: file.canvasY })
+      continue
+    }
+    const shape = shapeEntities.find((s) => s.id === id)
+    if (shape) {
+      allPositions.push({ canvasX: shape.canvasX, canvasY: shape.canvasY })
     }
   }
 
@@ -118,6 +125,23 @@ export function copyableSelectionPayload():
         presetIndex: file.presetIndex,
         metadata: file.metadata,
         objectFit: file.objectFit,
+      })
+      continue
+    }
+    const shape = shapeEntities.find((s) => s.id === id)
+    if (shape) {
+      entities.push({
+        kind: 'shape',
+        shapeKind: shape.shapeKind,
+        text: shape.text,
+        color: shape.color,
+        strokeWidth: shape.strokeWidth,
+        theme: shape.theme,
+        label: shape.label,
+        width: shape.width,
+        height: shape.height,
+        dx: shape.canvasX - minX,
+        dy: shape.canvasY - minY,
       })
     }
   }
@@ -224,6 +248,20 @@ export function pasteEntitiesFromClipboard(input: {
         objectFit: entity.objectFit,
       })
       entityIds.push(file.id)
+    } else if (entity.kind === 'shape') {
+      const shape = createShapeEntityInState({
+        canvasX: snapToGrid(input.canvasX + entity.dx),
+        canvasY: snapToGrid(input.canvasY + entity.dy),
+        shapeKind: entity.shapeKind,
+        text: entity.text,
+        color: entity.color,
+        strokeWidth: entity.strokeWidth,
+        theme: entity.theme,
+        label: entity.label,
+        width: entity.width,
+        height: entity.height,
+      })
+      entityIds.push(shape.id)
     }
   }
 

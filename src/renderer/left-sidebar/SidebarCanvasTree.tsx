@@ -2,7 +2,18 @@ import { useState } from 'react'
 import { Collapsible } from '@base-ui/react/collapsible'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
-import { ChevronDown, ChevronRight, Folder, FolderOpen, Image, PenLine, StickyNote } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  Diamond,
+  Folder,
+  FolderOpen,
+  Image,
+  PenLine,
+  Square,
+  StickyNote,
+} from 'lucide-react'
 import type { LeftSidebarElectronAPI, SidebarCanvasItem, SidebarFileItem, SidebarFrameItem, SidebarGroupItem, SidebarTextItem } from '../../shared/types'
 import { FrameListItem } from '../shared/frameListItem'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
@@ -343,6 +354,25 @@ function SidebarCanvasTreeItem({
           onRename={(name) => api.renameDrawingEntity(item.id, name)}
           onDelete={() => api.deleteEntity(item.id, 'drawing')}
           deleteLabel="Delete Drawing"
+        />
+      </div>
+    )
+  }
+
+  if (item.kind === 'shape') {
+    const ShapeIcon =
+      item.shapeKind === 'ellipse' ? Circle : item.shapeKind === 'diamond' ? Diamond : Square
+    return (
+      <div>
+        <EntityListItem
+          icon={<ShapeIcon size={14} className="shrink-0 text-zinc-500" />}
+          label={item.label}
+          active={isSelected}
+          isDark={isDark}
+          depth={depth}
+          onClick={() => api.revealEntity(item.id, 'shape')}
+          onDelete={() => api.deleteEntity(item.id, 'shape')}
+          deleteLabel="Delete Shape"
         />
       </div>
     )

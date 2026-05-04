@@ -23,3 +23,14 @@ export const COLOR_PRESETS: Record<string, string> = {
 export function resolveCanvasColor(color: string): string {
   return COLOR_PRESETS[color] ?? color
 }
+
+/** Apply an alpha to a #RRGGBB hex color; passes other forms through. */
+export function withAlpha(color: string, alpha: number): string {
+  if (color.startsWith('#') && color.length === 7) {
+    const r = parseInt(color.slice(1, 3), 16)
+    const g = parseInt(color.slice(3, 5), 16)
+    const b = parseInt(color.slice(5, 7), 16)
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  }
+  return color
+}

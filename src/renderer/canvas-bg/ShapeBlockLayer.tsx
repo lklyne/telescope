@@ -1,11 +1,12 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import type { CanvasSceneShapeEntity, SelectionModifiers } from '../../shared/types'
-import { resolveCanvasColor } from '../../shared/canvas-colors'
+import { resolveCanvasColor, withAlpha } from '../../shared/canvas-colors'
 import { SelectableEntityShell } from './SelectableEntityShell'
 import type { EntityResizePatch } from './entityConstants'
 import { MIN_SHAPE_WIDTH, MIN_SHAPE_HEIGHT } from './entityConstants'
 
 const DEFAULT_STROKE_WIDTH = 2
+const FILL_OPACITY = 0.2
 
 function neutralStroke(isDark: boolean): string {
   return isDark ? 'hsl(0 0% 50%)' : 'hsl(0 0% 60%)'
@@ -71,8 +72,9 @@ function ShapeBody({
   }, [canEdit, editing, onTextEditingChange])
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
-  const fill = shape.color ? resolveCanvasColor(shape.color) : 'transparent'
-  const strokeColor = shape.color ? resolveCanvasColor(shape.color) : neutralStroke(isDark)
+  const resolvedColor = shape.color ? resolveCanvasColor(shape.color) : null
+  const fill = resolvedColor ? withAlpha(resolvedColor, FILL_OPACITY) : 'transparent'
+  const strokeColor = resolvedColor ?? neutralStroke(isDark)
   const textColor = isDark && !shape.color ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
 
   const baseStyle: React.CSSProperties = {

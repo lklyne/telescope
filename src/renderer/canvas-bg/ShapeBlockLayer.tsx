@@ -6,7 +6,7 @@ import type { EntityResizePatch } from './entityConstants'
 import { MIN_SHAPE_WIDTH, MIN_SHAPE_HEIGHT } from './entityConstants'
 
 const DEFAULT_STROKE_WIDTH = 2
-const FILL_OPACITY = 0.5
+const FILL_OPACITY = 0.24
 const FILL_LIGHTEN = 0.5
 const NEUTRAL_SLATE = '#6b7280'
 
@@ -73,7 +73,7 @@ function ShapeBody({
   const resolvedColor = shape.color ? resolveCanvasColor(shape.color) : NEUTRAL_SLATE
   const fill = withAlpha(lightenHex(resolvedColor, FILL_LIGHTEN), FILL_OPACITY)
   const strokeColor = resolvedColor
-  const textColor = isDark && !shape.color ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
+  const textColor = isDark ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
 
   const baseStyle: React.CSSProperties = {
     width: '100%',
@@ -97,8 +97,10 @@ function ShapeBody({
 
   const innerTextStyle: React.CSSProperties = {
     width: '100%',
-    height: '100%',
+    height: 'auto',
+    maxHeight: '100%',
     fontSize: 13,
+    lineHeight: 1.4,
     color: textColor,
     fontFamily: 'system-ui, sans-serif',
     textAlign: 'center',
@@ -108,7 +110,9 @@ function ShapeBody({
     border: 'none',
     outline: 'none',
     resize: 'none',
+    margin: 0,
     padding: 0,
+    boxSizing: 'border-box',
     pointerEvents: editing ? 'auto' : 'none',
   }
 
@@ -144,20 +148,12 @@ function ShapeBody({
             setEditing(false)
             onCommitText(localText)
           }}
-          style={{
-            ...innerTextStyle,
-            height: 'auto',
-            maxHeight: '100%',
-            textAlign: 'center',
-          }}
+          style={innerTextStyle}
         />
       ) : (
         <div
           style={{
             ...innerTextStyle,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             whiteSpace: 'pre-wrap',
             userSelect: 'none',
           }}
@@ -245,20 +241,12 @@ function ShapeBody({
               setEditing(false)
               onCommitText(localText)
             }}
-            style={{
-              ...innerTextStyle,
-              height: 'auto',
-              maxHeight: '100%',
-              textAlign: 'center',
-            }}
+            style={innerTextStyle}
           />
         ) : (
           <div
             style={{
               ...innerTextStyle,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
               whiteSpace: 'pre-wrap',
               userSelect: 'none',
             }}

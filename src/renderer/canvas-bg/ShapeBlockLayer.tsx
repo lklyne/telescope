@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CanvasSceneShapeEntity, SelectionModifiers } from '../../shared/types'
 import { lightenHex, resolveCanvasColor, withAlpha } from '../../shared/canvas-colors'
 import { SelectableEntityShell } from './SelectableEntityShell'
@@ -10,23 +10,103 @@ const FILL_OPACITY = 0.24
 const FILL_LIGHTEN = 0.5
 const NEUTRAL_SLATE = '#6b7280'
 
+function ShapeText({
+  text,
+  editing,
+  textColor,
+  onChange,
+  onStartEditing,
+  onStopEditing,
+  onCommit,
+  containerStyle,
+}: {
+  text: string
+  editing: boolean
+  textColor: string
+  onChange: (value: string) => void
+  onStartEditing: () => void
+  onStopEditing: () => void
+  onCommit: (value: string) => void
+  containerStyle: React.CSSProperties
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Keep DOM textContent in sync with prop while not editing. Avoids overwriting
+  // the user's in-flight typing. useLayoutEffect runs before paint so the
+  // initial mount never shows an empty frame.
+  useLayoutEffect(() => {
+    if (!editing && ref.current && ref.current.textContent !== text) {
+      ref.current.textContent = text
+    }
+  }, [text, editing])
+
+  // On entering edit mode, focus and select all.
+  useEffect(() => {
+    const node = ref.current
+    if (!editing || !node) return
+    node.focus()
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    const sel = window.getSelection()
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+  }, [editing])
+
+  return (
+    <div style={containerStyle}>
+      <div
+        ref={ref}
+        contentEditable={editing}
+        suppressContentEditableWarning
+        onInput={(e) => onChange((e.target as HTMLDivElement).textContent ?? '')}
+        onMouseDown={(e) => { if (editing) e.stopPropagation() }}
+        onPointerDown={(e) => { if (editing) e.stopPropagation() }}
+        onFocus={onStartEditing}
+        onBlur={(e) => {
+          onStopEditing()
+          onCommit((e.target as HTMLDivElement).textContent ?? '')
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            ;(e.target as HTMLDivElement).blur()
+          }
+        }}
+        style={{
+          width: '100%',
+          maxHeight: '100%',
+          fontSize: 13,
+          lineHeight: 1.4,
+          color: textColor,
+          fontFamily: 'system-ui, sans-serif',
+          textAlign: 'center',
+          overflow: 'hidden',
+          wordBreak: 'break-word',
+          whiteSpace: 'pre-wrap',
+          outline: 'none',
+          userSelect: editing ? 'text' : 'none',
+          pointerEvents: editing ? 'auto' : 'none',
+          cursor: editing ? 'text' : 'inherit',
+        }}
+      />
+    </div>
+  )
+}
+
 function ShapeBody({
   shape,
   isDark,
   pendingFocus,
   onCommitText,
   onTextEditingChange,
-  onRequestEdit,
   onPendingFocusConsumed,
   canEdit,
-  selected,
 }: {
   shape: CanvasSceneShapeEntity
   isDark: boolean
   pendingFocus: boolean
   onCommitText: (text: string) => void
   onTextEditingChange: (active: boolean) => void
-  onRequestEdit: () => void
   onPendingFocusConsumed: () => void
   canEdit: boolean
   selected: boolean
@@ -34,7 +114,6 @@ function ShapeBody({
   const [editing, setEditing] = useState(false)
   const [localText, setLocalText] = useState(shape.text)
   const isFocusedRef = useRef(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (!isFocusedRef.current) setLocalText(shape.text)
@@ -46,20 +125,6 @@ function ShapeBody({
       onPendingFocusConsumed()
     }
   }, [canEdit, onPendingFocusConsumed, pendingFocus])
-
-  useEffect(() => {
-    if (editing && textareaRef.current) {
-      textareaRef.current.focus()
-      textareaRef.current.select()
-    }
-  }, [editing])
-
-  useEffect(() => {
-    const node = textareaRef.current
-    if (!editing || !node) return
-    node.style.height = 'auto'
-    node.style.height = `${node.scrollHeight}px`
-  }, [editing, localText, shape.width, shape.height])
 
   useEffect(() => {
     if (!canEdit && editing) {
@@ -86,89 +151,59 @@ function ShapeBody({
     pointerEvents: 'none',
   }
 
-  const textWrapperStyle: React.CSSProperties = {
-    position: 'absolute',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-  }
+  const textContainerStyle: React.CSSProperties =
+    shape.shapeKind === 'diamond'
+      ? {
+          position: 'absolute',
+          left: '25%',
+          top: '25%',
+          width: '50%',
+          height: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 8,
+          boxSizing: 'border-box',
+          pointerEvents: editing ? 'auto' : 'none',
+        }
+      : {
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 8,
+          pointerEvents: editing ? 'auto' : 'none',
+        }
 
-  const innerTextStyle: React.CSSProperties = {
-    width: '100%',
-    height: 'auto',
-    maxHeight: '100%',
-    fontSize: 13,
-    lineHeight: 1.4,
-    color: textColor,
-    fontFamily: 'system-ui, sans-serif',
-    textAlign: 'center',
-    overflow: 'hidden',
-    wordBreak: 'break-word',
-    background: 'transparent',
-    border: 'none',
-    outline: 'none',
-    resize: 'none',
-    margin: 0,
-    padding: 0,
-    boxSizing: 'border-box',
-    pointerEvents: editing ? 'auto' : 'none',
-  }
-
-  const handleStartEdit = (event: React.MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    onRequestEdit()
-    if (canEdit) setEditing(true)
-  }
-
-  const renderText = () => (
-    <div style={textWrapperStyle} onDoubleClick={handleStartEdit}>
-      {editing ? (
-        <textarea
-          ref={textareaRef}
-          value={localText}
-          onChange={(e) => setLocalText(e.target.value)}
-          onMouseDown={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          onFocus={() => {
-            isFocusedRef.current = true
-            onTextEditingChange(true)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault()
-              ;(e.target as HTMLTextAreaElement).blur()
-            }
-          }}
-          onBlur={() => {
-            isFocusedRef.current = false
-            onTextEditingChange(false)
-            setEditing(false)
-            onCommitText(localText)
-          }}
-          style={innerTextStyle}
-        />
-      ) : (
-        <div
-          style={{
-            ...innerTextStyle,
-            whiteSpace: 'pre-wrap',
-            userSelect: 'none',
-          }}
-        >
-          {localText}
-        </div>
-      )}
-    </div>
+  const text = (
+    <ShapeText
+      text={localText}
+      editing={editing}
+      textColor={textColor}
+      containerStyle={textContainerStyle}
+      onChange={setLocalText}
+      onStartEditing={() => {
+        isFocusedRef.current = true
+        onTextEditingChange(true)
+      }}
+      onStopEditing={() => {
+        isFocusedRef.current = false
+        onTextEditingChange(false)
+        setEditing(false)
+      }}
+      onCommit={(value) => {
+        setLocalText(value)
+        onCommitText(value)
+      }}
+    />
   )
 
   if (shape.shapeKind === 'rectangle') {
     return (
       <>
         <div style={baseStyle} />
-        {renderText()}
+        {text}
       </>
     )
   }
@@ -177,7 +212,7 @@ function ShapeBody({
     return (
       <>
         <div style={{ ...baseStyle, borderRadius: '50%' }} />
-        {renderText()}
+        {text}
       </>
     )
   }
@@ -203,58 +238,7 @@ function ShapeBody({
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <div
-        style={{
-          position: 'absolute',
-          left: '25%',
-          top: '25%',
-          width: '50%',
-          height: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 8,
-          boxSizing: 'border-box',
-        }}
-        onDoubleClick={handleStartEdit}
-      >
-        {editing ? (
-          <textarea
-            ref={textareaRef}
-            value={localText}
-            onChange={(e) => setLocalText(e.target.value)}
-            onMouseDown={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            onFocus={() => {
-              isFocusedRef.current = true
-              onTextEditingChange(true)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.preventDefault()
-                ;(e.target as HTMLTextAreaElement).blur()
-              }
-            }}
-            onBlur={() => {
-              isFocusedRef.current = false
-              onTextEditingChange(false)
-              setEditing(false)
-              onCommitText(localText)
-            }}
-            style={innerTextStyle}
-          />
-        ) : (
-          <div
-            style={{
-              ...innerTextStyle,
-              whiteSpace: 'pre-wrap',
-              userSelect: 'none',
-            }}
-          >
-            {localText}
-          </div>
-        )}
-      </div>
+      {text}
     </>
   )
 }
@@ -349,7 +333,7 @@ function ShapeCard({
       onGroupDragEnd={onGroupDragEnd}
       shouldStartDrag={(event) => {
         const target = event.target as HTMLElement | null
-        if (target?.closest('textarea')) return false
+        if (target?.closest('[contenteditable="true"]')) return false
         return true
       }}
       overflowVisible
@@ -362,7 +346,6 @@ function ShapeCard({
         pendingFocus={pendingFocus}
         onCommitText={(text) => onUpdateText(shape.id, text)}
         onTextEditingChange={onTextEditingChange}
-        onRequestEdit={() => onRequestEdit(shape.id)}
         onPendingFocusConsumed={onPendingFocusConsumed}
       />
     </SelectableEntityShell>

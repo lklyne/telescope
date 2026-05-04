@@ -97,11 +97,6 @@ function FrameChromeItem({
     setPendingUrl(null)
   }, [frame.url])
 
-  // Reset editing when becoming inactive
-  useEffect(() => {
-    if (!isActive && isEditing) setIsEditing(false)
-  }, [isActive, isEditing])
-
   const editValue = isBlank ? '' : frame.url
   const displayValue = isBlank
     ? 'Type a URL'

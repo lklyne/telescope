@@ -27,6 +27,7 @@ import {
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
+import { shapeEntities } from './runtime/shape-entity-state'
 import {
   pageOuterCanvasBounds,
   pageContentSize,
@@ -96,6 +97,10 @@ function entityBoundsByIdWithVisited(
   if (te) return { x: te.canvasX, y: te.canvasY, width: te.width, height: te.height }
   const fe = fileEntities.find((f) => f.id === entityId)
   if (fe) return { x: fe.canvasX, y: fe.canvasY, width: fe.width, height: fe.height }
+  const de = drawingEntities.find((d) => d.id === entityId)
+  if (de) return { x: de.canvasX, y: de.canvasY, width: de.width, height: de.height }
+  const se = shapeEntities.find((s) => s.id === entityId)
+  if (se) return { x: se.canvasX, y: se.canvasY, width: se.width, height: se.height }
   const group = workspaceGroups.find((candidate) => candidate.id === entityId)
   if (group) {
     return {
@@ -133,6 +138,8 @@ export function groupChildIds(groupId: string): string[] {
     ...pages.filter((page) => page.parentGroupId === groupId).map((page) => page.id),
     ...textEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
     ...fileEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
+    ...drawingEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
+    ...shapeEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
     ...workspaceGroups.filter((group) => group.parentGroupId === groupId).map((group) => group.id),
   ]
 }
@@ -305,8 +312,21 @@ export function selectEntitiesInRect(
       ),
     )
     .map((de) => de.id)
+  const shapeIds = shapeEntities
+    .filter((se) =>
+      boundsOverlap(
+        {
+          x: se.canvasX,
+          y: se.canvasY,
+          width: se.width,
+          height: se.height,
+        },
+        bounds,
+      ),
+    )
+    .map((se) => se.id)
 
-  const entityIds = [...frameIds, ...textIds, ...fileIds, ...drawingIds]
+  const entityIds = [...frameIds, ...textIds, ...fileIds, ...drawingIds, ...shapeIds]
 
   if (mode !== 'replace') {
     // Additive / toggle / remove modes: preserve existing selection outside the rect
@@ -321,7 +341,7 @@ export function selectEntitiesInRect(
     return { entityIds: [] }
   }
 
-  if (!textIds.length && !fileIds.length && !drawingIds.length) {
+  if (!textIds.length && !fileIds.length && !drawingIds.length && !shapeIds.length) {
     if (frameIds.length === 1) {
       selectPageById(frameIds[0])
     } else {

@@ -6,6 +6,7 @@ import {
 import type {
   PersistedDrawingEntity,
   PersistedFileEntity,
+  PersistedShapeEntity,
   WorkspaceSnapshot,
 } from '../../src/shared/types'
 
@@ -93,6 +94,59 @@ describe('json-canvas-serializer drawings', () => {
 
     const { snapshot: restored } = deserializeFromJsonCanvas(doc)
     expect(restored.entities?.['f1']).toEqual(file)
+  })
+
+  it('round-trips shape entities with all optional fields', () => {
+    const shape: PersistedShapeEntity = {
+      kind: 'shape',
+      id: 'sh1',
+      shapeKind: 'diamond',
+      text: 'Approve?',
+      color: '2',
+      strokeWidth: 3,
+      canvasX: 10,
+      canvasY: 20,
+      width: 200,
+      height: 120,
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['sh1'] = shape
+    snapshot.entityOrder = ['sh1']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes).toHaveLength(1)
+    expect(doc.nodes[0]).toMatchObject({
+      type: 'shape',
+      id: 'sh1',
+      shapeKind: 'diamond',
+      text: 'Approve?',
+      color: '2',
+      strokeWidth: 3,
+    })
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['sh1']).toEqual(shape)
+    expect(restored.entityOrder).toEqual(['sh1'])
+  })
+
+  it('round-trips a minimal shape entity (no color, no stroke)', () => {
+    const shape: PersistedShapeEntity = {
+      kind: 'shape',
+      id: 'sh2',
+      shapeKind: 'rectangle',
+      text: '',
+      canvasX: 0,
+      canvasY: 0,
+      width: 200,
+      height: 120,
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['sh2'] = shape
+    snapshot.entityOrder = ['sh2']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['sh2']).toEqual(shape)
   })
 
   it('preserves drawing z-order among other entities', () => {

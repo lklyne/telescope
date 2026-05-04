@@ -19,6 +19,7 @@ import type {
   PanelGroupEntityDetail,
   PanelMode,
   PanelMultiEntitySummary,
+  PanelShapeEntityDetail,
   PanelTextEntityDetail,
   SourceLocation,
 } from '../../shared/types'
@@ -60,6 +61,7 @@ import {
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
+import { shapeEntities } from './shape-entity-state'
 import { getRendererTagFor } from '../plugins/registry'
 import {
   annotationMode as uiAnnotationMode,
@@ -325,6 +327,20 @@ function buildDrawingEntityDetail(entityId: string): PanelDrawingEntityDetail | 
   }
 }
 
+function buildShapeEntityDetail(entityId: string): PanelShapeEntityDetail | undefined {
+  const entity = shapeEntities.find((e) => e.id === entityId)
+  if (!entity) return undefined
+  return {
+    id: entity.id,
+    shapeKind: entity.shapeKind,
+    text: entity.text,
+    color: entity.color,
+    strokeWidth: entity.strokeWidth,
+    width: entity.width,
+    height: entity.height,
+  }
+}
+
 function buildEdgeEntityDetail(entityId: string): PanelEdgeEntityDetail | undefined {
   const edge = workspaceEdges.find((e) => e.id === entityId)
   if (!edge) return undefined
@@ -366,6 +382,8 @@ function resolveEntityLabel(entityId: string): string {
   if (file) return file.file.split('/').pop() ?? 'File'
   const drawing = drawingEntities.find((e) => e.id === entityId)
   if (drawing) return `Drawing (${drawing.strokes.length} stroke${drawing.strokes.length === 1 ? '' : 's'})`
+  const shape = shapeEntities.find((e) => e.id === entityId)
+  if (shape) return shape.text.slice(0, 30) || shape.shapeKind
   const group = workspaceGroups.find((g) => g.id === entityId)
   if (group) return group.label || 'Group'
   return entityId.slice(0, 8)
@@ -381,11 +399,12 @@ function buildMultiEntitySummaries(entityIds: string[]): PanelMultiEntitySummary
   }))
 }
 
-function buildEntityDetails(mode: PanelMode): Partial<Pick<DevtoolsPanelData, 'textEntity' | 'fileEntity' | 'drawingEntity' | 'edgeEntity' | 'groupEntity' | 'multiEntities'>> {
+function buildEntityDetails(mode: PanelMode): Partial<Pick<DevtoolsPanelData, 'textEntity' | 'fileEntity' | 'drawingEntity' | 'shapeEntity' | 'edgeEntity' | 'groupEntity' | 'multiEntities'>> {
   switch (mode.kind) {
     case 'text': return { textEntity: buildTextEntityDetail(mode.entityId) }
     case 'file': return { fileEntity: buildFileEntityDetail(mode.entityId) }
     case 'drawing': return { drawingEntity: buildDrawingEntityDetail(mode.entityId) }
+    case 'shape': return { shapeEntity: buildShapeEntityDetail(mode.entityId) }
     case 'edge': return { edgeEntity: buildEdgeEntityDetail(mode.entityId) }
     case 'group': return { groupEntity: buildGroupEntityDetail(mode.entityId) }
     case 'multi': return { multiEntities: buildMultiEntitySummaries(mode.entityIds) }

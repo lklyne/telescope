@@ -83,11 +83,60 @@ export function PlacementPreviewLayer({
   preview,
 }: {
   isDark: boolean
-  preview: { entityKind?: string; left: number; top: number; width: number; height: number } | null
+  preview: { entityKind?: string; shapeKind?: string; left: number; top: number; width: number; height: number } | null
 }) {
   if (!preview) return null
   const isTextEntity = preview.entityKind === 'text'
   const isFileEntity = preview.entityKind === 'file'
+  const isShape = preview.entityKind === 'shape'
+  if (isShape) {
+    const baseStyle = previewBoxStyle(isDark, preview)
+    const stroke = isDark ? 'rgba(168, 162, 158, 0.6)' : 'rgba(120, 113, 108, 0.6)'
+    const fill = 'transparent'
+    if (preview.shapeKind === 'ellipse') {
+      return (
+        <div
+          className="pointer-events-none absolute border"
+          style={{ ...baseStyle, borderRadius: '50%', borderColor: stroke, background: fill }}
+        />
+      )
+    }
+    if (preview.shapeKind === 'diamond') {
+      return (
+        <div
+          className="pointer-events-none absolute"
+          style={{ ...baseStyle, background: 'transparent' }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <div
+              style={{
+                width: `${(1 / Math.SQRT2) * 100}%`,
+                height: `${(1 / Math.SQRT2) * 100}%`,
+                transform: 'rotate(45deg)',
+                border: `1px solid ${stroke}`,
+                background: fill,
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div
+        className="pointer-events-none absolute border"
+        style={{ ...baseStyle, borderColor: stroke, background: fill }}
+      />
+    )
+  }
   return (
     <div
       className={`pointer-events-none absolute border ${isTextEntity || isFileEntity ? '' : 'rounded-[8px]'}`}

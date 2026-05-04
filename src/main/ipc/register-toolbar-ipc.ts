@@ -201,4 +201,14 @@ export function registerToolbarIpc(): void {
       entityKind: 'file',
     })
   })
+
+  ipcMain.on(
+    'toolbar-add-shape',
+    (_event, payload: { shapeKind: 'rectangle' | 'ellipse' | 'diamond' }) => {
+      startPendingPlacement({
+        entityKind: 'shape',
+        shapeKind: payload?.shapeKind ?? 'rectangle',
+      })
+    },
+  )
 }

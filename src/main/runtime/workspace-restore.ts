@@ -82,6 +82,10 @@ import {
   createDrawingEntity as createDrawingEntityInState,
 } from './drawing-entity-state'
 import {
+  clearShapeEntities,
+  createShapeEntity as createShapeEntityInState,
+} from './shape-entity-state'
+import {
   deselectAll,
   selectPage,
   setBrowserMode,
@@ -117,6 +121,7 @@ export function destroyActivePages(): void {
   clearTextEntities()
   clearFileEntities()
   clearDrawingEntities()
+  clearShapeEntities()
   while (pages.length) {
     removePageAtIndex(pages.length - 1)
   }
@@ -252,6 +257,21 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             height: (entity as any).height,
             strokes: (entity as any).strokes ?? [],
             parentGroupId: (entity as any).parentGroupId,
+          })
+        } else if (entity?.kind === 'shape') {
+          createShapeEntityInState({
+            id: entity.id,
+            canvasX: entity.canvasX,
+            canvasY: entity.canvasY,
+            width: (entity as any).width,
+            height: (entity as any).height,
+            shapeKind: (entity as any).shapeKind,
+            text: (entity as any).text,
+            color: (entity as any).color,
+            strokeWidth: (entity as any).strokeWidth,
+            theme: (entity as any).theme,
+            parentGroupId: (entity as any).parentGroupId,
+            label: (entity as any).label,
           })
         }
       }

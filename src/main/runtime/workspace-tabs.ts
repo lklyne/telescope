@@ -52,6 +52,10 @@ import {
   drawingEntities,
   persistDrawingEntity,
 } from './drawing-entity-state'
+import {
+  shapeEntities,
+  persistShapeEntity,
+} from './shape-entity-state'
 import { persistGroupEntity } from './group-entity-state'
 
 export function workspaceSnapshot(): WorkspaceSnapshot {
@@ -110,6 +114,13 @@ export function workspaceSnapshot(): WorkspaceSnapshot {
   }
   for (const de of drawingEntities) {
     const entity = persistDrawingEntity(de)
+    if (!snapshot.entities) snapshot.entities = {}
+    if (!snapshot.entityOrder) snapshot.entityOrder = []
+    snapshot.entities[entity.id] = entity
+    snapshot.entityOrder.push(entity.id)
+  }
+  for (const se of shapeEntities) {
+    const entity = persistShapeEntity(se)
     if (!snapshot.entities) snapshot.entities = {}
     if (!snapshot.entityOrder) snapshot.entityOrder = []
     snapshot.entities[entity.id] = entity

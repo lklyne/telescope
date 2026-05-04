@@ -41,6 +41,10 @@ type DragMode =
   | { kind: 'pan'; startPanX: number; startPanY: number }
   | { kind: 'region-select' }
   | { kind: 'marquee' }
+  | { kind: 'place-shape'; startCanvasX: number; startCanvasY: number }
+
+const SHAPE_DRAG_THRESHOLD_PX = 6
+const MIN_SHAPE_DRAG_SIZE = 24
 
 export function useCanvasViewportGestures({
   api,
@@ -77,9 +81,17 @@ export function useCanvasViewportGestures({
       if (ctx.pointerType === 'mouse' && ctx.button === 0) {
         if (layout.viewMode === 'browser') return null
 
-        // Pending-placement click: commit the placement and decline the
-        // gesture. Returning null cleanly releases capture.
+        // Pending-placement: shapes support drag-to-size; everything
+        // else commits with default size on click.
         if (layout.pendingPlacement) {
+          if (layout.pendingPlacement.entityKind === 'shape') {
+            const point = screenPointToCanvasPoint(ctx.clientX, ctx.clientY, layout)
+            return {
+              kind: 'place-shape',
+              startCanvasX: point.x,
+              startCanvasY: point.y,
+            }
+          }
           const point = screenPointToCanvasPoint(ctx.clientX, ctx.clientY, layout)
           api.placePendingEntity(snapToGrid(point.x), snapToGrid(point.y))
           return null
@@ -106,6 +118,18 @@ export function useCanvasViewportGestures({
       const layout = layoutRef.current
       if (mode.kind === 'pan') {
         api.canvasPanTo(mode.startPanX + ctx.dx, mode.startPanY + ctx.dy)
+        return
+      }
+      if (mode.kind === 'place-shape') {
+        const rect = normalizeRect(ctx.startClientX, ctx.startClientY, ctx.clientX, ctx.clientY)
+        if (rect.width < SHAPE_DRAG_THRESHOLD_PX && rect.height < SHAPE_DRAG_THRESHOLD_PX) {
+          api.setSelectionOverlayRect(null)
+          return
+        }
+        api.setSelectionOverlayRect({
+          rect: toOverlayRect(rect, layout),
+          variant: 'default',
+        })
         return
       }
       const rect = normalizeRect(ctx.startClientX, ctx.startClientY, ctx.clientX, ctx.clientY)
@@ -137,6 +161,28 @@ export function useCanvasViewportGestures({
       const layout = layoutRef.current
       if (mode.kind === 'pan') {
         stopDragging()
+        return
+      }
+      if (mode.kind === 'place-shape') {
+        stopDragging()
+        const startCanvas = { x: mode.startCanvasX, y: mode.startCanvasY }
+        const endCanvas = screenPointToCanvasPoint(ctx.clientX, ctx.clientY, layout)
+        const dx = endCanvas.x - startCanvas.x
+        const dy = endCanvas.y - startCanvas.y
+        const minCanvasX = Math.min(startCanvas.x, endCanvas.x)
+        const minCanvasY = Math.min(startCanvas.y, endCanvas.y)
+        const w = Math.abs(dx)
+        const h = Math.abs(dy)
+        if (w >= MIN_SHAPE_DRAG_SIZE && h >= MIN_SHAPE_DRAG_SIZE) {
+          api.placePendingShape(snapToGrid(minCanvasX), snapToGrid(minCanvasY), {
+            x: snapToGrid(minCanvasX),
+            y: snapToGrid(minCanvasY),
+            width: snapToGrid(w),
+            height: snapToGrid(h),
+          })
+        } else {
+          api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
+        }
         return
       }
       const rect = normalizeRect(ctx.startClientX, ctx.startClientY, ctx.clientX, ctx.clientY)

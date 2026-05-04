@@ -63,6 +63,10 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('right-details-panel-toggle-file-device-shell', { fileId }),
   deleteDrawingEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-drawing-entity', { id }),
+  updateShapeEntity: (id, patch) =>
+    ipcRenderer.send('canvas-update-shape', { id, patch }),
+  deleteShapeEntity: (id: string) =>
+    ipcRenderer.send('canvas-delete-shape', { id }),
   updateEdge: (id, patch) =>
     ipcRenderer.send('right-details-panel-update-edge', { id, patch }),
   deleteEdge: (id) =>

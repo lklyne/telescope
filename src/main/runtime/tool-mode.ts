@@ -89,12 +89,14 @@ export function startPendingPlacement(input: {
   presetIndex?: number
   customSize?: boolean
   sourceFrameId?: string
+  shapeKind?: import('../../shared/types').ShapeKind
 }): void {
   setUiPendingPlacement({
     entityKind: input.entityKind ?? 'frame',
     presetIndex: input.presetIndex,
     customSize: input.customSize ?? false,
     sourceFrameId: input.sourceFrameId,
+    shapeKind: input.shapeKind,
   })
   setUiCanvasMode()
   setUiInspectEnabled(false, { hasPages: pages.length > 0 })

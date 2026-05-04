@@ -27,6 +27,7 @@ export function buildPendingPlacementPreview(
   const snappedY = snapToGrid(point.y)
   return {
     entityKind: layoutData.pendingPlacement.entityKind,
+    shapeKind: layoutData.pendingPlacement.shapeKind,
     left: layoutData.canvasOrigin.x + layoutData.pan.x + snappedX * layoutData.zoom,
     top: layoutData.canvasOrigin.y + layoutData.pan.y + snappedY * layoutData.zoom,
     width: layoutData.pendingPlacement.width * layoutData.zoom,

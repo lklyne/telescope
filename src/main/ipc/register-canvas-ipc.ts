@@ -4,7 +4,7 @@ import type { CanvasEntityKind, SelectionModifiers } from '../../shared/types'
 import type { EdgeSide } from '../../shared/types'
 import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
-import { aboveView } from '../runtime/view-refs'
+import { aboveView, bgView } from '../runtime/view-refs'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { setHoverEntity, setHoveredFrame } from '../runtime/runtime-core'
 import { annotationMode as uiAnnotationMode, selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
@@ -168,8 +168,20 @@ export function registerCanvasIpc(): void {
   })
 
   const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>(
-    DRAWING_FEATURE_ENABLED ? ['frame', 'text', 'file', 'drawing', 'edge'] : ['frame', 'text', 'file', 'edge'],
+    DRAWING_FEATURE_ENABLED
+      ? ['frame', 'text', 'file', 'drawing', 'shape', 'edge']
+      : ['frame', 'text', 'file', 'shape', 'edge'],
   )
+  const INLINE_TEXT_EDIT_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>([
+    'frame',
+    'text',
+    'file',
+    'shape',
+  ])
+  const selectedInlineTextEditEntityId = () =>
+    uiSelectedCanvasTargets().find((target) =>
+      INLINE_TEXT_EDIT_ENTITY_KINDS.has(target.kind)
+    )?.id ?? null
 
   ipcMain.on(
     'canvas-select-entity',
@@ -208,12 +220,13 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on('canvas-set-text-editing', (event, { active }: { active: boolean }) => {
     setTextEditingActive(event.sender, active)
-    if (active) {
-      const selectedTextId = uiSelectedCanvasTargets().find((target) => target.kind === 'text')?.id
-      if (selectedTextId) tryEnter({ kind: 'editing-text', entityId: selectedTextId })
-    } else {
-      commitActive()
+    const isCanvasBgEditor = bgView?.webContents === event.sender
+    if (active && isCanvasBgEditor) {
+      const selectedEntityId = selectedInlineTextEditEntityId()
+      if (selectedEntityId) tryEnter({ kind: 'editing-text', entityId: selectedEntityId })
+      return
     }
+    if (!active) commitActive()
   })
 
   // --- Browser mode ---

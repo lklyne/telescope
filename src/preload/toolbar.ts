@@ -20,6 +20,7 @@ const api: ToolbarElectronAPI = {
   cancelPendingPlacement: () => ipcRenderer.send('cancel-pending-placement'),
   addTextEntity: () => ipcRenderer.send('toolbar-add-text-entity'),
   addNote: () => ipcRenderer.send('toolbar-add-note'),
+  addShape: (shapeKind) => ipcRenderer.send('toolbar-add-shape', { shapeKind }),
   reloadApp: () => ipcRenderer.send('reload-app'),
   toggleTheme: () => ipcRenderer.send('toggle-theme'),
   getInitialData: () => ipcRenderer.invoke('get-theme-bootstrap'),

@@ -7,17 +7,20 @@ import type {
   ClipboardEntitySelectionPayload,
 } from '../../shared/types'
 import { pages } from '../runtime/page-runtime'
-import { aboveView } from '../runtime/view-refs'
+import { aboveView, bgView } from '../runtime/view-refs'
 import { setPendingFocus } from '../runtime/runtime-context'
 import { executeRegionSelect } from '../runtime/region-select'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { textEntities } from '../runtime/text-entity-state'
 import { fileEntities } from '../runtime/file-entity-state'
 import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from '../runtime/drawing-entity-state'
+import { shapeEntities } from '../runtime/shape-entity-state'
 import {
   createFileEntity,
+  createShapeEntity,
   createTextEntity,
   deleteDrawingEntity,
+  deleteShapeEntity,
   deleteTextEntity,
   deleteFileEntity,
   setFrameCustom,
@@ -25,6 +28,7 @@ import {
   updateDrawingEntity,
   updateFileEntity,
   updateGroupEntity,
+  updateShapeEntity,
   updateTextEntity,
   resizeMultiSelection,
   groupSelectedEntities,
@@ -131,7 +135,16 @@ function parseClipboardSelection(
 export function registerCanvasEntityIpc(): void {
   ipcMain.on(
     'canvas-place-pending-entity',
-    (_event, { canvasX, canvasY }: { canvasX: number; canvasY: number }) => {
+    (
+      _event,
+      payload: {
+        canvasX: number
+        canvasY: number
+        dragRect?: { x: number; y: number; width: number; height: number } | null
+      },
+    ) => {
+      const { canvasX, canvasY } = payload
+      const dragRect = payload.dragRect ?? null
       const placement = pendingPlacement()
       if (!placement) return
       if (placement.entityKind === 'text') {
@@ -142,6 +155,21 @@ export function registerCanvasEntityIpc(): void {
           createFileEntity({ canvasX, canvasY, file: filePath, width: 300, height: 300 })
         } catch (error) {
           console.error('Failed to create note file:', error)
+        }
+      } else if (placement.entityKind === 'shape') {
+        const shapeKind = placement.shapeKind ?? 'rectangle'
+        const created = dragRect
+          ? createShapeEntity({
+              canvasX: dragRect.x,
+              canvasY: dragRect.y,
+              width: dragRect.width,
+              height: dragRect.height,
+              shapeKind,
+            })
+          : createShapeEntity({ canvasX, canvasY, shapeKind })
+        selectEntity(created.id, 'shape')
+        if (bgView && !bgView.webContents.isDestroyed()) {
+          bgView.webContents.send('shape-begin-edit', { entityId: created.id })
         }
       } else {
         createFrameAtPosition({
@@ -177,10 +205,12 @@ export function registerCanvasEntityIpc(): void {
     const textIds = entityIds.filter((id) => textEntities.some((n) => n.id === id))
     const fileIds = entityIds.filter((id) => fileEntities.some((f) => f.id === id))
     const drawingIds = entityIds.filter((id) => drawingEntities.some((d) => d.id === id))
+    const shapeIds = entityIds.filter((id) => shapeEntities.some((s) => s.id === id))
     if (frameIds.length) deleteFrames({ frameIds })
     for (const id of textIds) deleteTextEntity(id)
     for (const id of fileIds) deleteFileEntity(id)
     for (const id of drawingIds) deleteDrawingEntity(id)
+    for (const id of shapeIds) deleteShapeEntity(id)
   })
 
   ipcMain.on('canvas-delete-frame', (_event, { frameId }: { frameId: string }) => {
@@ -228,7 +258,8 @@ export function registerCanvasEntityIpc(): void {
       const te = textEntities.find((t) => t.id === entityId)
       const fe = fileEntities.find((f) => f.id === entityId)
       const de = drawingEntities.find((d) => d.id === entityId)
-      const entity = te ?? fe ?? de
+      const se = shapeEntities.find((s) => s.id === entityId)
+      const entity = te ?? fe ?? de ?? se
       if (entity) {
         focusCanvasBounds({ x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height })
       }
@@ -244,6 +275,8 @@ export function registerCanvasEntityIpc(): void {
         deleteFileEntity(entityId)
       } else if (entityKind === 'drawing') {
         deleteDrawingEntity(entityId)
+      } else if (entityKind === 'shape') {
+        deleteShapeEntity(entityId)
       }
       layoutAllViews()
     },
@@ -559,6 +592,38 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on('canvas-duplicate-text-entity', (_event, { id }: { id: string }) => {
     duplicateEntity({ entityId: id, focus: true })
+  })
+
+  // --- Shape Entity IPC ---
+
+  ipcMain.on(
+    'canvas-update-shape',
+    (
+      _event,
+      {
+        id,
+        patch,
+      }: {
+        id: string
+        patch: Partial<{
+          shapeKind: 'rectangle' | 'ellipse' | 'diamond'
+          text: string
+          color: string
+          strokeWidth: number
+          theme: string
+          width: number
+          height: number
+          canvasX: number
+          canvasY: number
+        }>
+      },
+    ) => {
+      updateShapeEntity(id, patch)
+    },
+  )
+
+  ipcMain.on('canvas-delete-shape', (_event, { id }: { id: string }) => {
+    deleteShapeEntity(id)
   })
 
   // --- File Entity IPC ---

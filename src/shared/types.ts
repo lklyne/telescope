@@ -47,7 +47,9 @@ export interface PageConfig {
 
 // --- Generic Canvas Entity Types ---
 
-export type CanvasEntityKind = 'frame' | 'text' | 'file' | 'group' | 'edge' | 'drawing'
+export type CanvasEntityKind = 'frame' | 'text' | 'file' | 'group' | 'edge' | 'drawing' | 'shape'
+
+export type ShapeKind = 'rectangle' | 'ellipse' | 'diamond'
 
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
@@ -207,12 +209,32 @@ export interface CanvasSceneDrawingEntity {
   parentGroupId?: string
 }
 
+export interface CanvasSceneShapeEntity {
+  kind: 'shape'
+  id: string
+  shapeKind: ShapeKind
+  text: string
+  color?: string
+  strokeWidth?: number
+  theme?: string
+  canvasX: number
+  canvasY: number
+  width: number
+  height: number
+  parentGroupId?: string
+  screenX: number
+  screenY: number
+  screenWidth: number
+  screenHeight: number
+}
+
 export type CanvasSceneEntity =
   | CanvasSceneFrameEntity
   | CanvasSceneTextEntity
   | CanvasSceneFileEntity
   | CanvasSceneGroupEntity
   | CanvasSceneDrawingEntity
+  | CanvasSceneShapeEntity
 
 export interface ActiveCanvasEntitySelection {
   entityRef: CanvasEntityRef
@@ -226,6 +248,7 @@ export interface ActiveCanvasEntitySelection {
 export interface PendingPlacement {
   entityKind: CanvasEntityKind
   presetIndex?: number
+  shapeKind?: ShapeKind
   width: number
   height: number
   initialClientX: number | null
@@ -299,12 +322,25 @@ export interface PersistedDrawingEntity extends CanvasEntityBase {
   label?: string
 }
 
+export interface PersistedShapeEntity extends CanvasEntityBase {
+  kind: 'shape'
+  shapeKind: ShapeKind
+  text: string
+  color?: string
+  strokeWidth?: number
+  theme?: string
+  width: number
+  height: number
+  label?: string
+}
+
 export type PersistedCanvasEntity =
   | PersistedFrameEntity
   | PersistedTextEntity
   | PersistedFileEntity
   | PersistedGroupEntity
   | PersistedDrawingEntity
+  | PersistedShapeEntity
 
 // --- Layout Update Data ---
 
@@ -652,9 +688,20 @@ export type PanelMode =
   | { kind: 'text'; entityId: string }
   | { kind: 'file'; entityId: string }
   | { kind: 'drawing'; entityId: string }
+  | { kind: 'shape'; entityId: string }
   | { kind: 'edge'; entityId: string }
   | { kind: 'group'; entityId: string }
   | { kind: 'multi'; entityIds: string[] }
+
+export interface PanelShapeEntityDetail {
+  id: string
+  shapeKind: ShapeKind
+  text: string
+  color?: string
+  strokeWidth?: number
+  width: number
+  height: number
+}
 
 export interface PanelTextEntityDetail {
   id: string
@@ -734,6 +781,7 @@ export interface DevtoolsPanelData {
   textEntity?: PanelTextEntityDetail
   fileEntity?: PanelFileEntityDetail
   drawingEntity?: PanelDrawingEntityDetail
+  shapeEntity?: PanelShapeEntityDetail
   edgeEntity?: PanelEdgeEntityDetail
   groupEntity?: PanelGroupEntityDetail
   multiEntities?: PanelMultiEntitySummary[]
@@ -948,6 +996,7 @@ export interface UiPendingPlacement {
   presetIndex?: number
   customSize?: boolean
   sourceFrameId?: string
+  shapeKind?: ShapeKind
 }
 
 export interface UiState {
@@ -1365,6 +1414,7 @@ export interface ToolbarElectronAPI {
   cancelPendingPlacement: () => void
   addTextEntity: () => void
   addNote: () => void
+  addShape: (shapeKind: ShapeKind) => void
   reloadApp: () => void
   toggleTheme: () => void
   getInitialData: () => Promise<ThemeBootstrapData>
@@ -1455,6 +1505,14 @@ export interface CanvasBgElectronAPI {
   deleteFileEntity: (id: string) => void
   updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteDrawingEntity: (id: string) => void
+  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  deleteShapeEntity: (id: string) => void
+  placePendingShape: (
+    canvasX: number,
+    canvasY: number,
+    dragRect?: { x: number; y: number; width: number; height: number } | null,
+  ) => void
+  onShapeBeginEdit: (callback: (data: { entityId: string }) => void) => () => void
   showFileInFinder: (filePath: string) => void
   updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) => void
   duplicateGroup: (id: string) => void
@@ -1484,7 +1542,7 @@ export interface CanvasBgElectronAPI {
   createAnnotation: (request: AnnotationCreateRequest) => void
   createDrawing: (input: { canvasX: number; canvasY: number; width: number; height: number; strokes: AnnotationDrawingStroke[] }) => void
   selectEntities: (entityIds: string[]) => void
-  resizeMultiSelection: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; width: number; height: number; canvasX: number; canvasY: number }>) => void
+  resizeMultiSelection: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
   deleteSelection: () => void
   moveAnnotation: (annotationId: string, dx: number, dy: number) => void
   addAnnotationReply: (annotationId: string, text: string) => void
@@ -1640,6 +1698,8 @@ export interface DevtoolsPanelElectronAPI {
   setFileDeviceOrientation: (fileId: string, orientation: string) => void
   toggleFileDeviceShell: (fileId: string) => void
   deleteDrawingEntity: (id: string) => void
+  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  deleteShapeEntity: (id: string) => void
   updateEdge: (id: string, patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string }) => void
   deleteEdge: (id: string) => void
   setFramePreset: (frameId: string, presetIndex: number) => void

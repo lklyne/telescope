@@ -6,7 +6,7 @@ import type { EntityResizePatch } from './entityConstants'
 import { MIN_SHAPE_WIDTH, MIN_SHAPE_HEIGHT } from './entityConstants'
 
 const DEFAULT_STROKE_WIDTH = 2
-const FILL_OPACITY = 0.2
+const FILL_OPACITY = 0.08
 const NEUTRAL_SLATE = '#6b7280'
 
 function ShapeBody({

@@ -3,7 +3,6 @@ import type { PanelShapeEntityDetail, ShapeKind } from '../../../shared/types'
 import {
   dividerClass,
   mutedClass,
-  paneActionBtnClass,
   paneDeleteBtnClass,
 } from '../rightDetailsPanelHelpers'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
@@ -61,7 +60,7 @@ export function ShapeEntityPane({
         }
       />
 
-      <div className={`px-2 pt-2 pb-2`}>
+      <div className="px-2 pt-2 pb-2">
         <div className={`mb-1 text-[10px] font-medium ${muted}`}>shape</div>
         <div className="flex items-center gap-1">
           {SHAPE_OPTIONS.map(({ kind, label, Icon }) => (

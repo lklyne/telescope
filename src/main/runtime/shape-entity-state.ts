@@ -1,11 +1,3 @@
-/**
- * Shape Entity State
- *
- * Manages the in-memory state of shape entities on the canvas.
- * Shape entities are lightweight visual primitives — rectangle,
- * ellipse, or diamond bounding boxes with optional text inside.
- */
-
 import { randomUUID } from 'crypto'
 import type {
   CanvasSceneShapeEntity,

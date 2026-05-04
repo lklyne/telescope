@@ -11,18 +11,6 @@ function neutralStroke(isDark: boolean): string {
   return isDark ? 'hsl(0 0% 50%)' : 'hsl(0 0% 60%)'
 }
 
-function fillFromColor(color: string | undefined): string {
-  if (!color) return 'transparent'
-  const resolved = resolveCanvasColor(color)
-  return resolved
-}
-
-function strokeFromColor(color: string | undefined, isDark: boolean): string {
-  if (!color) return neutralStroke(isDark)
-  const resolved = resolveCanvasColor(color)
-  return resolved
-}
-
 function ShapeBody({
   shape,
   isDark,
@@ -76,8 +64,8 @@ function ShapeBody({
   }, [canEdit, editing, onTextEditingChange])
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
-  const fill = fillFromColor(shape.color)
-  const strokeColor = strokeFromColor(shape.color, isDark)
+  const fill = shape.color ? resolveCanvasColor(shape.color) : 'transparent'
+  const strokeColor = shape.color ? resolveCanvasColor(shape.color) : neutralStroke(isDark)
   const textColor = isDark && !shape.color ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
 
   const baseStyle: React.CSSProperties = {

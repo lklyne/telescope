@@ -7,10 +7,7 @@ import { MIN_SHAPE_WIDTH, MIN_SHAPE_HEIGHT } from './entityConstants'
 
 const DEFAULT_STROKE_WIDTH = 2
 const FILL_OPACITY = 0.2
-
-function neutralStroke(isDark: boolean): string {
-  return isDark ? 'hsl(0 0% 50%)' : 'hsl(0 0% 60%)'
-}
+const NEUTRAL_SLATE = '#94a3b8'
 
 function ShapeBody({
   shape,
@@ -72,9 +69,9 @@ function ShapeBody({
   }, [canEdit, editing, onTextEditingChange])
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
-  const resolvedColor = shape.color ? resolveCanvasColor(shape.color) : null
-  const fill = resolvedColor ? withAlpha(resolvedColor, FILL_OPACITY) : 'transparent'
-  const strokeColor = resolvedColor ?? neutralStroke(isDark)
+  const resolvedColor = shape.color ? resolveCanvasColor(shape.color) : NEUTRAL_SLATE
+  const fill = withAlpha(resolvedColor, FILL_OPACITY)
+  const strokeColor = resolvedColor
   const textColor = isDark && !shape.color ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
 
   const baseStyle: React.CSSProperties = {

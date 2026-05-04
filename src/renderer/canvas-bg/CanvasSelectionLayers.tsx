@@ -4,6 +4,7 @@ import type {
   CanvasSceneFileEntity,
   CanvasSceneFrameEntity,
   CanvasSceneGroupEntity,
+  CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
 } from '../../shared/types'
 import { selectionColor } from './canvasBgConstants'
@@ -17,6 +18,8 @@ import {
   MIN_TEXT_HEIGHT,
   MIN_FILE_WIDTH,
   MIN_FILE_HEIGHT,
+  MIN_SHAPE_WIDTH,
+  MIN_SHAPE_HEIGHT,
 } from './entityConstants'
 import { CornerResizeHandle, EdgeResizeHandle } from './ResizeHandles'
 import { SelectionResizeGrid } from './SelectionResizeGrid'
@@ -144,7 +147,7 @@ function EntitySelectionOverlay({
   onResize,
   onMouseDown,
 }: {
-  entity: CanvasSceneTextEntity | CanvasSceneFileEntity | CanvasSceneDrawingEntity
+  entity: CanvasSceneTextEntity | CanvasSceneFileEntity | CanvasSceneDrawingEntity | CanvasSceneShapeEntity
   borderRadius: number
   isDark: boolean
   isSelected: boolean
@@ -153,9 +156,21 @@ function EntitySelectionOverlay({
   onMouseDown?: (id: string, event: React.MouseEvent) => void
 }) {
   const minWidth =
-    entity.kind === 'text' ? MIN_TEXT_WIDTH : entity.kind === 'file' ? MIN_FILE_WIDTH : 16
+    entity.kind === 'text'
+      ? MIN_TEXT_WIDTH
+      : entity.kind === 'file'
+        ? MIN_FILE_WIDTH
+        : entity.kind === 'shape'
+          ? MIN_SHAPE_WIDTH
+          : 16
   const minHeight =
-    entity.kind === 'text' ? MIN_TEXT_HEIGHT : entity.kind === 'file' ? MIN_FILE_HEIGHT : 16
+    entity.kind === 'text'
+      ? MIN_TEXT_HEIGHT
+      : entity.kind === 'file'
+        ? MIN_FILE_HEIGHT
+        : entity.kind === 'shape'
+          ? MIN_SHAPE_HEIGHT
+          : 16
   const aspectRatioResizeMode =
     entity.kind === 'file' ? aspectRatioResizeModeForCanvasFile(entity.file) : 'off'
   const zoom = entity.width > 0 ? entity.screenWidth / entity.width : 1
@@ -283,6 +298,7 @@ export function CanvasSelectionOutlineLayer({
   allTextEntities,
   allFileEntities,
   allDrawingEntities,
+  allShapeEntities,
   frameInteractionsEnabled,
   isDark,
   zoom,
@@ -294,6 +310,7 @@ export function CanvasSelectionOutlineLayer({
   onResizeTextEntity,
   onResizeFileEntity,
   onResizeDrawingEntity,
+  onResizeShapeEntity,
   onResizeMulti,
   onDrawingMouseDown,
 }: {
@@ -301,6 +318,7 @@ export function CanvasSelectionOutlineLayer({
   allTextEntities: CanvasSceneTextEntity[]
   allFileEntities: CanvasSceneFileEntity[]
   allDrawingEntities: CanvasSceneDrawingEntity[]
+  allShapeEntities: CanvasSceneShapeEntity[]
   frameInteractionsEnabled: boolean
   isDark: boolean
   zoom: number
@@ -315,6 +333,7 @@ export function CanvasSelectionOutlineLayer({
   onResizeTextEntity: (id: string, patch: EntityResizePatch) => void
   onResizeFileEntity: (id: string, patch: EntityResizePatch) => void
   onResizeDrawingEntity: (id: string, patch: EntityResizePatch) => void
+  onResizeShapeEntity: (id: string, patch: EntityResizePatch) => void
   onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; width: number; height: number; canvasX: number; canvasY: number }>) => void
   onDrawingMouseDown: (drawingId: string, event: React.MouseEvent) => void
 }) {
@@ -322,10 +341,10 @@ export function CanvasSelectionOutlineLayer({
   const entityHoverId = localHoverId ?? hoveredEntityId
   const isMultiSelect = selectedIdSet.size > 1
   const entities = useMemo(
-    () => [...allTextEntities, ...allFileEntities, ...allDrawingEntities].filter(
+    () => [...allTextEntities, ...allFileEntities, ...allDrawingEntities, ...allShapeEntities].filter(
       (e) => selectedIdSet.has(e.id) || e.id === entityHoverId || marqueePreviewIds?.has(e.id),
     ),
-    [allDrawingEntities, allFileEntities, allTextEntities, selectedIdSet, entityHoverId, marqueePreviewIds],
+    [allDrawingEntities, allFileEntities, allTextEntities, allShapeEntities, selectedIdSet, entityHoverId, marqueePreviewIds],
   )
 
   const allSelectedEntities = useMemo(() => {
@@ -408,7 +427,9 @@ export function CanvasSelectionOutlineLayer({
                 ? onResizeTextEntity
                 : entity.kind === 'file'
                   ? onResizeFileEntity
-                  : onResizeDrawingEntity
+                  : entity.kind === 'shape'
+                    ? onResizeShapeEntity
+                    : onResizeDrawingEntity
             }
             onMouseDown={entity.kind === 'drawing' ? onDrawingMouseDown : undefined}
           />

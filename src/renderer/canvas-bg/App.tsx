@@ -388,6 +388,7 @@ export default function App({
             allTextEntities={textEntities}
             allFileEntities={fileEntities}
             allDrawingEntities={drawingEntities}
+            allShapeEntities={shapeEntities}
             frameInteractionsEnabled={frameInteractionsEnabled}
             isDark={isDark}
             zoom={layoutData.zoom}
@@ -399,6 +400,7 @@ export default function App({
             onResizeTextEntity={(id, patch) => api.updateTextEntity(id, patch)}
             onResizeFileEntity={(id, patch) => api.updateFileEntity(id, patch)}
             onResizeDrawingEntity={(id, patch) => api.updateDrawingEntity(id, patch)}
+            onResizeShapeEntity={(id, patch) => api.updateShapeEntity(id, patch)}
             onResizeMulti={(entries) => api.resizeMultiSelection(entries)}
             onDrawingMouseDown={(id, event) => {
               event.stopPropagation()

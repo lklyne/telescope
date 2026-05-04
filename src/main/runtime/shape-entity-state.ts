@@ -23,9 +23,17 @@ export interface ShapeEntity {
 
 export const DEFAULT_SHAPE_WIDTH = 200
 export const DEFAULT_SHAPE_HEIGHT = 120
+export const DEFAULT_DIAMOND_SIZE = 160
 export const DEFAULT_STROKE_WIDTH = 2
 export const MIN_SHAPE_WIDTH = 24
 export const MIN_SHAPE_HEIGHT = 24
+
+export function defaultShapeSize(shapeKind: ShapeKind): { width: number; height: number } {
+  if (shapeKind === 'diamond') {
+    return { width: DEFAULT_DIAMOND_SIZE, height: DEFAULT_DIAMOND_SIZE }
+  }
+  return { width: DEFAULT_SHAPE_WIDTH, height: DEFAULT_SHAPE_HEIGHT }
+}
 
 export const shapeEntities: ShapeEntity[] = []
 
@@ -43,17 +51,19 @@ export function createShapeEntity(input: {
   parentGroupId?: string
   label?: string
 }): ShapeEntity {
+  const shapeKind = input.shapeKind ?? 'rectangle'
+  const fallback = defaultShapeSize(shapeKind)
   const entity: ShapeEntity = {
     id: input.id ?? `shape_${randomUUID()}`,
-    shapeKind: input.shapeKind ?? 'rectangle',
+    shapeKind,
     text: input.text ?? '',
     color: input.color,
     strokeWidth: input.strokeWidth,
     theme: input.theme,
     canvasX: input.canvasX,
     canvasY: input.canvasY,
-    width: input.width ?? DEFAULT_SHAPE_WIDTH,
-    height: input.height ?? DEFAULT_SHAPE_HEIGHT,
+    width: input.width ?? fallback.width,
+    height: input.height ?? fallback.height,
     parentGroupId: input.parentGroupId,
     label: input.label,
   }

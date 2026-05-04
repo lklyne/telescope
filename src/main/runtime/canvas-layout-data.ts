@@ -89,8 +89,7 @@ import {
 import {
   shapeEntities,
   buildShapeEntitySceneEntity,
-  DEFAULT_SHAPE_WIDTH,
-  DEFAULT_SHAPE_HEIGHT,
+  defaultShapeSize,
 } from './shape-entity-state'
 import { buildGroupSceneEntity } from './group-entity-state'
 import type { Page } from './runtime-entities'
@@ -309,6 +308,9 @@ export function buildCanvasLayoutData(
             cursor.y <= contentBounds.y + contentBounds.height
               ? cursor.y - contentBounds.y
               : null
+          const shapeDefault = isShape
+            ? defaultShapeSize(pending.shapeKind ?? 'rectangle')
+            : null
           return {
             entityKind: pending.entityKind,
             presetIndex: pending.presetIndex,
@@ -317,8 +319,8 @@ export function buildCanvasLayoutData(
               ? DEFAULT_TEXT_WIDTH
               : isFile
                 ? DEFAULT_FILE_WIDTH
-                : isShape
-                  ? DEFAULT_SHAPE_WIDTH
+                : shapeDefault
+                  ? shapeDefault.width
                   : pending.customSize
                     ? customSize.width
                     : (preset?.width ?? 0),
@@ -326,8 +328,8 @@ export function buildCanvasLayoutData(
               ? DEFAULT_TEXT_HEIGHT
               : isFile
                 ? DEFAULT_FILE_HEIGHT
-                : isShape
-                  ? DEFAULT_SHAPE_HEIGHT
+                : shapeDefault
+                  ? shapeDefault.height
                   : pending.customSize
                     ? customSize.height
                     : (preset?.height ?? 0),

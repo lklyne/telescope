@@ -103,31 +103,22 @@ export function PlacementPreviewLayer({
     }
     if (preview.shapeKind === 'diamond') {
       return (
-        <div
+        <svg
           className="pointer-events-none absolute"
-          style={{ ...baseStyle, background: 'transparent' }}
+          width={baseStyle.width}
+          height={baseStyle.height}
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          style={{ left: baseStyle.left, top: baseStyle.top, overflow: 'visible' }}
         >
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <div
-              style={{
-                width: `${(1 / Math.SQRT2) * 100}%`,
-                height: `${(1 / Math.SQRT2) * 100}%`,
-                transform: 'rotate(45deg)',
-                border: `1px solid ${stroke}`,
-                background: fill,
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-        </div>
+          <polygon
+            points="50,0 100,50 50,100 0,50"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
       )
     }
     return (

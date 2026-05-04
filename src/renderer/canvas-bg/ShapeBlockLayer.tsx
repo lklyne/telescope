@@ -56,6 +56,13 @@ function ShapeBody({
   }, [editing])
 
   useEffect(() => {
+    const node = textareaRef.current
+    if (!editing || !node) return
+    node.style.height = 'auto'
+    node.style.height = `${node.scrollHeight}px`
+  }, [editing, localText, shape.width, shape.height])
+
+  useEffect(() => {
     if (!canEdit && editing) {
       setEditing(false)
       isFocusedRef.current = false
@@ -139,7 +146,8 @@ function ShapeBody({
           }}
           style={{
             ...innerTextStyle,
-            display: 'flex',
+            height: 'auto',
+            maxHeight: '100%',
             textAlign: 'center',
           }}
         />
@@ -178,43 +186,34 @@ function ShapeBody({
     )
   }
 
-  // diamond: rotate the silhouette square 45deg, place a counter-rotated text box inscribed inside.
-  // Inscribed-rectangle dimensions for a 45° rotation are width / sqrt(2), height / sqrt(2).
-  const inscribedRatio = 1 / Math.SQRT2
+  // diamond: a true rhombus with vertices at the midpoints of each bounding-box
+  // edge. Drawn as an SVG polygon so the stroke stays uniform when the bounding
+  // box is non-square. The text box is the largest axis-aligned rectangle that
+  // fits inside the rhombus — which is half the bbox width × half the height.
   return (
     <>
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          pointerEvents: 'none',
-        }}
+      <svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
       >
-        <div
-          style={{
-            width: `${inscribedRatio * 100}%`,
-            height: `${inscribedRatio * 100}%`,
-            transform: 'rotate(45deg)',
-            transformOrigin: 'center',
-            borderWidth: stroke,
-            borderStyle: 'solid',
-            borderColor: strokeColor,
-            backgroundColor: fill,
-            boxSizing: 'border-box',
-          }}
+        <polygon
+          points="50,0 100,50 50,100 0,50"
+          fill={fill}
+          stroke={strokeColor}
+          strokeWidth={stroke}
+          vectorEffect="non-scaling-stroke"
         />
-      </div>
+      </svg>
       <div
         style={{
           position: 'absolute',
-          left: '50%',
-          top: '50%',
-          width: `${inscribedRatio * 100}%`,
-          height: `${inscribedRatio * 100}%`,
-          transform: 'translate(-50%, -50%)',
+          left: '25%',
+          top: '25%',
+          width: '50%',
+          height: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -248,6 +247,8 @@ function ShapeBody({
             }}
             style={{
               ...innerTextStyle,
+              height: 'auto',
+              maxHeight: '100%',
               textAlign: 'center',
             }}
           />

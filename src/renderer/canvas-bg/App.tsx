@@ -198,8 +198,13 @@ export default function App({
   const showSelectedGroupMenu =
     selectedGroupEntity !== null && delayedSelectedGroupMenuId === selectedGroupEntity.id
   const hoveredEntityId = layoutData.hover?.id ?? null
-  const selectedEdgeId =
-    layoutData.selection.find((target) => target.kind === 'edge')?.id ?? null
+  const selectedEdgeIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const target of layoutData.selection) {
+      if (target.kind === 'edge') ids.add(target.id)
+    }
+    return ids
+  }, [layoutData.selection])
   const getEntityLayerZoom = useCallback(() => layoutRef.current.zoom, [layoutRef])
   const frameInteractionsEnabled = layoutData.annotationMode !== 'region_select'
 
@@ -279,12 +284,14 @@ export default function App({
           hoveredEntityId={hoveredEntityId}
           isDark={isDark}
           interaction={layoutData.interaction}
-          selectedEdgeId={selectedEdgeId}
+          selectedEdgeIds={selectedEdgeIds}
           selectedEntityIds={layoutData.selectedEntityIds}
           zoom={layoutData.zoom}
           onBeginEdgeDrag={api.beginEdgeDrag}
           onCancelEdgeDrag={api.cancelEdgeDrag}
           onCommitEdgeDrag={api.commitEdgeDrag}
+          onCommitEdgeEdit={api.commitEdgeEdit}
+          onDiscardEdgeEdit={api.discardEdgeEdit}
           onHoverEntity={handleHoverEntity}
           onSelectEdge={handleSelectEdge}
           onUpdateEdgeDragTarget={api.updateEdgeDragTarget}

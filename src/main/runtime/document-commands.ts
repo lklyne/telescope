@@ -220,10 +220,21 @@ export {
 
 export function updateEdge(
   id: string,
-  patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string },
+  patch: {
+    fromEntityId?: string
+    toEntityId?: string
+    fromEnd?: EdgeEnd
+    toEnd?: EdgeEnd
+    fromSide?: EdgeSide
+    toSide?: EdgeSide
+    color?: string
+    label?: string
+  },
 ): boolean {
   const edge = workspaceEdges.find((e) => e.id === id)
   if (!edge) return false
+  if (patch.fromEntityId !== undefined) edge.fromEntityId = patch.fromEntityId
+  if (patch.toEntityId !== undefined) edge.toEntityId = patch.toEntityId
   if (patch.fromEnd !== undefined) edge.fromEnd = patch.fromEnd
   if (patch.toEnd !== undefined) edge.toEnd = patch.toEnd
   if (patch.fromSide !== undefined) edge.fromSide = patch.fromSide

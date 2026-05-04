@@ -1566,6 +1566,13 @@ export interface CanvasBgElectronAPI {
   updateEdgeDragTarget: (targetEntityId: string | null, targetSide: EdgeSide | null) => void
   commitEdgeDrag: (fromEntityId: string, toEntityId: string, fromSide: EdgeSide, toSide: EdgeSide) => void
   cancelEdgeDrag: () => void
+  commitEdgeEdit: (
+    edgeId: string,
+    movingEnd: 'from' | 'to',
+    targetEntityId: string,
+    targetSide: EdgeSide,
+  ) => void
+  discardEdgeEdit: (edgeId: string) => void
   createEdge: (fromEntityId: string, toEntityId: string, fromSide?: EdgeSide, toSide?: EdgeSide) => void
   deleteEdge: (edgeId: string) => void
   selectEdge: (edgeId: string | null) => void

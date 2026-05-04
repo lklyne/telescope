@@ -237,6 +237,15 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-edge-drag-commit', { fromEntityId, toEntityId, fromSide, toSide }),
   cancelEdgeDrag: () =>
     ipcRenderer.send('canvas-edge-drag-cancel'),
+  commitEdgeEdit: (
+    edgeId: string,
+    movingEnd: 'from' | 'to',
+    targetEntityId: string,
+    targetSide: EdgeSide,
+  ) =>
+    ipcRenderer.send('canvas-edge-edit-commit', { edgeId, movingEnd, targetEntityId, targetSide }),
+  discardEdgeEdit: (edgeId: string) =>
+    ipcRenderer.send('canvas-edge-edit-discard', { edgeId }),
   createEdge: (fromEntityId: string, toEntityId: string, fromSide?: EdgeSide, toSide?: EdgeSide) =>
     ipcRenderer.send('canvas-create-edge', { fromEntityId, toEntityId, fromSide, toSide }),
   deleteEdge: (edgeId: string) =>

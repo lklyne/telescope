@@ -1,6 +1,7 @@
 import type {
   DeleteFramesRequest,
   DeleteFramesResponse,
+  EdgeSide,
   WorkspaceBounds,
   WorkspaceFrame,
   WorkspaceGraph,
@@ -325,8 +326,18 @@ export function selectEntitiesInRect(
       ),
     )
     .map((se) => se.id)
+  const edgeIds = workspaceEdges
+    .filter((edge) => {
+      const fromBounds = entityBoundsById(edge.fromEntityId)
+      const toBounds = entityBoundsById(edge.toEntityId)
+      if (!fromBounds || !toBounds) return false
+      const from = sideAnchorPoint(fromBounds, edge.fromSide)
+      const to = sideAnchorPoint(toBounds, edge.toSide)
+      return segmentIntersectsRect(from, to, bounds)
+    })
+    .map((edge) => edge.id)
 
-  const entityIds = [...frameIds, ...textIds, ...fileIds, ...drawingIds, ...shapeIds]
+  const entityIds = [...frameIds, ...textIds, ...fileIds, ...drawingIds, ...shapeIds, ...edgeIds]
 
   if (mode !== 'replace') {
     // Additive / toggle / remove modes: preserve existing selection outside the rect
@@ -341,7 +352,13 @@ export function selectEntitiesInRect(
     return { entityIds: [] }
   }
 
-  if (!textIds.length && !fileIds.length && !drawingIds.length && !shapeIds.length) {
+  if (
+    !textIds.length &&
+    !fileIds.length &&
+    !drawingIds.length &&
+    !shapeIds.length &&
+    !edgeIds.length
+  ) {
     if (frameIds.length === 1) {
       selectPageById(frameIds[0])
     } else {
@@ -352,6 +369,58 @@ export function selectEntitiesInRect(
 
   setSelectedEntities(entityIds)
   return { entityIds }
+}
+
+function sideAnchorPoint(
+  bounds: WorkspaceBounds,
+  side: EdgeSide | undefined,
+): { x: number; y: number } {
+  switch (side) {
+    case 'top':
+      return { x: bounds.x + bounds.width / 2, y: bounds.y }
+    case 'bottom':
+      return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height }
+    case 'left':
+      return { x: bounds.x, y: bounds.y + bounds.height / 2 }
+    case 'right':
+      return { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 }
+    default:
+      return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+  }
+}
+
+// Liang-Barsky: returns true if the segment from p1 to p2 intersects rect
+// (including the case where the segment lies entirely inside the rect).
+function segmentIntersectsRect(
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  rect: WorkspaceBounds,
+): boolean {
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const xMin = rect.x
+  const xMax = rect.x + rect.width
+  const yMin = rect.y
+  const yMax = rect.y + rect.height
+  const p = [-dx, dx, -dy, dy]
+  const q = [p1.x - xMin, xMax - p1.x, p1.y - yMin, yMax - p1.y]
+  let t0 = 0
+  let t1 = 1
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) {
+      if (q[i] < 0) return false
+    } else {
+      const t = q[i] / p[i]
+      if (p[i] < 0) {
+        if (t > t1) return false
+        if (t > t0) t0 = t
+      } else {
+        if (t < t0) return false
+        if (t < t1) t1 = t
+      }
+    }
+  }
+  return true
 }
 
 // --- Workspace graph ---

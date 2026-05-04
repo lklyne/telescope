@@ -712,12 +712,28 @@ export default function App({
         }
       />
 
-      {placementPreview ? (
+      {placementPreview && selectionOverlay?.variant !== 'place-shape' ? (
         <PlacementPreviewLayer
           isDark={isDark}
           preview={{
             ...placementPreview,
             top: placementPreview.top - layoutData.canvasOrigin.y,
+          }}
+        />
+      ) : null}
+
+      {selectionOverlay?.variant === 'place-shape' &&
+      selectionOverlay.rect.width > 0 &&
+      selectionOverlay.rect.height > 0 ? (
+        <PlacementPreviewLayer
+          isDark={isDark}
+          preview={{
+            entityKind: 'shape',
+            shapeKind: selectionOverlay.shapeKind,
+            left: selectionOverlay.rect.left,
+            top: selectionOverlay.rect.top,
+            width: selectionOverlay.rect.width,
+            height: selectionOverlay.rect.height,
           }}
         />
       ) : null}

@@ -32,7 +32,7 @@ import { EdgeLayer } from './EdgeLayer'
 import { GroupInlineMenu, StickyNoteInlineMenu } from './InlineEntityMenu'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { usePendingPlacementState } from './usePendingPlacementState'
-import { useCanvasViewportGestures } from './useCanvasViewportGestures'
+import { useCanvasViewportGestures, type ShapePlacementDragPreview } from './useCanvasViewportGestures'
 import { useFrameChromeDrag } from './useFrameChromeDrag'
 import { descendantIdsForGroup, selectedGroupHasDescendantFrame } from './groupMembership'
 import { SELECTED_FRAME_MENU_SHOW_DELAY_MS } from '../../shared/selectedFrameMenu'
@@ -67,6 +67,8 @@ export default function App({
   })
 
   const [marqueePreviewIds, setMarqueePreviewIds] = useState<Set<string> | null>(null)
+  const [shapePlacementPreview, setShapePlacementPreview] =
+    useState<ShapePlacementDragPreview | null>(null)
   const [fileJsonModeMap, setFileJsonModeMap] = useState<FileJsonModeMap>(() => new Map())
   const [captureMode, setCaptureMode] = useState(false)
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
@@ -77,6 +79,7 @@ export default function App({
     layoutRef,
     setPlacementCursor,
     onMarqueePreview: setMarqueePreviewIds,
+    onShapePlacementPreview: setShapePlacementPreview,
   })
 
   useCanvasGlobalShortcuts({
@@ -223,7 +226,25 @@ export default function App({
       />
       {!captureMode ? (
         <>
-          <PlacementPreviewLayer isDark={isDark} preview={pendingPlacementPreview} />
+          <PlacementPreviewLayer
+            isDark={isDark}
+            preview={shapePlacementPreview ? null : pendingPlacementPreview}
+          />
+          {shapePlacementPreview &&
+          shapePlacementPreview.rect.width > 0 &&
+          shapePlacementPreview.rect.height > 0 ? (
+            <PlacementPreviewLayer
+              isDark={isDark}
+              preview={{
+                entityKind: 'shape',
+                shapeKind: shapePlacementPreview.shapeKind,
+                left: shapePlacementPreview.rect.left,
+                top: shapePlacementPreview.rect.top,
+                width: shapePlacementPreview.rect.width,
+                height: shapePlacementPreview.rect.height,
+              }}
+            />
+          ) : null}
           <DragCopyPreviewLayer dragCopyPreview={dragCopyPreview} isDark={isDark} />
         </>
       ) : null}

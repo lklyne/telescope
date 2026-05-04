@@ -1,7 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import type { RefObject } from 'react'
-import type { CanvasBgElectronAPI, LayoutUpdateData, SelectionModifiers } from '../../shared/types'
+import type { CanvasBgElectronAPI, LayoutUpdateData, SelectionModifiers, ShapeKind } from '../../shared/types'
 import {
+  canvasToScreenX,
+  canvasToScreenY,
   classifyViewportWheel,
   isOverlayUiTarget,
   middleDragDelta,
@@ -43,8 +45,12 @@ type DragMode =
   | { kind: 'marquee' }
   | { kind: 'place-shape'; startCanvasX: number; startCanvasY: number }
 
-const SHAPE_DRAG_THRESHOLD_PX = 6
 const MIN_SHAPE_DRAG_SIZE = 24
+
+export type ShapePlacementDragPreview = {
+  rect: { left: number; top: number; width: number; height: number }
+  shapeKind: ShapeKind
+}
 
 export function useCanvasViewportGestures({
   api,
@@ -52,6 +58,7 @@ export function useCanvasViewportGestures({
   layoutRef,
   setPlacementCursor,
   onMarqueePreview,
+  onShapePlacementPreview,
 }: {
   api: CanvasBgElectronAPI
   bgRef: RefObject<HTMLDivElement | null>
@@ -60,13 +67,15 @@ export function useCanvasViewportGestures({
     React.SetStateAction<{ clientX: number; clientY: number } | null>
   >
   onMarqueePreview: (ids: Set<string> | null) => void
+  onShapePlacementPreview: (preview: ShapePlacementDragPreview | null) => void
 }) {
   const stopDragging = useMemo(
     () => () => {
       api.setSelectionOverlayRect(null)
       onMarqueePreview(null)
+      onShapePlacementPreview(null)
     },
-    [api, onMarqueePreview],
+    [api, onMarqueePreview, onShapePlacementPreview],
   )
 
   useDragGesture<DragMode>({
@@ -121,15 +130,24 @@ export function useCanvasViewportGestures({
         return
       }
       if (mode.kind === 'place-shape') {
-        const rect = normalizeRect(ctx.startClientX, ctx.startClientY, ctx.clientX, ctx.clientY)
-        if (rect.width < SHAPE_DRAG_THRESHOLD_PX && rect.height < SHAPE_DRAG_THRESHOLD_PX) {
-          api.setSelectionOverlayRect(null)
-          return
+        const endCanvas = screenPointToCanvasPoint(ctx.clientX, ctx.clientY, layout)
+        const minCanvasX = snapToGrid(Math.min(mode.startCanvasX, endCanvas.x))
+        const minCanvasY = snapToGrid(Math.min(mode.startCanvasY, endCanvas.y))
+        const snappedW = snapToGrid(Math.abs(endCanvas.x - mode.startCanvasX))
+        const snappedH = snapToGrid(Math.abs(endCanvas.y - mode.startCanvasY))
+        const rect = {
+          left: canvasToScreenX(layout, minCanvasX),
+          top: canvasToScreenY(layout, minCanvasY),
+          width: snappedW * layout.zoom,
+          height: snappedH * layout.zoom,
         }
+        const shapeKind = layout.pendingPlacement?.shapeKind ?? 'rectangle'
         api.setSelectionOverlayRect({
           rect: toOverlayRect(rect, layout),
-          variant: 'default',
+          variant: 'place-shape',
+          shapeKind,
         })
+        onShapePlacementPreview({ rect, shapeKind })
         return
       }
       const rect = normalizeRect(ctx.startClientX, ctx.startClientY, ctx.clientX, ctx.clientY)

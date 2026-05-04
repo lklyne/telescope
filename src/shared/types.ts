@@ -972,7 +972,8 @@ export type SelectionOverlayRect = {
 
 export type SelectionOverlayPayload = {
   rect: SelectionOverlayRect
-  variant?: 'default' | 'region-select'
+  variant?: 'default' | 'region-select' | 'place-shape'
+  shapeKind?: ShapeKind
 }
 
 export type UiViewMode =

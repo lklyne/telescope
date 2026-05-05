@@ -1,15 +1,22 @@
 /**
  * Gate predicate — should the aboveView overlay cover the canvas?
  *
- * Spec §4.2. The gate is open (non-zero bounds) whenever the canvas surface
- * needs to intercept pointer input or paint canvas-level UI: during any
- * non-idle gesture, while a non-select tool is armed, while space-pan is
- * held, while a marquee is showing,
- * while a selected drawing entity's inline menu is on screen, and
- * while saved drawings are visible above unselected frames.
+ * Spec §4.2 + ADR 0001. The gate is open (non-zero bounds) whenever
+ * aboveView needs to capture pointer input or paint canvas-level UI.
+ * Frame focus (ADR 0001) is a hard gate-closer in any mode so the focused
+ * page receives native input.
  *
- * The predicate is pure and testable. Its authority is main: the renderer
- * no longer drives `setCommentOverlayActive`.
+ * The "default-open in canvas mode" target from the plan is *not* yet in
+ * effect — it would prevent the per-frame `chromeView` (URL bar, nav
+ * buttons) and other bgView interactive surfaces from receiving pointer
+ * events. Migrating those into the router or into aboveView is the
+ * remaining work that lets the predicate collapse fully (§4.2 of the
+ * plan). Until then we keep the legacy OR-chain in canvas mode too, but
+ * the canvas-pointer-router is wired so every gate-open situation
+ * (gestures, tool modes, etc.) goes through the single hit-test arbiter.
+ *
+ * Pure and testable. Authority lives in main; the renderer no longer
+ * drives `setCommentOverlayActive` for the canvas-mode path.
  */
 import type { InteractionMode } from '../../shared/interaction-types'
 import type { CanvasEntityKind } from '../../shared/types'
@@ -33,11 +40,22 @@ export type GateInputs = {
 }
 
 export function shouldGateBeOpen(inputs: GateInputs): boolean {
-  // Frame focus closes the gate so the focused page receives native input
-  // (ADR 0001). Even if a gesture or tool would otherwise open the gate,
-  // focused frame interaction takes priority — the user must Escape or
-  // click away first.
+  // ADR 0001: focus is the hard gate-closer. The user releases via
+  // Escape, click-canvas, or click-another-frame.
   if (inputs.frameFocus) return false
+  if (interactionOpensGate(inputs.interactionKind)) return true
+  if (toolModeOpensGate(inputs.toolMode)) return true
+  if (inputs.commentOverlayActive) return true
+  if (inputs.spaceHeld) return true
+  if (inputs.hoveringCanvasChrome) return true
+  if (inputs.selectionMarqueeVisible) return true
+  if (inputs.selectionOwnsFrameContent) return true
+  if (hasFloatingMenu(inputs)) return true
+  if (hasVisibleSavedDrawings(inputs)) return true
+  return false
+}
+
+function browserModeNeedsGate(inputs: GateInputs): boolean {
   if (interactionOpensGate(inputs.interactionKind)) return true
   if (toolModeOpensGate(inputs.toolMode)) return true
   if (inputs.commentOverlayActive) return true

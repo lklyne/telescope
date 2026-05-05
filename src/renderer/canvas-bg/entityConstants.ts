@@ -1,17 +1,19 @@
 // Shared constants for canvas entity resize and layout.
 
-export interface EntityResizePatch {
-  width: number
-  height: number
-  canvasX?: number
-  canvasY?: number
+// The resize ADT lives in src/shared/resize-accumulator.ts so renderer
+// hooks and the canvas-pointer-router agree on shapes.
+import type {
+  AspectRatioResizeMode,
+  EntityResizePatch,
+  ResizeCorner,
+  ResizeEdge,
+} from '../../shared/resize-accumulator'
+export type {
+  EntityResizePatch,
+  ResizeCorner,
+  ResizeEdge,
+  AspectRatioResizeMode,
 }
-
-export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
-export type ResizeEdge = 'top' | 'right' | 'bottom' | 'left'
-
-/** How Shift interacts with aspect ratio while resizing. */
-export type AspectRatioResizeMode = 'off' | 'shift-unlocks' | 'shift-locks'
 
 export {
   IMAGE_EXTENSIONS,

@@ -38,9 +38,11 @@ import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
 import { useAnnotationThreadState } from './useAnnotationThreadState'
 import {
-  useCanvasPointerRouter,
   DEFAULT_ROUTER_CONSUME,
+  useCanvasPointerRouter,
 } from './useCanvasPointerRouter'
+import { EdgeDragLayer } from './EdgeDragLayer'
+import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
 import { useAnnotationOverlayShortcuts } from '../shared/hooks/useAnnotationOverlayShortcuts'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
@@ -668,11 +670,12 @@ export default function App({
   // the renderer DOM receives no events, so listener attachment is a no-op.
   useViewportForwarding(true, viewportForwardingApi)
 
-  // ADR 0001 — canvas pointer router. Phase 2 substrate: mounts a single
-  // window-level pointerdown listener that runs the shared hit-test and
-  // dispatches via existing IPC. Default consume set is just
-  // `enter-frame-focus` so this lands without disturbing the existing
-  // gesture flow; per-layer migrations expand the consume set incrementally.
+  // ADR 0001 — canvas pointer router. Single window-level pointerdown
+  // listener that runs the shared hit-test, classifies the action via the
+  // priority table, and dispatches every gesture (focus, drag, resize,
+  // edge-drag, marquee, pan) through the existing IPC surface. The
+  // `EdgeDragLayer` below renders the rubber-band line driven by the same
+  // controller state.
   const spaceHeldRef = useRef(false)
   useEffect(() => {
     const onKey = (event: KeyboardEvent, down: boolean) => {
@@ -687,12 +690,14 @@ export default function App({
       window.removeEventListener('keyup', onUp)
     }
   }, [])
+  const [edgeDragState, setEdgeDragState] = useState<EdgeDragState>(EDGE_DRAG_IDLE)
   useCanvasPointerRouter({
     api,
     layoutRef,
     enabled: !overlayInteractive && !pendingPlacement,
     consume: DEFAULT_ROUTER_CONSUME,
     spaceHeldRef,
+    setEdgeDragState,
   })
 
   useEffect(() => {
@@ -830,6 +835,8 @@ export default function App({
           <MarqueeLayer overlay={selectionOverlay} />
 
           <SelectedGroupResizeOverlay isDark={isDark} layoutData={layoutData} />
+
+          <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
 
           <FloatingUiLayer api={api} isDark={isDark} layoutData={layoutData} />
         </>

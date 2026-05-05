@@ -336,6 +336,7 @@ function ShapeCard({
         if (target?.closest('[contenteditable="true"]')) return false
         return true
       }}
+      aspectRatioResizeMode="shift-locks"
       overflowVisible
     >
       <MemoShapeBody

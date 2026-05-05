@@ -86,16 +86,6 @@ describe('shouldGateBeOpen', () => {
     ).toBe(false)
   })
 
-  it('open for single drawing selection (floating menu)', () => {
-    expect(
-      shouldGateBeOpen({
-        ...base(),
-        selectedEntityIds: ['d1'],
-        selectedEntityKinds: ['drawing'],
-      }),
-    ).toBe(true)
-  })
-
   it('closed for single frame selection (no menu)', () => {
     expect(
       shouldGateBeOpen({

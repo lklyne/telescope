@@ -33,7 +33,6 @@ import {
   RegionSelectComposer,
 } from './CommentsLayer'
 import { MarqueeLayer } from './MarqueeLayer'
-import { FloatingUiLayer } from './FloatingUiLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
 import { useAnnotationThreadState } from './useAnnotationThreadState'
@@ -837,8 +836,6 @@ export default function App({
           <SelectedGroupResizeOverlay isDark={isDark} layoutData={layoutData} />
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
-
-          <FloatingUiLayer api={api} isDark={isDark} layoutData={layoutData} />
         </>
       ) : null}
     </div>

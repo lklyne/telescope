@@ -50,7 +50,6 @@ export function shouldGateBeOpen(inputs: GateInputs): boolean {
   if (inputs.hoveringCanvasChrome) return true
   if (inputs.selectionMarqueeVisible) return true
   if (inputs.selectionOwnsFrameContent) return true
-  if (hasFloatingMenu(inputs)) return true
   if (hasVisibleSavedDrawings(inputs)) return true
   return false
 }
@@ -63,7 +62,6 @@ function browserModeNeedsGate(inputs: GateInputs): boolean {
   if (inputs.hoveringCanvasChrome) return true
   if (inputs.selectionMarqueeVisible) return true
   if (inputs.selectionOwnsFrameContent) return true
-  if (hasFloatingMenu(inputs)) return true
   if (hasVisibleSavedDrawings(inputs)) return true
   return false
 }
@@ -82,15 +80,6 @@ function interactionOpensGate(interactionKind: GateInputs['interactionKind']): b
  */
 function toolModeOpensGate(toolMode: GateInputs['toolMode']): boolean {
   return toolMode === 'annotate-draw' || toolMode === 'annotate-region-select'
-}
-
-function hasFloatingMenu(inputs: GateInputs): boolean {
-  if (inputs.viewMode !== 'canvas') return false
-  if (inputs.selectedEntityIds.length !== 1) return false
-  const kind = inputs.selectedEntityKinds[0]
-  // Sticky-note controls render in bgView so text selection can keep
-  // native pointer access to the card and its resize handles.
-  return kind === 'drawing'
 }
 
 /**

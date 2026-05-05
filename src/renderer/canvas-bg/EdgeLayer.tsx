@@ -14,7 +14,10 @@ import { scaleEdgeHitTargetSize } from './edgeHitSizing'
 
 const SIDES: EdgeSide[] = ['top', 'right', 'bottom', 'left']
 const DOT_RADIUS = 3
-const DOT_HIT_RADIUS = 24
+const DOT_HIT_LONG = 56
+const DOT_HIT_SHORT = 24
+const DOT_HIT_GAP = 4
+const DOT_HIT_CORNER = 2
 const DOT_OFFSET = 8
 const SNAP_DISTANCE = 48
 const CONTROL_POINT_MIN = 40
@@ -41,6 +44,47 @@ function getAnchorPoint(entity: CanvasSceneEntity, side: EdgeSide, zoom: number)
       return { x: screenX - dotOffset, y: screenY + screenHeight / 2, side }
     case 'right':
       return { x: screenX + screenWidth + dotOffset, y: screenY + screenHeight / 2, side }
+  }
+}
+
+function getAnchorHitRect(
+  entity: CanvasSceneEntity,
+  side: EdgeSide,
+  zoom: number,
+): { x: number; y: number; width: number; height: number } {
+  const { screenX, screenY, screenWidth, screenHeight } = entity
+  const long = scaleEdgeHitTargetSize(DOT_HIT_LONG, zoom)
+  const short = scaleEdgeHitTargetSize(DOT_HIT_SHORT, zoom)
+  const gap = DOT_HIT_GAP
+  switch (side) {
+    case 'top':
+      return {
+        x: screenX + screenWidth / 2 - long / 2,
+        y: screenY - gap - short,
+        width: long,
+        height: short,
+      }
+    case 'bottom':
+      return {
+        x: screenX + screenWidth / 2 - long / 2,
+        y: screenY + screenHeight + gap,
+        width: long,
+        height: short,
+      }
+    case 'left':
+      return {
+        x: screenX - gap - short,
+        y: screenY + screenHeight / 2 - long / 2,
+        width: short,
+        height: long,
+      }
+    case 'right':
+      return {
+        x: screenX + screenWidth + gap,
+        y: screenY + screenHeight / 2 - long / 2,
+        width: short,
+        height: long,
+      }
   }
 }
 
@@ -168,7 +212,6 @@ function AnchorDots({
   onHoverEntity: (entityId: string | null) => void
 }) {
   const [hoveredSide, setHoveredSide] = useState<EdgeSide | null>(null)
-  const dotHitRadius = scaleEdgeHitTargetSize(DOT_HIT_RADIUS, zoom)
 
   useEffect(() => {
     if (!isDragging) setHoveredSide(null)
@@ -178,6 +221,7 @@ function AnchorDots({
     <>
       {SIDES.map((side) => {
         const pt = getAnchorPoint(entity, side, zoom)
+        const hitRect = getAnchorHitRect(entity, side, zoom)
         const showDot = hoveredSide === side
         return (
           <g key={side}>
@@ -192,11 +236,14 @@ function AnchorDots({
               />
             ) : null}
             {/* Zoom-scaled interaction target */}
-            <circle
-              cx={pt.x}
-              cy={pt.y}
+            <rect
+              x={hitRect.x}
+              y={hitRect.y}
+              width={hitRect.width}
+              height={hitRect.height}
+              rx={DOT_HIT_CORNER}
+              ry={DOT_HIT_CORNER}
               fill="transparent"
-              r={dotHitRadius}
               style={{ cursor: 'crosshair', pointerEvents: 'all' }}
               onMouseDown={(e) => {
                 e.stopPropagation()

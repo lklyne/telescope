@@ -21,6 +21,7 @@ import {
 } from './selection-controller'
 import { cancelActive as cancelActiveInteraction } from './interaction-controller'
 import { layoutAllViews } from './layout-engine'
+import { exitFrameFocus } from './frame-focus'
 
 type ArrowDirection = 'left' | 'right' | 'up' | 'down'
 
@@ -52,6 +53,7 @@ function transitionViewMode(target: 'canvas' | 'browser', frameId?: string): boo
   if (uiPendingPlacement()) {
     setUiPendingPlacement(null)
   }
+  exitFrameFocus('view-mode-switch')
 
   // 2. Perform the mode-specific transition
   if (target === 'browser') {

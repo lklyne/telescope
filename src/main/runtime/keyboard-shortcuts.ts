@@ -9,6 +9,9 @@ import { undo, redo, canUndo, canRedo } from './workspace-undo'
 import { pendingPlacement as uiPendingPlacement } from '../ui-state'
 import { selectAdjacentPage } from './selection-state'
 import { layoutAllViews } from './layout-engine'
+import { currentFrameFocus, exitFrameFocus } from './frame-focus'
+import { markDirty } from './layout-dirty'
+import { requestLayout } from './viewport-control'
 
 type ArrowDirection = 'left' | 'right' | 'up' | 'down'
 
@@ -113,6 +116,26 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
     ) {
       event.preventDefault()
       _cancelPendingPlacement()
+      return
+    }
+
+    // Escape exits frame focus (ADR 0001). The page being focused is what
+    // routes its keypresses here; we preventDefault so the page doesn't
+    // also see the Escape. Note: confirmed flaky in Phase 1 — diagnose
+    // before promoting Phase 2.
+    if (
+      input.type === 'keyDown' &&
+      input.key === 'Escape' &&
+      !input.shift &&
+      !input.meta &&
+      !input.control &&
+      !input.alt &&
+      currentFrameFocus()
+    ) {
+      event.preventDefault()
+      exitFrameFocus('escape')
+      markDirty('canvas')
+      requestLayout()
       return
     }
 

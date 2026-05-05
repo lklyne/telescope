@@ -386,6 +386,8 @@ export interface LayoutUpdateData {
   edges: WorkspaceEdge[]
   groups?: CanvasSceneGroupEntity[]
   presenceCursors: AgentPresenceCursor[]
+  /** Currently focused frame (ADR 0001). Null when no frame is focused. */
+  frameFocus: { id: string; since: number } | null
 }
 
 export type PresenceSurface = 'canvas' | 'frame'

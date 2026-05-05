@@ -45,6 +45,14 @@ import {
 } from '../navigation-sync'
 import { watchModifierKeys } from './keyboard-shortcuts'
 import { breadcrumb } from '../sentry-context'
+import {
+  areFocusEventsSuppressed,
+  enterFrameFocus,
+  exitFrameFocus,
+  exitFrameFocusIfMatches,
+  isFrameFocused,
+} from './frame-focus'
+import { workspaceViewMode as uiWorkspaceViewMode } from '../ui-state'
 
 function hostOf(url: string | undefined): string | undefined {
   if (!url) return undefined
@@ -262,6 +270,49 @@ export function createPage(config: PageConfig): Page {
   }
   page.pageView.webContents.loadURL(config.url).catch(() => {})
 
+  // Frame focus (ADR 0001): when a page's webContents gains focus from a
+  // user click in canvas mode, promote it to focused. When it loses focus,
+  // exit. Programmatic focus() calls (FocusReconciler, did-finish-load focus
+  // theft) are wrapped in withFocusEventsSuppressed and are ignored here.
+  page.pageView.webContents.on('focus', () => {
+    if (areFocusEventsSuppressed()) return
+    if (uiWorkspaceViewMode() !== 'canvas') return
+    // Skip focus events fired during page load — those are
+    // did-finish-load focus theft (Electron #42578), not user clicks.
+    if (page.pageView.webContents.isLoading()) return
+    enterFrameFocus(page.id, 'click')
+    markDirty('canvas')
+    requestLayout()
+  })
+  page.pageView.webContents.on('blur', () => {
+    // Blur is the exit signal; we never suppress it. Programmatic focus
+    // moves cascade through here naturally (e.g. reconciler focuses bgView
+    // → focused page blurs → exitFrameFocus).
+    if (!isFrameFocused(page.id)) return
+    exitFrameFocus('blur')
+    markDirty('canvas')
+    requestLayout()
+  })
+
+  // Spike: webContents focus/blur reliability for ADR 0001 (frame focus
+  // model). Enable with `BLUR_SPIKE=1 pnpm dev`. Logs every focus/blur and
+  // devtools-open/close on this page's webContents so we can manually
+  // exercise DevTools attach, native dialogs, and programmatic focus moves
+  // and observe whether blur fires reliably.
+  if (process.env.BLUR_SPIKE === '1') {
+    const tag = '[blur-spike]'
+    const log = (event: string, extra?: Record<string, unknown>) => {
+      console.log(tag, event, { pageId: page.id, host: hostOf(page.url), ...extra })
+    }
+    page.pageView.webContents.on('focus', () => log('page:focus'))
+    page.pageView.webContents.on('blur', () => log('page:blur'))
+    page.pageView.webContents.on('devtools-opened', () => log('page:devtools-opened'))
+    page.pageView.webContents.on('devtools-closed', () => log('page:devtools-closed'))
+    page.pageView.webContents.on('devtools-focused', () => log('page:devtools-focused'))
+    chromeView.webContents.on('focus', () => log('chrome:focus'))
+    chromeView.webContents.on('blur', () => log('chrome:blur'))
+  }
+
   watchModifierKeys(pageView.webContents, { handleShortcuts: false })
   watchModifierKeys(chromeView.webContents)
 
@@ -280,6 +331,7 @@ export function removePageAtIndex(idx: number): Page | null {
   const page = pages[idx]
   breadcrumb('page', 'remove', { host: hostOf(page.url) })
   clearPendingRequestsForFrame(page.id)
+  exitFrameFocusIfMatches(page.id, 'frame-deleted')
   win.contentView.removeChildView(page.frameView)
   win.contentView.removeChildView(page.pageView)
   win.contentView.removeChildView(page.chromeView)

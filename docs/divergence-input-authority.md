@@ -60,6 +60,19 @@ The `CanvasPointerAction` ADT covers every action a pointerdown can trigger — 
 
 The hook exports `DEFAULT_ROUTER_CONSUME` (just `enter-frame-focus` today) and `FULL_ROUTER_CONSUME` (everything). Per-layer migration is just expanding the `consume` set.
 
+**Dispatcher implementations ready to enable (just add to consume):**
+- `enter-frame-focus` ✅ active in default consume
+- `toggle-select` ✅ wired (frame/group/entity branches)
+- `begin-edge-drag` ⚠ wired but only fires the begin IPC; the move/up handlers still live in `EdgeLayer.tsx`. Enabling alone will leave edge drags stuck.
+- `begin-entity-drag` ✅ wired with full window-level move/up forwarding (lifted from `App.tsx onEntityPointerDown`)
+- `begin-group-drag` ✅ wired with the same `GROUP_DRAG_THRESHOLD` click-vs-drag heuristic
+
+**Still inert (fall through to legacy bgView path):**
+- `begin-resize` — would need `useEntityResize`/`useMultiSelectionResize` lifted out of bgView and made callable from the router. Per-corner/edge geometry + per-kind aspect-ratio modes make this the largest single migration.
+- `begin-marquee` — aboveView already supports marquee but only when `hasSavedDrawings` (see `App.tsx`'s `dragMode` calculation). Removing that gate would let marquee run unconditionally; doing so safely needs UX validation.
+- `begin-pan` — middle-button pan via `useViewportForwarding` already works; space-pan needs verification once the gate flips.
+- `background-click` — would call `api.canvasDeselect`. Trivial to wire when needed.
+
 ### 5. New IPC: `canvas-frame-focus-enter`
 
 - `src/preload/canvas-bg.ts` adds `enterFrameFocus(frameId)` to the renderer-exposed `electronAPI`.

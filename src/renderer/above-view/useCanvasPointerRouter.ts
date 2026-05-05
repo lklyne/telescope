@@ -122,7 +122,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       const action = routePointerDown(target, context)
       if (!consumeRef.current.has(action.kind)) return
 
-      const dispatched = dispatch(action, apiRef.current)
+      const dispatched = dispatch(action, apiRef.current, event)
       if (dispatched) {
         event.preventDefault()
         event.stopPropagation()
@@ -138,7 +138,11 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
 
 /** Translate a CanvasPointerAction into IPC. Returns true if the action
  *  consumed the event; false means the caller should let it fall through. */
-function dispatch(action: CanvasPointerAction, api: CanvasBgElectronAPI): boolean {
+function dispatch(
+  action: CanvasPointerAction,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+): boolean {
   switch (action.kind) {
     case 'noop':
       return false
@@ -156,17 +160,122 @@ function dispatch(action: CanvasPointerAction, api: CanvasBgElectronAPI): boolea
       return true
     case 'begin-edge-drag':
       api.beginEdgeDrag(action.entityId, action.side as EdgeSide)
+      // Edge drag continuation (target-change on move, commit/cancel on up)
+      // is handled today by EdgeLayer.tsx's onMouseMove inside bgView. Leave
+      // the move/up wiring to the existing path until the anchor layer is
+      // fully migrated; this just begins the gesture from the new path.
       return true
-    // begin-entity-drag, begin-group-drag, begin-resize, begin-marquee,
-    // background-click, begin-pan: leave to existing aboveView /
-    // useViewportForwarding handlers in this Phase 2 substrate landing.
-    // Per-layer migration to dispatch from here is tracked in the plan.
     case 'begin-entity-drag':
+      return beginEntityDrag(action, api, event)
     case 'begin-group-drag':
+      return beginGroupDrag(action, api, event)
     case 'begin-resize':
     case 'begin-marquee':
     case 'background-click':
     case 'begin-pan':
       return false
   }
+}
+
+/**
+ * Lifted from src/renderer/above-view/App.tsx onEntityPointerDown (non-additive,
+ * non-group branch). Selects (unless preserving) and starts a drag with
+ * window-level pointermove/pointerup forwarding deltas to main. Drag deltas
+ * use screenX/screenY so trackpad fractional motion isn't lost.
+ */
+function beginEntityDrag(
+  action: Extract<CanvasPointerAction, { kind: 'begin-entity-drag' }>,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+): boolean {
+  if (!action.preserveSelection) {
+    if (action.entityKind === 'frame') api.selectFrame(action.entityId)
+    else api.selectEntity(action.entityId, action.entityKind)
+  }
+  if (action.entityKind === 'frame') api.startDragFrame(action.entityId)
+  else api.startDragEntity(action.entityId)
+
+  let lastScreenX = event.screenX
+  let lastScreenY = event.screenY
+  const onMove = (ev: MouseEvent) => {
+    const dx = ev.screenX - lastScreenX
+    const dy = ev.screenY - lastScreenY
+    lastScreenX = ev.screenX
+    lastScreenY = ev.screenY
+    if (dx === 0 && dy === 0) return
+    if (action.entityKind === 'frame') api.dragFrame(action.entityId, dx, dy)
+    else api.dragEntity(action.entityId, dx, dy)
+  }
+  const onUp = () => {
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseup', onUp)
+    window.removeEventListener('blur', onUp)
+    if (action.entityKind === 'frame') api.endDragFrame()
+    else api.endDragEntity()
+  }
+  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseup', onUp)
+  window.addEventListener('blur', onUp)
+  return true
+}
+
+/**
+ * Lifted from src/renderer/above-view/App.tsx onEntityPointerDown (group
+ * branch). Mirrors the GROUP_DRAG_THRESHOLD click-vs-drag heuristic: under
+ * threshold, select the click target; over threshold, treat as group drag.
+ */
+const GROUP_DRAG_THRESHOLD = 4
+
+function beginGroupDrag(
+  action: Extract<CanvasPointerAction, { kind: 'begin-group-drag' }>,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+): boolean {
+  let dragging = false
+  let lastScreenX = event.screenX
+  let lastScreenY = event.screenY
+  const startScreenX = event.screenX
+  const startScreenY = event.screenY
+
+  const onMove = (ev: MouseEvent) => {
+    const totalDx = ev.screenX - startScreenX
+    const totalDy = ev.screenY - startScreenY
+    if (
+      !dragging &&
+      Math.abs(totalDx) < GROUP_DRAG_THRESHOLD &&
+      Math.abs(totalDy) < GROUP_DRAG_THRESHOLD
+    ) {
+      return
+    }
+    if (!dragging) {
+      dragging = true
+      api.startDragGroup(action.groupId)
+    }
+    const dx = ev.screenX - lastScreenX
+    const dy = ev.screenY - lastScreenY
+    lastScreenX = ev.screenX
+    lastScreenY = ev.screenY
+    if (dx !== 0 || dy !== 0) api.dragGroup(action.groupId, dx, dy)
+  }
+  const cleanup = () => {
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseup', onUp)
+    window.removeEventListener('blur', onCancel)
+  }
+  const onUp = () => {
+    cleanup()
+    if (dragging) {
+      api.endDragGroup()
+      return
+    }
+    api.selectGroup(action.groupId)
+  }
+  const onCancel = () => {
+    cleanup()
+    if (dragging) api.endDragGroup()
+  }
+  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseup', onUp)
+  window.addEventListener('blur', onCancel)
+  return true
 }

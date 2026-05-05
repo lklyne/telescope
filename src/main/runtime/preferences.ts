@@ -22,6 +22,7 @@ import {
   type CursorTuningParams,
 } from '../../shared/cursor-tuning'
 import { getDebugWebContents } from '../debug-window'
+import { getSettingsWebContents } from '../settings-window'
 import {
   bgView,
   aboveView,
@@ -253,6 +254,10 @@ export function broadcastTheme(): void {
   const debugWebContents = getDebugWebContents()
   if (debugWebContents && !debugWebContents.isDestroyed()) {
     debugWebContents.send('theme-changed', data)
+  }
+  const settingsWebContents = getSettingsWebContents()
+  if (settingsWebContents && !settingsWebContents.isDestroyed()) {
+    settingsWebContents.send('theme-changed', data)
   }
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]

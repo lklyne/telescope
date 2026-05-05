@@ -33,7 +33,7 @@ function createSettingsWindow(): BrowserWindow {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    title: 'Telescope Settings',
+    title: 'Specular Settings',
     titleBarStyle: 'hiddenInset',
     show: false,
     backgroundColor: isDark() ? '#292524' : '#f5f5f4',

@@ -15,6 +15,7 @@ This document tracks where the implementation diverged from the plan and what re
 | Phase 0 (substrate) | ✅ landed earlier |
 | Phase 1 (focus state machine + click-to-enter) | ✅ landed earlier |
 | Phase 2 (architectural deepening + router substrate) | ✅ landed in this branch |
+| Phase 2 (drawing inline menu retired) | ✅ landed — one bgView-broken surface eliminated outright |
 | Phase 2 (gate-predicate flip to default-open) | ⏸ blocked on chromeView migration — see "Why the predicate flip is deferred" below |
 | Phase 3 (demolition of bgView per-layer pointer hooks) | ⏸ blocked on Phase 2 flip |
 
@@ -76,10 +77,10 @@ I attempted this and rolled back. The flip makes `aboveView` cover the entire ca
 
 | bgView interactive surface | Status post-flip without further migration |
 |---|---|
-| `chromeView` URL bar, nav buttons | Broken |
+| `chromeView` URL bar, nav buttons | Broken — migration to aboveView decided (see below) |
 | Group rename label (above group bounds) | Broken (clicks fall outside any router hit-region → background marquee) |
 | Inline text edit trigger (double-click on text entity) | Broken (router only handles pointerdown) |
-| Saved drawing inline menu | Broken |
+| ~~Saved drawing inline menu~~ | ✅ retired — delete via select+delete or right-details panel |
 | File chrome buttons | Broken |
 
 Each of these needs to either (a) move into aboveView's React tree, or (b) gain a richer `HitPayload` kind so the router can route to it. That's the next focused refactor; it's distinct from the work that landed tonight.
@@ -88,14 +89,16 @@ Each of these needs to either (a) move into aboveView's React tree, or (b) gain 
 
 ## Recommended next sequence
 
-1. Decide whether chrome (URL bar, nav, action menus) belongs in aboveView's React tree or stays in its own `chromeView` WCV with a new layer-stack rule (chromeView z-above aboveView in canvas mode only — possible per WCV bounds).
-2. Add a `HitPayload` kind for "chrome-button" with sub-id (or migrate the chrome to aboveView wholesale).
-3. Add a `HitPayload` kind for "group-label" or move the rename target into the group's body hit-region.
-4. Wire double-click promotion: a `routePointerDown`-style mapper on `dblclick` events that promotes selected text/shape entities into edit mode.
-5. Flip the gate predicate per the plan.
-6. Phase 3 demolition: delete `useFrameChromeDrag`, `useGroupBoundsDrag`, `useMultiSelectionResize`, `useEntityResize`, `EdgeLayer.tsx`'s onMouseDown + dragState + rubber-band, `FrameChromeLayer/FileChromeLayer/GroupBoundsLayer` onMouseDown props. Promote `no-mouse-events` ESLint rule to error.
+Decisions taken (this branch): **migrate** all bgView interactive surfaces into aboveView's React tree. Dblclick promotion drops the prior-selection precondition.
 
-Tonight's landing makes step 5 a one-line change once steps 1–4 are done. The pure modules and tests already cover the gestures that move during steps 1–4.
+1. **Migrate `chromeView` (URL bar, nav, action menus) into aboveView's React tree.** Retire the per-page chrome WCV created in `src/main/runtime/page-factory.ts:114`. Reuse the existing page-chrome IPC surface via canvas-bg's preload. Largest single chunk; deserves its own session. *Blocking the gate flip.*
+2. **Migrate `FileChromeLayer` buttons** out of bgView into aboveView, sharing the `EntityChrome` compound. Same pattern as #1 at smaller scale.
+3. **Migrate the group rename label** out of `GroupBoundsLayer` into aboveView, with its own `HitPayload` kind so the router routes label-click to rename and body-click to enter-group.
+4. **Wire dblclick promotion** in the router: add `routePointerDoubleClick` mapper to `src/shared/canvas-pointer-actions.ts`, dispatch `enter-shape-edit` / `enter-group` / `enter-group-rename` actions. No prior-selection precondition. Text entities gain a `request-text-edit` IPC since editing is currently only derivable from selection.
+5. **Flip the gate predicate** per the plan — one-line change.
+6. **Phase 3 demolition**: delete `useFrameChromeDrag`, `useGroupBoundsDrag`, `useMultiSelectionResize`, `useEntityResize`, `EdgeLayer.tsx`'s onMouseDown + dragState + rubber-band, `FrameChromeLayer/FileChromeLayer/GroupBoundsLayer` onMouseDown props. Promote `no-mouse-events` ESLint rule to error.
+
+Step 4 is best done **inside** the gate-flip session — until the gate flips, the bgView dblclick handlers work fine and routing dblclick early is speculative plumbing. Steps 1–3 each unblock the next, and #1 is by far the largest.
 
 ---
 

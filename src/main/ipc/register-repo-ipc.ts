@@ -5,6 +5,7 @@ import {
   toolbarView,
 } from '../runtime/view-refs'
 import {
+  bindOriginToRepo,
   connectRepo,
   disconnectRepo,
   findRepoForPath,
@@ -14,11 +15,18 @@ import {
 } from '../runtime/dev-server-manager'
 import { markDirty } from '../runtime/layout-dirty'
 import { requestLayout } from '../runtime/viewport-control'
+import { getSettingsWebContents } from '../settings-window'
 
 function broadcastRepos(repos: ConnectedRepo[]): void {
-  for (const view of [bgView, devtoolsHeaderView, toolbarView]) {
+  const targets = [
+    bgView?.webContents,
+    devtoolsHeaderView?.webContents,
+    toolbarView?.webContents,
+    getSettingsWebContents(),
+  ]
+  for (const wc of targets) {
     try {
-      view?.webContents.send('repo-changed', repos)
+      wc?.send('repo-changed', repos)
     } catch {
       // ignore — view may be in the middle of teardown
     }
@@ -53,6 +61,19 @@ export function registerRepoIpc(): void {
     'repo-disconnect',
     async (_event, payload: { id?: string }): Promise<void> => {
       if (payload?.id) await disconnectRepo(payload.id)
+    },
+  )
+
+  ipcMain.handle(
+    'repo-bind-origin',
+    async (
+      _event,
+      payload: { repoId?: string; origin?: string },
+    ): Promise<ConnectedRepo | null> => {
+      const repoId = payload?.repoId
+      const origin = payload?.origin?.trim()
+      if (!repoId || !origin) return null
+      return bindOriginToRepo(repoId, origin)
     },
   )
 

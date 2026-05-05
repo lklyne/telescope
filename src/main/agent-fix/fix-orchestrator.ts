@@ -8,7 +8,7 @@ import {
   setOnAnnotationReply,
   updateAnnotationStatus,
 } from '../workspace-annotations'
-import { getOriginBinding } from '../runtime/preferences'
+import { getOriginBindingView as getOriginBinding } from '../runtime/dev-server-manager'
 import { buildFixPrompt } from './prompt-builder'
 import { invokeClaude, type FixResult } from './claude-spawner'
 import {

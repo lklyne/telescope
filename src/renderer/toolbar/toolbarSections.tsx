@@ -34,7 +34,6 @@ import type {
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { normalizeUserUrl } from '../../shared/url'
 import { FramePresetDropdown } from '../shared/FramePresetDropdown'
-import { RepoMenu } from './RepoMenu'
 import { ZOOM_PRESETS } from './useToolbarState'
 
 function toolbarIconBtnClass(isDark: boolean): string {
@@ -157,14 +156,12 @@ interface LeftActionsProps {
   isDark: boolean
   leftSidebarOpen: boolean
   onToggleLeftSidebar: () => void
-  onDropdownOpenChange: (open: boolean) => void
 }
 
 export function LeftActions({
   isDark,
   leftSidebarOpen,
   onToggleLeftSidebar,
-  onDropdownOpenChange,
 }: LeftActionsProps) {
   const iconButtonClassName = toolbarIconBtnClass(isDark)
 
@@ -183,7 +180,6 @@ export function LeftActions({
             style={{ transform: 'scaleX(-1)' }}
           />
         </button>
-        <RepoMenu isDark={isDark} onOpenChange={onDropdownOpenChange} />
       </div>
     </div>
   )

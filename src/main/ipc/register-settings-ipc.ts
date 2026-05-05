@@ -9,11 +9,10 @@ import type {
 } from '../../shared/types'
 import {
   getFixConfig,
-  getOriginBindings,
   isDark,
-  removeOriginBinding,
   setFixConfig,
 } from '../runtime/preferences'
+import { removeBindingByOrigin } from '../runtime/dev-server-manager'
 import { getOnboardingStatus } from '../onboarding-status'
 import {
   runComponentToggle,
@@ -25,6 +24,7 @@ import {
   closeSettingsWindow,
   getSettingsWebContents,
 } from '../settings-window'
+import { listRepos } from '../runtime/dev-server-manager'
 
 function broadcastProgress(event: OnboardingProgressEvent): void {
   const wc = getSettingsWebContents()
@@ -38,12 +38,6 @@ function broadcastFixConfig(): void {
   wc.send('settings:fix-config-changed', getFixConfig())
 }
 
-function broadcastOriginBindings(): void {
-  const wc = getSettingsWebContents()
-  if (!wc || wc.isDestroyed()) return
-  wc.send('settings:origin-bindings-changed', getOriginBindings())
-}
-
 export function registerSettingsIpc(): void {
   ipcMain.handle(
     'settings:get-initial-data',
@@ -51,7 +45,7 @@ export function registerSettingsIpc(): void {
       theme: { isDark: isDark() },
       status: await getOnboardingStatus(),
       fixConfig: getFixConfig(),
-      originBindings: getOriginBindings(),
+      connectedRepos: listRepos(),
     }),
   )
 
@@ -102,9 +96,7 @@ export function registerSettingsIpc(): void {
     (_event, origin: unknown) => {
       const trimmed = typeof origin === 'string' ? origin.trim() : ''
       if (!trimmed) return
-      removeOriginBinding(trimmed)
-      broadcastOriginBindings()
-      notifyDevtoolsPanelData()
+      if (removeBindingByOrigin(trimmed)) notifyDevtoolsPanelData()
     },
   )
 

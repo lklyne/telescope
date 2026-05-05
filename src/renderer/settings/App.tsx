@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 import type {
+  ConnectedRepo,
   FixConfig,
   OnboardingStatusSnapshot,
-  OriginBindings,
   SettingsBootstrapData,
   SettingsElectronAPI,
 } from '../../shared/types'
 import { Sidebar, type SettingsSection } from './Sidebar'
 import { SkillsPane } from './SkillsPane'
 import { FixConfigPane } from './FixConfigPane'
-import { OriginBindingsPane } from './OriginBindingsPane'
+import { ReposPane } from './ReposPane'
 
 export default function App({
   api,
@@ -21,8 +21,8 @@ export default function App({
   const [section, setSection] = useState<SettingsSection>('skills')
   const [status, setStatus] = useState<OnboardingStatusSnapshot>(initialData.status)
   const [fixConfig, setFixConfig] = useState<FixConfig>(initialData.fixConfig)
-  const [originBindings, setOriginBindings] = useState<OriginBindings>(
-    initialData.originBindings,
+  const [connectedRepos, setConnectedRepos] = useState<ConnectedRepo[]>(
+    initialData.connectedRepos,
   )
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function App({
   }, [api])
 
   useEffect(() => {
-    return api.onOriginBindingsChanged((next) => setOriginBindings(next))
+    return api.onConnectedReposChanged((next) => setConnectedRepos(next))
   }, [api])
 
   return (
@@ -50,7 +50,7 @@ export default function App({
           ) : section === 'models' ? (
             <FixConfigPane api={api} fixConfig={fixConfig} />
           ) : (
-            <OriginBindingsPane api={api} bindings={originBindings} />
+            <ReposPane api={api} connectedRepos={connectedRepos} />
           )}
         </main>
       </div>

@@ -131,10 +131,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           isDark={isDark}
           leftSidebarOpen={leftSidebarOpen}
           onToggleLeftSidebar={toolbarApi.toggleLeftSidebar}
-          onDropdownOpenChange={(open) => {
-            if (open) toolbarApi.dropdownOpen()
-            else toolbarApi.dropdownClose()
-          }}
         />
 
         {showTabsModeAddressBar ? (

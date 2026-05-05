@@ -31,9 +31,12 @@ import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
 import { requestLayout, setZoom, setPan, focusSelectedPage } from './viewport-control'
 import {
+  consumeLegacyOriginBindings,
   isDark,
   loadPreferences,
+  savePreferences,
 } from './preferences'
+import { bindOriginToRepoPath } from './dev-server-manager'
 import {
   ensureWorkspaceTabsInitialized,
 } from './workspace-tabs'
@@ -143,6 +146,14 @@ export function initWindow(): void {
     ungroupSelectedGroup,
   })
   loadPreferences()
+  const legacyBindings = consumeLegacyOriginBindings()
+  if (legacyBindings) {
+    for (const [origin, value] of Object.entries(legacyBindings)) {
+      if (!value?.repoPath) continue
+      bindOriginToRepoPath(origin, value.repoPath, !!value.autoFix)
+    }
+    savePreferences()
+  }
   initFixOrchestrator()
   onTrackerChange(() => notifyDevtoolsPanelData())
   onProgressChange(() => {

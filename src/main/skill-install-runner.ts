@@ -39,17 +39,19 @@ export async function runSkillInstallSelections(
   selections: Record<OnboardingComponentId, boolean>,
   broadcast: ProgressBroadcaster,
 ): Promise<OnboardingStatusSnapshot> {
-  await runOne('cli', selections.cli, broadcast, () => installCli())
-  await runOne('skill', selections.skill, broadcast, () => {
-    const result = installSkill('specular')
-    if (result.success) recordInstalledSkillHash('specular')
-    return result
-  })
-  await runOne('agentBrowser', selections.agentBrowser, broadcast, async () => {
-    const result = await installAgentBrowser()
-    if (result.success) recordInstalledSkillHash('agent-browser')
-    return result
-  })
+  await Promise.all([
+    runOne('cli', selections.cli, broadcast, () => installCli()),
+    runOne('skill', selections.skill, broadcast, () => {
+      const result = installSkill('specular')
+      if (result.success) recordInstalledSkillHash('specular')
+      return result
+    }),
+    runOne('agentBrowser', selections.agentBrowser, broadcast, async () => {
+      const result = await installAgentBrowser()
+      if (result.success) recordInstalledSkillHash('agent-browser')
+      return result
+    }),
+  ])
   const status = await getOnboardingStatus()
   broadcast({ kind: 'done', status })
   return status

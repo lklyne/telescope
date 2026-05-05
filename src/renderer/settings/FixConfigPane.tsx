@@ -49,14 +49,14 @@ export function FixConfigPane({
         <SettingsSelect
           label="Model"
           value={model}
-          onValueChange={(v) => setModel(v as FixModel)}
+          onValueChange={setModel}
           options={MODEL_OPTIONS}
         />
 
         <SettingsSelect
           label="Permissions"
           value={permissions}
-          onValueChange={(v) => setPermissions(v as FixPermissions)}
+          onValueChange={setPermissions}
           options={PERMISSION_OPTIONS}
           hint={
             permissions === 'dangerously'

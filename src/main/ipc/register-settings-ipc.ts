@@ -12,7 +12,7 @@ import {
   isDark,
   setFixConfig,
 } from '../runtime/preferences'
-import { removeBindingByOrigin } from '../runtime/dev-server-manager'
+import { listRepos, removeBindingByOrigin } from '../runtime/dev-server-manager'
 import { getOnboardingStatus } from '../onboarding-status'
 import {
   runComponentToggle,
@@ -24,18 +24,19 @@ import {
   closeSettingsWindow,
   getSettingsWebContents,
 } from '../settings-window'
-import { listRepos } from '../runtime/dev-server-manager'
 
-function broadcastProgress(event: OnboardingProgressEvent): void {
+function sendToSettings(channel: string, payload: unknown): void {
   const wc = getSettingsWebContents()
   if (!wc || wc.isDestroyed()) return
-  wc.send('settings:skill-progress', event)
+  wc.send(channel, payload)
+}
+
+function broadcastProgress(event: OnboardingProgressEvent): void {
+  sendToSettings('settings:skill-progress', event)
 }
 
 function broadcastFixConfig(): void {
-  const wc = getSettingsWebContents()
-  if (!wc || wc.isDestroyed()) return
-  wc.send('settings:fix-config-changed', getFixConfig())
+  sendToSettings('settings:fix-config-changed', getFixConfig())
 }
 
 export function registerSettingsIpc(): void {

@@ -67,15 +67,13 @@ export function SkillsPane({
         const wantInstalled = next
         const isInstalled = after.kind === 'installed'
         if (wantInstalled !== isInstalled) {
-          setErrors((prev) => ({
-            ...prev,
-            [id]:
-              after.kind === 'blocked'
-                ? after.detail
-                : wantInstalled
-                  ? 'Install failed.'
-                  : 'Uninstall failed.',
-          }))
+          const message =
+            after.kind === 'blocked'
+              ? after.detail
+              : next
+                ? 'Install failed.'
+                : 'Uninstall failed.'
+          setErrors((prev) => ({ ...prev, [id]: message }))
         }
       } finally {
         setPending((prev) => ({ ...prev, [id]: false }))

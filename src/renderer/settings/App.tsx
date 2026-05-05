@@ -26,17 +26,16 @@ export default function App({
   )
 
   useEffect(() => {
-    return api.onThemeChanged((data) =>
+    const offTheme = api.onThemeChanged((data) =>
       document.documentElement.classList.toggle('dark', data.isDark),
     )
-  }, [api])
-
-  useEffect(() => {
-    return api.onFixConfigChanged((next) => setFixConfig(next))
-  }, [api])
-
-  useEffect(() => {
-    return api.onConnectedReposChanged((next) => setConnectedRepos(next))
+    const offFix = api.onFixConfigChanged((next) => setFixConfig(next))
+    const offRepos = api.onConnectedReposChanged((next) => setConnectedRepos(next))
+    return () => {
+      offTheme()
+      offFix()
+      offRepos()
+    }
   }, [api])
 
   return (

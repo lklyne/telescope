@@ -50,9 +50,6 @@ export type SpawnFn = (
 export interface InitOptions {
   userDataDir: string
   spawn: SpawnFn
-  /** One-shot migration: bindings from the legacy preferences.originBindings
-   *  map are folded into ConnectedRepo.boundOrigins. */
-  legacyOriginBindings?: LegacyOriginBindings
 }
 
 interface InternalRepo extends ConnectedRepo {
@@ -157,43 +154,6 @@ export function initDevServerManager(options: InitOptions): void {
   userDataDir = options.userDataDir
   spawnFn = options.spawn
   loadPersisted()
-  if (options.legacyOriginBindings) {
-    migrateLegacyBindings(options.legacyOriginBindings)
-  }
-}
-
-function migrateLegacyBindings(legacy: LegacyOriginBindings): void {
-  let mutated = false
-  for (const [rawOrigin, value] of Object.entries(legacy)) {
-    const origin = normalizeOrigin(rawOrigin)
-    const repoPath = value?.repoPath
-    if (!origin || !repoPath) continue
-    const id = repoIdFor(repoPath)
-    let entry = repos.get(id)
-    if (!entry) {
-      entry = {
-        id,
-        absolutePath: repoPath,
-        label: basename(repoPath),
-        status: 'stopped',
-        port: null,
-        baseUrl: null,
-        boundOrigins: [],
-        child: null,
-        startupResolvers: [],
-        startupTimer: null,
-      }
-      repos.set(id, entry)
-    }
-    if (!entry.boundOrigins.some((b) => b.origin === origin)) {
-      entry.boundOrigins.push({ origin, autoFix: !!value.autoFix })
-      mutated = true
-    }
-  }
-  if (mutated) {
-    persist()
-    notifyChange()
-  }
 }
 
 export function listRepos(): ConnectedRepo[] {

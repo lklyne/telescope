@@ -11,12 +11,10 @@ import {
   layoutAllViews,
   layoutCache,
   pan,
-  requestLayout,
-  screenBoundsForPage,
-  snapToGrid,
   zoom,
 } from '../runtime/surface-layout'
 import { markDirty } from '../runtime/layout-dirty'
+import { requestLayout } from '../runtime/viewport-control'
 import {
   finalizeDrag,
   initializeDrag,
@@ -24,10 +22,8 @@ import {
 } from '../runtime/document-commands'
 import {
   deselectAll,
-  openDevToolsForSelectedPage,
   selectPage,
   setHoverEntity,
-  setHoveredFrame,
 } from '../runtime/ui-actions'
 import {
   interactionBlocksPageHover,
@@ -37,22 +33,15 @@ import { annotationMode as uiAnnotationMode } from '../ui-state'
 import { tryEnter, commitActive, cancelActive } from '../runtime/interaction-controller'
 import {
   findPageByPageView,
-  findPageBySender,
   pages,
 } from '../runtime/page-runtime'
-import { clearCustomFrameSizeMetadata } from '../runtime/runtime-entities'
 import { setPendingFocus } from '../runtime/runtime-context'
 import { win } from '../runtime/window-shell'
-import { scheduleWorkspaceAutosave } from '../runtime/workspace-session'
 import {
   isScrollSuppressed,
-  markNavigationSuppressed,
-  propagateNavigationFromPage,
   propagateScrollFromPage,
-  togglePageLinked,
 } from '../navigation-sync'
-import { deleteFrames, selectEntitiesInRect } from '../workspace-entities'
-import { duplicateFrameFromSource } from '../workspace-frames'
+import { selectEntitiesInRect } from '../workspace-entities'
 import {
   applyEntitySelectionMutation,
   selectedDragEntityIds,
@@ -114,98 +103,11 @@ export function registerPageChromeIpc(): void {
     setHoverEntity(hovered && page ? { id: page.id, kind: 'frame' } : null)
   })
 
-  ipcMain.on(
-    'chrome-select',
-    (event, payload?: { modifiers?: SelectionModifiers }) => {
-      if (interactionBlocksPageSelection()) {
-        selectionDebug('ipc:chrome-select:suppressed', { senderId: event.sender.id })
-        return
-      }
-      const page = pages.find((candidate) => candidate.chromeView.webContents === event.sender)
-      if (!page) return
-      const mode = selectionMutationMode(payload?.modifiers)
-      selectionDebug('ipc:chrome-select', { pageId: page.id, senderId: event.sender.id, mode })
-      if (mode === 'replace') {
-        const idx = pages.indexOf(page)
-        if (idx !== -1) selectPage(idx)
-        return
-      }
-      applyEntitySelectionMutation([page.id], mode)
-    },
-  )
-
-  ipcMain.on('chrome-navigate', (event, url: string) => {
-    const page = findPageBySender(event.sender)
-    if (!page) return
-    markNavigationSuppressed(page)
-    page.pageView.webContents.loadURL(url)
-    propagateNavigationFromPage(page, { type: 'load-url', url })
-  })
-
-  ipcMain.on('chrome-back', (event) => {
-    const page = findPageBySender(event.sender)
-    if (!page) return
-    const fallbackUrl = page.pageView.webContents.getURL()
-    if (page.pageView.webContents.canGoBack()) {
-      markNavigationSuppressed(page)
-      page.pageView.webContents.goBack()
-    }
-    propagateNavigationFromPage(page, { type: 'go-back', fallbackUrl })
-  })
-
-  ipcMain.on('chrome-forward', (event) => {
-    const page = findPageBySender(event.sender)
-    if (!page) return
-    const fallbackUrl = page.pageView.webContents.getURL()
-    if (page.pageView.webContents.canGoForward()) {
-      markNavigationSuppressed(page)
-      page.pageView.webContents.goForward()
-    }
-    propagateNavigationFromPage(page, { type: 'go-forward', fallbackUrl })
-  })
-
-  ipcMain.on('chrome-open-devtools', (event) => {
-    const idx = pages.findIndex((page) => page.chromeView.webContents === event.sender)
-    if (idx === -1) return
-    selectPage(idx)
-    openDevToolsForSelectedPage()
-  })
-
-  ipcMain.on('chrome-reload', (event) => {
-    const page = findPageBySender(event.sender)
-    if (!page) return
-    const fallbackUrl = page.pageView.webContents.getURL()
-    markNavigationSuppressed(page)
-    page.pageView.webContents.reload()
-    propagateNavigationFromPage(page, { type: 'reload', fallbackUrl })
-  })
-
-  ipcMain.on('chrome-toggle-linked', (event) => {
-    const page = findPageBySender(event.sender)
-    if (!page) return
-    togglePageLinked(page)
-    layoutAllViews()
-  })
-
-  ipcMain.on('chrome-close', (event) => {
-    const page = findPageBySender(event.sender)
-    if (!page) return
-    deleteFrames({ frameIds: [page.id] })
-  })
-
   ipcMain.on('page-scroll-changed', (event, data: ScrollSyncData) => {
     const page = findPageByPageView(event.sender)
     if (!page || !page.linked) return
     if (isScrollSuppressed(page)) return
     propagateScrollFromPage(page, data)
-  })
-
-  ipcMain.on('chrome-drag', (event, { dx, dy }: { dx: number; dy: number }) => {
-    const page = findPageBySender(event.sender)
-    if (!page) return
-    page.canvasX = snapToGrid(page.canvasX + dx / zoom)
-    page.canvasY = snapToGrid(page.canvasY + dy / zoom)
-    requestLayout()
   })
 
   ipcMain.on('page-group-drag-start', (event) => {
@@ -356,53 +258,6 @@ export function registerPageChromeIpc(): void {
     },
   )
 
-  ipcMain.on('chrome-cycle-preset', (event, direction: number) => {
-    const page = findPageBySender(event.sender)
-    if (!page) return
-    const len = VIEWPORT_PRESETS.length
-    page.presetIndex = (page.presetIndex + direction + len) % len
-    page.metadata = clearCustomFrameSizeMetadata(page.metadata)
-    scheduleWorkspaceAutosave()
-    layoutAllViews()
-  })
-
-  ipcMain.on('chrome-set-preset', (event, index: number) => {
-    const page = findPageBySender(event.sender)
-    if (!page) return
-    if (index < 0 || index >= VIEWPORT_PRESETS.length) return
-    page.presetIndex = index
-    page.metadata = clearCustomFrameSizeMetadata(page.metadata)
-    scheduleWorkspaceAutosave()
-    layoutAllViews()
-  })
-
-  ipcMain.on('chrome-dropdown-open', (event) => {
-    const page = findPageBySender(event.sender)
-    if (!page || !win) return
-    const expandedHeight = 400
-    const chromeBounds = screenBoundsForPage(page).chrome
-    page.chromeView.setBounds({
-      x: chromeBounds.x,
-      y: chromeBounds.y,
-      width: chromeBounds.width,
-      height: Math.round(expandedHeight * zoom),
-    })
-    page.chromeView.webContents.enableDeviceEmulation({
-      screenPosition: 'desktop',
-      screenSize: { width: chromeBounds.width / zoom, height: expandedHeight },
-      viewSize: { width: chromeBounds.width / zoom, height: expandedHeight },
-      viewPosition: { x: 0, y: 0 },
-      deviceScaleFactor: 1,
-      scale: zoom,
-    })
-    win.contentView.addChildView(page.chromeView)
-    markDirty('stack'); requestLayout()
-  })
-
-  ipcMain.on('chrome-dropdown-close', () => {
-    layoutAllViews()
-  })
-
   ipcMain.on('canvas-bg-dropdown-open', () => {
     if (!bgView || !win) return
     markDirty('stack'); requestLayout()
@@ -410,15 +265,6 @@ export function registerPageChromeIpc(): void {
 
   ipcMain.on('canvas-bg-dropdown-close', () => {
     markDirty('stack'); requestLayout()
-  })
-
-  ipcMain.on('chrome-duplicate', (event) => {
-    const page = findPageBySender(event.sender)
-    if (!page) return
-    duplicateFrameFromSource({
-      sourceFrameId: page.id,
-      focus: true,
-    })
   })
 
   ipcMain.on('peek-resize-start', (event) => {

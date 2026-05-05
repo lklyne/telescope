@@ -214,6 +214,25 @@ export function registerCanvasIpc(): void {
     enterGroup(groupId, { clearInteraction: true })
   })
 
+  // ADR 0002 §"Landing as a single PR" Step 6: dblclick on a text/shape body
+  // in aboveView dispatches request-text-edit / enter-shape-edit. The router
+  // sends here; main selects the entity and pings bgView (the layer where the
+  // editable surface still lives) so it can focus the textarea / open the
+  // shape inline editor.
+  ipcMain.on('canvas-request-text-edit', (_event, { entityId }: { entityId: string }) => {
+    selectEntity(entityId, 'text')
+    if (bgView && !bgView.webContents.isDestroyed()) {
+      bgView.webContents.send('text-begin-edit', { entityId })
+    }
+  })
+
+  ipcMain.on('canvas-request-shape-edit', (_event, { entityId }: { entityId: string }) => {
+    selectEntity(entityId, 'shape')
+    if (bgView && !bgView.webContents.isDestroyed()) {
+      bgView.webContents.send('shape-begin-edit', { entityId })
+    }
+  })
+
   ipcMain.on('canvas-hover-frame', (_event, { frameId }: { frameId: string | null }) => {
     if (interactionBlocksPageHover()) return
     if (uiAnnotationMode() === 'region_select') return

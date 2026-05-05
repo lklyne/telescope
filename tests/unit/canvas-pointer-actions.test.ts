@@ -58,11 +58,11 @@ const baseCtx: CanvasPointerContext = {
 }
 
 describe('routePointerDown', () => {
-  it('frame body click → enter-frame-focus', () => {
+  it('frame body pointerdown → frame-body-press', () => {
     const f = frame()
     const target = hitTest(inputs([f]), { x: 500, y: 400 })
     const action = routePointerDown(target, baseCtx)
-    expect(action).toEqual({ kind: 'enter-frame-focus', entityId: 'f1' })
+    expect(action).toEqual({ kind: 'frame-body-press', entityId: 'f1', preserveSelection: false })
   })
 
   it('chrome click on frame → begin-entity-drag', () => {
@@ -104,10 +104,10 @@ describe('routePointerDown', () => {
     expect(action).toMatchObject({ kind: 'begin-resize', entityId: 'f1', handle: 'nw' })
   })
 
-  it('background click (no modifiers) → begin-marquee', () => {
+  it('background click (no modifiers) → background-click', () => {
     const target = hitTest(inputs([]), { x: 50, y: 50 })
     const action = routePointerDown(target, baseCtx)
-    expect(action).toEqual({ kind: 'begin-marquee' })
+    expect(action).toEqual({ kind: 'background-click' })
   })
 
   it('shift on background → background-click (additive deselect/no-op)', () => {

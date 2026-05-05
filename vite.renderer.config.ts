@@ -16,7 +16,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         toolbar: resolve(__dirname, 'src/renderer/toolbar/index.html'),
-        'chrome-header': resolve(__dirname, 'src/renderer/chrome-header/index.html'),
         'canvas-bg': resolve(__dirname, 'src/renderer/canvas-bg/index.html'),
         'above-view': resolve(__dirname, 'src/renderer/above-view/index.html'),
         'agent-layer': resolve(__dirname, 'src/renderer/agent-layer/index.html'),

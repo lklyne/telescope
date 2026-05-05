@@ -13,6 +13,8 @@ function TextBlockCard({
   isSelected,
   isMarqueePreview,
   canEdit,
+  shouldAutoFocus,
+  onAutoFocusConsumed,
   onSelect,
   onUpdateText,
   onResize,
@@ -31,6 +33,8 @@ function TextBlockCard({
   isSelected: boolean
   isMarqueePreview: boolean
   canEdit: boolean
+  shouldAutoFocus: boolean
+  onAutoFocusConsumed: () => void
   onSelect: (id: string, modifiers?: SelectionModifiers) => void
   onUpdateText: (id: string, text: string) => void
   onResize: (id: string, patch: EntityResizePatch) => void
@@ -46,6 +50,15 @@ function TextBlockCard({
   const [localText, setLocalText] = useState(note.text)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isFocusedRef = useRef(false)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  useEffect(() => {
+    if (canEdit && shouldAutoFocus && textareaRef.current) {
+      textareaRef.current.focus()
+      const len = textareaRef.current.value.length
+      textareaRef.current.setSelectionRange(len, len)
+      onAutoFocusConsumed()
+    }
+  }, [canEdit, shouldAutoFocus, onAutoFocusConsumed])
 
   // Sync from props when not actively editing
   useEffect(() => {
@@ -117,6 +130,7 @@ function TextBlockCard({
         />
         {canEdit ? (
           <textarea
+            ref={textareaRef}
             className="text-block-textarea flex-1 w-full resize-none border-none outline-none bg-transparent px-2.5 pb-2"
             style={{
               boxSizing: 'border-box',
@@ -171,6 +185,7 @@ const MemoTextBlockCard = memo(TextBlockCard, (prev, next) => {
     prev.isSelected === next.isSelected &&
     prev.isMarqueePreview === next.isMarqueePreview &&
     prev.canEdit === next.canEdit &&
+    prev.shouldAutoFocus === next.shouldAutoFocus &&
     prev.selectedGroupDragTargetId === next.selectedGroupDragTargetId
   )
 })
@@ -184,6 +199,8 @@ export function TextBlockLayer({
   selectedEntityCount,
   selectedGroupId,
   selectedGroupDescendantIds,
+  pendingEditEntityId,
+  onPendingFocusConsumed,
   onSelect,
   onUpdateText,
   onResize,
@@ -203,6 +220,8 @@ export function TextBlockLayer({
   selectedEntityCount: number
   selectedGroupId: string | null
   selectedGroupDescendantIds: Set<string>
+  pendingEditEntityId: string | null
+  onPendingFocusConsumed: () => void
   onSelect: (id: string, modifiers?: SelectionModifiers) => void
   onUpdateText: (id: string, text: string) => void
   onResize: (id: string, patch: EntityResizePatch) => void
@@ -225,6 +244,8 @@ export function TextBlockLayer({
           isSelected={selectedEntityIdSet.has(note.id)}
           isMarqueePreview={marqueePreviewIds?.has(note.id) ?? false}
           canEdit={selectedEntityCount === 1 && selectedEntityIdSet.has(note.id)}
+          shouldAutoFocus={pendingEditEntityId === note.id}
+          onAutoFocusConsumed={onPendingFocusConsumed}
           note={note}
           selectedGroupDragTargetId={
             selectedGroupId && selectedGroupDescendantIds.has(note.id)

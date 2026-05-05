@@ -23,8 +23,7 @@ export function linkedPeersOf(source: Page): Page[] {
       page !== source &&
       page.linked &&
       (source.groupId ? page.groupId === source.groupId : !page.groupId) &&
-      !page.pageView.webContents.isDestroyed() &&
-      !page.chromeView.webContents.isDestroyed(),
+      !page.pageView.webContents.isDestroyed(),
   )
 }
 

@@ -38,6 +38,8 @@ export type CanvasPointerAction =
   | { kind: 'noop' }
   /** Programmatically promote the frame to focused; subsequent input goes to the page. */
   | { kind: 'enter-frame-focus'; entityId: string }
+  /** Frame body click/drag candidate: click enters focus, drag moves frame. */
+  | { kind: 'frame-body-press'; entityId: string; preserveSelection: boolean }
   /** Begin selecting + dragging an entity (frame, file, text, shape). */
   | { kind: 'begin-entity-drag'; entityId: string; entityKind: CanvasEntityKind; preserveSelection: boolean }
   /** Begin selecting + dragging a group as a unit. */
@@ -48,7 +50,7 @@ export type CanvasPointerAction =
   | { kind: 'begin-edge-drag'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
   /** Modifier-additive selection toggle (no drag). */
   | { kind: 'toggle-select'; entityId: string; entityKind: CanvasEntityKind }
-  /** Background click — clears selection unless modifier-additive. */
+  /** Background click/drag candidate — clears on click, marquee-selects after threshold. */
   | { kind: 'background-click' }
   /** Background drag — start marquee. Renderer is the coordinator since
    *  marquee feedback is renderer-local. */
@@ -115,7 +117,11 @@ function routeByPayload(
         side: payload.side,
       }
     case 'frame-body':
-      return { kind: 'enter-frame-focus', entityId: payload.entityId }
+      return {
+        kind: 'frame-body-press',
+        entityId: payload.entityId,
+        preserveSelection: context.selectedEntityIds.includes(payload.entityId),
+      }
     case 'entity-body': {
       const additive = isAdditive(context.modifiers)
       if (additive) {
@@ -134,12 +140,55 @@ function routeByPayload(
       }
     }
     case 'background':
-      return isAdditive(context.modifiers)
-        ? { kind: 'background-click' }
-        : { kind: 'begin-marquee' }
+      return { kind: 'background-click' }
   }
 }
 
 function isAdditive(modifiers: SelectionModifiers): boolean {
   return Boolean(modifiers.shift || modifiers.meta || modifiers.ctrl)
+}
+
+// ---------------------------------------------------------------------------
+// Double-click routing (ADR 0002 §"Landing as a single PR" Step 6)
+// ---------------------------------------------------------------------------
+
+/**
+ * Action a router should dispatch in response to a pointer double-click.
+ *
+ * Single-click is the dominant input verb (handled by `routePointerDown`);
+ * dbl-click reserved for in-place edit affordances and group descent. The
+ * router translates each into the corresponding IPC call(s).
+ */
+export type CanvasPointerDoubleClickAction =
+  | { kind: 'noop' }
+  | { kind: 'enter-shape-edit'; entityId: string }
+  | { kind: 'enter-group'; groupId: string }
+  | { kind: 'enter-group-rename'; groupId: string }
+  | { kind: 'request-text-edit'; entityId: string }
+
+export function routePointerDoubleClick(
+  target: HitTarget,
+): CanvasPointerDoubleClickAction {
+  switch (target.payload.kind) {
+    case 'chrome':
+      // Group chrome → rename. Frame/file chrome dbl-click is a no-op
+      // (chrome owns its own click handlers in aboveView).
+      if (target.payload.entityKind === 'group') {
+        return { kind: 'enter-group-rename', groupId: target.payload.entityId }
+      }
+      return { kind: 'noop' }
+    case 'entity-body':
+      switch (target.payload.entityKind) {
+        case 'shape':
+          return { kind: 'enter-shape-edit', entityId: target.payload.entityId }
+        case 'text':
+          return { kind: 'request-text-edit', entityId: target.payload.entityId }
+        case 'group':
+          return { kind: 'enter-group', groupId: target.payload.entityId }
+        default:
+          return { kind: 'noop' }
+      }
+    default:
+      return { kind: 'noop' }
+  }
 }

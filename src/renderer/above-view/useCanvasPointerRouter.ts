@@ -26,6 +26,7 @@
 import { useEffect, useRef } from 'react'
 import { hitTest, type HitInputs } from '../../shared/hit-test'
 import {
+  routePointerDoubleClick,
   routePointerDown,
   type CanvasPointerAction,
   type CanvasPointerContext,
@@ -84,6 +85,7 @@ interface UseCanvasPointerRouterOptions {
 const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointerAction['kind']>([
   'noop',
   'enter-frame-focus',
+  'frame-body-press',
   'begin-entity-drag',
   'begin-group-drag',
   'begin-resize',
@@ -114,6 +116,27 @@ export const DEFAULT_ROUTER_CONSUME: ReadonlySet<CanvasPointerAction['kind']> =
   new Set<CanvasPointerAction['kind']>(['enter-frame-focus'])
 
 const GROUP_DRAG_THRESHOLD = 4
+const MARQUEE_DRAG_THRESHOLD = 4
+const FRAME_BODY_DRAG_THRESHOLD = 4
+
+function capturePointer(event: PointerEvent): (() => void) | null {
+  const target = event.target
+  if (!(target instanceof Element)) return null
+  try {
+    target.setPointerCapture(event.pointerId)
+  } catch {
+    return null
+  }
+  return () => {
+    try {
+      if (target.hasPointerCapture(event.pointerId)) {
+        target.releasePointerCapture(event.pointerId)
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): void {
   const { api, layoutRef, enabled, consume, spaceHeldRef, setEdgeDragState } = options
@@ -174,9 +197,52 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       }
     }
 
+    const handleDblClick = (event: MouseEvent) => {
+      if (isOverlayUiTarget(event.target)) return
+      if (event.button !== 0) return
+      const layout = layoutRef.current
+      if (layout.viewMode !== 'canvas') return
+      const windowY = event.clientY + layout.canvasOrigin.y
+      const target = hitTest(
+        {
+          entities: layout.entities,
+          edges: layout.edges ?? [],
+          selectedEntityIds: layout.selectedEntityIds,
+          zoom: layout.zoom ?? 1,
+        },
+        { x: event.clientX, y: windowY },
+      )
+      const action = routePointerDoubleClick(target)
+      switch (action.kind) {
+        case 'noop':
+          return
+        case 'enter-shape-edit':
+          apiRef.current.requestShapeEdit(action.entityId)
+          break
+        case 'enter-group':
+          apiRef.current.enterGroup(action.groupId)
+          break
+        case 'enter-group-rename':
+          // GroupRenameLabel handles the dblclick directly via the DOM
+          // (it's tagged data-overlay-ui so isOverlayUiTarget catches it
+          // earlier — this branch only fires if the rename label is hit
+          // through the chrome slot via hit-test).
+          return
+        case 'request-text-edit':
+          apiRef.current.requestTextEdit(action.entityId)
+          break
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
     window.addEventListener('pointerdown', handlePointerDown, { capture: true })
+    window.addEventListener('dblclick', handleDblClick, { capture: true })
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown, {
+        capture: true,
+      } as EventListenerOptions)
+      window.removeEventListener('dblclick', handleDblClick, {
         capture: true,
       } as EventListenerOptions)
     }
@@ -201,6 +267,8 @@ function dispatchAction(ctx: DispatchContext): boolean {
     case 'enter-frame-focus':
       api.enterFrameFocus(action.entityId)
       return true
+    case 'frame-body-press':
+      return runFrameBodyPress(action, api, event)
     case 'toggle-select':
       if (action.entityKind === 'frame') {
         api.selectFrame(action.entityId, { shift: true, meta: false, ctrl: false })
@@ -215,12 +283,7 @@ function dispatchAction(ctx: DispatchContext): boolean {
       }
       return true
     case 'background-click':
-      api.canvasDeselect({
-        shift: event.shiftKey,
-        meta: event.metaKey,
-        ctrl: event.ctrlKey,
-      })
-      return true
+      return runBackgroundSelectionGesture(api, event, layoutRef)
     case 'begin-entity-drag':
       return runEntityDrag(action, api, event)
     case 'begin-group-drag':
@@ -230,7 +293,7 @@ function dispatchAction(ctx: DispatchContext): boolean {
     case 'begin-edge-drag':
       return runEdgeDrag(action, api, event, layoutRef, setEdgeDragState)
     case 'begin-marquee':
-      return runMarquee(api, event, layoutRef)
+      return runBackgroundSelectionGesture(api, event, layoutRef)
     case 'begin-pan':
       return runPan(api, event)
   }
@@ -243,6 +306,8 @@ function runEntityDrag(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
 ): boolean {
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
   if (!action.preserveSelection) {
     if (action.entityKind === 'frame') api.selectFrame(action.entityId)
     else api.selectEntity(action.entityId, action.entityKind)
@@ -252,7 +317,20 @@ function runEntityDrag(
 
   let lastScreenX = event.screenX
   let lastScreenY = event.screenY
-  const onMove = (ev: MouseEvent) => {
+  const cleanup = () => {
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener('blur', onCancel)
+  }
+  const finish = () => {
+    cleanup()
+    if (action.entityKind === 'frame') api.endDragFrame()
+    else api.endDragEntity()
+  }
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
     const dx = ev.screenX - lastScreenX
     const dy = ev.screenY - lastScreenY
     lastScreenX = ev.screenX
@@ -261,16 +339,81 @@ function runEntityDrag(
     if (action.entityKind === 'frame') api.dragFrame(action.entityId, dx, dy)
     else api.dragEntity(action.entityId, dx, dy)
   }
-  const onUp = () => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-    window.removeEventListener('blur', onUp)
-    if (action.entityKind === 'frame') api.endDragFrame()
-    else api.endDragEntity()
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    finish()
   }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-  window.addEventListener('blur', onUp)
+  const onCancel = () => finish()
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
+  window.addEventListener('blur', onCancel)
+  return true
+}
+
+function runFrameBodyPress(
+  action: Extract<CanvasPointerAction, { kind: 'frame-body-press' }>,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+): boolean {
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
+  const startScreenX = event.screenX
+  const startScreenY = event.screenY
+  let lastScreenX = event.screenX
+  let lastScreenY = event.screenY
+  let dragging = false
+
+  const cleanup = () => {
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener('blur', onCancel)
+  }
+
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    const totalDx = ev.screenX - startScreenX
+    const totalDy = ev.screenY - startScreenY
+    if (
+      !dragging &&
+      Math.abs(totalDx) < FRAME_BODY_DRAG_THRESHOLD &&
+      Math.abs(totalDy) < FRAME_BODY_DRAG_THRESHOLD
+    ) {
+      return
+    }
+    if (!dragging) {
+      dragging = true
+      if (!action.preserveSelection) api.selectFrame(action.entityId)
+      api.startDragFrame(action.entityId)
+    }
+    const dx = ev.screenX - lastScreenX
+    const dy = ev.screenY - lastScreenY
+    lastScreenX = ev.screenX
+    lastScreenY = ev.screenY
+    if (dx !== 0 || dy !== 0) api.dragFrame(action.entityId, dx, dy)
+  }
+
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    cleanup()
+    if (dragging) {
+      api.endDragFrame()
+      return
+    }
+    api.enterFrameFocus(action.entityId)
+  }
+
+  const onCancel = () => {
+    cleanup()
+    if (dragging) api.endDragFrame()
+  }
+
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
+  window.addEventListener('blur', onCancel)
   return true
 }
 
@@ -279,13 +422,16 @@ function runGroupDrag(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
 ): boolean {
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
   let dragging = false
   let lastScreenX = event.screenX
   let lastScreenY = event.screenY
   const startScreenX = event.screenX
   const startScreenY = event.screenY
 
-  const onMove = (ev: MouseEvent) => {
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
     const totalDx = ev.screenX - startScreenX
     const totalDy = ev.screenY - startScreenY
     if (
@@ -306,11 +452,14 @@ function runGroupDrag(
     if (dx !== 0 || dy !== 0) api.dragGroup(action.groupId, dx, dy)
   }
   const cleanup = () => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
     window.removeEventListener('blur', onCancel)
   }
-  const onUp = () => {
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
     cleanup()
     if (dragging) {
       api.endDragGroup()
@@ -322,8 +471,9 @@ function runGroupDrag(
     cleanup()
     if (dragging) api.endDragGroup()
   }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
   window.addEventListener('blur', onCancel)
   return true
 }
@@ -334,6 +484,8 @@ function runResize(
   event: PointerEvent,
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
 ): boolean {
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
   const layout = layoutRef.current
   const entity = layout.entities.find((e) => e.id === action.entityId)
   if (!entity) return false
@@ -350,7 +502,15 @@ function runResize(
 
   let lastX = event.screenX
   let lastY = event.screenY
-  const onMove = (ev: MouseEvent) => {
+  const cleanup = () => {
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener('blur', onCancel)
+  }
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
     const screenDx = ev.screenX - lastX
     const screenDy = ev.screenY - lastY
     lastX = ev.screenX
@@ -363,14 +523,15 @@ function runResize(
     )
     dispatchPatch(patch)
   }
-  const onUp = () => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-    window.removeEventListener('blur', onUp)
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    cleanup()
   }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-  window.addEventListener('blur', onUp)
+  const onCancel = () => cleanup()
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
+  window.addEventListener('blur', onCancel)
   return true
 }
 
@@ -381,6 +542,8 @@ function runEdgeDrag(
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
   setEdgeDragState: (state: EdgeDragState) => void,
 ): boolean {
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
   const layout = layoutRef.current
   const windowY = event.clientY + layout.canvasOrigin.y
   const entityMap = new Map<string, CanvasSceneEntity>()
@@ -404,7 +567,8 @@ function runEdgeDrag(
   api.beginEdgeDrag(dragOriginEntityId, dragOriginSide)
 
   let lastSnap: string | null = null
-  const onMove = (ev: MouseEvent) => {
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
     const cur = layoutRef.current
     const snapMap = new Map<string, CanvasSceneEntity>()
     for (const e of cur.entities) snapMap.set(e.id, e)
@@ -425,8 +589,10 @@ function runEdgeDrag(
   }
 
   const finish = (mode: 'commit' | 'cancel') => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
     window.removeEventListener('blur', onCancel)
     const outcome =
       mode === 'commit' ? commitEdgeDragState(state) : cancelEdgeDragState(state)
@@ -458,10 +624,14 @@ function runEdgeDrag(
     setEdgeDragState(EDGE_DRAG_IDLE)
   }
 
-  const onUp = () => finish('commit')
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    finish('commit')
+  }
   const onCancel = () => finish('cancel')
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
   window.addEventListener('blur', onCancel)
   return true
 }
@@ -471,20 +641,31 @@ function runEdgeDrag(
  * so the gesture works without depending on `hasSavedDrawings` to enable
  * the legacy `useViewportForwarding` path.
  */
-function runMarquee(
+function runBackgroundSelectionGesture(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
 ): boolean {
   const startClientX = event.clientX
   const startClientY = event.clientY
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
   let dragged = false
 
-  const onMove = (ev: MouseEvent) => {
+  const cleanup = () => {
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener('blur', onCancel)
+  }
+
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
     if (!dragged) {
       const dx = ev.clientX - startClientX
       const dy = ev.clientY - startClientY
-      if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return
+      if (Math.abs(dx) < MARQUEE_DRAG_THRESHOLD && Math.abs(dy) < MARQUEE_DRAG_THRESHOLD) return
       dragged = true
     }
     const layout = layoutRef.current
@@ -497,10 +678,9 @@ function runMarquee(
       variant: 'default',
     })
   }
-  const onUp = (ev: MouseEvent) => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-    window.removeEventListener('blur', onCancel)
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    cleanup()
     api.setSelectionOverlayRect(null)
     const layout = layoutRef.current
     const modifiers: SelectionModifiers = {
@@ -521,35 +701,45 @@ function runMarquee(
     api.canvasSelectInRect(screenRectToCanvasRect(windowRect, layout), modifiers)
   }
   const onCancel = () => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-    window.removeEventListener('blur', onCancel)
+    cleanup()
     api.setSelectionOverlayRect(null)
   }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
   window.addEventListener('blur', onCancel)
   return true
 }
 
 function runPan(api: CanvasBgElectronAPI, event: PointerEvent): boolean {
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
   let lastScreenX = event.screenX
   let lastScreenY = event.screenY
-  const onMove = (ev: MouseEvent) => {
+  const cleanup = () => {
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener('blur', onCancel)
+  }
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
     const dx = ev.screenX - lastScreenX
     const dy = ev.screenY - lastScreenY
     lastScreenX = ev.screenX
     lastScreenY = ev.screenY
     if (dx !== 0 || dy !== 0) api.canvasPan(dx, dy)
   }
-  const onUp = () => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-    window.removeEventListener('blur', onUp)
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    cleanup()
   }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-  window.addEventListener('blur', onUp)
+  const onCancel = () => cleanup()
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
+  window.addEventListener('blur', onCancel)
   return true
 }
 

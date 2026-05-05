@@ -4,8 +4,7 @@
 
 import { WebContentsView } from 'electron'
 import { randomUUID } from 'crypto'
-import { loadRenderer, preloadPath } from './load-renderer'
-import { wireRendererLogging } from '../crash-log'
+import { preloadPath } from './load-renderer'
 import type { PageConfig } from '../../shared/types'
 import {
   toolbarView,
@@ -85,11 +84,6 @@ function frameColor(): string {
   return isDark ? '#57534e' : '#a8a29e'
 }
 
-function isDark(): boolean {
-  const { nativeTheme } = require('electron')
-  return nativeTheme.shouldUseDarkColors
-}
-
 export function createPage(config: PageConfig): Page {
   if (!win || !toolbarView) throw new Error('Window not initialized')
   breadcrumb('page', 'create', { host: hostOf(config.url), preset: config.presetIndex })
@@ -111,18 +105,6 @@ export function createPage(config: PageConfig): Page {
   pageView.setBorderRadius(CARD_BORDER_RADIUS)
   win.contentView.addChildView(pageView)
 
-  const chromeView = new WebContentsView({
-    webPreferences: {
-      preload: preloadPath('chrome-header'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  })
-  chromeView.setBackgroundColor('#00000000')
-  win.contentView.addChildView(chromeView)
-  wireRendererLogging(chromeView.webContents, 'chrome-header')
-  loadRenderer(chromeView, 'chrome-header')
-
   const page: Page = {
     id: config.id ?? makePageId(),
     name: config.name?.trim() || undefined,
@@ -131,7 +113,6 @@ export function createPage(config: PageConfig): Page {
     faviconUrl: null,
     frameView,
     pageView,
-    chromeView,
     devtoolsHostAttached: false,
     presetIndex,
     canvasX: config.canvasX,
@@ -220,7 +201,6 @@ export function createPage(config: PageConfig): Page {
     invalidateAgentSnapshot(page.id)
     page.lastPageEmulationKey = undefined
     page.lastPageAnnotationsKey = undefined
-    page.lastChromeUpdateKey = undefined
     page.lastSafeAreaCssKey = undefined
     page.lastSafeAreaCssId = undefined
     if (isSelectedPage(page)) clearInspectTargets()
@@ -309,17 +289,9 @@ export function createPage(config: PageConfig): Page {
     page.pageView.webContents.on('devtools-opened', () => log('page:devtools-opened'))
     page.pageView.webContents.on('devtools-closed', () => log('page:devtools-closed'))
     page.pageView.webContents.on('devtools-focused', () => log('page:devtools-focused'))
-    chromeView.webContents.on('focus', () => log('chrome:focus'))
-    chromeView.webContents.on('blur', () => log('chrome:blur'))
   }
 
   watchModifierKeys(pageView.webContents, { handleShortcuts: false })
-  watchModifierKeys(chromeView.webContents)
-
-  chromeView.webContents.once('did-finish-load', () => {
-    page.lastChromeUpdateKey = undefined
-    chromeView.webContents.send('theme-changed', { isDark: isDark() })
-  })
 
   markDirty('stack'); requestLayout()
 
@@ -334,13 +306,11 @@ export function removePageAtIndex(idx: number): Page | null {
   exitFrameFocusIfMatches(page.id, 'frame-deleted')
   win.contentView.removeChildView(page.frameView)
   win.contentView.removeChildView(page.pageView)
-  win.contentView.removeChildView(page.chromeView)
   if (page.devtoolsHostView) {
     win.contentView.removeChildView(page.devtoolsHostView)
   }
   page.frameView.webContents.close()
   page.pageView.webContents.close()
-  page.chromeView.webContents.close()
   page.devtoolsHostView?.webContents.close()
   // Transfer focus to bgView so keyboard shortcuts (including undo) keep
   // working after the deleted page's webContents is destroyed. The actual

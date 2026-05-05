@@ -43,15 +43,22 @@ export function shouldGateBeOpen(inputs: GateInputs): boolean {
   // ADR 0001: focus is the hard gate-closer. The user releases via
   // Escape, click-canvas, or click-another-frame.
   if (inputs.frameFocus) return false
-  if (interactionOpensGate(inputs.interactionKind)) return true
-  if (toolModeOpensGate(inputs.toolMode)) return true
-  if (inputs.commentOverlayActive) return true
-  if (inputs.spaceHeld) return true
-  if (inputs.hoveringCanvasChrome) return true
-  if (inputs.selectionMarqueeVisible) return true
-  if (inputs.selectionOwnsFrameContent) return true
-  if (hasVisibleSavedDrawings(inputs)) return true
-  return false
+  // Inspect + annotate-comment drive feedback off the page's webContents
+  // mousemove (eyedropper, comment hover). Keep the gate closed unless
+  // the comment composer has been opened.
+  if (inputs.toolMode === 'inspect' || inputs.toolMode === 'annotate-comment') {
+    return inputs.commentOverlayActive
+  }
+  // Inline text edit owns its bgView textarea — the gate must yield so
+  // keystrokes land in the textarea.
+  if (inputs.interactionKind === 'editing-text') return false
+  // ADR 0002 §"Landing as a single PR" Step 7: in canvas mode the gate is
+  // default-open. Every interactive surface that used to live in bgView or
+  // a per-page chromeView has migrated into aboveView's React tree and is
+  // tagged `data-overlay-ui`, so the canvas-pointer-router yields to them
+  // structurally and forwards the rest of the input through itself.
+  if (inputs.viewMode === 'canvas') return true
+  return browserModeNeedsGate(inputs)
 }
 
 function browserModeNeedsGate(inputs: GateInputs): boolean {

@@ -14,7 +14,6 @@ export interface Page {
   faviconUrl?: string | null
   frameView: WebContentsView
   pageView: WebContentsView
-  chromeView: WebContentsView
   devtoolsHostView?: WebContentsView
   devtoolsHostAttached?: boolean
   presetIndex: number
@@ -36,11 +35,8 @@ export interface Page {
   peekHeight?: number
   lastFrameBoundsKey?: string
   lastPageBoundsKey?: string
-  lastChromeBoundsKey?: string
   lastPageEmulationKey?: string
   lastPageAnnotationsKey?: string
-  lastChromeEmulationKey?: string
-  lastChromeUpdateKey?: string
   lastSelected?: boolean
   lastSafeAreaCssKey?: string
   lastSafeAreaCssId?: string

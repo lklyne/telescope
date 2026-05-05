@@ -37,10 +37,13 @@ import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
 import { useAnnotationThreadState } from './useAnnotationThreadState'
 import {
-  DEFAULT_ROUTER_CONSUME,
+  FULL_ROUTER_CONSUME,
   useCanvasPointerRouter,
 } from './useCanvasPointerRouter'
 import { EdgeDragLayer } from './EdgeDragLayer'
+import { FrameChromeOverlay } from './FrameChrome'
+import { FileChromeOverlay } from './FileChrome'
+import { GroupRenameOverlay } from './GroupRenameLabel'
 import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
 import { useAnnotationOverlayShortcuts } from '../shared/hooks/useAnnotationOverlayShortcuts'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
@@ -631,10 +634,15 @@ export default function App({
     dragMode === 'region_select' ? onDragMove : dragMode === 'marquee' ? onMarqueeMove : undefined
   const activeDragEnd =
     dragMode === 'region_select' ? onDragEnd : dragMode === 'marquee' ? onMarqueeEnd : undefined
+  const routerOwnsCanvasPointers =
+    !overlayInteractive &&
+    !pendingPlacement &&
+    layoutData.annotationMode === 'off'
   const viewportForwardingApi = useMemo(
     () => ({
       canvasZoom: api.canvasZoom,
       canvasPan: api.canvasPan,
+      leftButtonEnabled: !routerOwnsCanvasPointers,
       canvasDeselect: overlayInteractive || pendingPlacement ? undefined : api.canvasDeselect,
       canvasClickAt: overlayInteractive
         ? undefined
@@ -656,6 +664,7 @@ export default function App({
       api,
       overlayInteractive,
       pendingPlacement,
+      routerOwnsCanvasPointers,
       placementClickAt,
       canvasClickAtFromAboveView,
       activeDragMove,
@@ -693,8 +702,8 @@ export default function App({
   useCanvasPointerRouter({
     api,
     layoutRef,
-    enabled: !overlayInteractive && !pendingPlacement,
-    consume: DEFAULT_ROUTER_CONSUME,
+    enabled: routerOwnsCanvasPointers,
+    consume: FULL_ROUTER_CONSUME,
     spaceHeldRef,
     setEdgeDragState,
   })
@@ -836,6 +845,10 @@ export default function App({
           <SelectedGroupResizeOverlay isDark={isDark} layoutData={layoutData} />
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
+
+          <FrameChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
+          <FileChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
+          <GroupRenameOverlay api={api} layoutData={layoutData} isDark={isDark} />
         </>
       ) : null}
     </div>

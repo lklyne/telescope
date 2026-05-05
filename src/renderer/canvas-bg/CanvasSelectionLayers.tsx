@@ -305,7 +305,6 @@ export function CanvasSelectionOutlineLayer({
   selectedIdSet,
   marqueePreviewIds,
   hoveredEntityId,
-  onFrameMouseDown,
   onResizeFrame,
   onResizeTextEntity,
   onResizeFileEntity,
@@ -328,7 +327,6 @@ export function CanvasSelectionOutlineLayer({
    *  when SelectableEntityShell's mouseenter/leave can't fire (e.g. when
    *  above-view is covering the canvas because saved drawings are visible). */
   hoveredEntityId: string | null
-  onFrameMouseDown: (frameId: string, event: React.MouseEvent) => void
   onResizeFrame: (id: string, patch: EntityResizePatch) => void
   onResizeTextEntity: (id: string, patch: EntityResizePatch) => void
   onResizeFileEntity: (id: string, patch: EntityResizePatch) => void
@@ -402,15 +400,9 @@ export function CanvasSelectionOutlineLayer({
               width: frame.screenWidth + 12,
               height: frame.screenHeight + 12,
               borderColor: selectionColor(isDark),
-              pointerEvents: frameInteractionsEnabled && !isSelected ? 'auto' : 'none',
-              cursor: frameInteractionsEnabled && !isSelected ? 'grab' : undefined,
+              pointerEvents: 'none',
             }}
             data-overlay-ui
-            onMouseDown={
-              frameInteractionsEnabled && !isSelected
-                ? (e) => onFrameMouseDown(frame.id, e)
-                : undefined
-            }
           />
         )
       })}

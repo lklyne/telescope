@@ -553,16 +553,6 @@ export interface LeftSidebarData {
   items: SidebarCanvasItem[]
 }
 
-export interface ChromeUpdateData {
-  label: string
-  width: number
-  height: number
-  url: string
-  presetIndex: number
-  selected: boolean
-  linked: boolean
-}
-
 export interface ToolbarSelectionData {
   activeFrameId: string | null
   selectedEntityIds: string[]
@@ -1566,6 +1556,9 @@ export interface CanvasBgElectronAPI {
     dragRect?: { x: number; y: number; width: number; height: number } | null,
   ) => void
   onShapeBeginEdit: (callback: (data: { entityId: string }) => void) => () => void
+  onTextBeginEdit: (callback: (data: { entityId: string }) => void) => () => void
+  requestTextEdit: (entityId: string) => void
+  requestShapeEdit: (entityId: string) => void
   showFileInFinder: (filePath: string) => void
   updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) => void
   duplicateGroup: (id: string) => void
@@ -1958,23 +1951,3 @@ export interface AnnotationCreateRequest {
 
 // --- Electron API Interfaces ---
 
-export interface ChromeHeaderElectronAPI {
-  navigate: (url: string) => void
-  goBack: () => void
-  goForward: () => void
-  openDevTools: () => void
-  duplicate: () => void
-  reload: () => void
-  toggleLinked: () => void
-  debugLog: (...args: unknown[]) => void
-  close: () => void
-  drag: (dx: number, dy: number) => void
-  select: () => void
-  cyclePreset: (direction: number) => void
-  setPreset: (index: number) => void
-  dropdownOpen: () => void
-  dropdownClose: () => void
-  getInitialData: () => Promise<ThemeBootstrapData>
-  onChromeUpdate: (callback: (data: ChromeUpdateData) => void) => () => void
-  onThemeChanged: (callback: (data: ThemeData) => void) => () => void
-}

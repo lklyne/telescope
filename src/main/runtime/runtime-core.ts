@@ -222,15 +222,6 @@ function collapseSelectionForBrowserMode(frameId?: string): boolean {
 export function selectBrowserTab(frameId: string): boolean {
   return setBrowserMode(frameId)
 }
-export function removePage(senderWebContents: WebContents): void {
-  if (!win) return
-  const idx = pages.findIndex(
-    (p) => p.chromeView.webContents === senderWebContents,
-  )
-  if (idx === -1) return
-  removePageAtIndex(idx)
-}
-
 export function selectPageById(id: string): boolean {
   return commitSelectPageById(id)
 }

@@ -14,6 +14,8 @@ function selectionModifiersFromEvent(event: MouseEvent): SelectionModifiers {
 interface ViewportForwardingApi {
   canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
   canvasPan: (deltaX: number, deltaY: number) => void
+  /** When false, this hook only forwards wheel + middle-button pan. */
+  leftButtonEnabled?: boolean
   canvasDeselect?: (modifiers?: SelectionModifiers) => void
   canvasClickAt?: (
     screenX: number,
@@ -91,7 +93,7 @@ export function useViewportForwarding(
         return
       }
 
-      if (event.button === 0) {
+      if (event.button === 0 && api.leftButtonEnabled !== false) {
         if (api.hitTestEntity && api.onEntityPointerDown) {
           const target = api.hitTestEntity(event.clientX, event.clientY)
           if (target) {
@@ -125,7 +127,7 @@ export function useViewportForwarding(
         api.canvasPan(delta.deltaX, delta.deltaY)
       }
 
-      if (leftDrag && api.onDragMove) {
+      if (leftDrag && api.leftButtonEnabled !== false && api.onDragMove) {
         const dx = event.clientX - leftDrag.startClientX
         const dy = event.clientY - leftDrag.startClientY
         if (!leftDrag.dragging && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {

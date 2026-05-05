@@ -1,11 +1,11 @@
 # Plan — Input authority via click-to-enter frame focus
 
-> **Status:** Phase 0 + Phase 1 complete. **Phase 2 substrate landed** (pure router, tests including #41 regression, Escape globalShortcut fallback, `enterFrameFocus` IPC, hit-test promoted to `src/shared/`). **Per-layer migration + gate-predicate flip deferred** for interactive validation. Phase 3 not started.
+> **Status:** Phase 0 + Phase 1 + Phase 2 complete. **Gate predicate flip landed** (canvas mode default-open, with carve-outs for `frameFocus`, `editing-text`, and `inspect`/`annotate-comment` without composer). Per-page `chromeView` WCV retired in favour of `CanvasItemChrome` in aboveView's React tree; `routePointerDoubleClick` IPC dispatcher wired (`request-text-edit` / `request-shape-edit` / `enter-group` / `enter-group-rename`). Phase 3 demolition is **partial** — `useFrameChromeDrag` deleted; `useEntityResize`/`useMultiSelectionResize`/`useGroupBoundsDrag` are functionally dead but still wired for visual rendering and pending a follow-up PR.
 >
-> **Decision of record:** [`docs/adr/0001-click-to-enter-frame-focus.md`](../adr/0001-click-to-enter-frame-focus.md)
+> **Decision of record:** [`docs/adr/0001-click-to-enter-frame-focus.md`](../adr/0001-click-to-enter-frame-focus.md), superseded for the canvas-anchored overlay UI by [`docs/adr/0002-canvas-anchored-overlay-ui.md`](../adr/0002-canvas-anchored-overlay-ui.md)
 > **Divergence log:** [`docs/divergence-input-authority.md`](../divergence-input-authority.md) — read this first if picking up after the autonomous overnight session of 2026-05-05.
 >
-> **Closes:** [#41](https://github.com/lklyne/specular/issues/41) once full Phase 2 (per-layer migration + predicate flip) lands.
+> **Closes:** [#41](https://github.com/lklyne/specular/issues/41) — anchor-vs-chrome arbitration is now structural (chrome lives in aboveView DOM with `data-overlay-ui`; the router yields to it on capture-phase pointerdown before hit-testing).
 
 This document is the single source of truth for picking up this refactor in a new session. Read the ADR first; it captures the design decisions (total focus, click-to-enter, 5-layer hit-region priority table). This file tracks **what's built, what's deferred, and the precise next steps**.
 

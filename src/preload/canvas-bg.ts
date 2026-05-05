@@ -142,6 +142,18 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.on('shape-begin-edit', handler)
     return () => ipcRenderer.removeListener('shape-begin-edit', handler)
   },
+  onTextBeginEdit: (callback) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { entityId: string },
+    ) => callback(data)
+    ipcRenderer.on('text-begin-edit', handler)
+    return () => ipcRenderer.removeListener('text-begin-edit', handler)
+  },
+  requestTextEdit: (entityId) =>
+    ipcRenderer.send('canvas-request-text-edit', { entityId }),
+  requestShapeEdit: (entityId) =>
+    ipcRenderer.send('canvas-request-shape-edit', { entityId }),
   showFileInFinder: (filePath: string) =>
     ipcRenderer.send('canvas-show-file-in-finder', { filePath }),
   updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) =>

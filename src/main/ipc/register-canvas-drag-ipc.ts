@@ -13,6 +13,7 @@ import {
 } from '../runtime/ui-actions'
 import {
   updateEdgeDragTarget,
+  currentInteractionState,
 } from '../runtime/interaction-state'
 import { tryEnter, commitActive, cancelActive } from '../runtime/interaction-controller'
 import { setHoverEntity } from '../runtime/runtime-core'
@@ -105,6 +106,43 @@ function resolveDraggedEntityIds(entityId: string): string[] {
   return selectedDragEntityIds(entityId)
 }
 
+let activeDragSession: {
+  kind: 'frame' | 'entity' | 'group'
+  ids: string[]
+} | null = null
+
+function beginDragSession(
+  kind: 'frame' | 'entity' | 'group',
+  entityIds: string[],
+): boolean {
+  if (!entityIds.length) return false
+  if (activeDragSession && currentInteractionState().kind === 'idle') {
+    activeDragSession = null
+  }
+  if (activeDragSession) return false
+  const token = tryEnter({ kind: 'dragging-entities', entityIds })
+  if ('refused' in token) return false
+  activeDragSession = { kind, ids: [...entityIds] }
+  initializeDrag(entityIds)
+  return true
+}
+
+function activeDragIds(
+  kind: 'frame' | 'entity' | 'group',
+  anchorId: string,
+): string[] | null {
+  if (!activeDragSession || activeDragSession.kind !== kind) return null
+  if (!activeDragSession.ids.includes(anchorId)) return null
+  return activeDragSession.ids
+}
+
+function endDragSession(kind: 'frame' | 'entity' | 'group'): void {
+  if (!activeDragSession || activeDragSession.kind !== kind) return
+  activeDragSession = null
+  finalizeDrag()
+  commitActive()
+}
+
 export function registerCanvasDragIpc(): void {
   ipcMain.on(
     'canvas-zoom',
@@ -141,14 +179,14 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on('canvas-drag-frame-start', (_event, { frameId }: { frameId: string }) => {
     const draggedIds = resolveDraggedFrameIds(frameId)
-    tryEnter({ kind: 'dragging-entities', entityIds: draggedIds })
-    initializeDrag(draggedIds)
+    beginDragSession('frame', draggedIds)
   })
 
   ipcMain.on(
     'canvas-drag-frame',
     (_event, { frameId, dx, dy }: { frameId: string; dx: number; dy: number }) => {
-      const frameIds = resolveDraggedFrameIds(frameId)
+      const frameIds = activeDragIds('frame', frameId)
+      if (!frameIds) return
       if (frameIds.length === 1) {
         const idx = pages.findIndex((candidate) => candidate.id === frameId)
         if (idx !== -1) selectPage(idx)
@@ -159,8 +197,7 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on('canvas-drag-frame-end', () => {
-    finalizeDrag()
-    commitActive()
+    endDragSession('frame')
   })
 
   ipcMain.on(
@@ -192,43 +229,40 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on('canvas-drag-entity-start', (_event, { entityId }: { entityId: string }) => {
     const draggedIds = resolveDraggedEntityIds(entityId)
-    tryEnter({ kind: 'dragging-entities', entityIds: draggedIds })
-    initializeDrag(draggedIds)
+    beginDragSession('entity', draggedIds)
   })
 
   ipcMain.on(
     'canvas-drag-entity',
     (_event, { entityId, dx, dy }: { entityId: string; dx: number; dy: number }) => {
-      applyDragDelta(resolveDraggedEntityIds(entityId), dx, dy)
+      const entityIds = activeDragIds('entity', entityId)
+      if (!entityIds) return
+      applyDragDelta(entityIds, dx, dy)
       requestLayout()
     },
   )
 
   ipcMain.on('canvas-drag-entity-end', () => {
-    finalizeDrag()
-    commitActive()
+    endDragSession('entity')
   })
 
   ipcMain.on('canvas-drag-group-start', (_event, { groupId }: { groupId: string }) => {
     const entityIds = [groupId, ...descendantEntityIdsForGroup(groupId)]
-    if (!entityIds.length) return
-    tryEnter({ kind: 'dragging-entities', entityIds })
-    initializeDrag(entityIds)
+    beginDragSession('group', entityIds)
   })
 
   ipcMain.on(
     'canvas-drag-group',
     (_event, { groupId, dx, dy }: { groupId: string; dx: number; dy: number }) => {
-      const entityIds = [groupId, ...descendantEntityIdsForGroup(groupId)]
-      if (!entityIds.length) return
+      const entityIds = activeDragIds('group', groupId)
+      if (!entityIds) return
       applyDragDelta(entityIds, dx, dy)
       requestLayout()
     },
   )
 
   ipcMain.on('canvas-drag-group-end', () => {
-    finalizeDrag()
-    commitActive()
+    endDragSession('group')
     layoutAllViews()
   })
 

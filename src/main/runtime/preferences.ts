@@ -10,9 +10,8 @@ import type {
   DevtoolsPanelTab,
   FixConfig,
   OnboardingState,
-  OriginBinding,
-  OriginBindings,
 } from '../../shared/types'
+import type { LegacyOriginBindings } from './dev-server-manager'
 import {
   DEFAULT_CURSOR_MOTION,
   normalizeCursorMotion,
@@ -23,6 +22,7 @@ import {
   type CursorTuningParams,
 } from '../../shared/cursor-tuning'
 import { getDebugWebContents } from '../debug-window'
+import { getSettingsWebContents } from '../settings-window'
 import {
   bgView,
   aboveView,
@@ -61,7 +61,9 @@ type PreferencesFile = {
   devtoolsWidth?: number
   devtoolsPanelTab?: DevtoolsPanelTab | 'elements' | 'devtools'
   onboarding?: OnboardingState
-  originBindings?: OriginBindings
+  /** Legacy: bindings now live in repos.json under ConnectedRepo.boundOrigins.
+   *  Read once at startup for migration, then stripped from this file. */
+  originBindings?: LegacyOriginBindings
   fixConfig?: Omit<FixConfig, 'configured'>
   debug?: {
     cursorMotion?: CursorMotionParams
@@ -128,7 +130,7 @@ export function clampDevtoolsWidth(value: number): number {
   )
 }
 
-let originBindings: OriginBindings = {}
+let pendingLegacyOriginBindings: LegacyOriginBindings | null = null
 
 const DEFAULT_FIX_CONFIG: FixConfig = { model: 'opus', permissions: 'dangerously', configured: false }
 let fixConfig: FixConfig = { ...DEFAULT_FIX_CONFIG }
@@ -143,7 +145,7 @@ export function loadPreferences(): void {
     setUiDevtoolsPanelTab(normalizedTab)
   }
   if (parsed.originBindings && typeof parsed.originBindings === 'object') {
-    originBindings = parsed.originBindings
+    pendingLegacyOriginBindings = parsed.originBindings
   }
   if (parsed.fixConfig && typeof parsed.fixConfig === 'object') {
     fixConfig = { ...DEFAULT_FIX_CONFIG, ...parsed.fixConfig, configured: true }
@@ -194,34 +196,24 @@ export function saveCursorTuning(next: CursorTuningParams): void {
 
 export function savePreferences(): void {
   const parsed = readPreferencesFile()
+  // Drop the legacy originBindings key on every write — bindings now live in
+  // repos.json.
+  const { originBindings: _drop, ...rest } = parsed
   writePreferencesFile({
-    ...parsed,
+    ...rest,
     devtoolsWidth: uiDevtoolsWidth(),
     devtoolsPanelTab: uiDevtoolsPanelTab(),
-    originBindings,
     fixConfig: { model: fixConfig.model, permissions: fixConfig.permissions },
   })
 }
 
-export function getOriginBindings(): OriginBindings {
-  return originBindings
-}
-
-export function getOriginBinding(origin: string): OriginBinding | undefined {
-  return originBindings[origin]
-}
-
-export function setOriginBinding(origin: string, binding: OriginBinding): void {
-  originBindings = { ...originBindings, [origin]: binding }
-  savePreferences()
-}
-
-export function removeOriginBinding(origin: string): void {
-  if (!(origin in originBindings)) return
-  const next = { ...originBindings }
-  delete next[origin]
-  originBindings = next
-  savePreferences()
+/** One-shot: returns and clears any legacy `originBindings` read during
+ *  `loadPreferences()`. The caller folds them into `dev-server-manager` and
+ *  `savePreferences()` then strips the key from disk. */
+export function consumeLegacyOriginBindings(): LegacyOriginBindings | null {
+  const next = pendingLegacyOriginBindings
+  pendingLegacyOriginBindings = null
+  return next
 }
 
 export function getFixConfig(): FixConfig {
@@ -262,6 +254,10 @@ export function broadcastTheme(): void {
   const debugWebContents = getDebugWebContents()
   if (debugWebContents && !debugWebContents.isDestroyed()) {
     debugWebContents.send('theme-changed', data)
+  }
+  const settingsWebContents = getSettingsWebContents()
+  if (settingsWebContents && !settingsWebContents.isDestroyed()) {
+    settingsWebContents.send('theme-changed', data)
   }
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]

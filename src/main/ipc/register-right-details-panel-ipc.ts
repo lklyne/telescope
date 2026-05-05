@@ -1,11 +1,11 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { AnnotationCreateRequest, EdgeEnd, EdgeSide } from '../../shared/types'
+import { setFixConfig } from '../runtime/preferences'
 import {
-  getOriginBinding,
-  removeOriginBinding,
-  setFixConfig,
-  setOriginBinding,
-} from '../runtime/preferences'
+  bindOriginToRepoPath,
+  removeBindingByOrigin,
+  setBindingAutoFix,
+} from '../runtime/dev-server-manager'
 import {
   fixAnnotation,
   fixPendingAnnotationsForOrigin,
@@ -198,12 +198,11 @@ export function registerRightDetailsPanelIpc(): void {
     (_event, payload: { origin?: string; enabled?: boolean } | undefined) => {
       const origin = payload?.origin?.trim()
       if (!origin) return
-      const existing = getOriginBinding(origin)
-      if (!existing) return
       const enabled = !!payload?.enabled
-      setOriginBinding(origin, { ...existing, autoFix: enabled })
+      const mutated = setBindingAutoFix(origin, enabled)
+      if (!mutated) return
       notifyDevtoolsPanelData()
-      if (enabled && !existing.autoFix) {
+      if (enabled) {
         fixPendingAnnotationsForOrigin(origin)
       }
     },
@@ -220,12 +219,7 @@ export function registerRightDetailsPanelIpc(): void {
         ? await dialog.showOpenDialog(win, dialogOpts)
         : await dialog.showOpenDialog(dialogOpts)
       if (result.canceled || result.filePaths.length === 0) return
-      const repoPath = result.filePaths[0]
-      const existing = getOriginBinding(origin)
-      setOriginBinding(origin, {
-        repoPath,
-        autoFix: existing?.autoFix ?? false,
-      })
+      bindOriginToRepoPath(origin, result.filePaths[0])
       notifyDevtoolsPanelData()
     },
   )
@@ -235,8 +229,7 @@ export function registerRightDetailsPanelIpc(): void {
     (_event, payload: { origin?: string } | undefined) => {
       const origin = payload?.origin?.trim()
       if (!origin) return
-      removeOriginBinding(origin)
-      notifyDevtoolsPanelData()
+      if (removeBindingByOrigin(origin)) notifyDevtoolsPanelData()
     },
   )
 

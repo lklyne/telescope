@@ -37,7 +37,8 @@ import {
   devtoolsHeaderView,
   toolbarView,
 } from './view-refs'
-import { getFixConfig, getOriginBindings } from './preferences'
+import { getFixConfig } from './preferences'
+import { getOriginBindingsView as getOriginBindings } from './dev-server-manager'
 import { getInFlightCountByOrigin } from '../agent-fix/fix-tracker'
 import { getFixProgress } from '../agent-fix/fix-progress'
 import {

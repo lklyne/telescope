@@ -13,6 +13,11 @@ import type { PresenceDebugEntry } from './presence-debug'
 
 export type RepoStatus = 'stopped' | 'starting' | 'running' | 'errored'
 
+export interface RepoOriginBinding {
+  origin: string
+  autoFix: boolean
+}
+
 export interface ConnectedRepo {
   id: string
   absolutePath: string
@@ -21,6 +26,8 @@ export interface ConnectedRepo {
   port: number | null
   baseUrl: string | null
   lastError?: string
+  /** Origins (e.g. https://acme.com) that map to this repo for agent fixes. */
+  boundOrigins: RepoOriginBinding[]
 }
 
 export interface ViewportPreset {
@@ -642,6 +649,36 @@ export interface OnboardingElectronAPI {
   complete: () => void
   dismiss: () => void
   onProgress: (callback: (event: OnboardingProgressEvent) => void) => () => void
+  onThemeChanged: (callback: (data: ThemeData) => void) => () => void
+}
+
+// --- Settings window ---
+
+export interface SettingsBootstrapData extends ThemeBootstrapData {
+  status: OnboardingStatusSnapshot
+  fixConfig: FixConfig
+  connectedRepos: ConnectedRepo[]
+}
+
+export interface SettingsElectronAPI {
+  getInitialData: () => Promise<SettingsBootstrapData>
+  refreshStatus: () => Promise<OnboardingStatusSnapshot>
+  installSkills: (
+    selections: Record<OnboardingComponentId, boolean>,
+  ) => Promise<OnboardingStatusSnapshot>
+  setComponentInstalled: (
+    component: OnboardingComponentId,
+    installed: boolean,
+  ) => Promise<OnboardingStatusSnapshot>
+  setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
+  removeOriginBinding: (origin: string) => void
+  repoConnectViaPicker: () => Promise<ConnectedRepo | null>
+  repoDisconnect: (id: string) => Promise<void>
+  repoBindOrigin: (repoId: string, origin: string) => Promise<ConnectedRepo | null>
+  close: () => void
+  onSkillProgress: (callback: (event: OnboardingProgressEvent) => void) => () => void
+  onFixConfigChanged: (callback: (config: FixConfig) => void) => () => void
+  onConnectedReposChanged: (callback: (repos: ConnectedRepo[]) => void) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 
@@ -1843,7 +1880,7 @@ export interface AnnotationMetadata extends Record<string, unknown> {
   resolvedBy?: 'user' | 'agent'
 }
 
-// --- Origin bindings (repo hookups for local dev URLs) ---
+// --- Origin bindings (derived view from ConnectedRepo.boundOrigins) ---
 
 export interface OriginBinding {
   repoPath: string

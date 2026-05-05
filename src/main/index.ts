@@ -22,6 +22,7 @@ import { registerIpcHandlers } from './ipc-handlers'
 import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
 import { loadOnboardingState } from './runtime/preferences'
 import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
+import { focusSettingsWindow, isSettingsWindowOpen } from './settings-window'
 import { configureBundledAgentBrowser } from './agent-browser-install'
 import { autoUpdateSkillsIfSafe } from './skill-auto-update'
 import { registerBuiltInPlugins } from './plugins'
@@ -98,6 +99,10 @@ if (!hasSingleInstanceLock) {
 app.on('second-instance', () => {
   if (isOnboardingWindowOpen()) {
     focusOnboardingWindow()
+    return
+  }
+  if (isSettingsWindowOpen()) {
+    focusSettingsWindow()
     return
   }
   if (!win || win.isDestroyed()) return

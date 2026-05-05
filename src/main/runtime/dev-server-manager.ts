@@ -19,7 +19,13 @@ import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import type { ChildProcess } from 'node:child_process'
-import type { ConnectedRepo, RepoStatus } from '../../shared/types'
+import type {
+  ConnectedRepo,
+  OriginBinding,
+  OriginBindings,
+  RepoOriginBinding,
+  RepoStatus,
+} from '../../shared/types'
 
 export type { ConnectedRepo, RepoStatus }
 
@@ -27,6 +33,12 @@ export interface PersistedRepo {
   id: string
   absolutePath: string
   label: string
+  boundOrigins?: RepoOriginBinding[]
+}
+
+/** Legacy preferences shape. Folded into repos at startup, then discarded. */
+export interface LegacyOriginBindings {
+  [origin: string]: { repoPath: string; autoFix: boolean }
 }
 
 export type SpawnFn = (
@@ -44,6 +56,14 @@ interface InternalRepo extends ConnectedRepo {
   child: ChildProcess | null
   startupResolvers: Array<(url: string | null) => void>
   startupTimer: NodeJS.Timeout | null
+}
+
+function normalizeOrigin(input: string): string {
+  try {
+    return new URL(input).origin
+  } catch {
+    return input.replace(/\/+$/, '')
+  }
 }
 
 const repos = new Map<string, InternalRepo>()
@@ -74,6 +94,7 @@ function persist(): void {
       id: r.id,
       absolutePath: r.absolutePath,
       label: r.label,
+      boundOrigins: r.boundOrigins.length > 0 ? r.boundOrigins : undefined,
     })),
   }
   if (!userDataDir) return
@@ -99,6 +120,9 @@ function loadPersisted(): void {
         status: 'stopped',
         port: null,
         baseUrl: null,
+        boundOrigins: (r.boundOrigins ?? [])
+          .filter((b) => b && typeof b.origin === 'string')
+          .map((b) => ({ origin: normalizeOrigin(b.origin), autoFix: !!b.autoFix })),
         child: null,
         startupResolvers: [],
         startupTimer: null,
@@ -118,6 +142,7 @@ function toPublic(r: InternalRepo): ConnectedRepo {
     port: r.port,
     baseUrl: r.baseUrl,
     lastError: r.lastError,
+    boundOrigins: r.boundOrigins.map((b) => ({ ...b })),
   }
 }
 
@@ -167,6 +192,7 @@ export function connectRepo(absolutePath: string, label?: string): ConnectedRepo
     status: 'stopped',
     port: null,
     baseUrl: null,
+    boundOrigins: [],
     child: null,
     startupResolvers: [],
     startupTimer: null,
@@ -175,6 +201,115 @@ export function connectRepo(absolutePath: string, label?: string): ConnectedRepo
   persist()
   notifyChange()
   return toPublic(entry)
+}
+
+export function findRepoForOrigin(origin: string): ConnectedRepo | null {
+  const normalized = normalizeOrigin(origin)
+  for (const r of repos.values()) {
+    if (r.boundOrigins.some((b) => b.origin === normalized)) return toPublic(r)
+  }
+  return null
+}
+
+export function getOriginBindingsView(): OriginBindings {
+  const view: OriginBindings = {}
+  for (const r of repos.values()) {
+    for (const b of r.boundOrigins) {
+      view[b.origin] = { repoPath: r.absolutePath, autoFix: b.autoFix }
+    }
+  }
+  return view
+}
+
+export function getOriginBindingView(origin: string): OriginBinding | null {
+  const repo = findRepoForOrigin(origin)
+  if (!repo) return null
+  const binding = repo.boundOrigins.find((b) => b.origin === normalizeOrigin(origin))
+  if (!binding) return null
+  return { repoPath: repo.absolutePath, autoFix: binding.autoFix }
+}
+
+/** Bind `origin` to an already-connected repo by id. Replaces any existing
+ *  binding for this origin. Returns null if the repo doesn't exist or the
+ *  origin can't be parsed. */
+export function bindOriginToRepo(
+  repoId: string,
+  origin: string,
+  autoFix = false,
+): ConnectedRepo | null {
+  const entry = repos.get(repoId)
+  if (!entry) return null
+  const normalized = normalizeOrigin(origin)
+  if (!normalized) return toPublic(entry)
+  removeBindingByOriginInternal(normalized, { skipNotify: true })
+  const refetched = repos.get(repoId)
+  if (!refetched) return null
+  refetched.boundOrigins.push({ origin: normalized, autoFix })
+  persist()
+  notifyChange()
+  return toPublic(refetched)
+}
+
+/** Bind `origin` to the repo at `repoPath`, connecting the repo first if
+ *  needed. Replaces any existing binding for this origin. */
+export function bindOriginToRepoPath(
+  origin: string,
+  repoPath: string,
+  autoFix = false,
+): ConnectedRepo {
+  const repo = connectRepo(repoPath)
+  const id = repo.id
+  const entry = repos.get(id)
+  if (!entry) return repo
+  const normalized = normalizeOrigin(origin)
+  removeBindingByOriginInternal(normalized, { skipNotify: true })
+  const reFetched = repos.get(id)
+  if (reFetched) reFetched.boundOrigins.push({ origin: normalized, autoFix })
+  persist()
+  notifyChange()
+  return toPublic(reFetched ?? entry)
+}
+
+function removeBindingByOriginInternal(
+  origin: string,
+  options: { skipNotify?: boolean } = {},
+): boolean {
+  const normalized = normalizeOrigin(origin)
+  let removed = false
+  for (const r of repos.values()) {
+    const next = r.boundOrigins.filter((b) => b.origin !== normalized)
+    if (next.length !== r.boundOrigins.length) {
+      r.boundOrigins = next
+      removed = true
+    }
+  }
+  if (removed && !options.skipNotify) {
+    persist()
+    notifyChange()
+  }
+  return removed
+}
+
+export function removeBindingByOrigin(origin: string): boolean {
+  return removeBindingByOriginInternal(origin)
+}
+
+export function setBindingAutoFix(origin: string, enabled: boolean): boolean {
+  const normalized = normalizeOrigin(origin)
+  let mutated = false
+  for (const r of repos.values()) {
+    for (const b of r.boundOrigins) {
+      if (b.origin === normalized && b.autoFix !== enabled) {
+        b.autoFix = enabled
+        mutated = true
+      }
+    }
+  }
+  if (mutated) {
+    persist()
+    notifyChange()
+  }
+  return mutated
 }
 
 export async function disconnectRepo(id: string): Promise<void> {
@@ -249,6 +384,13 @@ function attachChildHandlers(entry: InternalRepo, child: ChildProcess): void {
       entry.baseUrl = url
       entry.status = 'running'
       entry.lastError = undefined
+      // Auto-bind the dev server's own origin so frames pointing at it can
+      // receive fixes without the user having to link a repo manually.
+      const origin = normalizeOrigin(url)
+      if (origin && !entry.boundOrigins.some((b) => b.origin === origin)) {
+        entry.boundOrigins.push({ origin, autoFix: false })
+        persist()
+      }
       flushStartupResolvers(entry, url)
       notifyChange()
     } catch {

@@ -6,6 +6,7 @@ import {
   cpSync,
   existsSync,
   readFileSync,
+  rmSync,
 } from 'fs'
 
 export type SkillId = 'specular' | 'agent-browser'
@@ -102,6 +103,22 @@ export function installSkill(skillId: SkillId): SkillInstallResult {
     return {
       success: false,
       message: `Failed to install ${skillId} skill: ${(error as Error).message}`,
+    }
+  }
+}
+
+export function uninstallSkill(skillId: SkillId): SkillInstallResult {
+  const dir = installedSkillDir(skillId)
+  if (!existsSync(dir)) {
+    return { success: true, message: `${skillId} skill was not installed.` }
+  }
+  try {
+    rmSync(dir, { recursive: true, force: true })
+    return { success: true, message: `${skillId} skill removed from ${dir}.` }
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to remove ${skillId} skill: ${(error as Error).message}`,
     }
   }
 }

@@ -254,6 +254,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-select-edge', { edgeId }),
   hoverFrame: (frameId: string | null) =>
     ipcRenderer.send('canvas-hover-frame', { frameId }),
+  enterFrameFocus: (frameId: string) =>
+    ipcRenderer.send('canvas-frame-focus-enter', { frameId }),
   setTextEditing: (active: boolean) =>
     ipcRenderer.send('canvas-set-text-editing', { active }),
   readNoteFile: (filePath: string) =>

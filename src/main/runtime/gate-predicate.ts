@@ -27,9 +27,17 @@ export type GateInputs = {
   selectedEntityKinds: readonly CanvasEntityKind[]
   selectionOwnsFrameContent: boolean
   hasSavedDrawings: boolean
+  /** Frame focus (ADR 0001). When set, the focused page receives native input,
+   *  so the gate must close so events fall through to the WebContentsView. */
+  frameFocus: { id: string } | null
 }
 
 export function shouldGateBeOpen(inputs: GateInputs): boolean {
+  // Frame focus closes the gate so the focused page receives native input
+  // (ADR 0001). Even if a gesture or tool would otherwise open the gate,
+  // focused frame interaction takes priority — the user must Escape or
+  // click away first.
+  if (inputs.frameFocus) return false
   if (interactionOpensGate(inputs.interactionKind)) return true
   if (toolModeOpensGate(inputs.toolMode)) return true
   if (inputs.commentOverlayActive) return true

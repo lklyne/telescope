@@ -1630,6 +1630,9 @@ export interface CanvasBgElectronAPI {
   selectEdge: (edgeId: string | null) => void
   hoverFrame: (frameId: string | null) => void
   setTextEditing: (active: boolean) => void
+  /** ADR 0001: programmatically promote a frame to focused (page receives
+   *  native input). Triggered by canvas-pointer-router on a frame-body hit. */
+  enterFrameFocus: (frameId: string) => void
   readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>

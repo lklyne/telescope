@@ -39,6 +39,7 @@ import {
   zoom,
 } from './runtime-context'
 import { shouldGateBeOpen } from './gate-predicate'
+import { currentFrameFocus } from './frame-focus'
 import {
   getUiState,
   annotationMode as uiAnnotationMode,
@@ -294,6 +295,7 @@ export function layoutAllViews(): void {
       selectedEntityKinds: selectedTargets.map((t) => t.kind),
       selectionOwnsFrameContent,
       hasSavedDrawings: drawingEntities.length > 0,
+      frameFocus: currentFrameFocus(),
     })
     const bounds = shouldCover
           ? {

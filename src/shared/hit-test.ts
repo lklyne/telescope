@@ -1,20 +1,23 @@
 /**
- * Main-process hit-tester for canvas pointer events arriving from aboveView.
+ * Hit-tester for canvas pointer events arriving from aboveView.
  *
  * Replaces the per-layer onMouseDown / DOM-stacking arbitration in bgView.
  * See docs/adr/0001-click-to-enter-frame-focus.md.
  *
  * Pure: no Electron, no DOM. Selectors derive screen-space HitTargets from
  * the canvas scene; hitTest walks them by priority and returns the winner.
+ *
+ * Lives in src/shared so the renderer canvas-pointer-router and main-side
+ * test routes can share one implementation without an IPC roundtrip.
  */
 
-import { regionContains, type HitRegion, type Point, type Rect } from '../../shared/hit-regions'
+import { regionContains, type HitRegion, type Point, type Rect } from './hit-regions'
 import type {
   CanvasEntityKind,
   CanvasSceneEntity,
   EdgeSide,
   WorkspaceEdge,
-} from '../../shared/types'
+} from './types'
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
 
 // --- Geometry constants ---

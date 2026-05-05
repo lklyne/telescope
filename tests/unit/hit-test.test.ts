@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hitTest, type HitInputs } from '../../src/main/runtime/hit-test'
+import { hitTest, type HitInputs } from '../../src/shared/hit-test'
 import type {
   CanvasSceneEntity,
   CanvasSceneFrameEntity,

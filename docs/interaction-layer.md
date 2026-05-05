@@ -161,6 +161,9 @@ The input gate is not a separate WCV — it's a *behavior* of `aboveView`. When 
 
 ```ts
 function shouldGateBeOpen(s: AppState): boolean {
+  // ADR 0001 — Frame focus closes the gate so the focused page receives
+  // native input. Always wins.
+  if (s.frameFocus !== null) return false
   return (
     s.interaction.mode.kind !== 'idle' ||
     s.toolMode !== 'select' ||       // draw, annotate, wire modes pre-arm the gate
@@ -171,6 +174,24 @@ function shouldGateBeOpen(s: AppState): boolean {
 ```
 
 Evaluated inside `layoutAllViews()`. `aboveView.setVisible(shouldGateBeOpen(state))` is the only call that toggles it.
+
+**Phase 2 target (ADR 0001) — when fully migrated this collapses to:**
+
+```ts
+function shouldGateBeOpen(s: AppState): boolean {
+  if (s.frameFocus !== null) return false
+  if (s.viewMode === 'canvas') return true   // aboveView is sole input authority
+  return browserModeNeedsGate(s)             // legacy OR-chain in browser mode
+}
+```
+
+The OR-chain in canvas mode collapses because the canvas-pointer-router (see §4.2.1) classifies all pointerdowns from the always-on aboveView via `src/shared/hit-test.ts`. The Phase 2 substrate shipped: pure router + IPC + per-frame focus enter. The flip from "open on demand" to "default open in canvas" is staged behind per-layer migration of chrome / anchor / resize / body / group handlers — see `docs/plans/input-authority-frame-focus.md` and `docs/divergence-input-authority.md`.
+
+### 4.2.1 Canvas pointer router (Phase 2 substrate)
+
+A single window-level pointerdown listener inside `aboveView` (`src/renderer/above-view/useCanvasPointerRouter.ts`) runs the shared `hitTest()` against the current layout snapshot and dispatches a typed `CanvasPointerAction` (`src/shared/canvas-pointer-actions.ts`). The hit-test priority table — resize-handle > chrome > anchor > body > background — is encoded once and tested in isolation (`tests/unit/canvas-pointer-actions.test.ts` includes the #41 anchor-near-chrome regression).
+
+The router currently consumes only `enter-frame-focus`; other action kinds fall through to the existing `useViewportForwarding` flow. Per-layer migration progressively expands the consume set (see plan §"Phase 2 — Step 3").
 
 **Gate responsibilities when visible:**
 1. Capture pointer events at the WCV boundary.
@@ -277,6 +298,8 @@ function useDragGesture<T>(spec: DragGestureSpec<T>): void
 
 ### 4.7 Bitmap compositor (pages below the active set)
 
+> **Status (ADR 0001):** Optional. The original motivation — keeping the gate always-on without breaking native page input — is supplanted by click-to-enter focus. The compositor is now a future memory/CPU optimisation if N-live-frame regresses, not a load-bearing input-authority requirement.
+
 Inactive pages (not selected, not scroll-peer of selected, not loading, no DevTools) render via offscreen `BrowserWindow` with `offscreen: true` at low frame rate. Their bitmaps are drawn as React-rendered `<canvas>` elements inside `bgView`.
 
 Full staging plan lives in `docs/offscreen-rendering-research.md`. The interaction-layer contract this spec establishes:
@@ -347,7 +370,7 @@ These are the invariants that, if broken, produce the classes of bugs this refac
 | I4 | Focus is expressed as intent, applied by `FocusReconciler` | Focus storms, keyboard shortcuts silently broken |
 | I5 | Drop ownership is declared per `dragId`, never dedup by payload hash | Duplicate drops, missed drops |
 | I6 | `setBackgroundColor('#00000000')` set on every WCV before `addChildView` | White-flash during creation |
-| I7 | Only `aboveView` uses `setVisible(true/false)` to toggle input capture. `cursorOverlayWindow` is the sole exception — it's mouse-inert (`setIgnoreMouseEvents(true)`) and never captures, so the "one input authority" rule is preserved in spirit | Regression to the multi-overlay-coordination model |
+| I7 | (ADR 0001) `aboveView` is the single input authority in canvas mode; `frameFocus !== null` is the only condition that releases it so the focused page can receive native input. Per-layer pointerdown handlers in `bgView` are vestigial during Phase 2 migration and removed in Phase 3. `cursorOverlayWindow` remains mouse-inert (`setIgnoreMouseEvents(true)`) | Regression to the multi-overlay-coordination model and the #41 layer-arbitration bug class |
 | I8 | Pointer events only in renderer gesture code | Divergent behavior between capture/cleanup code |
 | I9 | Canvas coord math imported from `src/shared/coords.ts` | Hit-test drift between main and renderer |
 | I10 | Live pages only for active frames + scroll peers + loading + DevTools-attached | Memory/CPU regression, idle renderers |

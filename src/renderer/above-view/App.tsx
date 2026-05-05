@@ -37,6 +37,10 @@ import { FloatingUiLayer } from './FloatingUiLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
 import { useAnnotationThreadState } from './useAnnotationThreadState'
+import {
+  useCanvasPointerRouter,
+  DEFAULT_ROUTER_CONSUME,
+} from './useCanvasPointerRouter'
 import { useAnnotationOverlayShortcuts } from '../shared/hooks/useAnnotationOverlayShortcuts'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
@@ -663,6 +667,33 @@ export default function App({
   // Always enabled: when the overlay has zero bounds (main's gate closed),
   // the renderer DOM receives no events, so listener attachment is a no-op.
   useViewportForwarding(true, viewportForwardingApi)
+
+  // ADR 0001 — canvas pointer router. Phase 2 substrate: mounts a single
+  // window-level pointerdown listener that runs the shared hit-test and
+  // dispatches via existing IPC. Default consume set is just
+  // `enter-frame-focus` so this lands without disturbing the existing
+  // gesture flow; per-layer migrations expand the consume set incrementally.
+  const spaceHeldRef = useRef(false)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent, down: boolean) => {
+      if (event.code === 'Space') spaceHeldRef.current = down
+    }
+    const onDown = (e: KeyboardEvent) => onKey(e, true)
+    const onUp = (e: KeyboardEvent) => onKey(e, false)
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup', onUp)
+    return () => {
+      window.removeEventListener('keydown', onDown)
+      window.removeEventListener('keyup', onUp)
+    }
+  }, [])
+  useCanvasPointerRouter({
+    api,
+    layoutRef,
+    enabled: !overlayInteractive && !pendingPlacement,
+    consume: DEFAULT_ROUTER_CONSUME,
+    spaceHeldRef,
+  })
 
   useEffect(() => {
     if (!pendingAnnotation) return

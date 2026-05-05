@@ -14,6 +14,7 @@ function base(): GateInputs {
     selectedEntityKinds: [],
     selectionOwnsFrameContent: false,
     hasSavedDrawings: false,
+    frameFocus: null,
   }
 }
 
@@ -164,4 +165,38 @@ describe('shouldGateBeOpen', () => {
       ).toBe(false)
     },
   )
+
+  describe('frame focus (ADR 0001)', () => {
+    it('closed when frame is focused, even if a gesture would otherwise open it', () => {
+      expect(
+        shouldGateBeOpen({
+          ...base(),
+          frameFocus: { id: 'frame-1' },
+          interactionKind: 'panning',
+          spaceHeld: true,
+          selectionMarqueeVisible: true,
+        }),
+      ).toBe(false)
+    })
+
+    it('closed when frame is focused, even with saved drawings', () => {
+      expect(
+        shouldGateBeOpen({
+          ...base(),
+          frameFocus: { id: 'frame-1' },
+          hasSavedDrawings: true,
+        }),
+      ).toBe(false)
+    })
+
+    it('open when frame focus is null and other conditions apply', () => {
+      expect(
+        shouldGateBeOpen({
+          ...base(),
+          frameFocus: null,
+          interactionKind: 'panning',
+        }),
+      ).toBe(true)
+    })
+  })
 })

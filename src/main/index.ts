@@ -45,6 +45,7 @@ import { shapeEntities } from './runtime/shape-entity-state'
 import { getUiState, setSelection } from './ui-state'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
+import { installFrameFocusEscapeShortcut } from './runtime/frame-focus-escape'
 import { initSentry } from './sentry'
 import {
   breadcrumb,
@@ -133,6 +134,7 @@ app.whenReady().then(async () => {
 
   setupAppMenu()
   registerIpcHandlers()
+  installFrameFocusEscapeShortcut()
   await startAppControlServer()
 
   // Silently update skills the user hasn't hand-edited; surfaces drift via the

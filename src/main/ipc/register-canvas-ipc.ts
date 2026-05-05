@@ -36,6 +36,8 @@ import {
 } from '../runtime/interaction-state'
 import { tryEnter, commitActive } from '../runtime/interaction-controller'
 import { setTextEditingActive } from '../runtime/keyboard-shortcuts'
+import { enterFrameFocus, withFocusEventsSuppressed } from '../runtime/frame-focus'
+import { markDirty } from '../runtime/layout-dirty'
 import {
   createWorkspaceTab,
   deleteWorkspaceTab,
@@ -216,6 +218,26 @@ export function registerCanvasIpc(): void {
     if (interactionBlocksPageHover()) return
     if (uiAnnotationMode() === 'region_select') return
     setHoveredFrame(frameId)
+  })
+
+  // ADR 0001: programmatically promote a frame to focused. Triggered by the
+  // canvas-pointer-router when it classifies a hit as `frame-body`. Updates
+  // the frame-focus state machine, then focuses the page's webContents so
+  // subsequent native input lands in the page. The page focus event is
+  // suppressed to avoid a double-enter (state machine is already updated).
+  ipcMain.on('canvas-frame-focus-enter', (_event, { frameId }: { frameId: string }) => {
+    const page = pages.find((candidate) => candidate.id === frameId)
+    if (!page) return
+    enterFrameFocus(frameId, 'click')
+    withFocusEventsSuppressed(() => {
+      try {
+        page.pageView.webContents.focus()
+      } catch (error) {
+        console.error('[frame-focus] programmatic focus threw', error)
+      }
+    })
+    markDirty('canvas')
+    requestLayout()
   })
 
   ipcMain.on('canvas-set-text-editing', (event, { active }: { active: boolean }) => {

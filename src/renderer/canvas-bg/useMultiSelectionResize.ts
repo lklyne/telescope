@@ -3,7 +3,7 @@ import type { ResizeCorner, ResizeEdge } from './entityConstants'
 
 export interface MultiResizeEntity {
   id: string
-  kind: 'frame' | 'text' | 'file' | 'drawing'
+  kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'
   canvasX: number
   canvasY: number
   width: number
@@ -26,7 +26,7 @@ function applyProportional(
   accY: number,
   accW: number,
   accH: number,
-  onResize: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; width: number; height: number; canvasX: number; canvasY: number }>) => void,
+  onResize: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void,
 ) {
   const scaleX = initialBbox.width > 0 ? accW / initialBbox.width : 1
   const scaleY = initialBbox.height > 0 ? accH / initialBbox.height : 1
@@ -53,7 +53,7 @@ export function useMultiCornerResize({
   canvasBbox: CanvasBBox
   zoom: number
   corner: ResizeCorner
-  onResize: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; width: number; height: number; canvasX: number; canvasY: number }>) => void
+  onResize: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
 }): (e: React.MouseEvent) => void {
   return useCallback(
     (e: React.MouseEvent) => {
@@ -128,7 +128,7 @@ export function useMultiEdgeResize({
   canvasBbox: CanvasBBox
   zoom: number
   edge: ResizeEdge
-  onResize: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; width: number; height: number; canvasX: number; canvasY: number }>) => void
+  onResize: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
 }): (e: React.MouseEvent) => void {
   return useCallback(
     (e: React.MouseEvent) => {

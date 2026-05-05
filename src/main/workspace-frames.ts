@@ -25,6 +25,7 @@ import {
 } from './runtime/ui-actions'
 import { textEntities, createTextEntity as createTextEntityInState } from './runtime/text-entity-state'
 import { fileEntities, createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
+import { shapeEntities, createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
 import {
   layoutAllViews,
   pageContentSize,
@@ -421,6 +422,34 @@ export function duplicateEntity(input: {
     layoutAllViews()
     scheduleWorkspaceAutosave()
     return { entityId: newFile.id }
+  }
+
+  const shape = shapeEntities.find((s) => s.id === input.entityId)
+  if (shape) {
+    const shapePlacement = findDuplicatePlacement({
+      x: shape.canvasX,
+      y: shape.canvasY,
+      width: shape.width,
+      height: shape.height,
+    })
+    const newShape = createShapeEntityInState({
+      canvasX: shapePlacement.canvasX,
+      canvasY: shapePlacement.canvasY,
+      shapeKind: shape.shapeKind,
+      text: shape.text,
+      color: shape.color,
+      strokeWidth: shape.strokeWidth,
+      theme: shape.theme,
+      width: shape.width,
+      height: shape.height,
+      label: shape.label,
+    })
+    if (input.focus ?? true) {
+      setSelectedEntities([newShape.id])
+    }
+    layoutAllViews()
+    scheduleWorkspaceAutosave()
+    return { entityId: newShape.id }
   }
 
   throw new Error(`Unknown entity: ${input.entityId}`)

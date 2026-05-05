@@ -223,10 +223,10 @@ function MultiSelectionBoundingBox({
   isDark,
   onResizeMulti,
 }: {
-  selectedEntities: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; canvasX: number; canvasY: number; width: number; height: number; screenX: number; screenY: number; screenWidth: number; screenHeight: number }>
+  selectedEntities: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; canvasX: number; canvasY: number; width: number; height: number; screenX: number; screenY: number; screenWidth: number; screenHeight: number }>
   zoom: number
   isDark: boolean
-  onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; width: number; height: number; canvasX: number; canvasY: number }>) => void
+  onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
 }) {
   const screenBbox = useMemo(() => {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
@@ -334,7 +334,7 @@ export function CanvasSelectionOutlineLayer({
   onResizeFileEntity: (id: string, patch: EntityResizePatch) => void
   onResizeDrawingEntity: (id: string, patch: EntityResizePatch) => void
   onResizeShapeEntity: (id: string, patch: EntityResizePatch) => void
-  onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; width: number; height: number; canvasX: number; canvasY: number }>) => void
+  onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
   onDrawingMouseDown: (drawingId: string, event: React.MouseEvent) => void
 }) {
   const localHoverId = useContext(EntityHoverValueContext)
@@ -349,7 +349,7 @@ export function CanvasSelectionOutlineLayer({
 
   const allSelectedEntities = useMemo(() => {
     if (!isMultiSelect) return []
-    const selected: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; canvasX: number; canvasY: number; width: number; height: number; screenX: number; screenY: number; screenWidth: number; screenHeight: number }> = []
+    const selected: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; canvasX: number; canvasY: number; width: number; height: number; screenX: number; screenY: number; screenWidth: number; screenHeight: number }> = []
     for (const f of frames) {
       if (selectedIdSet.has(f.id)) selected.push(f)
     }
@@ -362,8 +362,11 @@ export function CanvasSelectionOutlineLayer({
     for (const e of allDrawingEntities) {
       if (selectedIdSet.has(e.id)) selected.push(e)
     }
+    for (const e of allShapeEntities) {
+      if (selectedIdSet.has(e.id)) selected.push(e)
+    }
     return selected
-  }, [isMultiSelect, frames, allTextEntities, allFileEntities, allDrawingEntities, selectedIdSet])
+  }, [isMultiSelect, frames, allTextEntities, allFileEntities, allDrawingEntities, allShapeEntities, selectedIdSet])
 
   return (
     <>

@@ -11,6 +11,7 @@ import {
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
   snapToGrid,
+  squareConstrainedRect,
 } from '../../shared/gesture-utils'
 import { useDragGesture } from '../shared/useDragGesture'
 import { toOverlayRect } from './canvasGeometry'
@@ -46,31 +47,6 @@ type DragMode =
   | { kind: 'place-shape'; startCanvasX: number; startCanvasY: number }
 
 const MIN_SHAPE_DRAG_SIZE = 24
-
-function squareDragRect(
-  startX: number,
-  startY: number,
-  endX: number,
-  endY: number,
-  constrainSquare: boolean,
-): { minX: number; minY: number; w: number; h: number } {
-  const dx = endX - startX
-  const dy = endY - startY
-  if (constrainSquare) {
-    const side = Math.max(Math.abs(dx), Math.abs(dy))
-    const sx = dx < 0 ? -1 : 1
-    const sy = dy < 0 ? -1 : 1
-    const minX = sx < 0 ? startX - side : startX
-    const minY = sy < 0 ? startY - side : startY
-    return { minX, minY, w: side, h: side }
-  }
-  return {
-    minX: Math.min(startX, endX),
-    minY: Math.min(startY, endY),
-    w: Math.abs(dx),
-    h: Math.abs(dy),
-  }
-}
 
 export type ShapePlacementDragPreview = {
   rect: { left: number; top: number; width: number; height: number }
@@ -156,17 +132,17 @@ export function useCanvasViewportGestures({
       }
       if (mode.kind === 'place-shape') {
         const endCanvas = screenPointToCanvasPoint(ctx.clientX, ctx.clientY, layout)
-        const square = squareDragRect(
+        const square = squareConstrainedRect(
           mode.startCanvasX,
           mode.startCanvasY,
           endCanvas.x,
           endCanvas.y,
           ctx.modifiers.shift,
         )
-        const minCanvasX = snapToGrid(square.minX)
-        const minCanvasY = snapToGrid(square.minY)
-        const snappedW = snapToGrid(square.w)
-        const snappedH = snapToGrid(square.h)
+        const minCanvasX = snapToGrid(square.left)
+        const minCanvasY = snapToGrid(square.top)
+        const snappedW = snapToGrid(square.width)
+        const snappedH = snapToGrid(square.height)
         const rect = {
           left: canvasToScreenX(layout, minCanvasX),
           top: canvasToScreenY(layout, minCanvasY),
@@ -217,19 +193,19 @@ export function useCanvasViewportGestures({
         stopDragging()
         const startCanvas = { x: mode.startCanvasX, y: mode.startCanvasY }
         const endCanvas = screenPointToCanvasPoint(ctx.clientX, ctx.clientY, layout)
-        const square = squareDragRect(
+        const square = squareConstrainedRect(
           startCanvas.x,
           startCanvas.y,
           endCanvas.x,
           endCanvas.y,
           ctx.modifiers.shift,
         )
-        if (square.w >= MIN_SHAPE_DRAG_SIZE && square.h >= MIN_SHAPE_DRAG_SIZE) {
-          api.placePendingShape(snapToGrid(square.minX), snapToGrid(square.minY), {
-            x: snapToGrid(square.minX),
-            y: snapToGrid(square.minY),
-            width: snapToGrid(square.w),
-            height: snapToGrid(square.h),
+        if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
+          api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
+            x: snapToGrid(square.left),
+            y: snapToGrid(square.top),
+            width: snapToGrid(square.width),
+            height: snapToGrid(square.height),
           })
         } else {
           api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)

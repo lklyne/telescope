@@ -14,6 +14,7 @@ import type {
   PersistedFileEntity,
   PersistedFrameEntity,
   PersistedGroupEntity,
+  PersistedShapeEntity,
   PersistedTextEntity,
   WorkspaceEdge,
   WorkspaceGroup,
@@ -27,6 +28,7 @@ import type {
   JsonCanvasGroupNode,
   JsonCanvasLinkNode,
   JsonCanvasNode,
+  JsonCanvasShapeNode,
   JsonCanvasTextNode,
   JsonCanvasAppState,
 } from '../../shared/json-canvas-types'
@@ -84,6 +86,8 @@ export function serializeToJsonCanvas(
       nodes.push(serializeGroupEntityToGroupNode(entity))
     } else if (entity.kind === 'drawing') {
       nodes.push(serializeDrawingToDrawingNode(entity))
+    } else if (entity.kind === 'shape') {
+      nodes.push(serializeShapeToShapeNode(entity))
     }
   }
 
@@ -155,6 +159,24 @@ function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNod
     objectFit: entity.objectFit,
     presetIndex: entity.presetIndex,
     metadata: entity.metadata,
+  }
+}
+
+function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCanvasShapeNode {
+  return {
+    id: entity.id,
+    type: 'shape',
+    x: entity.canvasX,
+    y: entity.canvasY,
+    width: entity.width,
+    height: entity.height,
+    shapeKind: entity.shapeKind,
+    text: entity.text,
+    color: entity.color,
+    strokeWidth: entity.strokeWidth,
+    theme: entity.theme,
+    label: entity.label,
+    parentGroupId: entity.parentGroupId,
   }
 }
 
@@ -252,6 +274,10 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
       const entity = deserializeDrawingNodeToDrawing(node)
       entities[entity.id] = entity
       entityOrder.push(entity.id)
+    } else if (node.type === 'shape') {
+      const entity = deserializeShapeNodeToShape(node)
+      entities[entity.id] = entity
+      entityOrder.push(entity.id)
     }
   }
 
@@ -323,6 +349,24 @@ function deserializeFileNodeToFile(node: JsonCanvasFileNode): PersistedFileEntit
     objectFit: node.objectFit,
     presetIndex: node.presetIndex,
     metadata: node.metadata,
+  }
+}
+
+function deserializeShapeNodeToShape(node: JsonCanvasShapeNode): PersistedShapeEntity {
+  return {
+    kind: 'shape',
+    id: node.id,
+    shapeKind: node.shapeKind,
+    text: node.text ?? '',
+    color: node.color,
+    strokeWidth: node.strokeWidth,
+    theme: node.theme,
+    canvasX: node.x,
+    canvasY: node.y,
+    width: node.width,
+    height: node.height,
+    label: node.label,
+    parentGroupId: node.parentGroupId,
   }
 }
 

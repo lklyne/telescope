@@ -13,7 +13,7 @@ export type CanvasColor = '1' | '2' | '3' | '4' | '5' | '6' | (string & {})
 
 export interface JsonCanvasNodeBase {
   id: string
-  type: 'text' | 'link' | 'file' | 'group' | 'drawing'
+  type: 'text' | 'link' | 'file' | 'group' | 'drawing' | 'shape'
   x: number
   y: number
   width: number
@@ -77,12 +77,27 @@ export interface JsonCanvasDrawingNode extends JsonCanvasNodeBase {
   parentGroupId?: string
 }
 
+/**
+ * Shape node (Specular extension). Other JSON Canvas tools ignore
+ * unknown `type` values per the spec's extensibility model.
+ */
+export interface JsonCanvasShapeNode extends JsonCanvasNodeBase {
+  type: 'shape'
+  shapeKind: 'rectangle' | 'ellipse' | 'diamond'
+  text?: string
+  strokeWidth?: number
+  theme?: string
+  label?: string
+  parentGroupId?: string
+}
+
 export type JsonCanvasNode =
   | JsonCanvasTextNode
   | JsonCanvasLinkNode
   | JsonCanvasFileNode
   | JsonCanvasGroupNode
   | JsonCanvasDrawingNode
+  | JsonCanvasShapeNode
 
 // --- Edges ---
 

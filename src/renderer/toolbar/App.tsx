@@ -172,6 +172,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 onAddPage={toolbarApi.addPage}
                 onAddTextEntity={toolbarApi.addTextEntity}
                 onAddNote={toolbarApi.addNote}
+                onAddShape={toolbarApi.addShape}
                 onDropdownOpenChange={(open) => {
                   if (open) toolbarApi.dropdownOpen()
                   else toolbarApi.dropdownClose()
@@ -221,6 +222,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 onAddPage={toolbarApi.addPage}
                 onAddTextEntity={toolbarApi.addTextEntity}
                 onAddNote={toolbarApi.addNote}
+                onAddShape={toolbarApi.addShape}
                 onDropdownOpenChange={(open) => {
                   if (open) toolbarApi.dropdownOpen()
                   else toolbarApi.dropdownClose()

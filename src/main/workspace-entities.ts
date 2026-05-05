@@ -1,6 +1,7 @@
 import type {
   DeleteFramesRequest,
   DeleteFramesResponse,
+  EdgeSide,
   WorkspaceBounds,
   WorkspaceFrame,
   WorkspaceGraph,
@@ -27,6 +28,7 @@ import {
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
+import { shapeEntities } from './runtime/shape-entity-state'
 import {
   pageOuterCanvasBounds,
   pageContentSize,
@@ -96,6 +98,10 @@ function entityBoundsByIdWithVisited(
   if (te) return { x: te.canvasX, y: te.canvasY, width: te.width, height: te.height }
   const fe = fileEntities.find((f) => f.id === entityId)
   if (fe) return { x: fe.canvasX, y: fe.canvasY, width: fe.width, height: fe.height }
+  const de = drawingEntities.find((d) => d.id === entityId)
+  if (de) return { x: de.canvasX, y: de.canvasY, width: de.width, height: de.height }
+  const se = shapeEntities.find((s) => s.id === entityId)
+  if (se) return { x: se.canvasX, y: se.canvasY, width: se.width, height: se.height }
   const group = workspaceGroups.find((candidate) => candidate.id === entityId)
   if (group) {
     return {
@@ -133,6 +139,8 @@ export function groupChildIds(groupId: string): string[] {
     ...pages.filter((page) => page.parentGroupId === groupId).map((page) => page.id),
     ...textEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
     ...fileEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
+    ...drawingEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
+    ...shapeEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
     ...workspaceGroups.filter((group) => group.parentGroupId === groupId).map((group) => group.id),
   ]
 }
@@ -305,8 +313,31 @@ export function selectEntitiesInRect(
       ),
     )
     .map((de) => de.id)
+  const shapeIds = shapeEntities
+    .filter((se) =>
+      boundsOverlap(
+        {
+          x: se.canvasX,
+          y: se.canvasY,
+          width: se.width,
+          height: se.height,
+        },
+        bounds,
+      ),
+    )
+    .map((se) => se.id)
+  const edgeIds = workspaceEdges
+    .filter((edge) => {
+      const fromBounds = entityBoundsById(edge.fromEntityId)
+      const toBounds = entityBoundsById(edge.toEntityId)
+      if (!fromBounds || !toBounds) return false
+      const from = sideAnchorPoint(fromBounds, edge.fromSide)
+      const to = sideAnchorPoint(toBounds, edge.toSide)
+      return segmentIntersectsRect(from, to, bounds)
+    })
+    .map((edge) => edge.id)
 
-  const entityIds = [...frameIds, ...textIds, ...fileIds, ...drawingIds]
+  const entityIds = [...frameIds, ...textIds, ...fileIds, ...drawingIds, ...shapeIds, ...edgeIds]
 
   if (mode !== 'replace') {
     // Additive / toggle / remove modes: preserve existing selection outside the rect
@@ -321,7 +352,13 @@ export function selectEntitiesInRect(
     return { entityIds: [] }
   }
 
-  if (!textIds.length && !fileIds.length && !drawingIds.length) {
+  if (
+    !textIds.length &&
+    !fileIds.length &&
+    !drawingIds.length &&
+    !shapeIds.length &&
+    !edgeIds.length
+  ) {
     if (frameIds.length === 1) {
       selectPageById(frameIds[0])
     } else {
@@ -332,6 +369,58 @@ export function selectEntitiesInRect(
 
   setSelectedEntities(entityIds)
   return { entityIds }
+}
+
+function sideAnchorPoint(
+  bounds: WorkspaceBounds,
+  side: EdgeSide | undefined,
+): { x: number; y: number } {
+  switch (side) {
+    case 'top':
+      return { x: bounds.x + bounds.width / 2, y: bounds.y }
+    case 'bottom':
+      return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height }
+    case 'left':
+      return { x: bounds.x, y: bounds.y + bounds.height / 2 }
+    case 'right':
+      return { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 }
+    default:
+      return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+  }
+}
+
+// Liang-Barsky: returns true if the segment from p1 to p2 intersects rect
+// (including the case where the segment lies entirely inside the rect).
+function segmentIntersectsRect(
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  rect: WorkspaceBounds,
+): boolean {
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const xMin = rect.x
+  const xMax = rect.x + rect.width
+  const yMin = rect.y
+  const yMax = rect.y + rect.height
+  const p = [-dx, dx, -dy, dy]
+  const q = [p1.x - xMin, xMax - p1.x, p1.y - yMin, yMax - p1.y]
+  let t0 = 0
+  let t1 = 1
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) {
+      if (q[i] < 0) return false
+    } else {
+      const t = q[i] / p[i]
+      if (p[i] < 0) {
+        if (t > t1) return false
+        if (t > t0) t0 = t
+      } else {
+        if (t < t0) return false
+        if (t < t1) t1 = t
+      }
+    }
+  }
+  return true
 }
 
 // --- Workspace graph ---

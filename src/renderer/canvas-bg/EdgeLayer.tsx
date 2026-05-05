@@ -14,7 +14,10 @@ import { scaleEdgeHitTargetSize } from './edgeHitSizing'
 
 const SIDES: EdgeSide[] = ['top', 'right', 'bottom', 'left']
 const DOT_RADIUS = 3
-const DOT_HIT_RADIUS = 24
+const EDGE_HIT_ALONG = 56
+const EDGE_HIT_ACROSS = 24
+const EDGE_HIT_GAP = 4
+const EDGE_HIT_CORNER = 2
 const DOT_OFFSET = 8
 const SNAP_DISTANCE = 48
 const CONTROL_POINT_MIN = 40
@@ -41,6 +44,31 @@ function getAnchorPoint(entity: CanvasSceneEntity, side: EdgeSide, zoom: number)
       return { x: screenX - dotOffset, y: screenY + screenHeight / 2, side }
     case 'right':
       return { x: screenX + screenWidth + dotOffset, y: screenY + screenHeight / 2, side }
+  }
+}
+
+function getAnchorHitRect(
+  entity: CanvasSceneEntity,
+  side: EdgeSide,
+  zoom: number,
+): { x: number; y: number; width: number; height: number } {
+  const { screenX, screenY, screenWidth, screenHeight } = entity
+  const along = scaleEdgeHitTargetSize(EDGE_HIT_ALONG, zoom)
+  const across = scaleEdgeHitTargetSize(EDGE_HIT_ACROSS, zoom)
+  const horizontal = side === 'top' || side === 'bottom'
+  const width = horizontal ? along : across
+  const height = horizontal ? across : along
+  const cx = screenX + screenWidth / 2
+  const cy = screenY + screenHeight / 2
+  switch (side) {
+    case 'top':
+      return { x: cx - width / 2, y: screenY - EDGE_HIT_GAP - height, width, height }
+    case 'bottom':
+      return { x: cx - width / 2, y: screenY + screenHeight + EDGE_HIT_GAP, width, height }
+    case 'left':
+      return { x: screenX - EDGE_HIT_GAP - width, y: cy - height / 2, width, height }
+    case 'right':
+      return { x: screenX + screenWidth + EDGE_HIT_GAP, y: cy - height / 2, width, height }
   }
 }
 
@@ -89,6 +117,50 @@ function findClosestAnchorTarget(
   return bestTarget
 }
 
+/**
+ * Find an edge whose endpoint sits at the given anchor (entity + side).
+ * Used to detect when an anchor-dot grab should edit an existing edge
+ * rather than start a new one. Auto-side edges are matched against their
+ * resolved sides so their visible endpoints behave the same way.
+ */
+function findEdgeAtAnchor(
+  edges: WorkspaceEdge[],
+  entityMap: Map<string, CanvasSceneEntity>,
+  entityId: string,
+  side: EdgeSide,
+): {
+  edgeId: string
+  movingEnd: 'from' | 'to'
+  fixedEntityId: string
+  fixedSide: EdgeSide
+} | null {
+  for (const edge of edges) {
+    const fromEntity = entityMap.get(edge.fromEntityId)
+    const toEntity = entityMap.get(edge.toEntityId)
+    if (!fromEntity || !toEntity) continue
+    const { fromSide, toSide } = edge.fromSide && edge.toSide
+      ? { fromSide: edge.fromSide, toSide: edge.toSide }
+      : autoSides(fromEntity, toEntity)
+    if (edge.toEntityId === entityId && toSide === side) {
+      return {
+        edgeId: edge.id,
+        movingEnd: 'to',
+        fixedEntityId: edge.fromEntityId,
+        fixedSide: fromSide,
+      }
+    }
+    if (edge.fromEntityId === entityId && fromSide === side) {
+      return {
+        edgeId: edge.id,
+        movingEnd: 'from',
+        fixedEntityId: edge.toEntityId,
+        fixedSide: toSide,
+      }
+    }
+  }
+  return null
+}
+
 /** Pick the best sides to connect two entities when sides aren't specified. */
 function autoSides(
   from: CanvasSceneEntity,
@@ -124,7 +196,6 @@ function AnchorDots({
   onHoverEntity: (entityId: string | null) => void
 }) {
   const [hoveredSide, setHoveredSide] = useState<EdgeSide | null>(null)
-  const dotHitRadius = scaleEdgeHitTargetSize(DOT_HIT_RADIUS, zoom)
 
   useEffect(() => {
     if (!isDragging) setHoveredSide(null)
@@ -134,6 +205,7 @@ function AnchorDots({
     <>
       {SIDES.map((side) => {
         const pt = getAnchorPoint(entity, side, zoom)
+        const hitRect = getAnchorHitRect(entity, side, zoom)
         const showDot = hoveredSide === side
         return (
           <g key={side}>
@@ -147,12 +219,14 @@ function AnchorDots({
                 strokeWidth={1}
               />
             ) : null}
-            {/* Zoom-scaled interaction target */}
-            <circle
-              cx={pt.x}
-              cy={pt.y}
+            <rect
+              x={hitRect.x}
+              y={hitRect.y}
+              width={hitRect.width}
+              height={hitRect.height}
+              rx={EDGE_HIT_CORNER}
+              ry={EDGE_HIT_CORNER}
               fill="transparent"
-              r={dotHitRadius}
               style={{ cursor: 'crosshair', pointerEvents: 'all' }}
               onMouseDown={(e) => {
                 e.stopPropagation()
@@ -185,12 +259,14 @@ export function EdgeLayer({
   hoveredEntityId,
   isDark,
   interaction,
-  selectedEdgeId,
+  selectedEdgeIds,
   selectedEntityIds,
   zoom,
   onBeginEdgeDrag,
   onCancelEdgeDrag,
   onCommitEdgeDrag,
+  onCommitEdgeEdit,
+  onDiscardEdgeEdit,
   onSelectEdge,
   onHoverEntity,
   onUpdateEdgeDragTarget,
@@ -200,12 +276,19 @@ export function EdgeLayer({
   hoveredEntityId: string | null
   isDark: boolean
   interaction: CanvasInteractionState
-  selectedEdgeId: string | null
+  selectedEdgeIds: ReadonlySet<string>
   selectedEntityIds: string[]
   zoom: number
   onBeginEdgeDrag: (fromEntityId: string, fromSide: EdgeSide) => void
   onCancelEdgeDrag: () => void
   onCommitEdgeDrag: (fromEntityId: string, toEntityId: string, fromSide: EdgeSide, toSide: EdgeSide) => void
+  onCommitEdgeEdit: (
+    edgeId: string,
+    movingEnd: 'from' | 'to',
+    targetEntityId: string,
+    targetSide: EdgeSide,
+  ) => void
+  onDiscardEdgeEdit: (edgeId: string) => void
   onSelectEdge: (edgeId: string) => void
   onHoverEntity: (entityId: string | null) => void
   onUpdateEdgeDragTarget: (targetEntityId: string | null, targetSide: EdgeSide | null) => void
@@ -217,12 +300,26 @@ export function EdgeLayer({
   }, [entities])
 
   // --- Edge creation drag state ---
-  const [dragState, setDragState] = useState<{
-    fromEntityId: string
-    fromSide: EdgeSide
-    cursorX: number
-    cursorY: number
-  } | null>(null)
+  // 'create' = new edge from this anchor; 'edit' = re-route or delete an
+  // existing edge whose endpoint sits at this anchor.
+  type DragState =
+    | {
+        mode: 'create'
+        fromEntityId: string
+        fromSide: EdgeSide
+        cursorX: number
+        cursorY: number
+      }
+    | {
+        mode: 'edit'
+        edgeId: string
+        movingEnd: 'from' | 'to'
+        fixedEntityId: string
+        fixedSide: EdgeSide
+        cursorX: number
+        cursorY: number
+      }
+  const [dragState, setDragState] = useState<DragState | null>(null)
 
   const hoveredDragEntityIdRef = useRef<string | null>(null)
   const dragListenersRef = useRef<{ move: (e: MouseEvent) => void; up: (e: MouseEvent) => void } | null>(null)
@@ -243,13 +340,38 @@ export function EdgeLayer({
 
   const handleDragStart = useCallback(
     (entityId: string, side: EdgeSide, clientX: number, clientY: number) => {
-      setDragState({ fromEntityId: entityId, fromSide: side, cursorX: clientX, cursorY: clientY })
-      onBeginEdgeDrag(entityId, side)
+      // Grabbing an anchor that already hosts an edge endpoint re-routes (or
+      // deletes) that edge instead of starting a new one.
+      const existing = findEdgeAtAnchor(edges, entityMap, entityId, side)
+      const initialDrag: DragState = existing
+        ? {
+            mode: 'edit',
+            edgeId: existing.edgeId,
+            movingEnd: existing.movingEnd,
+            fixedEntityId: existing.fixedEntityId,
+            fixedSide: existing.fixedSide,
+            cursorX: clientX,
+            cursorY: clientY,
+          }
+        : {
+            mode: 'create',
+            fromEntityId: entityId,
+            fromSide: side,
+            cursorX: clientX,
+            cursorY: clientY,
+          }
+      setDragState(initialDrag)
+
+      const dragOriginEntityId =
+        initialDrag.mode === 'edit' ? initialDrag.fixedEntityId : entityId
+      const dragOriginSide =
+        initialDrag.mode === 'edit' ? initialDrag.fixedSide : side
+      onBeginEdgeDrag(dragOriginEntityId, dragOriginSide)
 
       const handleMove = (e: MouseEvent) => {
         const bestTarget = findClosestAnchorTarget(
           entityMap,
-          entityId,
+          dragOriginEntityId,
           e.clientX,
           e.clientY,
           scaleEdgeHitTargetSize(SNAP_DISTANCE, zoomRef.current),
@@ -274,14 +396,25 @@ export function EdgeLayer({
 
         const bestTarget = findClosestAnchorTarget(
           entityMap,
-          entityId,
+          dragOriginEntityId,
           e.clientX,
           e.clientY,
           scaleEdgeHitTargetSize(SNAP_DISTANCE, zoomRef.current),
           zoomRef.current,
         )
 
-        if (bestTarget) {
+        if (initialDrag.mode === 'edit') {
+          if (bestTarget) {
+            onCommitEdgeEdit(
+              initialDrag.edgeId,
+              initialDrag.movingEnd,
+              bestTarget.entityId,
+              bestTarget.side,
+            )
+          } else {
+            onDiscardEdgeEdit(initialDrag.edgeId)
+          }
+        } else if (bestTarget) {
           onCommitEdgeDrag(entityId, bestTarget.entityId, side, bestTarget.side)
         } else {
           onCancelEdgeDrag()
@@ -297,10 +430,23 @@ export function EdgeLayer({
       window.addEventListener('mousemove', handleMove)
       window.addEventListener('mouseup', handleUp)
     },
-    [entityMap, onBeginEdgeDrag, onCancelEdgeDrag, onCommitEdgeDrag, onHoverEntity, onUpdateEdgeDragTarget],
+    [
+      edges,
+      entityMap,
+      onBeginEdgeDrag,
+      onCancelEdgeDrag,
+      onCommitEdgeDrag,
+      onCommitEdgeEdit,
+      onDiscardEdgeEdit,
+      onHoverEntity,
+      onUpdateEdgeDragTarget,
+    ],
   )
 
-  // Render existing edges
+  const editingEdgeId = dragState?.mode === 'edit' ? dragState.edgeId : null
+
+  // Render existing edges (skip the one being re-routed — the dashed drag
+  // path stands in for it).
   const edgePaths = useMemo(() => {
     const paths: Array<{
       id: string
@@ -312,6 +458,7 @@ export function EdgeLayer({
     }> = []
 
     for (const edge of edges) {
+      if (edge.id === editingEdgeId) continue
       const fromEntity = entityMap.get(edge.fromEntityId)
       const toEntity = entityMap.get(edge.toEntityId)
       if (!fromEntity || !toEntity) continue
@@ -326,29 +473,45 @@ export function EdgeLayer({
       paths.push({
         id: edge.id,
         d,
-        selected: edge.id === selectedEdgeId,
+        selected: selectedEdgeIds.has(edge.id),
         fromEnd: edge.fromEnd ?? 'none',
         toEnd: edge.toEnd ?? 'arrow',
         color: edge.color,
       })
     }
     return paths
-  }, [edges, entityMap, selectedEdgeId, zoom])
+  }, [edges, entityMap, selectedEdgeIds, zoom, editingEdgeId])
 
-  // Temporary drag edge path
+  // Temporary drag edge path: in 'create' mode it grows from the grabbed
+  // anchor; in 'edit' mode it grows from the fixed (non-moving) endpoint.
   const dragPath = useMemo(() => {
     if (!dragState) return null
-    const fromEntity = entityMap.get(dragState.fromEntityId)
-    if (!fromEntity) return null
-    const from = getAnchorPoint(fromEntity, dragState.fromSide, zoom)
-    const to: AnchorPoint = { x: dragState.cursorX, y: dragState.cursorY, side: dragState.fromSide === 'left' ? 'right' : dragState.fromSide === 'right' ? 'left' : dragState.fromSide === 'top' ? 'bottom' : 'top' }
+    const anchorEntityId =
+      dragState.mode === 'create' ? dragState.fromEntityId : dragState.fixedEntityId
+    const anchorSide =
+      dragState.mode === 'create' ? dragState.fromSide : dragState.fixedSide
+    const anchorEntity = entityMap.get(anchorEntityId)
+    if (!anchorEntity) return null
+    const from = getAnchorPoint(anchorEntity, anchorSide, zoom)
+    const to: AnchorPoint = {
+      x: dragState.cursorX,
+      y: dragState.cursorY,
+      side:
+        anchorSide === 'left'
+          ? 'right'
+          : anchorSide === 'right'
+            ? 'left'
+            : anchorSide === 'top'
+              ? 'bottom'
+              : 'top',
+    }
     return buildBezierPath(from, to, zoom)
   }, [dragState, entityMap, zoom])
 
   // Which entities should show anchor dots: selected + hovered entities, or all during drag
   const anchorEntities = useMemo(() => {
     const ids = new Set<string>()
-    if (!selectedEdgeId) {
+    if (selectedEdgeIds.size === 0) {
       for (const id of selectedEntityIds) {
         if (entityMap.has(id)) ids.add(id)
       }
@@ -359,7 +522,7 @@ export function EdgeLayer({
       for (const eId of entityMap.keys()) ids.add(eId)
     }
     return [...ids].map((id) => entityMap.get(id)!).filter(Boolean)
-  }, [selectedEntityIds, selectedEdgeId, hoveredEntityId, dragState, entityMap, interaction.kind])
+  }, [selectedEntityIds, selectedEdgeIds, hoveredEntityId, dragState, entityMap, interaction.kind])
 
   return (
     <svg

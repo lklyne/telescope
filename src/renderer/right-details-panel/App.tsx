@@ -11,6 +11,7 @@ import { FramePane } from './components/FramePane'
 import { GroupEntityPane } from './components/GroupEntityPane'
 import { MultiEntityPane } from './components/MultiEntityPane'
 import { PaneHeader } from './components/PaneHeader'
+import { ShapeEntityPane } from './components/ShapeEntityPane'
 import { TextEntityPane } from './components/TextEntityPane'
 import { rightDetailsPanelApi } from './rightDetailsPanelApi'
 import { useRightDetailsPanelData } from './useRightDetailsPanelData'
@@ -88,6 +89,11 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
       case 'drawing':
         return DRAWING_FEATURE_ENABLED && panelData.drawingEntity ? (
           <DrawingEntityPane drawingEntity={panelData.drawingEntity} isDark={isDark} />
+        ) : null
+
+      case 'shape':
+        return panelData.shapeEntity ? (
+          <ShapeEntityPane shapeEntity={panelData.shapeEntity} isDark={isDark} />
         ) : null
 
       case 'edge':

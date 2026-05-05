@@ -35,6 +35,7 @@ export function SelectableEntityShell({
   borderRadius,
   showCardShadow = true,
   onSelect,
+  onDoubleClick,
   onResize,
   onDragStart,
   onDrag,
@@ -64,6 +65,7 @@ export function SelectableEntityShell({
   borderRadius?: number
   showCardShadow?: boolean
   onSelect: (id: string, modifiers?: SelectionModifiers) => void
+  onDoubleClick?: (id: string, event: React.MouseEvent<HTMLDivElement>) => void
   onResize: (id: string, patch: EntityResizePatch) => void
   onDragStart: (id: string) => void
   onDrag: (id: string, dx: number, dy: number) => void
@@ -201,6 +203,12 @@ export function SelectableEntityShell({
           ctrl: event.ctrlKey,
         })
         event.stopPropagation()
+      }}
+      onDoubleClick={(event) => {
+        if (!onDoubleClick) return
+        const target = event.target as HTMLElement | null
+        if (target?.closest('[data-resize-handle], button, input, textarea')) return
+        onDoubleClick(id, event)
       }}
     >
       {children}

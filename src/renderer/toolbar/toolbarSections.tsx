@@ -1,10 +1,13 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { Select } from '@base-ui/react/select'
 import { Tabs } from '@base-ui/react/tabs'
+import { useState } from 'react'
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Circle,
+  Diamond,
   Frame,
   LayoutTemplate,
   MessageCircle,
@@ -16,11 +19,18 @@ import {
   Pipette,
   RotateCw,
   FileText,
+  Square,
   SquareDashedMousePointer,
   StickyNote,
   Sun,
 } from 'lucide-react'
-import type { AgentPresenceCursor, AnnotationMode, ToolbarSelectionData } from '../../shared/types'
+import { Menu } from '@base-ui/react/menu'
+import type {
+  AgentPresenceCursor,
+  AnnotationMode,
+  ShapeKind,
+  ToolbarSelectionData,
+} from '../../shared/types'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { normalizeUserUrl } from '../../shared/url'
 import { FramePresetDropdown } from '../shared/FramePresetDropdown'
@@ -37,6 +47,68 @@ function toolbarActiveIconBtnClass(isDark: boolean): string {
   return isDark
     ? 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-[var(--surface-interactive)] p-1.5 text-zinc-100'
     : 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-[var(--surface-interactive)] p-1.5 text-zinc-900'
+}
+
+const SHAPE_OPTIONS: Array<{ kind: ShapeKind; label: string; Icon: React.ComponentType<{ size?: number }> }> = [
+  { kind: 'rectangle', label: 'rectangle', Icon: Square },
+  { kind: 'ellipse', label: 'ellipse', Icon: Circle },
+  { kind: 'diamond', label: 'diamond', Icon: Diamond },
+]
+
+function ShapeMenu({
+  isDark,
+  onAddShape,
+  onDropdownOpenChange,
+}: {
+  isDark: boolean
+  onAddShape: (shapeKind: ShapeKind) => void
+  onDropdownOpenChange: (open: boolean) => void
+}) {
+  const [lastShape, setLastShape] = useState<ShapeKind>('rectangle')
+  const triggerClassName = toolbarIconBtnClass(isDark)
+  const LastIcon = SHAPE_OPTIONS.find((o) => o.kind === lastShape)?.Icon ?? Square
+
+  const popupClassName = `z-50 min-w-[160px] rounded-[10px] border p-1 shadow-xl outline-none ${
+    isDark
+      ? 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-100'
+      : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900'
+  }`
+  const itemClassName = `flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
+    isDark
+      ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
+      : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
+  }`
+
+  return (
+    <Menu.Root onOpenChange={onDropdownOpenChange}>
+      <Menu.Trigger
+        className={`${triggerClassName} flex items-center gap-0.5 pr-1`}
+        title="Add Shape"
+      >
+        <LastIcon size={14} />
+        <ChevronDown size={10} className={isDark ? 'text-zinc-400' : 'text-zinc-500'} />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner side="bottom" align="center" sideOffset={4}>
+          <Menu.Popup className={popupClassName}>
+            {SHAPE_OPTIONS.map(({ kind, label, Icon }) => (
+              <Menu.Item
+                key={kind}
+                className={itemClassName}
+                onClick={() => {
+                  setLastShape(kind)
+                  onAddShape(kind)
+                }}
+              >
+                <Icon size={12} />
+                <span>{label}</span>
+              </Menu.Item>
+            ))}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  )
 }
 
 function AddFramePresetMenu({
@@ -132,6 +204,7 @@ interface CenterActionsProps {
   onAddPage: (presetIndex: number | 'custom') => void
   onAddTextEntity: () => void
   onAddNote: () => void
+  onAddShape: (shapeKind: ShapeKind) => void
   onDropdownOpenChange: (open: boolean) => void
   onClearToolMode: () => void
   onToggleAnnotateMode: () => void
@@ -157,6 +230,7 @@ export function CenterActions({
   onAddPage,
   onAddTextEntity,
   onAddNote,
+  onAddShape,
   onDropdownOpenChange,
   onClearToolMode,
   onToggleAnnotateMode,
@@ -219,6 +293,14 @@ export function CenterActions({
           >
             <FileText size={14} />
           </button>
+        ) : null}
+
+        {!isBrowserMode ? (
+          <ShapeMenu
+            isDark={isDark}
+            onAddShape={onAddShape}
+            onDropdownOpenChange={onDropdownOpenChange}
+          />
         ) : null}
 
         <div className="ml-0.5 flex items-center gap-2">

@@ -17,6 +17,7 @@ import type { Page } from './runtime-entities'
 import type { TextEntity } from './text-entity-state'
 import type { FileEntity } from './file-entity-state'
 import type { DrawingEntity } from './drawing-entity-state'
+import type { ShapeEntity } from './shape-entity-state'
 import {
   getActiveDoc,
   getDocActiveTabId,
@@ -44,6 +45,7 @@ interface RuntimeStateRefs {
   textEntities: TextEntity[]
   fileEntities: FileEntity[]
   drawingEntities: DrawingEntity[]
+  shapeEntities: ShapeEntity[]
   workspaceGroups: WorkspaceGroup[]
   workspaceEdges: WorkspaceEdge[]
   workspaceAnnotations: Annotation[]
@@ -142,6 +144,7 @@ function requestDocSyncImmediate(): void {
     textEntities: _refs.textEntities,
     fileEntities: _refs.fileEntities,
     drawingEntities: _refs.drawingEntities,
+    shapeEntities: _refs.shapeEntities,
     workspaceGroups: _refs.workspaceGroups,
     workspaceEdges: _refs.workspaceEdges,
     workspaceAnnotations: _refs.workspaceAnnotations,
@@ -253,6 +256,7 @@ function syncDocToRuntime(doc: Y.Doc): void {
     _refs!.textEntities.length = 0
     _refs!.fileEntities.length = 0
     _refs!.drawingEntities.length = 0
+    _refs!.shapeEntities.length = 0
     for (const [, yEntity] of yEntities.entries()) {
       const data = yEntity.toJSON() as Record<string, unknown>
       const kind = data.kind as string
@@ -262,6 +266,8 @@ function syncDocToRuntime(doc: Y.Doc): void {
         _refs!.fileEntities.push(data as unknown as FileEntity)
       } else if (kind === 'drawing') {
         _refs!.drawingEntities.push(data as unknown as DrawingEntity)
+      } else if (kind === 'shape') {
+        _refs!.shapeEntities.push(data as unknown as ShapeEntity)
       }
     }
 

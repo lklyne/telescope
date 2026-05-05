@@ -40,6 +40,25 @@ export function normalizeRect(
   }
 }
 
+export function squareConstrainedRect(
+  startX: number,
+  startY: number,
+  currentX: number,
+  currentY: number,
+  constrainSquare: boolean,
+) {
+  if (!constrainSquare) return normalizeRect(startX, startY, currentX, currentY)
+  const dx = currentX - startX
+  const dy = currentY - startY
+  const side = Math.max(Math.abs(dx), Math.abs(dy))
+  return {
+    left: dx < 0 ? startX - side : startX,
+    top: dy < 0 ? startY - side : startY,
+    width: side,
+    height: side,
+  }
+}
+
 export function snapToGrid(value: number): number {
   return Math.round(value / GRID_SIZE) * GRID_SIZE
 }

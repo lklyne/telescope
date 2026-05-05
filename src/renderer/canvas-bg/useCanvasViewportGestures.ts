@@ -1,7 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import type { RefObject } from 'react'
-import type { CanvasBgElectronAPI, LayoutUpdateData, SelectionModifiers } from '../../shared/types'
+import type { CanvasBgElectronAPI, LayoutUpdateData, SelectionModifiers, ShapeKind } from '../../shared/types'
 import {
+  canvasToScreenX,
+  canvasToScreenY,
   classifyViewportWheel,
   isOverlayUiTarget,
   middleDragDelta,
@@ -9,6 +11,7 @@ import {
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
   snapToGrid,
+  squareConstrainedRect,
 } from '../../shared/gesture-utils'
 import { useDragGesture } from '../shared/useDragGesture'
 import { toOverlayRect } from './canvasGeometry'
@@ -41,6 +44,14 @@ type DragMode =
   | { kind: 'pan'; startPanX: number; startPanY: number }
   | { kind: 'region-select' }
   | { kind: 'marquee' }
+  | { kind: 'place-shape'; startCanvasX: number; startCanvasY: number }
+
+const MIN_SHAPE_DRAG_SIZE = 24
+
+export type ShapePlacementDragPreview = {
+  rect: { left: number; top: number; width: number; height: number }
+  shapeKind: ShapeKind
+}
 
 export function useCanvasViewportGestures({
   api,
@@ -48,6 +59,7 @@ export function useCanvasViewportGestures({
   layoutRef,
   setPlacementCursor,
   onMarqueePreview,
+  onShapePlacementPreview,
 }: {
   api: CanvasBgElectronAPI
   bgRef: RefObject<HTMLDivElement | null>
@@ -56,13 +68,15 @@ export function useCanvasViewportGestures({
     React.SetStateAction<{ clientX: number; clientY: number } | null>
   >
   onMarqueePreview: (ids: Set<string> | null) => void
+  onShapePlacementPreview: (preview: ShapePlacementDragPreview | null) => void
 }) {
   const stopDragging = useMemo(
     () => () => {
       api.setSelectionOverlayRect(null)
       onMarqueePreview(null)
+      onShapePlacementPreview(null)
     },
-    [api, onMarqueePreview],
+    [api, onMarqueePreview, onShapePlacementPreview],
   )
 
   useDragGesture<DragMode>({
@@ -77,9 +91,17 @@ export function useCanvasViewportGestures({
       if (ctx.pointerType === 'mouse' && ctx.button === 0) {
         if (layout.viewMode === 'browser') return null
 
-        // Pending-placement click: commit the placement and decline the
-        // gesture. Returning null cleanly releases capture.
+        // Pending-placement: shapes support drag-to-size; everything
+        // else commits with default size on click.
         if (layout.pendingPlacement) {
+          if (layout.pendingPlacement.entityKind === 'shape') {
+            const point = screenPointToCanvasPoint(ctx.clientX, ctx.clientY, layout)
+            return {
+              kind: 'place-shape',
+              startCanvasX: point.x,
+              startCanvasY: point.y,
+            }
+          }
           const point = screenPointToCanvasPoint(ctx.clientX, ctx.clientY, layout)
           api.placePendingEntity(snapToGrid(point.x), snapToGrid(point.y))
           return null
@@ -106,6 +128,34 @@ export function useCanvasViewportGestures({
       const layout = layoutRef.current
       if (mode.kind === 'pan') {
         api.canvasPanTo(mode.startPanX + ctx.dx, mode.startPanY + ctx.dy)
+        return
+      }
+      if (mode.kind === 'place-shape') {
+        const endCanvas = screenPointToCanvasPoint(ctx.clientX, ctx.clientY, layout)
+        const square = squareConstrainedRect(
+          mode.startCanvasX,
+          mode.startCanvasY,
+          endCanvas.x,
+          endCanvas.y,
+          ctx.modifiers.shift,
+        )
+        const minCanvasX = snapToGrid(square.left)
+        const minCanvasY = snapToGrid(square.top)
+        const snappedW = snapToGrid(square.width)
+        const snappedH = snapToGrid(square.height)
+        const rect = {
+          left: canvasToScreenX(layout, minCanvasX),
+          top: canvasToScreenY(layout, minCanvasY),
+          width: snappedW * layout.zoom,
+          height: snappedH * layout.zoom,
+        }
+        const shapeKind = layout.pendingPlacement?.shapeKind ?? 'rectangle'
+        api.setSelectionOverlayRect({
+          rect: toOverlayRect(rect, layout),
+          variant: 'place-shape',
+          shapeKind,
+        })
+        onShapePlacementPreview({ rect, shapeKind })
         return
       }
       const rect = normalizeRect(ctx.startClientX, ctx.startClientY, ctx.clientX, ctx.clientY)
@@ -137,6 +187,29 @@ export function useCanvasViewportGestures({
       const layout = layoutRef.current
       if (mode.kind === 'pan') {
         stopDragging()
+        return
+      }
+      if (mode.kind === 'place-shape') {
+        stopDragging()
+        const startCanvas = { x: mode.startCanvasX, y: mode.startCanvasY }
+        const endCanvas = screenPointToCanvasPoint(ctx.clientX, ctx.clientY, layout)
+        const square = squareConstrainedRect(
+          startCanvas.x,
+          startCanvas.y,
+          endCanvas.x,
+          endCanvas.y,
+          ctx.modifiers.shift,
+        )
+        if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
+          api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
+            x: snapToGrid(square.left),
+            y: snapToGrid(square.top),
+            width: snapToGrid(square.width),
+            height: snapToGrid(square.height),
+          })
+        } else {
+          api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
+        }
         return
       }
       const rect = normalizeRect(ctx.startClientX, ctx.startClientY, ctx.clientX, ctx.clientY)

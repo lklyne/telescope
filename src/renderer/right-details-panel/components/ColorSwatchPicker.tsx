@@ -32,7 +32,7 @@ export function ColorSwatchPicker({
         >
           <span
             className="block h-3.5 w-3.5 rounded-full"
-            style={{ background: '#94a3b8' }}
+            style={{ background: '#6b7280' }}
           />
         </button>
       ) : null}

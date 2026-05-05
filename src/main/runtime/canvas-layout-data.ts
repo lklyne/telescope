@@ -86,6 +86,11 @@ import {
   drawingEntitiesForUi,
   buildDrawingEntitySceneEntity,
 } from './drawing-entity-state'
+import {
+  shapeEntities,
+  buildShapeEntitySceneEntity,
+  defaultShapeSize,
+} from './shape-entity-state'
 import { buildGroupSceneEntity } from './group-entity-state'
 import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
@@ -265,6 +270,7 @@ function buildUserGroupSceneEntities(
         ...textEntities.filter((entity) => entity.parentGroupId === g.id).map((entity) => entity.id),
         ...fileEntities.filter((entity) => entity.parentGroupId === g.id).map((entity) => entity.id),
         ...drawingEntitiesForUi().filter((entity) => entity.parentGroupId === g.id).map((entity) => entity.id),
+        ...shapeEntities.filter((entity) => entity.parentGroupId === g.id).map((entity) => entity.id),
         ...workspaceGroups.filter((candidate) => candidate.parentGroupId === g.id).map((group) => group.id),
       ]
       return buildGroupSceneEntity(g, zoom, pan, origin, entityIds)
@@ -284,8 +290,9 @@ export function buildCanvasLayoutData(
       ? (() => {
           const isText = pending.entityKind === 'text'
           const isFile = pending.entityKind === 'file'
+          const isShape = pending.entityKind === 'shape'
           const sourcePage = pending.sourceFrameId ? findPageById(pending.sourceFrameId) : null
-          const preset = (isText || isFile) ? null : viewportPresetForIndex(pending.presetIndex ?? 0)
+          const preset = (isText || isFile || isShape) ? null : viewportPresetForIndex(pending.presetIndex ?? 0)
           const customSize = sourcePage ? pageContentSize(sourcePage) : localFillBrowserViewportSize()
           const contentBounds = mainWindowContentBounds()
           const cursor = screen.getCursorScreenPoint()
@@ -301,23 +308,31 @@ export function buildCanvasLayoutData(
             cursor.y <= contentBounds.y + contentBounds.height
               ? cursor.y - contentBounds.y
               : null
+          const shapeDefault = isShape
+            ? defaultShapeSize(pending.shapeKind ?? 'rectangle')
+            : null
           return {
             entityKind: pending.entityKind,
             presetIndex: pending.presetIndex,
+            shapeKind: pending.shapeKind,
             width: isText
               ? DEFAULT_TEXT_WIDTH
               : isFile
                 ? DEFAULT_FILE_WIDTH
-                : pending.customSize
-                  ? customSize.width
-                  : (preset?.width ?? 0),
+                : shapeDefault
+                  ? shapeDefault.width
+                  : pending.customSize
+                    ? customSize.width
+                    : (preset?.width ?? 0),
             height: isText
               ? DEFAULT_TEXT_HEIGHT
               : isFile
                 ? DEFAULT_FILE_HEIGHT
-                : pending.customSize
-                  ? customSize.height
-                  : (preset?.height ?? 0),
+                : shapeDefault
+                  ? shapeDefault.height
+                  : pending.customSize
+                    ? customSize.height
+                    : (preset?.height ?? 0),
             initialClientX,
             initialClientY,
           }
@@ -339,6 +354,9 @@ export function buildCanvasLayoutData(
       ),
       ...drawingEntitiesForUi().map((de) =>
         buildDrawingEntitySceneEntity(de, zoom, pan, origin)
+      ),
+      ...shapeEntities.map((se) =>
+        buildShapeEntitySceneEntity(se, zoom, pan, origin)
       ),
       ...groupEntities,
     ] as CanvasSceneEntity[],

@@ -4,6 +4,7 @@ import type {
   CanvasSceneFileEntity,
   CanvasSceneFrameEntity,
   CanvasSceneGroupEntity,
+  CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
 } from '../../shared/types'
 import { selectionColor } from './canvasBgConstants'
@@ -17,6 +18,8 @@ import {
   MIN_TEXT_HEIGHT,
   MIN_FILE_WIDTH,
   MIN_FILE_HEIGHT,
+  MIN_SHAPE_WIDTH,
+  MIN_SHAPE_HEIGHT,
 } from './entityConstants'
 import { CornerResizeHandle, EdgeResizeHandle } from './ResizeHandles'
 import { SelectionResizeGrid } from './SelectionResizeGrid'
@@ -144,7 +147,7 @@ function EntitySelectionOverlay({
   onResize,
   onMouseDown,
 }: {
-  entity: CanvasSceneTextEntity | CanvasSceneFileEntity | CanvasSceneDrawingEntity
+  entity: CanvasSceneTextEntity | CanvasSceneFileEntity | CanvasSceneDrawingEntity | CanvasSceneShapeEntity
   borderRadius: number
   isDark: boolean
   isSelected: boolean
@@ -153,9 +156,21 @@ function EntitySelectionOverlay({
   onMouseDown?: (id: string, event: React.MouseEvent) => void
 }) {
   const minWidth =
-    entity.kind === 'text' ? MIN_TEXT_WIDTH : entity.kind === 'file' ? MIN_FILE_WIDTH : 16
+    entity.kind === 'text'
+      ? MIN_TEXT_WIDTH
+      : entity.kind === 'file'
+        ? MIN_FILE_WIDTH
+        : entity.kind === 'shape'
+          ? MIN_SHAPE_WIDTH
+          : 16
   const minHeight =
-    entity.kind === 'text' ? MIN_TEXT_HEIGHT : entity.kind === 'file' ? MIN_FILE_HEIGHT : 16
+    entity.kind === 'text'
+      ? MIN_TEXT_HEIGHT
+      : entity.kind === 'file'
+        ? MIN_FILE_HEIGHT
+        : entity.kind === 'shape'
+          ? MIN_SHAPE_HEIGHT
+          : 16
   const aspectRatioResizeMode =
     entity.kind === 'file' ? aspectRatioResizeModeForCanvasFile(entity.file) : 'off'
   const zoom = entity.width > 0 ? entity.screenWidth / entity.width : 1
@@ -208,10 +223,10 @@ function MultiSelectionBoundingBox({
   isDark,
   onResizeMulti,
 }: {
-  selectedEntities: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; canvasX: number; canvasY: number; width: number; height: number; screenX: number; screenY: number; screenWidth: number; screenHeight: number }>
+  selectedEntities: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; canvasX: number; canvasY: number; width: number; height: number; screenX: number; screenY: number; screenWidth: number; screenHeight: number }>
   zoom: number
   isDark: boolean
-  onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; width: number; height: number; canvasX: number; canvasY: number }>) => void
+  onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
 }) {
   const screenBbox = useMemo(() => {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
@@ -283,6 +298,7 @@ export function CanvasSelectionOutlineLayer({
   allTextEntities,
   allFileEntities,
   allDrawingEntities,
+  allShapeEntities,
   frameInteractionsEnabled,
   isDark,
   zoom,
@@ -294,6 +310,7 @@ export function CanvasSelectionOutlineLayer({
   onResizeTextEntity,
   onResizeFileEntity,
   onResizeDrawingEntity,
+  onResizeShapeEntity,
   onResizeMulti,
   onDrawingMouseDown,
 }: {
@@ -301,6 +318,7 @@ export function CanvasSelectionOutlineLayer({
   allTextEntities: CanvasSceneTextEntity[]
   allFileEntities: CanvasSceneFileEntity[]
   allDrawingEntities: CanvasSceneDrawingEntity[]
+  allShapeEntities: CanvasSceneShapeEntity[]
   frameInteractionsEnabled: boolean
   isDark: boolean
   zoom: number
@@ -315,22 +333,23 @@ export function CanvasSelectionOutlineLayer({
   onResizeTextEntity: (id: string, patch: EntityResizePatch) => void
   onResizeFileEntity: (id: string, patch: EntityResizePatch) => void
   onResizeDrawingEntity: (id: string, patch: EntityResizePatch) => void
-  onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; width: number; height: number; canvasX: number; canvasY: number }>) => void
+  onResizeShapeEntity: (id: string, patch: EntityResizePatch) => void
+  onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
   onDrawingMouseDown: (drawingId: string, event: React.MouseEvent) => void
 }) {
   const localHoverId = useContext(EntityHoverValueContext)
   const entityHoverId = localHoverId ?? hoveredEntityId
   const isMultiSelect = selectedIdSet.size > 1
   const entities = useMemo(
-    () => [...allTextEntities, ...allFileEntities, ...allDrawingEntities].filter(
+    () => [...allTextEntities, ...allFileEntities, ...allDrawingEntities, ...allShapeEntities].filter(
       (e) => selectedIdSet.has(e.id) || e.id === entityHoverId || marqueePreviewIds?.has(e.id),
     ),
-    [allDrawingEntities, allFileEntities, allTextEntities, selectedIdSet, entityHoverId, marqueePreviewIds],
+    [allDrawingEntities, allFileEntities, allTextEntities, allShapeEntities, selectedIdSet, entityHoverId, marqueePreviewIds],
   )
 
   const allSelectedEntities = useMemo(() => {
     if (!isMultiSelect) return []
-    const selected: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing'; canvasX: number; canvasY: number; width: number; height: number; screenX: number; screenY: number; screenWidth: number; screenHeight: number }> = []
+    const selected: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; canvasX: number; canvasY: number; width: number; height: number; screenX: number; screenY: number; screenWidth: number; screenHeight: number }> = []
     for (const f of frames) {
       if (selectedIdSet.has(f.id)) selected.push(f)
     }
@@ -343,8 +362,11 @@ export function CanvasSelectionOutlineLayer({
     for (const e of allDrawingEntities) {
       if (selectedIdSet.has(e.id)) selected.push(e)
     }
+    for (const e of allShapeEntities) {
+      if (selectedIdSet.has(e.id)) selected.push(e)
+    }
     return selected
-  }, [isMultiSelect, frames, allTextEntities, allFileEntities, allDrawingEntities, selectedIdSet])
+  }, [isMultiSelect, frames, allTextEntities, allFileEntities, allDrawingEntities, allShapeEntities, selectedIdSet])
 
   return (
     <>
@@ -408,7 +430,9 @@ export function CanvasSelectionOutlineLayer({
                 ? onResizeTextEntity
                 : entity.kind === 'file'
                   ? onResizeFileEntity
-                  : onResizeDrawingEntity
+                  : entity.kind === 'shape'
+                    ? onResizeShapeEntity
+                    : onResizeDrawingEntity
             }
             onMouseDown={entity.kind === 'drawing' ? onDrawingMouseDown : undefined}
           />

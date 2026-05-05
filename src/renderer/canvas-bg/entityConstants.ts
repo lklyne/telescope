@@ -35,6 +35,8 @@ export const MIN_TEXT_WIDTH = 100
 export const MIN_TEXT_HEIGHT = 60
 export const MIN_FILE_WIDTH = 80
 export const MIN_FILE_HEIGHT = 80
+export const MIN_SHAPE_WIDTH = 24
+export const MIN_SHAPE_HEIGHT = 24
 
 export const CORNER_CURSORS: Record<ResizeCorner, string> = {
   'top-left': 'nwse-resize',

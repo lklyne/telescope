@@ -7,6 +7,9 @@ import type { SelectionOverlayPayload } from '../../shared/types'
  */
 export function MarqueeLayer({ overlay }: { overlay: SelectionOverlayPayload | null }) {
   if (!overlay) return null
+  // Place-shape drag renders a live shape preview elsewhere; suppress the
+  // marquee box so they don't double up.
+  if (overlay.variant === 'place-shape') return null
   const isRegionSelect = overlay.variant === 'region-select'
   return (
     <div

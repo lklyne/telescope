@@ -40,6 +40,7 @@ import { workspaceGroups, workspaceEdges, workspaceAnnotations, workspaceTabs, a
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
+import { shapeEntities } from './runtime/shape-entity-state'
 import { getUiState, setSelection } from './ui-state'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
@@ -194,6 +195,7 @@ app.whenReady().then(async () => {
     textEntities,
     fileEntities,
     drawingEntities,
+    shapeEntities,
     workspaceGroups,
     workspaceEdges,
     workspaceAnnotations,

@@ -10,6 +10,7 @@ import { pages } from './runtime/page-runtime'
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
+import { shapeEntities } from './runtime/shape-entity-state'
 import { workspaceViewMode } from './ui-state'
 
 /**
@@ -66,6 +67,7 @@ function readAppStateTags(): Record<string, string> {
       textEntities.length +
         fileEntities.length +
         drawingEntities.length +
+        shapeEntities.length +
         workspaceGroups.length,
     ),
     view_mode: workspaceViewMode(),

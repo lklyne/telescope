@@ -24,6 +24,7 @@ import { sendInteractiveState } from './overlay-manager'
 import { savePreferences } from './preferences'
 import { drawingEntities } from './drawing-entity-state'
 import { fileEntities } from './file-entity-state'
+import { shapeEntities } from './shape-entity-state'
 import { textEntities } from './text-entity-state'
 import { breadcrumb } from '../sentry-context'
 import { descendantEntityIdsForGroup } from './group-descendants'
@@ -66,6 +67,7 @@ export function resolveEntityKind(entityId: string): CanvasEntityKind {
   if (textEntities.some((entity) => entity.id === entityId)) return 'text'
   if (fileEntities.some((entity) => entity.id === entityId)) return 'file'
   if (drawingEntities.some((entity) => entity.id === entityId)) return 'drawing'
+  if (shapeEntities.some((entity) => entity.id === entityId)) return 'shape'
   if (workspaceGroups.some((group) => group.id === entityId)) return 'group'
   if (workspaceEdges.some((edge) => edge.id === entityId)) return 'edge'
   return 'frame'
@@ -91,6 +93,7 @@ function normalizeEntitySelection(entityIds: string[]): SelectionCommand {
     if (textEntities.some((entity) => entity.id === entityId)) return true
     if (fileEntities.some((entity) => entity.id === entityId)) return true
     if (drawingEntities.some((entity) => entity.id === entityId)) return true
+    if (shapeEntities.some((entity) => entity.id === entityId)) return true
     return workspaceEdges.some((edge) => edge.id === entityId)
   })
 
@@ -245,6 +248,7 @@ export function enterGroup(
     ...pages.filter((page) => page.parentGroupId === groupId).map((page) => page.id),
     ...textEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
     ...fileEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
+    ...shapeEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
     ...workspaceGroups.filter((group) => group.parentGroupId === groupId).map((group) => group.id),
   ]
   if (!childIds.length) return false

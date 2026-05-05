@@ -189,6 +189,7 @@ export function syncRuntimeToDoc(
     textEntities: ReadonlyArray<{ id: string; kind?: string }>
     fileEntities: ReadonlyArray<{ id: string; kind?: string }>
     drawingEntities: ReadonlyArray<{ id: string; kind?: string }>
+    shapeEntities: ReadonlyArray<{ id: string; kind?: string }>
     workspaceGroups: ReadonlyArray<{ id: string }>
     workspaceEdges: ReadonlyArray<{ id: string }>
     workspaceAnnotations: ReadonlyArray<{ id: string }>
@@ -217,6 +218,7 @@ export function syncRuntimeToDoc(
       ...runtime.textEntities.map((e) => ({ ...e, kind: 'text' as const })),
       ...runtime.fileEntities.map((e) => ({ ...e, kind: 'file' as const })),
       ...runtime.drawingEntities.map((e) => ({ ...e, kind: 'drawing' as const })),
+      ...runtime.shapeEntities.map((e) => ({ ...e, kind: 'shape' as const })),
     ]
     syncMapFromArray(
       doc.getMap(DOC_MAP_ENTITIES) as Y.Map<Y.Map<unknown>>,
@@ -286,6 +288,7 @@ function syncEntityOrder(
     textEntities: ReadonlyArray<{ id: string }>
     fileEntities: ReadonlyArray<{ id: string }>
     drawingEntities: ReadonlyArray<{ id: string }>
+    shapeEntities: ReadonlyArray<{ id: string }>
     workspaceGroups: ReadonlyArray<{ id: string }>
   },
 ): void {
@@ -295,6 +298,7 @@ function syncEntityOrder(
     ...runtime.textEntities.map((e) => e.id),
     ...runtime.fileEntities.map((e) => e.id),
     ...runtime.drawingEntities.map((e) => e.id),
+    ...runtime.shapeEntities.map((e) => e.id),
     ...runtime.workspaceGroups.map((g) => g.id),
   ]
   const currentOrder = order.toArray()

@@ -72,6 +72,13 @@ import {
   textEntities,
   type TextEntity,
 } from './text-entity-state'
+import {
+  createShapeEntity as createShapeEntityInState,
+  updateShapeEntity as updateShapeEntityInState,
+  deleteShapeEntity as deleteShapeEntityInState,
+  shapeEntities,
+  type ShapeEntity,
+} from './shape-entity-state'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
 import { beginBatch, endBatch } from './workspace-observers'
 import { scheduleWorkspaceAutosave } from './workspace-session'
@@ -104,6 +111,8 @@ function findMovableEntity(id: string): { canvasX: number; canvasY: number } | n
   if (fe) return fe
   const de = drawingEntities.find((e) => e.id === id)
   if (de) return de
+  const se = shapeEntities.find((e) => e.id === id)
+  if (se) return se
   const group = workspaceGroups.find((candidate) => candidate.id === id)
   if (group) return group
   return null
@@ -211,10 +220,21 @@ export {
 
 export function updateEdge(
   id: string,
-  patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string },
+  patch: {
+    fromEntityId?: string
+    toEntityId?: string
+    fromEnd?: EdgeEnd
+    toEnd?: EdgeEnd
+    fromSide?: EdgeSide
+    toSide?: EdgeSide
+    color?: string
+    label?: string
+  },
 ): boolean {
   const edge = workspaceEdges.find((e) => e.id === id)
   if (!edge) return false
+  if (patch.fromEntityId !== undefined) edge.fromEntityId = patch.fromEntityId
+  if (patch.toEntityId !== undefined) edge.toEntityId = patch.toEntityId
   if (patch.fromEnd !== undefined) edge.fromEnd = patch.fromEnd
   if (patch.toEnd !== undefined) edge.toEnd = patch.toEnd
   if (patch.fromSide !== undefined) edge.fromSide = patch.fromSide
@@ -364,6 +384,57 @@ export function deleteDrawingEntity(id: string): boolean {
   return deleted
 }
 
+// --- Shape Entity Commands ---
+
+export function createShapeEntity(input: {
+  canvasX: number
+  canvasY: number
+  shapeKind?: ShapeEntity['shapeKind']
+  width?: number
+  height?: number
+  text?: string
+  color?: string
+  strokeWidth?: number
+  id?: string
+}): ShapeEntity {
+  const entity = createShapeEntityInState(input)
+  scheduleWorkspaceAutosave()
+  requestLayout()
+  return entity
+}
+
+export function updateShapeEntity(
+  id: string,
+  patch: Partial<Omit<ShapeEntity, 'id'>>,
+): ShapeEntity | null {
+  const snapped = { ...patch }
+  if (snapped.width !== undefined) snapped.width = snapToGrid(snapped.width)
+  if (snapped.height !== undefined) snapped.height = snapToGrid(snapped.height)
+  if (snapped.canvasX !== undefined) snapped.canvasX = snapToGrid(snapped.canvasX)
+  if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
+  const entity = updateShapeEntityInState(id, snapped)
+  if (entity) {
+    scheduleWorkspaceAutosave()
+    requestLayout()
+  }
+  return entity
+}
+
+export function deleteShapeEntity(id: string): boolean {
+  const deleted = deleteShapeEntityInState(id)
+  if (deleted) {
+    removeEdgesTouchingEntities(new Set([id]))
+    updateSelectionForRemovedEntity(id)
+    scheduleWorkspaceAutosave()
+    requestLayout()
+  }
+  return deleted
+}
+
+export function getShapeEntities(): ShapeEntity[] {
+  return [...shapeEntities]
+}
+
 export function updateGroupEntity(
   id: string,
   patch: Partial<Omit<WorkspaceGroup, 'id' | 'kind'>>,
@@ -385,7 +456,7 @@ export function updateGroupEntity(
 
 export interface MultiResizeEntry {
   id: string
-  kind: 'frame' | 'text' | 'file' | 'drawing'
+  kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'
   width: number
   height: number
   canvasX: number
@@ -430,6 +501,14 @@ export function resizeMultiSelection(entries: MultiResizeEntry[]): void {
       if (entity) changed = true
     } else if (entry.kind === 'drawing') {
       const entity = updateDrawingEntityInState(entry.id, {
+        width: entry.width,
+        height: entry.height,
+        canvasX: entry.canvasX,
+        canvasY: entry.canvasY,
+      })
+      if (entity) changed = true
+    } else if (entry.kind === 'shape') {
+      const entity = updateShapeEntityInState(entry.id, {
         width: entry.width,
         height: entry.height,
         canvasX: entry.canvasX,

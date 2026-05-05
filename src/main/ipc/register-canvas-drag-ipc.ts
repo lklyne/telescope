@@ -30,6 +30,7 @@ import {
 import { setSelectionOverlayRect } from '../runtime/window-shell'
 import { resolveEntityKind, selectNone, selectedDragEntityIds } from '../runtime/selection-controller'
 import { createEdges } from '../workspace-edges'
+import { deleteEdge, updateEdge } from '../runtime/document-commands'
 import {
   copyableFramePayload,
   copyableSelectionPayload,
@@ -307,6 +308,43 @@ export function registerCanvasDragIpc(): void {
         return
       }
       selectNone()
+    },
+  )
+
+  ipcMain.on(
+    'canvas-edge-edit-commit',
+    (
+      _event,
+      {
+        edgeId,
+        movingEnd,
+        targetEntityId,
+        targetSide,
+      }: {
+        edgeId: string
+        movingEnd: 'from' | 'to'
+        targetEntityId: string
+        targetSide: EdgeSide
+      },
+    ) => {
+      if (movingEnd === 'from') {
+        updateEdge(edgeId, { fromEntityId: targetEntityId, fromSide: targetSide })
+      } else {
+        updateEdge(edgeId, { toEntityId: targetEntityId, toSide: targetSide })
+      }
+      commitActive()
+      setHoverEntity(null)
+      layoutAllViews()
+    },
+  )
+
+  ipcMain.on(
+    'canvas-edge-edit-discard',
+    (_event, { edgeId }: { edgeId: string }) => {
+      deleteEdge(edgeId)
+      cancelActive('escape')
+      setHoverEntity(null)
+      layoutAllViews()
     },
   )
 }

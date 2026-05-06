@@ -19,6 +19,8 @@ export type CanvasPointerContext = {
   frameFocused: boolean
   /** True for left-button (button === 0) primary clicks; false for middle/right. */
   isPrimaryButton: boolean
+  /** Which mouse button fired this event ('left'|'middle'|'right'). */
+  button: 'left' | 'middle' | 'right'
   modifiers: SelectionModifiers
   /** Hold-to-pan modifier (space). */
   spaceHeld: boolean
@@ -40,6 +42,10 @@ export type CanvasPointerAction =
   | { kind: 'enter-frame-focus'; entityId: string }
   /** Frame body click/drag candidate: click enters focus, drag moves frame. */
   | { kind: 'frame-body-press'; entityId: string; preserveSelection: boolean }
+  /** Frame body hit on the **single-selected** frame: forward the pointerdown
+   *  (and the subsequent move/up) into the page's webContents. PoC for the
+   *  always-on aboveView interactive layer. */
+  | { kind: 'forward-pointer-down'; entityId: string; button: 'left' | 'middle' | 'right' }
   /** Begin selecting + dragging an entity (frame, file, text, shape). */
   | { kind: 'begin-entity-drag'; entityId: string; entityKind: CanvasEntityKind; preserveSelection: boolean }
   /** Begin selecting + dragging a group as a unit. */
@@ -70,8 +76,20 @@ export function routePointerDown(
   context: CanvasPointerContext,
 ): CanvasPointerAction {
   // Non-primary buttons on background → pan; otherwise no-op (the viewport
-  // hook handles middle-drag pan independently).
+  // hook handles middle-drag pan independently). Right-click on the body of
+  // the single-selected frame still forwards so the page's context menu
+  // wins (PoC §5 — Chromium fires `context-menu` natively).
   if (!context.isPrimaryButton) {
+    if (
+      target.payload.kind === 'frame-body' &&
+      isSingleSelected(context, target.payload.entityId)
+    ) {
+      return {
+        kind: 'forward-pointer-down',
+        entityId: target.payload.entityId,
+        button: context.button,
+      }
+    }
     if (target.payload.kind === 'background') return { kind: 'noop' }
     return { kind: 'noop' }
   }
@@ -117,6 +135,17 @@ function routeByPayload(
         side: payload.side,
       }
     case 'frame-body':
+      // PoC: on the single-selected frame's body, forward the pointer event
+      // into the page so the user interacts with web content directly.
+      // Otherwise (unselected or multi-selected) keep the existing
+      // click-to-select / drag-to-move behavior.
+      if (isSingleSelected(context, payload.entityId)) {
+        return {
+          kind: 'forward-pointer-down',
+          entityId: payload.entityId,
+          button: context.button,
+        }
+      }
       return {
         kind: 'frame-body-press',
         entityId: payload.entityId,
@@ -146,6 +175,12 @@ function routeByPayload(
 
 function isAdditive(modifiers: SelectionModifiers): boolean {
   return Boolean(modifiers.shift || modifiers.meta || modifiers.ctrl)
+}
+
+function isSingleSelected(context: CanvasPointerContext, entityId: string): boolean {
+  return (
+    context.selectedEntityIds.length === 1 && context.selectedEntityIds[0] === entityId
+  )
 }
 
 // ---------------------------------------------------------------------------

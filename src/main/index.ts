@@ -47,6 +47,7 @@ import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
 import { installFrameFocusEscapeShortcut } from './runtime/frame-focus-escape'
 import { installFrameFocusSelectionMirror } from './runtime/frame-focus-selection'
+import { installPageCursorBridge } from './runtime/page-cursor-bridge'
 import { initSentry } from './sentry'
 import {
   breadcrumb,
@@ -137,6 +138,7 @@ app.whenReady().then(async () => {
   registerIpcHandlers()
   installFrameFocusEscapeShortcut()
   installFrameFocusSelectionMirror()
+  installPageCursorBridge()
   await startAppControlServer()
 
   // Silently update skills the user hasn't hand-edited; surfaces drift via the

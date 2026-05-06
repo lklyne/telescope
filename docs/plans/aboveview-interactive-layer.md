@@ -3,14 +3,20 @@
 The endpoint our current architecture is pointing at: aboveView becomes the
 "everything above pages" plane. Live frame WCVs are bitmaps sandwiched between
 bgView (grid only) and aboveView (all visual + interactive UI). aboveView stays
-visible at all times in canvas mode; input intended for a focused page is
-forwarded into its `webContents` via `sendInputEvent`.
+visible at all times in canvas mode; input intended for the **single-selected**
+frame is forwarded into its `webContents` via `sendInputEvent`.
 
 This plan is **gated on a proof of concept**. The whole architecture rests on
 input forwarding behaving like native page input under real use — wheel,
 click, drag, hover, keyboard. If forwarding has macOS-specific holes that
 break common cases (trackpad inertia, IME, link drag, etc.), we redesign
 *before* migrating layers. PoC first.
+
+> The actionable PoC plan lives in
+> [`aboveview-interactive-layer-poc.md`](./aboveview-interactive-layer-poc.md).
+> It supersedes §4–§5 below. The validation scenarios in §6, pass/fail
+> criteria in §7, and findings table in §9 are still the canonical reference
+> for the PoC; the new doc points back here for those.
 
 ---
 
@@ -67,24 +73,31 @@ remaining layers. The blocker is a single mechanism: the gate-flip on
 
 **Input model:**
 
+Selection — not a separate "focus" state — drives forwarding. Single-selected
+frame = forward. The existing `frame-focus.*` runtime is mirrored from
+selection during the PoC and collapses entirely in post-PoC cleanup.
+
 aboveView's pointer router runs on every pointerdown/wheel/move. On each
 event it consults the layout snapshot:
 
 - Hit is on chrome / overlay UI / canvas-level visual → router handles
   (same as today).
-- Hit is on the body of the **focused** frame → router forwards the
-  event to the frame's `webContents` via `sendInputEvent`. The page
-  reacts as if clicked / scrolled directly.
-- Hit is on the body of an **unfocused** frame → router treats it as
-  click-to-enter-focus (same as today).
+- Hit is on the body of the **single-selected** frame → router forwards the
+  event to that frame's `webContents` via `sendInputEvent`. The page reacts
+  as if clicked / scrolled directly.
+- Hit is on the body of an **unselected** frame → first click selects (the
+  router eats the down/up pair; the page never sees it). Subsequent clicks
+  forward once selection lands.
+- Hit is on a frame inside a **multi-selection** → router treats it as a
+  canvas-level gesture (drag, marquee). No forwarding.
 - Hit is on canvas background → marquee / pan (same as today).
 
 `gate-predicate.ts` collapses to `viewMode === 'canvas'` (always open in
-canvas mode). The `frameFocus` carve-out goes away. Frame focus remains
-as state — it's still what tells the router "forward, don't intercept."
+canvas mode). The `frameFocus` carve-out goes away.
 
-`page-content` preload's blocking overlay goes away too. The page
-receives only the events the router chooses to forward.
+`page-content`'s blocking overlay disappears for the single-selected frame;
+aboveView is the gatekeeper. Unselected frames keep the overlay until the
+post-PoC migration completes.
 
 ---
 
@@ -128,88 +141,28 @@ days, not weeks.
 
 ---
 
-## 4. PoC scope — the smallest experiment that answers the question
+## 4 & 5. PoC scope and implementation
 
-The PoC's job is to answer: **does input forwarding produce native page
-behavior indistinguishable from clicking / scrolling the page directly,
-across the scenarios in §6?**
+**Moved to [`aboveview-interactive-layer-poc.md`](./aboveview-interactive-layer-poc.md).**
 
-**In scope:**
+The actionable plan there covers:
 
-- A feature flag `SPECULAR_INPUT_FORWARDING=1` (env var) that swaps
-  behavior for one frame at a time, no migration of any visual layer.
-- Wheel forwarding when cursor is over the focused frame's body.
-- Pointer (down / move / up) forwarding when cursor is over the focused
-  frame's body.
-- Gate-predicate behavior: when the flag is on AND a frame is focused,
-  aboveView stays visible (gate stays open). When the flag is off,
-  current behavior is preserved.
-- `page-content` blocking overlay: skipped while the flag is on for the
-  focused frame, since the router controls what reaches the page.
+- Selection-driven forwarding (no separate focus concept).
+- No flag — always-on. Running `pnpm dev` exercises the new path.
+- Six-file touch list, no visual-layer migration.
+- Validation for both **users** (forwarded input) and **agents** (CDP via
+  `agent-browser`).
+- Five-commit landing sequence ending with findings recorded in §9 below.
 
-**Out of scope for the PoC:**
-
-- Migrating any visual layer (chrome stays where it is, selection
-  outlines stay in bgView, stickies stay in bgView).
-- Removing `page-content` blocking overlay for unfocused frames.
-- Multi-frame forwarding (only the focused frame is exercised).
-- Keyboard forwarding (already works through `webContents.focus()`).
-- Performance tuning. The PoC is correctness-first.
-
-If the PoC passes, the visual layer migrations follow as separate
-slices. If it fails, we redesign before moving any layer.
-
----
-
-## 5. PoC implementation sketch
-
-**New file: `src/main/runtime/page-input-forwarding.ts`**
-
-```ts
-export function forwardWheelToFrame(
-  frameId: string,
-  payload: { deltaX: number; deltaY: number; x: number; y: number; shift: boolean; meta: boolean; ctrl: boolean; alt: boolean },
-): void
-export function forwardPointerToFrame(
-  frameId: string,
-  payload: { type: 'down' | 'up' | 'move'; button: 'left' | 'middle' | 'right'; x: number; y: number; clickCount: number; shift: boolean; meta: boolean; ctrl: boolean; alt: boolean },
-): void
-```
-
-Both look up the page by id, translate window-space coords to page-local
-coords (subtract page bounds origin), and call
-`page.pageView.webContents.sendInputEvent({ type: 'mouseWheel' | 'mouseDown' | 'mouseUp' | 'mouseMove', ... })`.
-
-**New IPC channels: `canvas-forward-wheel`, `canvas-forward-pointer`** in
-`register-canvas-ipc.ts`.
-
-**`gate-predicate.ts`** — keep current behavior unless
-`SPECULAR_INPUT_FORWARDING === '1'`. Under the flag, drop the
-`if (inputs.frameFocus) return false` line so the gate stays open.
-
-**`overlay-manager.ts`** — under the flag, suppress the blocking overlay
-for the focused frame (skip `set-interactive: false` for that frame).
-
-**`useViewportWheelAndMiddlePan` (aboveView)** — under the flag, before
-running canvas-zoom/pan logic, check: cursor is over focused frame body?
-→ forward and return.
-
-**`useCanvasPointerRouter` (aboveView)** — under the flag, add a branch
-in `routePointerDown`: if hit payload is `frame-body` AND
-`payload.entityId === focusedFrameId`, return a new action
-`{ kind: 'forward-to-page', entityId, ... }` instead of
-`frame-body-press`. Dispatch installs a window-level move/up listener
-that forwards `pointermove` and `pointerup` until the gesture ends.
-
-**Total touch points:** ~6 files. ~200–250 lines added, 0 deleted. The
-flag default is off so it doesn't affect normal use.
+The validation scenarios in §6, pass/fail in §7, and findings table in §9
+remain the canonical reference; the PoC doc points back here for those.
 
 ---
 
 ## 6. Validation scenarios
 
-For each scenario, run with `SPECULAR_INPUT_FORWARDING=1 pnpm dev`,
-focus a frame (click frame body), then perform the action.
+For each scenario, run `pnpm dev`, select a frame (click the frame body
+once — first click selects only, no forward), then perform the action.
 
 ### Wheel
 
@@ -242,23 +195,38 @@ focus a frame (click frame body), then perform the action.
 
 ### Boundary
 
-15. **Click outside frame** while focused → frame blurs (existing exit
-    path) → forwarding stops, gate predicate doesn't change because the
-    flag keeps it always-open.
-16. **Click another frame** → focus transfers, forwarding switches.
+15. **Click outside frame** while selected → frame deselects → forwarding
+    stops. Gate predicate stays open in canvas mode regardless.
+16. **Click another frame** → selection transfers, forwarding switches.
 17. **App loses focus** (Cmd+Tab away, then back) → forwarding still
     works after re-focus.
-18. **DevTools open on focused frame** — does forwarding still reach the
+18. **DevTools open on selected frame** — does forwarding still reach the
     page? Does DevTools stay attached?
+19. **Multi-select including the frame** — wheel and pointer over the
+    frame go to the canvas, not the page (no forwarding when selection is
+    not single).
+20. **First-click consumed correctly** — click a button on an unselected
+    frame: nothing happens (frame selects). Click again: button fires.
 
 ### Stress / regression
 
-19. **Active drawing tool** while frame focused — drawing strokes still
+21. **Active drawing tool** while frame selected — drawing strokes still
     paint above the page (drawings already in aboveView).
-20. **Marquee selection** while frame focused — marquee still works
+22. **Marquee selection** while frame selected — marquee still works
     (background hit, not body forward).
-21. **Existing chrome interactions** — URL bar, back/forward, hover
+23. **Existing chrome interactions** — URL bar, back/forward, hover
     titles all still work.
+
+### Agents
+
+24. **`agent-browser click @eN`** against a single-selected frame — CDP
+    delivers; page reacts.
+25. **Same against an unselected frame** — `beginAutomationInteractiveFrame`
+    lifts the blocking overlay for the targeted frame; verify still works.
+26. **`AgentCursorLayer`** ripple / cursor render above frames during
+    agent activity.
+27. **User + agent in parallel** — user interacts with frame A while
+    agent runs in frame B; both pipelines work independently.
 
 ---
 
@@ -293,19 +261,21 @@ endpoint design can carve around it.
 
 ## 8. After the PoC (only if it passes)
 
-The migration becomes mechanical. Suggested order:
+The PoC ships the always-on forwarding path (no flag). The remaining
+migration becomes mechanical. Suggested order:
 
-1. Land the wheel-forwarding path behind the feature flag.
-2. Land the pointer-forwarding path behind the feature flag.
-3. Flip `gate-predicate.ts` to drop the `frameFocus` carve-out
-   permanently. Remove the flag, make forwarding always-on.
-4. Migrate selection outlines + resize handles into aboveView. Geometry
+1. **Collapse `frame-focus.*` into selection.** Re-key the focus-reconciler
+   off "single-selected frame" and delete `frame-focus.ts`,
+   `frame-focus-escape.ts`, `frame-focus-selection.ts` plus the temporary
+   selection→`frameFocus` mirror introduced in PoC commit 4.
+2. Migrate selection outlines + resize handles into aboveView. Geometry
    is already pure via `useAnchoredPosition` / `entity-chrome-slots`.
-5. Migrate sticky/text/shape entity bodies into aboveView.
-6. Migrate file blocks + edges into aboveView.
-7. Retire `page-content`'s blocking overlay entirely.
-8. bgView reduces to grid only (and, eventually, inactive-page
-   bitmaps per `interaction-layer.md` §4.7).
+3. Migrate sticky / text / shape entity bodies into aboveView.
+4. Migrate file blocks + edges into aboveView.
+5. Retire `page-content`'s blocking overlay entirely (the unselected-frame
+   path is the last user).
+6. bgView reduces to grid only (and, eventually, inactive-page bitmaps
+   per `interaction-layer.md` §4.7).
 
 Each step ends with a working app and a deletion in the next step's
 diff.
@@ -314,13 +284,50 @@ diff.
 
 ## 9. Findings
 
-_Fill in as scenarios are run._
+### Implementation status
+
+The PoC code shipped in this branch (`poc/page-input-forwarding`):
+
+- `src/main/runtime/page-input-forwarding.ts` — `forwardWheelToFrame` and
+  `forwardPointerToFrame` translate window-space coords to page-local and
+  call `pageView.webContents.sendInputEvent`. Wheel uses
+  `hasPreciseScrollingDeltas` from `WheelEvent.deltaMode` so trackpad
+  pixel-precise scrolling distinguishes from line-mode mouse wheels (which
+  populate `wheelTicksX/Y`).
+- `canvas-forward-wheel` / `canvas-forward-pointer` IPC + matching
+  `forwardWheelToFrame` / `forwardPointerToFrame` API on
+  `CanvasBgElectronAPI`.
+- `useViewportWheelAndMiddlePan` accepts an optional `routeWheel`
+  pre-router. aboveView's `App.tsx` passes one that forwards wheel hits
+  on the single-selected frame's body to the page; Cmd/Ctrl+wheel is
+  classified as `'zoom'` upstream and stays on the canvas.
+- `routePointerDown` returns a new `forward-pointer-down` action when
+  the frame body of a single-selected frame is hit (covered by three new
+  unit tests). `useCanvasPointerRouter`'s `runForwardPointer` forwards
+  the down + window-level move/up; aboveView's `App.tsx` adds a
+  hover-only continuous `pointermove` forwarder for cursor styling and
+  `:hover`-driven UI.
+- `gate-predicate.ts` no longer carves out `frameFocus`; the gate stays
+  default-open in canvas mode unconditionally. Two existing unit tests
+  inverted to assert the new contract.
+- `selection-controller.commitSelection` mirrors single-selected frame →
+  `enterFrameFocus`/`exitFrameFocus` so the existing focus-reconciler keeps
+  driving `webContents.focus()` without re-keying. Loop-safe via
+  idempotence + `selectionEquals` early-return.
+
+`pnpm typecheck` and `pnpm test:unit` (363 tests) green. Smoke tests
+explicitly skipped per the PoC plan.
+
+### User-validation table
+
+User-driven scenarios from §6 (require `pnpm dev` and a human at the
+trackpad/keyboard) — **not yet run**.
 
 | # | Scenario | Observed | Verdict | Notes |
 |---|---|---|---|---|
 | 1 | Vertical scroll | | | |
 | 2 | Horizontal scroll | | | |
-| 3 | Cmd/Ctrl + scroll | | | |
+| 3 | Cmd/Ctrl + scroll | | | Implemented as canvas zoom (PoC §5). |
 | 4 | Pinch-zoom | | | |
 | 5 | Nested scrollable | | | |
 | 6 | Cursor exits frame | | | |
@@ -328,10 +335,10 @@ _Fill in as scenarios are run._
 | 8 | Click a button | | | |
 | 9 | Triple-click + drag-select | | | |
 | 10 | Form interaction | | | |
-| 11 | Hover-driven UI | | | |
-| 12 | Cursor styling | | | |
-| 13 | Right-click | | | |
-| 14 | Drag image out | | | |
+| 11 | Hover-driven UI | | | Continuous pointermove forwarder installed. |
+| 12 | Cursor styling | | | Same as #11. |
+| 13 | Right-click | | | Forwards to page on single-selected frame. |
+| 14 | Drag image out | | | Likely fail per PoC §5; document carve-out. |
 | 15 | Click outside frame | | | |
 | 16 | Click another frame | | | |
 | 17 | App blur / refocus | | | |
@@ -340,5 +347,5 @@ _Fill in as scenarios are run._
 | 20 | Marquee | | | |
 | 21 | Existing chrome | | | |
 
-**Decision:** _After running scenarios — do we proceed with the migration,
-redesign the endpoint, or stay on the gate-flip path?_
+**Decision:** _Pending user validation — proceed to §8 migration, redesign,
+or retreat after running the table above._

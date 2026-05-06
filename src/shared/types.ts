@@ -1630,6 +1630,18 @@ export interface CanvasBgElectronAPI {
   /** ADR 0001: programmatically promote a frame to focused (page receives
    *  native input). Triggered by canvas-pointer-router on a frame-body hit. */
   enterFrameFocus: (frameId: string) => void
+  /** PoC: forward a wheel event hitting the single-selected frame's body to
+   *  the page's webContents (aboveview-interactive-layer-poc.md). */
+  forwardWheelToFrame: (frameId: string, payload: ForwardWheelPayload) => void
+  /** PoC: forward a pointer event hitting the single-selected frame's body
+   *  to the page's webContents. */
+  forwardPointerToFrame: (frameId: string, payload: ForwardPointerPayload) => void
+  /** PoC: subscribe to the focused page's `cursor-changed` mirror so the
+   *  OS cursor (chosen from aboveView, the topmost WCV) tracks what the
+   *  underlying page would show. */
+  onPageCursorChange: (
+    callback: (data: { type: string | null }) => void,
+  ) => () => void
   readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
@@ -1647,6 +1659,37 @@ export interface CanvasBgElectronAPI {
 export type CanvasDragStartSelection = {
   entityKind: CanvasEntityKind
   preserveSelection?: boolean
+}
+
+/** Payload for `forwardWheelToFrame` — kept in shared/types so the renderer
+ *  can build it without reaching into main code. Coordinates are in window
+ *  space (`event.clientX`, `event.clientY + canvasOrigin.y`). */
+export type ForwardWheelPayload = {
+  windowX: number
+  windowY: number
+  deltaX: number
+  deltaY: number
+  hasPreciseScrollingDeltas: boolean
+  canScroll: boolean
+  shiftKey: boolean
+  ctrlKey: boolean
+  altKey: boolean
+  metaKey: boolean
+}
+
+/** Payload for `forwardPointerToFrame`. Window-space coords; the main-side
+ *  helper subtracts the page WCV's origin before dispatching. */
+export type ForwardPointerPayload = {
+  kind: 'down' | 'up' | 'move'
+  windowX: number
+  windowY: number
+  button: 'left' | 'middle' | 'right'
+  buttons?: number
+  clickCount?: number
+  shiftKey: boolean
+  ctrlKey: boolean
+  altKey: boolean
+  metaKey: boolean
 }
 
 export interface FloatingUiElectronAPI {

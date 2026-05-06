@@ -54,10 +54,12 @@ const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electron
 const MIN_SHAPE_DRAG_SIZE = 24
 
 /** Map Electron's `cursor-changed` type strings onto CSS cursor values.
- *  Most Chromium types match CSS 1:1; the few that don't (panning variants,
- *  `custom`, `null`) collapse to a sensible default. */
+ *  Electron uses Blink-era names where `pointer` is the arrow and `hand` is
+ *  the link hand — the opposite of CSS. Most other types match CSS 1:1;
+ *  panning variants and unknown/custom types collapse to a sensible default. */
 function electronCursorToCss(type: string | null): string {
   if (!type || type === 'custom' || type === 'null') return ''
+  if (type === 'pointer') return 'default'
   if (type === 'hand') return 'pointer'
   if (type === 'iBeam') return 'text'
   if (type.endsWith('-panning')) return 'all-scroll'
@@ -584,27 +586,36 @@ export default function App({
   // cursor styling (link → hand, text → I-beam) and hover-driven UI react
   // without requiring a button-down. The router's `runForwardPointer` already
   // forwards moves while a button is held, so this listener only fires when
-  // no buttons are pressed to avoid double-dispatch.
+  // no buttons are pressed to avoid double-dispatch. When the pointer leaves
+  // the focused frame's body (or selection drops below one frame), reset
+  // body cursor so the hand/I-beam doesn't bleed into canvas chrome.
   useEffect(() => {
+    let cursorIsForwarded = false
+    const resetCursor = () => {
+      if (!cursorIsForwarded) return
+      cursorIsForwarded = false
+      document.body.style.cursor = ''
+    }
     const onMove = (event: PointerEvent) => {
       if (event.buttons !== 0) return
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return
+      if (layout.viewMode !== 'canvas') return resetCursor()
       const selected = layout.selectedEntityIds
-      if (selected.length !== 1) return
+      if (selected.length !== 1) return resetCursor()
       const frameId = selected[0]
       const frame = layout.entities.find(
         (entity): entity is CanvasSceneEntity & { kind: 'frame' } =>
           entity.kind === 'frame' && entity.id === frameId,
       )
-      if (!frame) return
+      if (!frame) return resetCursor()
       const windowY = event.clientY + layout.canvasOrigin.y
       const x0 = frame.contentScreenX ?? frame.screenX
       const y0 = frame.contentScreenY ?? frame.screenY
       const x1 = x0 + (frame.contentScreenWidth ?? frame.screenWidth)
       const y1 = y0 + (frame.contentScreenHeight ?? frame.screenHeight)
-      if (event.clientX < x0 || event.clientX > x1) return
-      if (windowY < y0 || windowY > y1) return
+      if (event.clientX < x0 || event.clientX > x1) return resetCursor()
+      if (windowY < y0 || windowY > y1) return resetCursor()
+      cursorIsForwarded = true
       api.forwardPointerToFrame(frameId, {
         kind: 'move',
         windowX: event.clientX,
@@ -617,7 +628,10 @@ export default function App({
       })
     }
     window.addEventListener('pointermove', onMove)
-    return () => window.removeEventListener('pointermove', onMove)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      resetCursor()
+    }
   }, [layoutRef])
 
   // ADR 0001 — canvas pointer router. Single window-level pointerdown

@@ -1,4 +1,4 @@
-import type { LayoutUpdateData } from './types'
+import type { CanvasSceneEntity, LayoutUpdateData } from './types'
 import { GRID_SIZE } from './constants'
 
 export {
@@ -128,4 +128,30 @@ export function middleDragDelta(
     deltaX: previous.screenX - next.screenX,
     deltaY: previous.screenY - next.screenY,
   }
+}
+
+/**
+ * Entities whose screen-space bounding box overlaps `rect`. Used by the
+ * marquee gesture to publish a "would-be selected" preview each pointermove.
+ * Touch-only intersection (>= edge equality) is excluded; matches the old
+ * marquee preview hook exactly.
+ */
+export function entitiesOverlappingRect(
+  entities: readonly CanvasSceneEntity[],
+  rect: { left: number; top: number; width: number; height: number },
+): string[] {
+  const ids: string[] = []
+  const right = rect.left + rect.width
+  const bottom = rect.top + rect.height
+  for (const entity of entities) {
+    if (
+      rect.left < entity.screenX + entity.screenWidth &&
+      right > entity.screenX &&
+      rect.top < entity.screenY + entity.screenHeight &&
+      bottom > entity.screenY
+    ) {
+      ids.push(entity.id)
+    }
+  }
+  return ids
 }

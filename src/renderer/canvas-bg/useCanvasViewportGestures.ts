@@ -28,7 +28,6 @@ export function useCanvasViewportGestures({
   bgRef,
   layoutRef,
   setPlacementCursor,
-  onMarqueePreview,
   onShapePlacementPreview,
 }: {
   api: CanvasBgElectronAPI
@@ -37,13 +36,11 @@ export function useCanvasViewportGestures({
   setPlacementCursor: React.Dispatch<
     React.SetStateAction<{ clientX: number; clientY: number } | null>
   >
-  onMarqueePreview: (ids: Set<string> | null) => void
   onShapePlacementPreview: (preview: ShapePlacementDragPreview | null) => void
 }) {
   useEffect(() => {
     const el = bgRef.current
     if (!el) return
-    onMarqueePreview(null)
     onShapePlacementPreview(null)
 
     // Wheel zoom/pan — document-level so it works over entities too.

@@ -1011,6 +1011,10 @@ export type SelectionOverlayPayload = {
   rect: SelectionOverlayRect
   variant?: 'default' | 'region-select' | 'place-shape'
   shapeKind?: ShapeKind
+  /** Entity IDs the marquee currently overlaps. Populated only for the
+   *  default variant; the canvas-bg outline layer reads this to draw a
+   *  "would-be selected" highlight on each entity inside the rect. */
+  entityIds?: string[]
 }
 
 export type UiViewMode =

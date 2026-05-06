@@ -60,12 +60,25 @@ export default function App({
   const [captureMode, setCaptureMode] = useState(false)
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
 
+  // Marquee preview: above-view's pointer router computes the overlap and
+  // ships `entityIds` alongside the overlay rect; we just unpack into a Set.
+  useEffect(
+    () =>
+      api.onSelectionOverlayChanged((overlay) => {
+        if (!overlay || overlay.variant !== 'default' || !overlay.entityIds?.length) {
+          setMarqueePreviewIds(null)
+          return
+        }
+        setMarqueePreviewIds(new Set(overlay.entityIds))
+      }),
+    [],
+  )
+
   useCanvasViewportGestures({
     api,
     bgRef,
     layoutRef,
     setPlacementCursor,
-    onMarqueePreview: setMarqueePreviewIds,
     onShapePlacementPreview: setShapePlacementPreview,
   })
 

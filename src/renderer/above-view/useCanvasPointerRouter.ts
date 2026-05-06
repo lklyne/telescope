@@ -44,7 +44,12 @@ import {
   type AspectRatioResizeMode,
   type ResizeConfig,
 } from '../../shared/resize-accumulator'
-import { isOverlayUiTarget, normalizeRect, screenRectToCanvasRect } from '../../shared/gesture-utils'
+import {
+  entitiesOverlappingRect,
+  isOverlayUiTarget,
+  normalizeRect,
+  screenRectToCanvasRect,
+} from '../../shared/gesture-utils'
 import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants'
 import {
   MIN_FILE_HEIGHT,
@@ -665,12 +670,20 @@ function runBackgroundSelectionGesture(
     }
     const layout = layoutRef.current
     const rect = normalizeRect(startClientX, startClientY, ev.clientX, ev.clientY)
+    const windowRect = {
+      left: rect.left,
+      top: rect.top + layout.canvasOrigin.y,
+      width: rect.width,
+      height: rect.height,
+    }
+    const entityIds = entitiesOverlappingRect(layout.entities, windowRect)
     api.setSelectionOverlayRect({
       rect: {
         ...rect,
         top: rect.top + (layout.canvasOrigin.y - TOOLBAR_HEIGHT),
       },
       variant: 'default',
+      entityIds,
     })
   }
   const onUp = (ev: PointerEvent) => {

@@ -1,23 +1,20 @@
 /**
  * Resize accumulator — pure, side-effect-free math for canvas entity resize.
  *
- * Lifted out of `src/renderer/canvas-bg/useEntityResize.ts` (`useCornerResize`
- * and `useEdgeResize`) so the same arithmetic can be exercised by:
+ * Shared here so the same arithmetic can be exercised by:
  *
- *   - the legacy bgView per-entity resize hooks (until Phase 3 demolition),
- *   - the canvas-pointer-router's `begin-resize` dispatcher (Phase 2 wire-up),
+ *   - the canvas-pointer-router's `begin-resize` dispatcher,
  *   - unit tests, without React or DOM.
  *
  * One source of truth for aspect-ratio locking, corner/edge flip logic,
  * delta accumulation, min-size clamping, and patch shape.
  *
- * Lives in src/shared so renderer hooks and the router can both import it.
+ * Lives in src/shared so the router and tests can both import it.
  */
 
 // These types are re-declared here so this module stays free of renderer
-// imports. The canonical source for the renderer-facing constants
-// (HANDLE_SIZE, cursor maps, min-size constants) is still
-// `src/renderer/canvas-bg/entityConstants.ts` — it re-exports these.
+// imports. Renderer-facing constants (handle size, cursor maps, min sizes)
+// live in `src/renderer/canvas-bg/entityConstants.ts`.
 export interface EntityResizePatch {
   width: number
   height: number

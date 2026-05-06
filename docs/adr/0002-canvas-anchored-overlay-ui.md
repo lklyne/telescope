@@ -92,7 +92,7 @@ The change is sweeping but coherent; it ships as one PR rather than incrementall
 5. Per-page chrome state IPC plumbing to aboveView; retire per-page `chromeView` WCV and its preload.
 6. `routePointerDoubleClick` extension to `canvas-pointer-actions.ts`; dispatch `enter-shape-edit | enter-group | enter-group-rename | request-text-edit`. New `request-text-edit` IPC.
 7. Gate predicate flip per ADR 0001 plan Step 1.
-8. Phase 3 demolition: delete `useFrameChromeDrag`, `useGroupBoundsDrag`, `useEntityResize`, `useMultiSelectionResize`; remove bgView-layer `onMouseDown` props; promote `no-mouse-events` to error.
+8. Phase 3 demolition: delete the old bgView gesture hooks; remove bgView/page-content canvas gesture authority; promote `no-mouse-events` to error after remaining native/editing handlers are audited.
 9. Docs: amend `interaction-layer.md` §4.2/§4.7/§6; close out `divergence-input-authority.md` (this ADR replaces its "Recommended next sequence").
 
 ## Implementation status (2026-05-05)
@@ -106,7 +106,7 @@ The change is sweeping but coherent; it ships as one PR rather than incrementall
 | 5. Per-page chrome IPC + retire `chromeView` WCV | ✅ landed | Page type, layout-engine, navigation-sync, runtime-core, preferences all stripped of `chromeView`; `chrome-header` preload + renderer + Vite/Forge entries deleted; `register-page-chrome-ipc.ts` chrome-* handlers removed |
 | 6. `routePointerDoubleClick` extension + IPC dispatcher | ✅ landed | `canvas-request-text-edit` / `canvas-request-shape-edit` IPCs added; `text-begin-edit` listener wired; `pendingTextEditId` auto-focuses the textarea in `TextBlockLayer` |
 | 7. Gate predicate flip | ✅ landed | `shouldGateBeOpen` returns `true` in canvas mode with carve-outs for `frameFocus`, `editing-text`, and `inspect`/`annotate-comment` (without composer); `gate-predicate.test.ts` rewritten |
-| 8. Phase 3 demolition | 🟡 partial | `useFrameChromeDrag` deleted; `useEntityResize`, `useMultiSelectionResize`, `useGroupBoundsDrag` are now dead code (gate is open) but still wired for visual rendering. ESLint `local/no-mouse-events` stays at `warn` (141 violations) until those wirings clear. |
+| 8. Phase 3 demolition | ✅ landed | bgView selection, resize, group-drag, edge-drag, and viewport left-button gesture hooks are removed or visual-only. Canvas gestures route through aboveView's pointer router; page-content no longer sends page select/group-drag canvas IPC. |
 | 9. Docs cross-refs | ✅ landed | `interaction-layer.md` §4.2/§4.7/§6, `divergence-input-authority.md` status table, `architecture.md` + `CLAUDE.md` `chrome-header` references purged |
 
 ### Verification
@@ -117,7 +117,7 @@ The change is sweeping but coherent; it ships as one PR rather than incrementall
 
 ### Open follow-ups
 
-- Finish Step 8: strip `useEntityResize` / `useMultiSelectionResize` / `useGroupBoundsDrag` and the `beginResize` props on `EdgeResizeHandle` / `CornerResizeHandle`; promote `local/no-mouse-events` to `error`.
+- Consider promoting `local/no-mouse-events` to `error` after auditing the remaining native/editing-only mouse handlers.
 - Confirm/fix the 3 smoke regressions; in particular check whether `getSelectionOverlayState`'s `interactive` field needs a new computation post-flip.
 - Wireframe JSON-mode toggle was removed from the aboveView FileChrome (cross-WCV state needs a fresh `layout-update` field) — restore as a Step 5 follow-up.
 

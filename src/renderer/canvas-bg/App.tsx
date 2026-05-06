@@ -74,7 +74,6 @@ export default function App({
     layoutRef,
   })
 
-  const handleSelectEdge = useCallback((edgeId: string | null) => api.selectEdge(edgeId), [api])
   const handleHoverEntity = useCallback((entityId: string | null) => api.hoverFrame(entityId), [api])
 
   const frameEntities = useMemo(
@@ -283,14 +282,7 @@ export default function App({
           selectedEdgeIds={selectedEdgeIds}
           selectedEntityIds={layoutData.selectedEntityIds}
           zoom={layoutData.zoom}
-          onBeginEdgeDrag={api.beginEdgeDrag}
-          onCancelEdgeDrag={api.cancelEdgeDrag}
-          onCommitEdgeDrag={api.commitEdgeDrag}
-          onCommitEdgeEdit={api.commitEdgeEdit}
-          onDiscardEdgeEdit={api.discardEdgeEdit}
           onHoverEntity={handleHoverEntity}
-          onSelectEdge={handleSelectEdge}
-          onUpdateEdgeDragTarget={api.updateEdgeDragTarget}
         />
       ) : null}
 
@@ -315,9 +307,6 @@ export default function App({
             selectedGroupId={layoutData.selectedGroupId ?? null}
             suppressOverlay={selectedGroupControlsMirroredToAboveView}
             onResizeGroup={(id, patch) => api.updateGroupEntity(id, patch)}
-            onStartDragGroup={api.startDragGroup}
-            onDragGroup={api.dragGroup}
-            onEndDragGroup={api.endDragGroup}
           />
         ) : null}
 
@@ -362,38 +351,6 @@ export default function App({
             onResizeDrawingEntity={(id, patch) => api.updateDrawingEntity(id, patch)}
             onResizeShapeEntity={(id, patch) => api.updateShapeEntity(id, patch)}
             onResizeMulti={(entries) => api.resizeMultiSelection(entries)}
-            onDrawingMouseDown={(id, event) => {
-              event.stopPropagation()
-              const isAdditive = event.shiftKey || event.metaKey || event.ctrlKey
-              if (isAdditive) {
-                api.selectEntity(id, 'drawing', {
-                  shift: event.shiftKey,
-                  meta: event.metaKey,
-                  ctrl: event.ctrlKey,
-                })
-                return
-              }
-              api.selectEntity(id, 'drawing')
-              api.startDragEntity(id)
-              let lastX = event.screenX
-              let lastY = event.screenY
-              const onMove = (moveEvent: MouseEvent) => {
-                const dx = moveEvent.screenX - lastX
-                const dy = moveEvent.screenY - lastY
-                lastX = moveEvent.screenX
-                lastY = moveEvent.screenY
-                api.dragEntity(id, dx, dy)
-              }
-              const onUp = () => {
-                window.removeEventListener('mousemove', onMove)
-                window.removeEventListener('mouseup', onUp)
-                window.removeEventListener('blur', onUp)
-                api.endDragEntity()
-              }
-              window.addEventListener('mousemove', onMove)
-              window.addEventListener('mouseup', onUp)
-              window.addEventListener('blur', onUp)
-            }}
           />
         ) : null}
 

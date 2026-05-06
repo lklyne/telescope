@@ -4,7 +4,7 @@
 > **Plan:** [`docs/plans/input-authority-frame-focus.md`](./plans/input-authority-frame-focus.md)
 > **Decision of record:** [`docs/adr/0001-click-to-enter-frame-focus.md`](./adr/0001-click-to-enter-frame-focus.md)
 
-This document tracks where the implementation diverged from the plan and what remains. The **architectural deepening** is fully landed — every gesture has one home in `src/shared/` — but the gate-predicate flip is **deferred behind one further migration step** (chromeView / group-rename / inline-edit interactivity → router or aboveView).
+This document tracks where the implementation diverged from the plan. The architectural deepening is landed: canvas gestures route through aboveView, shared pure helpers define hit/resize/edge behavior, and bgView/page-content canvas gesture paths are gone or visual/native-only.
 
 ---
 
@@ -17,7 +17,7 @@ This document tracks where the implementation diverged from the plan and what re
 | Phase 2 (architectural deepening + router substrate) | ✅ landed in this branch |
 | Phase 2 (drawing inline menu retired) | ✅ landed — one bgView-broken surface eliminated outright |
 | Phase 2 (gate-predicate flip to default-open) | ✅ landed via ADR 0002 — `shouldGateBeOpen` returns `true` in canvas mode |
-| Phase 3 (demolition of bgView per-layer pointer hooks) | 🟡 partial — `useFrameChromeDrag` deleted; `useEntityResize`/`useMultiSelectionResize`/`useGroupBoundsDrag` are dead code (gate is now default-open) but still wired for visual rendering. ESLint `no-mouse-events` stays at `warn` until those wirings clear. |
+| Phase 3 (demolition of bgView per-layer pointer hooks) | ✅ landed — bgView selection/resize/edge/group hooks deleted or visual-only; page-content select/group-drag/marquee canvas IPC removed. ESLint `no-mouse-events` stays at `warn` until remaining native/editing handlers are audited. |
 
 **Tests:** 342/342 unit pass. `pnpm typecheck` clean. Smoke runs match baseline.
 
@@ -34,7 +34,7 @@ ADR 0001 calls for "single hit-test authority, testable without DOM." That is no
 | `hit-test.ts` | 257 | 10 | Priority-ordered hit classification (resize-handle > chrome > anchor > body > background). Moved from `src/main/runtime/`. |
 | `interaction-priority.ts` | 17 | — | The `HitLayer` enum + ordered table the hit-tester walks. |
 | `canvas-pointer-actions.ts` | 121 | 11 | `routePointerDown(target, ctx) → CanvasPointerAction`. Pure mapper from hit + context to typed action descriptor. Includes the **issue #41 regression test**. |
-| `resize-accumulator.ts` | 222 | 16 | Aspect-lock arithmetic, corner/edge flip math, delta accumulation, min-size clamping. Lifted out of `useEntityResize.ts`. |
+| `resize-accumulator.ts` | 222 | 16 | Aspect-lock arithmetic, corner/edge flip math, delta accumulation, min-size clamping. |
 | `edge-drag-controller.ts` | 296 | 17 | State machine for anchor → edge gestures: `idle → create | edit → committed | cancelled`. Owns `findClosestAnchorTarget`, `findEdgeAtAnchor`, `buildBezierPath`. Lifted out of `EdgeLayer.tsx`. |
 
 ### Router (renderer)
@@ -129,8 +129,7 @@ src/renderer/above-view/
 
 src/renderer/canvas-bg/
   entityConstants.ts         Re-exports resize ADT from src/shared/
-  useEntityResize.ts         Now a thin shell over resize-accumulator
-  ResizeHandles.tsx          Unchanged (still owns the visual handle)
+  ResizeHandles.tsx          Visual handles only; router owns resize input
 
 docs/
   interaction-layer.md       §4.2/§4.2.1/§4.7/§6 amended

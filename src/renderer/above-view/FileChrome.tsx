@@ -142,8 +142,7 @@ const FileChromeItem = memo(function FileChromeItem({
           return
         }
         const preserve = layoutData.selectedEntityIds.includes(entity.id)
-        if (!preserve) api.selectEntity(entity.id, 'file')
-        api.startDragEntity(entity.id)
+        api.startDragEntity(entity.id, { entityKind: 'file', preserveSelection: preserve })
         let lastX = event.screenX
         let lastY = event.screenY
         const cleanup = () => {

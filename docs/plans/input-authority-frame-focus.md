@@ -1,6 +1,6 @@
 # Plan — Input authority via click-to-enter frame focus
 
-> **Status:** Phase 0 + Phase 1 + Phase 2 complete. **Gate predicate flip landed** (canvas mode default-open, with carve-outs for `frameFocus`, `editing-text`, and `inspect`/`annotate-comment` without composer). Per-page `chromeView` WCV retired in favour of `CanvasItemChrome` in aboveView's React tree; `routePointerDoubleClick` IPC dispatcher wired (`request-text-edit` / `request-shape-edit` / `enter-group` / `enter-group-rename`). Phase 3 demolition is **partial** — `useFrameChromeDrag` deleted; `useEntityResize`/`useMultiSelectionResize`/`useGroupBoundsDrag` are functionally dead but still wired for visual rendering and pending a follow-up PR.
+> **Status:** Phase 0 + Phase 1 + Phase 2 + Phase 3 complete. **Gate predicate flip landed** (canvas mode default-open, with carve-outs for `frameFocus`, `editing-text`, and `inspect`/`annotate-comment` without composer). Per-page `chromeView` WCV retired in favour of `CanvasItemChrome` in aboveView's React tree; `routePointerDoubleClick` IPC dispatcher wired (`request-text-edit` / `request-shape-edit` / `enter-group` / `enter-group-rename`). bgView/page-content canvas gesture paths have been demolished or reduced to visual/native-only behavior.
 >
 > **Decision of record:** [`docs/adr/0001-click-to-enter-frame-focus.md`](../adr/0001-click-to-enter-frame-focus.md), superseded for the canvas-anchored overlay UI by [`docs/adr/0002-canvas-anchored-overlay-ui.md`](../adr/0002-canvas-anchored-overlay-ui.md)
 > **Divergence log:** [`docs/divergence-input-authority.md`](../divergence-input-authority.md) — read this first if picking up after the autonomous overnight session of 2026-05-05.
@@ -97,7 +97,7 @@ Confirmed working in `pnpm dev`:
 
 ---
 
-## Phase 2 — Flip the gate (NOT STARTED — pick up here)
+## Phase 2 — Flip the gate (DONE)
 
 This is where the **#41 bug class actually gets eliminated**. `aboveView` becomes the single input authority in canvas mode; main classifies pointer events via the priority table; the per-bgView-layer pointer handlers become vestigial (and get demolished in Phase 3).
 
@@ -152,7 +152,7 @@ Add `frameFocus: { id: string } | null` to `GateInputs`. Plumb through from `cur
 | `entity-body` | Selection mutation via existing `selection-controller` |
 | `chrome` | Begin chrome drag via existing chrome-drag begin (currently in `useFrameChromeDrag`) |
 | `anchor` | Begin edge drag via existing `beginEdgeDrag` IPC |
-| `resize-handle` | Begin entity resize via existing `useEntityResize` begin |
+| `resize-handle` | Begin entity resize through the aboveView router resize dispatcher |
 | `background` | Begin marquee or pan based on modifiers (existing `useCanvasViewportGestures` logic) |
 
 **Critical detail:** Phase 2 routes through aboveView but reuses the *existing* main-side gesture begin/update/commit logic. The bgView per-layer handlers continue to exist; they just stop being the only entry point. This minimizes Phase 2 churn — the demolition is Phase 3.
@@ -165,7 +165,7 @@ Migrate one layer at a time, ship each independently, smoke-test each before mov
 2. **Chrome** — `useFrameChromeDrag.ts`. Smoke: drag chrome via aboveView path → frame's `canvasX/canvasY` updates.
 3. **Anchors** — edge anchor rings. Smoke: drag from anchor via aboveView → edge created. **This is the #41 regression test:** click in the anchor/chrome overlap zone → assert chrome wins, not anchor.
 4. **Entity bodies** — text/file/shape/drawing select + drag. Smoke: click body → selection state updated.
-5. **Group bounds** — `useGroupBoundsDrag.ts`. Smoke: drag group bounds → group canvasX/canvasY updates.
+5. **Group bounds** — router-owned group body/resize hit regions. Smoke: group selection and enter-group remain stable.
 6. **Background** — marquee + pan. Already partially through aboveView via `useCanvasViewportGestures`; verify unification.
 
 After each layer migrates, promote its `no-mouse-events` ESLint exemption to error.
@@ -199,24 +199,11 @@ Add `tests/smoke/issue-41-anchor-near-chrome.test.ts`:
 
 ---
 
-## Phase 3 — Demolition (NOT STARTED)
+## Phase 3 — Demolition (DONE)
 
 After Phase 2 stable across all layers. The bug class can't return because the parallel input path is gone.
 
-### Files to delete
-
-- `src/renderer/canvas-bg/useFrameChromeDrag.ts`
-- `src/renderer/canvas-bg/useGroupBoundsDrag.ts`
-- `src/renderer/canvas-bg/useEntityResize.ts`
-- `src/renderer/canvas-bg/useMultiSelectionResize.ts`
-- The drawing-tool raw `addEventListener('mousemove'/'mouseup')` block in `src/renderer/canvas-bg/App.tsx` (around lines 412-443 at time of writing — replace with a `useDragGesture` consumer in aboveView).
-
-### Files to modify
-
-- `src/renderer/canvas-bg/App.tsx` — remove `handleChromeMouseDown` and similar props-drilled handlers.
-- All bgView layer components (`FrameChromeLayer.tsx`, `EdgeLayer.tsx`, `EntityBlockLayers.tsx`, `ResizeHandles.tsx`, `SelectionResizeGrid.tsx`, `GroupBoundsLayer.tsx`, `ShapeBlockLayer.tsx`) — delete `onMouseDown` props and `closest('[data-overlay-ui]')` checks.
-- Remove `data-overlay-ui` markers everywhere.
-- ESLint `no-mouse-events` rule promotes from per-file warning to project-wide error.
+The old bgView gesture hooks are deleted, selection/resize/edge/group layers are visual-only, and page-content no longer emits canvas select/group-drag/marquee IPC. `data-overlay-ui` remains for aboveView UI and native/editor carve-outs. Promoting the mouse-event lint rule to error is a follow-up once remaining editing/native mouse handlers are audited.
 
 ---
 

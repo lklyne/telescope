@@ -121,8 +121,7 @@ function FrameChromeItem({
           return
         }
         const preserve = layoutData.selectedEntityIds.includes(frame.id)
-        if (!preserve) api.selectFrame(frame.id)
-        api.startDragFrame(frame.id)
+        api.startDragFrame(frame.id, { entityKind: 'frame', preserveSelection: preserve })
         let lastX = event.screenX
         let lastY = event.screenY
         const cleanup = () => {

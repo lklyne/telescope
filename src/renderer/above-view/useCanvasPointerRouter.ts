@@ -6,8 +6,7 @@
  * pointerdown and dispatches a typed `CanvasPointerAction` to the existing
  * IPC surface. Replaces the per-layer `onMouseDown` handlers that used to
  * live in bgView (`FrameChromeLayer`, `EdgeLayer`, `ResizeHandles`,
- * `EntityBlockLayers`, `GroupBoundsLayer`, `useFrameChromeDrag`,
- * `useGroupBoundsDrag`, `useEntityResize`, `useMultiSelectionResize`).
+ * `EntityBlockLayers`, `GroupBoundsLayer`, and the old mouse gesture hooks).
  *
  * The router runs entirely in the renderer because the layout snapshot it
  * needs (entities, edges, selection, zoom) is already broadcast to
@@ -102,15 +101,9 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
 export const FULL_ROUTER_CONSUME = ALL_KINDS
 
 /**
- * Default consume set: only `enter-frame-focus`. The router intercepts
- * pointerdown only when the gate is already open (active gestures, tool
- * modes, marquee). In those cases the legacy aboveView handlers
- * (`useViewportForwarding`) keep firing for the gestures they own; the
- * router's job today is to add the priority-ordered hit-test arbitration
- * layer (#41 fix) and to handle frame-body → focus promotion when the
- * gate happens to be open. Per-action consume expansion + the
- * gate-default-open flip are tracked in
- * `docs/divergence-input-authority.md`.
+ * Default consume set kept for tests and staged callers. Production aboveView
+ * passes `FULL_ROUTER_CONSUME`, making this router the canvas-mode authority
+ * for selection, drag, resize, marquee, pan, focus, and edge gestures.
  */
 export const DEFAULT_ROUTER_CONSUME: ReadonlySet<CanvasPointerAction['kind']> =
   new Set<CanvasPointerAction['kind']>(['enter-frame-focus'])
@@ -164,6 +157,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         entities: layout.entities,
         edges: layout.edges ?? [],
         selectedEntityIds: layout.selectedEntityIds,
+        selectedGroupId: layout.selectedGroupId ?? null,
         zoom: layout.zoom ?? 1,
       }
       const target = hitTest(inputs, { x: event.clientX, y: windowY })
@@ -208,6 +202,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
           entities: layout.entities,
           edges: layout.edges ?? [],
           selectedEntityIds: layout.selectedEntityIds,
+          selectedGroupId: layout.selectedGroupId ?? null,
           zoom: layout.zoom ?? 1,
         },
         { x: event.clientX, y: windowY },
@@ -308,12 +303,12 @@ function runEntityDrag(
 ): boolean {
   const pointerId = event.pointerId
   const releasePointer = capturePointer(event)
-  if (!action.preserveSelection) {
-    if (action.entityKind === 'frame') api.selectFrame(action.entityId)
-    else api.selectEntity(action.entityId, action.entityKind)
+  const selection = {
+    entityKind: action.entityKind,
+    preserveSelection: action.preserveSelection,
   }
-  if (action.entityKind === 'frame') api.startDragFrame(action.entityId)
-  else api.startDragEntity(action.entityId)
+  if (action.entityKind === 'frame') api.startDragFrame(action.entityId, selection)
+  else api.startDragEntity(action.entityId, selection)
 
   let lastScreenX = event.screenX
   let lastScreenY = event.screenY
@@ -385,8 +380,10 @@ function runFrameBodyPress(
     }
     if (!dragging) {
       dragging = true
-      if (!action.preserveSelection) api.selectFrame(action.entityId)
-      api.startDragFrame(action.entityId)
+      api.startDragFrame(action.entityId, {
+        entityKind: 'frame',
+        preserveSelection: action.preserveSelection,
+      })
     }
     const dx = ev.screenX - lastScreenX
     const dy = ev.screenY - lastScreenY
@@ -637,9 +634,7 @@ function runEdgeDrag(
 }
 
 /**
- * Background drag → marquee. Ports `App.tsx onMarqueeMove`/`onMarqueeEnd`
- * so the gesture works without depending on `hasSavedDrawings` to enable
- * the legacy `useViewportForwarding` path.
+ * Background drag → marquee.
  */
 function runBackgroundSelectionGesture(
   api: CanvasBgElectronAPI,

@@ -1524,7 +1524,7 @@ export interface CanvasBgElectronAPI {
   placePendingEntity: (canvasX: number, canvasY: number) => void
   cancelPendingPlacement: () => void
   clearToolMode: () => void
-  startDragFrame: (frameId: string) => void
+  startDragFrame: (frameId: string, selection?: CanvasDragStartSelection) => void
   dragFrame: (frameId: string, dx: number, dy: number) => void
   endDragFrame: () => void
   dragCopyFrame: (frameId: string, canvasX: number, canvasY: number) => void
@@ -1581,7 +1581,7 @@ export interface CanvasBgElectronAPI {
   startDragGroup: (groupId: string) => void
   dragGroup: (groupId: string, dx: number, dy: number) => void
   endDragGroup: () => void
-  startDragEntity: (entityId: string) => void
+  startDragEntity: (entityId: string, selection?: CanvasDragStartSelection) => void
   dragEntity: (entityId: string, dx: number, dy: number) => void
   endDragEntity: () => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
@@ -1638,6 +1638,11 @@ export interface CanvasBgElectronAPI {
     callback: (data: LayoutUpdateData['fixProgress']) => void,
   ) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
+}
+
+export type CanvasDragStartSelection = {
+  entityKind: CanvasEntityKind
+  preserveSelection?: boolean
 }
 
 export interface FloatingUiElectronAPI {
@@ -1950,4 +1955,3 @@ export interface AnnotationCreateRequest {
 }
 
 // --- Electron API Interfaces ---
-

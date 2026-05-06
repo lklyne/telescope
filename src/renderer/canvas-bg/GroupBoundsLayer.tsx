@@ -1,8 +1,7 @@
-import { memo, useRef } from 'react'
+import { memo } from 'react'
 import type { CanvasSceneGroupEntity } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { selectionColor } from './canvasBgConstants'
-import { useGroupDragGesture } from './useGroupBoundsDrag'
 
 function groupSurfaceStyle(
   group: CanvasSceneGroupEntity,
@@ -33,21 +32,16 @@ export const GroupBoundsLayer = memo(function GroupBoundsLayer({
   groups,
   isDark,
   zoom,
-  onSelectGroup,
-  onStartDragGroup,
-  onDragGroup,
-  onEndDragGroup,
-  onDoubleClick,
 }: {
   groups: CanvasSceneGroupEntity[]
   isDark: boolean
   selectedGroupId: string | null
   zoom: number
-  onSelectGroup: (groupId: string) => void
-  onStartDragGroup: (groupId: string) => void
-  onDragGroup: (groupId: string, dx: number, dy: number) => void
-  onEndDragGroup: () => void
-  onDoubleClick: (groupId: string) => void
+  onSelectGroup?: (groupId: string) => void
+  onStartDragGroup?: (groupId: string) => void
+  onDragGroup?: (groupId: string, dx: number, dy: number) => void
+  onEndDragGroup?: () => void
+  onDoubleClick?: (groupId: string) => void
 }) {
   if (!groups.length) return null
   const inverseScale = 1 / zoom
@@ -60,11 +54,6 @@ export const GroupBoundsLayer = memo(function GroupBoundsLayer({
           group={group}
           isDark={isDark}
           inverseScale={inverseScale}
-          onSelectGroup={onSelectGroup}
-          onStartDragGroup={onStartDragGroup}
-          onDragGroup={onDragGroup}
-          onEndDragGroup={onEndDragGroup}
-          onDoubleClick={onDoubleClick}
         />
       ))}
     </>
@@ -75,38 +64,15 @@ function GroupBoundsItem({
   group,
   isDark,
   inverseScale,
-  onSelectGroup,
-  onStartDragGroup,
-  onDragGroup,
-  onEndDragGroup,
-  onDoubleClick,
 }: {
   group: CanvasSceneGroupEntity
   isDark: boolean
   inverseScale: number
-  onSelectGroup: (groupId: string) => void
-  onStartDragGroup: (groupId: string) => void
-  onDragGroup: (groupId: string, dx: number, dy: number) => void
-  onEndDragGroup: () => void
-  onDoubleClick: (groupId: string) => void
 }) {
-  const dragRef = useRef<HTMLDivElement>(null)
   const surfaceStyle = groupSurfaceStyle(group, isDark, false)
-
-  useGroupDragGesture({
-    target: dragRef,
-    groupId: group.id,
-    enabled: true,
-    selectOnPointerDown: true,
-    onSelectGroup,
-    onStartDragGroup,
-    onDragGroup,
-    onEndDragGroup,
-  })
 
   return (
     <div
-      ref={dragRef}
       className="absolute"
       style={{
         left: group.canvasX,
@@ -115,7 +81,6 @@ function GroupBoundsItem({
         height: group.height,
         overflow: 'visible',
         pointerEvents: 'none',
-        touchAction: 'none',
       }}
     >
       <div
@@ -126,9 +91,7 @@ function GroupBoundsItem({
           background: surfaceStyle.background,
           transition: 'border-color 120ms ease',
         }}
-        onDoubleClick={() => onDoubleClick(group.id)}
       />
     </div>
   )
 }
-

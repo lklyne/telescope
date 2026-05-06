@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import type { CanvasHoverTarget } from '../../shared/types'
+import type { CanvasDragStartSelection, CanvasHoverTarget } from '../../shared/types'
 import { pages } from '../runtime/page-runtime'
 import {
   applyDragDelta,
@@ -29,7 +29,13 @@ import {
   zoom,
 } from '../runtime/surface-layout'
 import { setSelectionOverlayRect } from '../runtime/window-shell'
-import { resolveEntityKind, selectNone, selectedDragEntityIds } from '../runtime/selection-controller'
+import {
+  resolveEntityKind,
+  selectEntity as selectCanvasEntity,
+  selectNone,
+  selectPageById as selectCanvasPageById,
+  selectedDragEntityIds,
+} from '../runtime/selection-controller'
 import { createEdges } from '../workspace-edges'
 import { deleteEdge, updateEdge } from '../runtime/document-commands'
 import {
@@ -111,6 +117,18 @@ let activeDragSession: {
   ids: string[]
 } | null = null
 
+function applyDragStartSelection(
+  entityId: string,
+  selection: CanvasDragStartSelection | undefined,
+): void {
+  if (!selection || selection.preserveSelection) return
+  if (selection.entityKind === 'frame') {
+    selectCanvasPageById(entityId, { clearInteraction: false })
+    return
+  }
+  selectCanvasEntity(entityId, selection.entityKind, { clearInteraction: false })
+}
+
 function beginDragSession(
   kind: 'frame' | 'entity' | 'group',
   entityIds: string[],
@@ -177,10 +195,20 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-drag-frame-start', (_event, { frameId }: { frameId: string }) => {
-    const draggedIds = resolveDraggedFrameIds(frameId)
-    beginDragSession('frame', draggedIds)
-  })
+  ipcMain.on(
+    'canvas-drag-frame-start',
+    (
+      _event,
+      { frameId, selection }: { frameId: string; selection?: CanvasDragStartSelection },
+    ) => {
+      // Enter drag mode BEFORE mutating selection. commitSelection calls
+      // layoutAllViews() synchronously; while interactionState.kind is 'idle'
+      // the focus reconciler routes focus to bgView and aboveView blurs,
+      // which the drag's window blur listener treats as a cancel.
+      const started = beginDragSession('frame', resolveDraggedFrameIds(frameId))
+      if (started) applyDragStartSelection(frameId, selection)
+    },
+  )
 
   ipcMain.on(
     'canvas-drag-frame',
@@ -220,17 +248,18 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-drag-selection', (_event, { dx, dy }: { dx: number; dy: number }) => {
-    const entityIds = getSelectedEntityIds()
-    if (!entityIds.length) return
-    applyDragDelta(entityIds, dx, dy)
-    requestLayout()
-  })
-
-  ipcMain.on('canvas-drag-entity-start', (_event, { entityId }: { entityId: string }) => {
-    const draggedIds = resolveDraggedEntityIds(entityId)
-    beginDragSession('entity', draggedIds)
-  })
+  ipcMain.on(
+    'canvas-drag-entity-start',
+    (
+      _event,
+      { entityId, selection }: { entityId: string; selection?: CanvasDragStartSelection },
+    ) => {
+      // See canvas-drag-frame-start: enter drag mode before applying selection
+      // so the focus reconciler keeps aboveView focused through layoutAllViews.
+      const started = beginDragSession('entity', resolveDraggedEntityIds(entityId))
+      if (started) applyDragStartSelection(entityId, selection)
+    },
+  )
 
   ipcMain.on(
     'canvas-drag-entity',

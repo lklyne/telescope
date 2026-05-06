@@ -12,6 +12,15 @@
  */
 
 import { regionContains, type HitRegion, type Point, type Rect } from './hit-regions'
+import {
+  EDGE_ANCHOR_HIT_ACROSS_PX,
+  EDGE_ANCHOR_HIT_ALONG_PX,
+  EDGE_ANCHOR_HIT_GAP_PX,
+  EDGE_SIDES,
+  FRAME_CHROME_HEIGHT_PX,
+  RESIZE_HANDLE_HIT_PX,
+  scaleEdgeAnchorHitSize,
+} from './canvas-hit-geometry'
 import type {
   CanvasEntityKind,
   CanvasSceneEntity,
@@ -19,20 +28,6 @@ import type {
   WorkspaceEdge,
 } from './types'
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
-
-// --- Geometry constants ---
-//
-// These mirror values in src/renderer/canvas-bg/. They live here so the
-// hit-tester is testable without React. If a renderer constant changes,
-// update both — eventually they should share a single source.
-
-const CHROME_HEIGHT_PX = 36
-const ANCHOR_HIT_ALONG_PX = 56
-const ANCHOR_HIT_ACROSS_PX = 24
-const ANCHOR_HIT_GAP_PX = 4
-const ANCHOR_HIT_MIN_SCALE = 0.35
-const RESIZE_HANDLE_PX = 12
-const SIDES: readonly EdgeSide[] = ['top', 'right', 'bottom', 'left']
 
 // --- Public types ---
 
@@ -58,6 +53,7 @@ export interface HitInputs {
   entities: readonly CanvasSceneEntity[]
   edges: readonly WorkspaceEdge[]
   selectedEntityIds: readonly string[]
+  selectedGroupId?: string | null
   zoom: number
 }
 
@@ -102,6 +98,7 @@ function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
 
 function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   const selected = new Set(inputs.selectedEntityIds)
+  if (inputs.selectedGroupId) selected.add(inputs.selectedGroupId)
   const out: HitTarget[] = []
   for (const entity of inputs.entities) {
     if (!selected.has(entity.id)) continue
@@ -136,6 +133,7 @@ function collectChromeTargets(inputs: HitInputs): HitTarget[] {
 
 function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
   const selected = new Set(inputs.selectedEntityIds)
+  if (inputs.selectedGroupId) selected.add(inputs.selectedGroupId)
   const out: HitTarget[] = []
   for (const entity of inputs.entities) {
     if (!entityHasAnchors(entity.kind)) continue
@@ -143,7 +141,7 @@ function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
     // For hit-test purposes we expose anchors on selected entities; hover
     // is renderer-only ephemera.
     if (!selected.has(entity.id)) continue
-    for (const side of SIDES) {
+    for (const side of EDGE_SIDES) {
       out.push({
         layer: 'anchors',
         region: { kind: 'rect', rect: anchorRect(entity, side, inputs.zoom) },
@@ -182,9 +180,9 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
 const HANDLES: readonly ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 
 function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
-  const half = RESIZE_HANDLE_PX / 2
+  const half = RESIZE_HANDLE_HIT_PX / 2
   const { x, y } = handleAnchor(entity, handle)
-  return { x: x - half, y: y - half, width: RESIZE_HANDLE_PX, height: RESIZE_HANDLE_PX }
+  return { x: x - half, y: y - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
 }
 
 function handleAnchor(entity: CanvasSceneEntity, handle: ResizeHandle): Point {
@@ -206,9 +204,9 @@ function handleAnchor(entity: CanvasSceneEntity, handle: ResizeHandle): Point {
 function chromeRect(entity: CanvasSceneEntity): Rect {
   return {
     x: entity.screenX,
-    y: entity.screenY - CHROME_HEIGHT_PX,
+    y: entity.screenY - FRAME_CHROME_HEIGHT_PX,
     width: entity.screenWidth,
-    height: CHROME_HEIGHT_PX,
+    height: FRAME_CHROME_HEIGHT_PX,
   }
 }
 
@@ -222,8 +220,8 @@ function bodyRect(entity: CanvasSceneEntity): Rect {
 }
 
 function anchorRect(entity: CanvasSceneEntity, side: EdgeSide, zoom: number): Rect {
-  const along = scaleAnchorSize(ANCHOR_HIT_ALONG_PX, zoom)
-  const across = scaleAnchorSize(ANCHOR_HIT_ACROSS_PX, zoom)
+  const along = scaleEdgeAnchorHitSize(EDGE_ANCHOR_HIT_ALONG_PX, zoom)
+  const across = scaleEdgeAnchorHitSize(EDGE_ANCHOR_HIT_ACROSS_PX, zoom)
   const horizontal = side === 'top' || side === 'bottom'
   const w = horizontal ? along : across
   const h = horizontal ? across : along
@@ -231,19 +229,14 @@ function anchorRect(entity: CanvasSceneEntity, side: EdgeSide, zoom: number): Re
   const cy = entity.screenY + entity.screenHeight / 2
   switch (side) {
     case 'top':
-      return { x: cx - w / 2, y: entity.screenY - ANCHOR_HIT_GAP_PX - h, width: w, height: h }
+      return { x: cx - w / 2, y: entity.screenY - EDGE_ANCHOR_HIT_GAP_PX - h, width: w, height: h }
     case 'bottom':
-      return { x: cx - w / 2, y: entity.screenY + entity.screenHeight + ANCHOR_HIT_GAP_PX, width: w, height: h }
+      return { x: cx - w / 2, y: entity.screenY + entity.screenHeight + EDGE_ANCHOR_HIT_GAP_PX, width: w, height: h }
     case 'left':
-      return { x: entity.screenX - ANCHOR_HIT_GAP_PX - w, y: cy - h / 2, width: w, height: h }
+      return { x: entity.screenX - EDGE_ANCHOR_HIT_GAP_PX - w, y: cy - h / 2, width: w, height: h }
     case 'right':
-      return { x: entity.screenX + entity.screenWidth + ANCHOR_HIT_GAP_PX, y: cy - h / 2, width: w, height: h }
+      return { x: entity.screenX + entity.screenWidth + EDGE_ANCHOR_HIT_GAP_PX, y: cy - h / 2, width: w, height: h }
   }
-}
-
-function scaleAnchorSize(basePx: number, zoom: number): number {
-  const scale = Math.max(ANCHOR_HIT_MIN_SCALE, Math.min(zoom, 1))
-  return basePx * scale
 }
 
 function entityHasChrome(kind: CanvasEntityKind): boolean {

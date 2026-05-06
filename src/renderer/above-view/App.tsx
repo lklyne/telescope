@@ -2,17 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
-  CanvasSelectableTarget,
   LayoutUpdateData,
   SelectionOverlayPayload,
   ThemeData,
 } from '../../shared/types'
 import {
+  canvasToScreenX,
+  canvasToScreenY,
   isOverlayUiTarget,
   normalizeRect,
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
   snapToGrid,
+  squareConstrainedRect,
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
@@ -20,9 +22,7 @@ import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { MIN_GROUP_HEIGHT, MIN_GROUP_WIDTH } from '../canvas-bg/entityConstants'
 import {
-  descendantIdsForGroup,
   selectedGroupHasDescendantFrame,
-  selectedGroupDragTargetId,
 } from '../canvas-bg/groupMembership'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
@@ -48,10 +48,10 @@ import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-contr
 import { useAnnotationOverlayShortcuts } from '../shared/hooks/useAnnotationOverlayShortcuts'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
-import { useViewportForwarding } from '../shared/hooks/useViewportForwarding'
+import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
-const GROUP_DRAG_THRESHOLD = 4
+const MIN_SHAPE_DRAG_SIZE = 24
 
 function SelectedGroupResizeOverlay({
   isDark,
@@ -97,6 +97,16 @@ function SelectedGroupResizeOverlay({
       />
     </div>
   )
+}
+
+function overlayRectFromScreenRect(
+  rect: { left: number; top: number; width: number; height: number },
+  layout: LayoutUpdateData,
+) {
+  return {
+    ...rect,
+    top: rect.top - layout.canvasOrigin.y,
+  }
 }
 
 export default function App({
@@ -190,12 +200,6 @@ export default function App({
       api.setCommentOverlayActive(false)
     }
   }, [overlayInteractive])
-  const hasSelectedFrame = layoutData.entities.some(
-    (e) => e.kind === 'frame' && layoutData.selectedEntityIds.includes(e.id),
-  )
-  const hasSavedDrawings =
-    !hasSelectedFrame && layoutData.entities.some((e) => e.kind === 'drawing')
-
   // Above-view covers the canvas when saved drawings are present, so canvas-bg
   // can't see pointermove — above-view owns placement preview here. Seed from
   // the toolbar click that started placement; merged pointer handler below
@@ -292,150 +296,25 @@ export default function App({
     [api, layoutRef],
   )
 
-  const onMarqueeMove = useCallback(
-    (startX: number, startY: number, endX: number, endY: number) => {
-      const layout = layoutRef.current
-      const rect = normalizeRect(startX, startY, endX, endY)
-      api.setSelectionOverlayRect({
-        rect: {
-          ...rect,
-          top: rect.top + (layout.canvasOrigin.y - TOOLBAR_HEIGHT),
-        },
-        variant: 'default',
-      })
-    },
-    [api, layoutRef],
-  )
-
-  const onMarqueeEnd = useCallback(
-    (
-      startX: number,
-      startY: number,
-      endX: number,
-      endY: number,
-      modifiers?: import('../../shared/types').SelectionModifiers,
-    ) => {
-      const layout = layoutRef.current
-      const rect = normalizeRect(startX, startY, endX, endY)
-      api.setSelectionOverlayRect(null)
-      if (rect.width < 4 || rect.height < 4) {
-        api.canvasDeselect(modifiers)
-        return
-      }
-      const windowRect = { ...rect, top: rect.top + layout.canvasOrigin.y }
-      api.canvasSelectInRect(screenRectToCanvasRect(windowRect, layout), modifiers)
-    },
-    [api, layoutRef],
-  )
-
-  // Above-view WCV origin sits at canvasOrigin.y; scene entities use screenY
-  // in window coords, so we add canvasOrigin.y to clientY before bounds checks.
-  const hitTestSceneEntity = useCallback(
-    (
-      clientX: number,
-      clientY: number,
-      accept: (entity: CanvasSceneEntity) => boolean,
-    ): CanvasSceneEntity | null => {
+  const hitTestHoverTarget = useCallback(
+    (clientX: number, clientY: number) => {
       const layout = layoutRef.current
       const windowY = clientY + layout.canvasOrigin.y
-      const FRAME_CHROME = 44
       for (let i = layout.entities.length - 1; i >= 0; i--) {
-        const e = layout.entities[i]
-        if (!accept(e)) continue
-        const top = e.kind === 'frame' ? e.screenY - FRAME_CHROME : e.screenY
-        const bottom = e.screenY + e.screenHeight
+        const entity = layout.entities[i]
+        if (entity.kind === 'group' || entity.kind === 'drawing') continue
         if (
-          clientX >= e.screenX &&
-          clientX <= e.screenX + e.screenWidth &&
-          windowY >= top &&
-          windowY <= bottom
+          clientX >= entity.screenX &&
+          clientX <= entity.screenX + entity.screenWidth &&
+          windowY >= entity.screenY &&
+          windowY <= entity.screenY + entity.screenHeight
         ) {
-          return e
+          return entity.id
         }
       }
       return null
     },
     [layoutRef],
-  )
-
-  const hitTestSelectionEntity = useCallback(
-    (clientX: number, clientY: number): CanvasSelectableTarget | null => {
-      const layout = layoutRef.current
-      if (layout.selectedEntityIds.length <= 1) return null
-
-      const entity = hitTestSceneEntity(clientX, clientY, (candidate) => {
-        if (candidate.kind === 'group') return false
-        return layout.selectedEntityIds.includes(candidate.id)
-      })
-
-      return entity ? { id: entity.id, kind: entity.kind } : null
-    },
-    [hitTestSceneEntity, layoutRef],
-  )
-
-  const hitTestSelectedGroupEntity = useCallback(
-    (clientX: number, clientY: number): CanvasSelectableTarget | null => {
-      const layout = layoutRef.current
-      const selectedGroupId = layout.selectedGroupId ?? null
-      if (!selectedGroupId) return null
-
-      const group = (layout.groups ?? []).find((candidate) => candidate.id === selectedGroupId)
-      if (!group) return null
-
-      const descendantIds = descendantIdsForGroup(layout.groups ?? [], selectedGroupId)
-      const descendant = hitTestSceneEntity(clientX, clientY, (candidate) => {
-        if (candidate.kind === 'group') return false
-        return descendantIds.has(candidate.id)
-      })
-      if (descendant) return { id: descendant.id, kind: descendant.kind }
-
-      const windowY = clientY + layout.canvasOrigin.y
-      const insideBounds =
-        clientX >= group.screenX &&
-        clientX <= group.screenX + group.screenWidth &&
-        windowY >= group.screenY &&
-        windowY <= group.screenY + group.screenHeight
-      const insideHeader =
-        clientX >= group.screenX &&
-        clientX <= group.screenX + Math.max(group.screenWidth, 160) &&
-        windowY >= group.screenY - 24 &&
-        windowY <= group.screenY
-
-      return insideBounds || insideHeader
-        ? { id: group.id, kind: 'group' }
-        : null
-    },
-    [hitTestSceneEntity, layoutRef],
-  )
-
-  const hitTestPointerEntity = useCallback(
-    (clientX: number, clientY: number): CanvasSelectableTarget | null => {
-      const selectedGroupTarget = hitTestSelectedGroupEntity(clientX, clientY)
-      if (selectedGroupTarget) return selectedGroupTarget
-
-      const preservedSelectionTarget = hitTestSelectionEntity(clientX, clientY)
-      if (preservedSelectionTarget) return preservedSelectionTarget
-
-      const frame = hitTestSceneEntity(
-        clientX,
-        clientY,
-        (candidate) => candidate.kind === 'frame',
-      )
-      return frame ? { id: frame.id, kind: 'frame' } : null
-    },
-    [hitTestSceneEntity, hitTestSelectedGroupEntity, hitTestSelectionEntity],
-  )
-
-  const hitTestHoverTarget = useCallback(
-    (clientX: number, clientY: number) => {
-      const entity = hitTestSceneEntity(
-        clientX,
-        clientY,
-        (candidate) => candidate.kind !== 'group' && candidate.kind !== 'drawing',
-      )
-      return entity?.id ?? null
-    },
-    [hitTestSceneEntity],
   )
 
   // One window pointermove handler drives both placement-preview cursor and
@@ -481,202 +360,163 @@ export default function App({
     }
   }, [api, hitTestHoverTarget, hoverForwardingEnabled, layoutRef, pendingPlacement])
 
-  const onEntityPointerDown = useCallback(
-    (target: CanvasSelectableTarget, event: MouseEvent) => {
-      const isAdditive = event.shiftKey || event.metaKey || event.ctrlKey
-      if (isAdditive) {
-        const modifiers = {
-          shift: event.shiftKey,
-          meta: event.metaKey,
-          ctrl: event.ctrlKey,
-        }
-        if (target.kind === 'frame') api.selectFrame(target.id, modifiers)
-        else api.selectEntity(target.id, target.kind, modifiers)
-        return
-      }
-
-      const layout = layoutRef.current
-      const selectedGroupTargetId = selectedGroupDragTargetId(layout, target.id)
-      if (selectedGroupTargetId) {
-        let dragging = false
-        let lastScreenX = event.screenX
-        let lastScreenY = event.screenY
-        const startScreenX = event.screenX
-        const startScreenY = event.screenY
-
-        const selectClickTarget = () => {
-          if (target.kind === 'group') {
-            api.selectGroup(target.id)
-          } else if (target.kind === 'frame') {
-            api.selectFrame(target.id)
-          } else {
-            api.selectEntity(target.id, target.kind)
-          }
-        }
-
-        const onMove = (ev: MouseEvent) => {
-          const totalDx = ev.screenX - startScreenX
-          const totalDy = ev.screenY - startScreenY
-          if (
-            !dragging &&
-            Math.abs(totalDx) < GROUP_DRAG_THRESHOLD &&
-            Math.abs(totalDy) < GROUP_DRAG_THRESHOLD
-          ) {
-            return
-          }
-
-          if (!dragging) {
-            dragging = true
-            api.startDragGroup(selectedGroupTargetId)
-          }
-
-          const dx = ev.screenX - lastScreenX
-          const dy = ev.screenY - lastScreenY
-          lastScreenX = ev.screenX
-          lastScreenY = ev.screenY
-          if (dx !== 0 || dy !== 0) api.dragGroup(selectedGroupTargetId, dx, dy)
-        }
-
-        const cleanup = () => {
-          window.removeEventListener('mousemove', onMove)
-          window.removeEventListener('mouseup', onUp)
-          window.removeEventListener('blur', onCancel)
-        }
-
-        const onUp = () => {
-          cleanup()
-          if (dragging) {
-            api.endDragGroup()
-            return
-          }
-          selectClickTarget()
-        }
-
-        const onCancel = () => {
-          cleanup()
-          if (dragging) api.endDragGroup()
-        }
-
-        event.preventDefault()
-        window.addEventListener('mousemove', onMove)
-        window.addEventListener('mouseup', onUp)
-        window.addEventListener('blur', onCancel)
-        return
-      }
-
-      const preserveSelection = layout.selectedEntityIds.includes(target.id)
-
-      if (!preserveSelection) {
-        if (target.kind === 'frame') api.selectFrame(target.id)
-        else api.selectEntity(target.id, target.kind)
-      }
-
-      if (target.kind === 'frame') api.startDragFrame(target.id)
-      else api.startDragEntity(target.id)
-
-      let lastScreenX = event.screenX
-      let lastScreenY = event.screenY
-      const onMove = (ev: MouseEvent) => {
-        const dx = ev.screenX - lastScreenX
-        const dy = ev.screenY - lastScreenY
-        lastScreenX = ev.screenX
-        lastScreenY = ev.screenY
-        if (dx === 0 && dy === 0) return
-        if (target.kind === 'frame') api.dragFrame(target.id, dx, dy)
-        else api.dragEntity(target.id, dx, dy)
-      }
-      const onUp = () => {
-        window.removeEventListener('mousemove', onMove)
-        window.removeEventListener('mouseup', onUp)
-        window.removeEventListener('blur', onUp)
-        if (target.kind === 'frame') api.endDragFrame()
-        else api.endDragEntity()
-      }
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
-      window.addEventListener('blur', onUp)
-    },
-    [layoutRef],
-  )
-
-  const placementClickAt = useCallback(
-    (screenX: number, screenY: number) => {
-      const layout = layoutRef.current
-      const point = screenPointToCanvasPoint(
-        screenX,
-        screenY + layout.canvasOrigin.y,
-        layout,
-      )
-      api.placePendingEntity(snapToGrid(point.x), snapToGrid(point.y))
-    },
-    [],
-  )
-
-  // Above-view's pointer events are relative to its origin (canvasOrigin.y
-  // below the toolbar), but main's canvas-click-at expects window-relative
-  // coords — adjust Y before forwarding.
-  const canvasClickAtFromAboveView = useCallback(
-    (screenX: number, screenY: number) => {
-      api.canvasClickAt(screenX, screenY + layoutRef.current.canvasOrigin.y)
-    },
-    [],
-  )
-
-  const dragMode: 'region_select' | 'marquee' | null =
-    !overlayInteractive && !pendingPlacement
-      ? layoutData.annotationMode === 'region_select'
-        ? 'region_select'
-        : hasSavedDrawings
-          ? 'marquee'
-          : null
-      : null
-  const activeDragMove =
-    dragMode === 'region_select' ? onDragMove : dragMode === 'marquee' ? onMarqueeMove : undefined
-  const activeDragEnd =
-    dragMode === 'region_select' ? onDragEnd : dragMode === 'marquee' ? onMarqueeEnd : undefined
   const routerOwnsCanvasPointers =
     !overlayInteractive &&
     !pendingPlacement &&
     layoutData.annotationMode === 'off'
-  const viewportForwardingApi = useMemo(
+  const toolGestureOwnsCanvasPointers =
+    !overlayInteractive &&
+    (Boolean(pendingPlacement) || layoutData.annotationMode === 'region_select')
+
+  useEffect(() => {
+    if (overlayInteractive) return
+    if (!pendingPlacement && layoutData.annotationMode !== 'region_select') return
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (isOverlayUiTarget(event.target)) return
+      if (event.button !== 0) return
+      const layout = layoutRef.current
+      if (layout.viewMode !== 'canvas') return
+      if (!layout.pendingPlacement && layout.annotationMode !== 'region_select') return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const pointerId = event.pointerId
+      const target = event.target instanceof Element ? event.target : null
+      try {
+        target?.setPointerCapture(pointerId)
+      } catch {
+        /* ignore */
+      }
+
+      const startX = event.clientX
+      const startY = event.clientY
+      const startWindowY = startY + layout.canvasOrigin.y
+      const startCanvas = screenPointToCanvasPoint(startX, startWindowY, layout)
+      const placementAtStart = layout.pendingPlacement
+
+      const cleanup = () => {
+        try {
+          if (target?.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId)
+        } catch {
+          /* ignore */
+        }
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+        window.removeEventListener('pointercancel', onCancel)
+        window.removeEventListener('blur', onCancel)
+      }
+
+      const updateShapePreview = (ev: PointerEvent) => {
+        const current = layoutRef.current
+        const endCanvas = screenPointToCanvasPoint(
+          ev.clientX,
+          ev.clientY + current.canvasOrigin.y,
+          current,
+        )
+        const square = squareConstrainedRect(
+          startCanvas.x,
+          startCanvas.y,
+          endCanvas.x,
+          endCanvas.y,
+          ev.shiftKey,
+        )
+        const minCanvasX = snapToGrid(square.left)
+        const minCanvasY = snapToGrid(square.top)
+        const snappedW = snapToGrid(square.width)
+        const snappedH = snapToGrid(square.height)
+        const screenRect = {
+          left: canvasToScreenX(current, minCanvasX),
+          top: canvasToScreenY(current, minCanvasY),
+          width: snappedW * current.zoom,
+          height: snappedH * current.zoom,
+        }
+        api.setSelectionOverlayRect({
+          rect: overlayRectFromScreenRect(screenRect, current),
+          variant: 'place-shape',
+          shapeKind: current.pendingPlacement?.shapeKind ?? 'rectangle',
+        })
+      }
+
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return
+        const current = layoutRef.current
+        if (placementAtStart?.entityKind === 'shape') {
+          updateShapePreview(ev)
+          return
+        }
+        if (!placementAtStart && current.annotationMode === 'region_select') {
+          onDragMove(startX, startY, ev.clientX, ev.clientY)
+        }
+      }
+
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return
+        cleanup()
+        const current = layoutRef.current
+        if (placementAtStart) {
+          if (placementAtStart.entityKind === 'shape') {
+            api.setSelectionOverlayRect(null)
+            const endCanvas = screenPointToCanvasPoint(
+              ev.clientX,
+              ev.clientY + current.canvasOrigin.y,
+              current,
+            )
+            const square = squareConstrainedRect(
+              startCanvas.x,
+              startCanvas.y,
+              endCanvas.x,
+              endCanvas.y,
+              ev.shiftKey,
+            )
+            if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
+              api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
+                x: snapToGrid(square.left),
+                y: snapToGrid(square.top),
+                width: snapToGrid(square.width),
+                height: snapToGrid(square.height),
+              })
+            } else {
+              api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
+            }
+            return
+          }
+          api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
+          return
+        }
+        if (current.annotationMode === 'region_select') {
+          onDragEnd(startX, startY, ev.clientX, ev.clientY)
+        }
+      }
+
+      const onCancel = () => {
+        cleanup()
+        api.setSelectionOverlayRect(null)
+      }
+
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+      window.addEventListener('pointercancel', onCancel)
+      window.addEventListener('blur', onCancel)
+    }
+
+    window.addEventListener('pointerdown', onPointerDown, { capture: true })
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, {
+        capture: true,
+      } as EventListenerOptions)
+    }
+  }, [api, layoutData.annotationMode, layoutRef, onDragEnd, onDragMove, overlayInteractive, pendingPlacement])
+
+  const viewportWheelAndPanApi = useMemo(
     () => ({
       canvasZoom: api.canvasZoom,
       canvasPan: api.canvasPan,
-      leftButtonEnabled: !routerOwnsCanvasPointers,
-      canvasDeselect: overlayInteractive || pendingPlacement ? undefined : api.canvasDeselect,
-      canvasClickAt: overlayInteractive
-        ? undefined
-        : pendingPlacement
-          ? placementClickAt
-          : canvasClickAtFromAboveView,
-      onDragMove: activeDragMove,
-      onDragEnd: activeDragEnd,
-      hitTestEntity:
-        overlayInteractive || pendingPlacement || dragMode === 'region_select'
-          ? undefined
-          : hitTestPointerEntity,
-      onEntityPointerDown:
-        overlayInteractive || pendingPlacement || dragMode === 'region_select'
-          ? undefined
-          : onEntityPointerDown,
     }),
-    [
-      api,
-      overlayInteractive,
-      pendingPlacement,
-      routerOwnsCanvasPointers,
-      placementClickAt,
-      canvasClickAtFromAboveView,
-      activeDragMove,
-      activeDragEnd,
-      dragMode,
-      hitTestPointerEntity,
-      onEntityPointerDown,
-    ],
+    [],
   )
-  // Always enabled: when the overlay has zero bounds (main's gate closed),
-  // the renderer DOM receives no events, so listener attachment is a no-op.
-  useViewportForwarding(true, viewportForwardingApi)
+  useViewportWheelAndMiddlePan(true, viewportWheelAndPanApi)
 
   // ADR 0001 — canvas pointer router. Single window-level pointerdown
   // listener that runs the shared hit-test, classifies the action via the
@@ -735,7 +575,9 @@ export default function App({
   return (
     <div
       className={`relative h-screen w-screen overflow-hidden bg-transparent ${
-        overlayInteractive ? 'pointer-events-auto' : 'pointer-events-none'
+        overlayInteractive || routerOwnsCanvasPointers || toolGestureOwnsCanvasPointers
+          ? 'pointer-events-auto'
+          : 'pointer-events-none'
       }`}
       style={{
         cursor: drawInteractionEnabled ? DRAW_CURSOR : undefined,
@@ -749,11 +591,6 @@ export default function App({
         entities={layoutData.entities}
         layoutData={layoutData}
         selectedEntityIds={layoutData.selectedEntityIds}
-        onSelect={
-          layoutData.annotationMode === 'off' && layoutData.pendingPlacement === null
-            ? (id) => api.selectEntity(id, 'drawing')
-            : undefined
-        }
       />
 
       {placementPreview && selectionOverlay?.variant !== 'place-shape' ? (

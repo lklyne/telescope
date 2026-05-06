@@ -22,6 +22,7 @@ export {
   WIREFRAME_EXTENSIONS,
 } from '../../shared/file-extensions'
 import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../../shared/file-extensions'
+import { RESIZE_HANDLE_VISUAL_PX } from '../../shared/canvas-hit-geometry'
 
 /** Images/videos: lock aspect unless Shift. Other files: free resize unless Shift (then lock). */
 export function aspectRatioResizeModeForCanvasFile(filePath: string): AspectRatioResizeMode {
@@ -29,7 +30,7 @@ export function aspectRatioResizeModeForCanvasFile(filePath: string): AspectRati
   return 'shift-locks'
 }
 
-export const HANDLE_SIZE = 8
+export const HANDLE_SIZE = RESIZE_HANDLE_VISUAL_PX
 
 export const MIN_GROUP_WIDTH = 120
 export const MIN_GROUP_HEIGHT = 80

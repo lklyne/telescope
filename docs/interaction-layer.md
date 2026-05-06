@@ -198,7 +198,7 @@ The OR-chain in canvas mode has collapsed: the canvas-pointer-router (§4.2.1) c
 
 A single window-level pointerdown listener inside `aboveView` (`src/renderer/above-view/useCanvasPointerRouter.ts`) runs the shared `hitTest()` against the current layout snapshot and dispatches a typed `CanvasPointerAction` (`src/shared/canvas-pointer-actions.ts`). The hit-test priority table — resize-handle > chrome > anchor > body > background — is encoded once and tested in isolation (`tests/unit/canvas-pointer-actions.test.ts` includes the #41 anchor-near-chrome regression).
 
-The router consumes the full action set (`FULL_ROUTER_CONSUME`): `enter-frame-focus`, `begin-entity-drag`, `begin-group-drag`, `begin-resize`, `begin-edge-drag`, `toggle-select`, `background-click`, `begin-marquee`, `begin-pan`. Legacy `useViewportForwarding` is no longer the primary path.
+The router consumes the full action set (`FULL_ROUTER_CONSUME`): `enter-frame-focus`, `begin-entity-drag`, `begin-group-drag`, `begin-resize`, `begin-edge-drag`, `toggle-select`, `background-click`, `begin-marquee`, `begin-pan`. The remaining viewport helper is limited to wheel zoom/pan and middle-button pan.
 
 A sibling pure mapper, `routePointerDoubleClick`, classifies double-clicks; the router installs a window-level `dblclick` capture listener and dispatches `enter-shape-edit` / `enter-group` / `request-text-edit` (and yields `enter-group-rename` to the GroupRenameLabel's own DOM `onDoubleClick`). The text/shape branches use the `canvas-request-text-edit` / `canvas-request-shape-edit` IPC channels, which select the entity in main and signal bgView to focus its inline editor.
 

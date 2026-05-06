@@ -94,7 +94,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY }),
   cancelPendingPlacement: () => ipcRenderer.send('cancel-pending-placement'),
   clearToolMode: () => ipcRenderer.send('toolbar-clear-tool-mode'),
-  startDragFrame: (frameId) => ipcRenderer.send('canvas-drag-frame-start', { frameId }),
+  startDragFrame: (frameId, selection) =>
+    ipcRenderer.send('canvas-drag-frame-start', { frameId, selection }),
   dragFrame: (frameId, dx, dy) => ipcRenderer.send('canvas-drag-frame', { frameId, dx, dy }),
   endDragFrame: () => ipcRenderer.send('canvas-drag-frame-end'),
   dragCopyFrame: (frameId, canvasX, canvasY) =>
@@ -188,8 +189,8 @@ const api: CanvasBgElectronAPI = {
   dragGroup: (groupId: string, dx: number, dy: number) =>
     ipcRenderer.send('canvas-drag-group', { groupId, dx, dy }),
   endDragGroup: () => ipcRenderer.send('canvas-drag-group-end'),
-  startDragEntity: (entityId: string) =>
-    ipcRenderer.send('canvas-drag-entity-start', { entityId }),
+  startDragEntity: (entityId: string, selection) =>
+    ipcRenderer.send('canvas-drag-entity-start', { entityId, selection }),
   dragEntity: (entityId: string, dx: number, dy: number) =>
     ipcRenderer.send('canvas-drag-entity', { entityId, dx, dy }),
   endDragEntity: () => ipcRenderer.send('canvas-drag-entity-end'),

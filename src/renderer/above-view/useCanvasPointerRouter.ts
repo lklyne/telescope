@@ -117,6 +117,8 @@ const GROUP_DRAG_THRESHOLD = 4
 const MARQUEE_DRAG_THRESHOLD = 4
 const FRAME_BODY_DRAG_THRESHOLD = 4
 
+let pointerAttemptCounter = 0
+
 function capturePointer(event: PointerEvent): (() => void) | null {
   const target = event.target
   if (!(target instanceof Element)) return null
@@ -149,11 +151,18 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     if (!enabled) return
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (isOverlayUiTarget(event.target)) return
+      if (isOverlayUiTarget(event.target)) {
+        console.warn(`[attempt ?] pointerdown SKIPPED — overlay UI target`, {
+          target: (event.target instanceof Element) ? event.target.tagName : null,
+        })
+        return
+      }
       if (event.button !== 0 && event.button !== 1 && event.button !== 2) return
 
       const layout = layoutRef.current
       if (layout.viewMode !== 'canvas') return
+
+      const attemptId = ++pointerAttemptCounter
 
       // aboveView's WCV starts at canvasOrigin.y; scene entities use
       // window-relative screenY, so add the offset before hit-testing.
@@ -181,7 +190,18 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       }
 
       const action = routePointerDown(target, context)
-      if (!consumeRef.current.has(action.kind)) return
+      console.warn(`[attempt #${attemptId}] pointerdown`, {
+        target: target.payload,
+        action: action.kind,
+        cursor: { x: event.clientX, y: windowY },
+        selected: layout.selectedEntityIds,
+        frameFocus: layout.frameFocus?.id ?? null,
+        interaction: layout.interaction.kind,
+      })
+      if (!consumeRef.current.has(action.kind)) {
+        console.warn(`[attempt #${attemptId}] NOT CONSUMED — action=${action.kind} not in consume set`)
+        return
+      }
 
       const dispatched = dispatchAction({
         action,
@@ -189,10 +209,13 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         event,
         layoutRef,
         setEdgeDragState: setEdgeDragStateRef.current,
+        attemptId,
       })
       if (dispatched) {
         event.preventDefault()
         event.stopPropagation()
+      } else {
+        console.warn(`[attempt #${attemptId}] dispatchAction returned false`, { action: action.kind })
       }
     }
 
@@ -257,10 +280,11 @@ interface DispatchContext {
   event: PointerEvent
   layoutRef: React.MutableRefObject<LayoutUpdateData>
   setEdgeDragState: (state: EdgeDragState) => void
+  attemptId: number
 }
 
 function dispatchAction(ctx: DispatchContext): boolean {
-  const { action, api, event, layoutRef, setEdgeDragState } = ctx
+  const { action, api, event, layoutRef, setEdgeDragState, attemptId } = ctx
   switch (action.kind) {
     case 'noop':
       return false
@@ -268,7 +292,7 @@ function dispatchAction(ctx: DispatchContext): boolean {
       api.enterFrameFocus(action.entityId)
       return true
     case 'frame-body-press':
-      return runFrameBodyPress(action, api, event)
+      return runFrameBodyPress(action, api, event, attemptId)
     case 'toggle-select':
       if (action.entityKind === 'frame') {
         api.selectFrame(action.entityId, { shift: true, meta: false, ctrl: false })
@@ -285,7 +309,7 @@ function dispatchAction(ctx: DispatchContext): boolean {
     case 'background-click':
       return runBackgroundSelectionGesture(api, event, layoutRef)
     case 'begin-entity-drag':
-      return runEntityDrag(action, api, event)
+      return runEntityDrag(action, api, event, attemptId)
     case 'begin-group-drag':
       return runGroupDrag(action, api, event)
     case 'begin-resize':
@@ -305,6 +329,7 @@ function runEntityDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-entity-drag' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
+  attemptId: number,
 ): boolean {
   const pointerId = event.pointerId
   const releasePointer = capturePointer(event)
@@ -312,11 +337,18 @@ function runEntityDrag(
     entityKind: action.entityKind,
     preserveSelection: action.preserveSelection,
   }
+  console.warn(`[attempt #${attemptId}] runEntityDrag start (no threshold)`, {
+    entityId: action.entityId.slice(0, 16),
+    entityKind: action.entityKind,
+    preserveSelection: action.preserveSelection,
+    pointerId,
+  })
   if (action.entityKind === 'frame') api.startDragFrame(action.entityId, selection)
   else api.startDragEntity(action.entityId, selection)
 
   let lastScreenX = event.screenX
   let lastScreenY = event.screenY
+  let moveCount = 0
   const cleanup = () => {
     releasePointer?.()
     window.removeEventListener('pointermove', onMove)
@@ -324,7 +356,10 @@ function runEntityDrag(
     window.removeEventListener('pointercancel', onCancel)
     window.removeEventListener('blur', onCancel)
   }
-  const finish = () => {
+  const finish = (reason: string) => {
+    console.warn(
+      `[attempt #${attemptId}] runEntityDrag finish reason=${reason} moveCount=${moveCount} entity=${action.entityId.slice(0, 16)}`,
+    )
     cleanup()
     if (action.entityKind === 'frame') api.endDragFrame()
     else api.endDragEntity()
@@ -336,14 +371,15 @@ function runEntityDrag(
     lastScreenX = ev.screenX
     lastScreenY = ev.screenY
     if (dx === 0 && dy === 0) return
+    moveCount += 1
     if (action.entityKind === 'frame') api.dragFrame(action.entityId, dx, dy)
     else api.dragEntity(action.entityId, dx, dy)
   }
   const onUp = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return
-    finish()
+    finish('pointerup')
   }
-  const onCancel = () => finish()
+  const onCancel = (ev: Event) => finish(`cancel(${ev.type})`)
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
   window.addEventListener('pointercancel', onCancel)
@@ -355,6 +391,7 @@ function runFrameBodyPress(
   action: Extract<CanvasPointerAction, { kind: 'frame-body-press' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
+  attemptId: number,
 ): boolean {
   const pointerId = event.pointerId
   const releasePointer = capturePointer(event)
@@ -363,6 +400,12 @@ function runFrameBodyPress(
   let lastScreenX = event.screenX
   let lastScreenY = event.screenY
   let dragging = false
+  let moveCount = 0
+
+  console.warn(`[attempt #${attemptId}] runFrameBodyPress armed (waiting for threshold)`, {
+    entityId: action.entityId.slice(0, 16),
+    pointerId,
+  })
 
   const cleanup = () => {
     releasePointer?.()
@@ -384,6 +427,11 @@ function runFrameBodyPress(
       return
     }
     if (!dragging) {
+      console.warn(`[attempt #${attemptId}] runFrameBodyPress threshold crossed → startDragFrame`, {
+        entityId: action.entityId.slice(0, 16),
+        totalDx,
+        totalDy,
+      })
       dragging = true
       api.startDragFrame(action.entityId, {
         entityKind: 'frame',
@@ -394,11 +442,19 @@ function runFrameBodyPress(
     const dy = ev.screenY - lastScreenY
     lastScreenX = ev.screenX
     lastScreenY = ev.screenY
-    if (dx !== 0 || dy !== 0) api.dragFrame(action.entityId, dx, dy)
+    if (dx !== 0 || dy !== 0) {
+      moveCount += 1
+      api.dragFrame(action.entityId, dx, dy)
+    }
   }
 
   const onUp = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return
+    console.warn(`[attempt #${attemptId}] runFrameBodyPress up`, {
+      entityId: action.entityId.slice(0, 16),
+      dragging,
+      moveCount,
+    })
     cleanup()
     if (dragging) {
       api.endDragFrame()
@@ -407,7 +463,24 @@ function runFrameBodyPress(
     api.enterFrameFocus(action.entityId)
   }
 
-  const onCancel = () => {
+  const onCancel = (ev: Event) => {
+    // Pre-threshold blur is a phantom: after a previous drag ends,
+    // focus reconciliation routes focus from aboveView → bgView on the
+    // next layout pass (debounced 16ms). If the user clicks again
+    // inside that window, this listener installs first, then the
+    // pending reconcile fires and blurs aboveView before any cursor
+    // movement. Tearing the armed gesture down here kills the second
+    // drag with no recovery. Wait for actual movement instead;
+    // pointerup / pointercancel still abort cleanly.
+    if (!dragging && ev.type === 'blur') {
+      console.warn(
+        `[attempt #${attemptId}] runFrameBodyPress IGNORED blur (pre-threshold; gesture stays armed) entity=${action.entityId.slice(0, 16)}`,
+      )
+      return
+    }
+    console.warn(
+      `[attempt #${attemptId}] runFrameBodyPress cancel reason=${ev.type} dragging=${dragging} moveCount=${moveCount} entity=${action.entityId.slice(0, 16)}`,
+    )
     cleanup()
     if (dragging) api.endDragFrame()
   }

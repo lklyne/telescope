@@ -29,14 +29,10 @@ export function FrameBorderLayer({
   frames,
   fileEntities,
   offsetY = 0,
-  focusedFrameId,
 }: {
   frames: CanvasSceneFrameEntity[]
   fileEntities?: CanvasSceneFileEntity[]
   offsetY?: number
-  /** Predicate-derived keyboard-target frame. Renders an accent ring
-   *  around the outer border. */
-  focusedFrameId?: string | null
 }) {
   const items: BorderItem[] = [...frames, ...(fileEntities ?? []).filter((f) => f.showDeviceFrame)]
   return (
@@ -69,7 +65,6 @@ export function FrameBorderLayer({
           ? (dev?.cornerRadius ?? CUSTOM_SHELL_CORNER_RADIUS) * displayZoom
           : 0
 
-        const isFocused = frame.id === focusedFrameId
         const borderStyle = '1px solid var(--surface-device-border)'
 
         // Both borders render for every frame. For non-device frames the outer
@@ -77,23 +72,11 @@ export function FrameBorderLayer({
         // the two 1px borders simply overlap — visually identical to one border.
         // When a device shell is active the outer border traces the bezel edge
         // and the inner border traces the content viewport cutout.
+        // Phase F: the focused-frame accent ring used to live here. It now
+        // renders in aboveView via FrameFocusRingLayer so it paints above page
+        // WCVs (and overlapping neighbor frames).
         return (
           <React.Fragment key={frame.id}>
-            {/* Focus ring (ADR 0001) — drawn outside the outer border so it
-                wraps the entire frame including the device shell. */}
-            {isFocused && (
-              <div
-                className="pointer-events-none absolute"
-                style={{
-                  left: fx - 4,
-                  top: fy - 4,
-                  width: fw + 8,
-                  height: fh + 8,
-                  borderRadius: outerRadius + 3,
-                  boxShadow: '0 0 0 2px var(--accent), 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent)',
-                }}
-              />
-            )}
             {/* Outer frame border */}
             <div
               className="pointer-events-none absolute"

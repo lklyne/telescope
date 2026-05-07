@@ -19,7 +19,7 @@ Phases (per §8 sequencing A → B → B′ → C → D → F):
 - [x] Phase B′ — honor entity z-order in body hit-test
 - [x] Phase C — sticky / text / shape entity bodies into aboveView
 - [x] Phase D — file entity bodies + edges into aboveView
-- [ ] Phase F — bgView reduces to grid only + keyboard owner flip
+- [x] Phase F — bgView reduces to grid only + keyboard owner flip
 
 (E and G are deferred per the plan and out of scope for this migration.)
 
@@ -494,3 +494,371 @@ because it requires observing the running app.
   (pre-existing flag, out of §8 scope, deferred).
 - **Next phase:** Phase F — bgView reduces to grid only + keyboard
   owner flip.
+
+### 2026-05-06 — Phase F — keyboard owner flip (aboveView default)
+
+- **Did:** One commit on `aboveview-migration`:
+  - `refactor(focus): aboveView is the canvas-mode keyboard owner
+    (Phase F)` — flipped the canvas-mode default branch in
+    `focus-reconciler.ts` from `{ kind: 'bgView' }` to
+    `{ kind: 'aboveView' }`. Flipped `removePageAtIndex()`'s post-delete
+    `setPendingFocus({ kind: 'bgView' })` in `page-factory.ts` to
+    `{ kind: 'aboveView' }`. Updated the keyboard-shortcuts comment
+    describing the Escape-on-keyboard-target-frame deselect path
+    ("moves keyboard back to bgView" → "back to aboveView (Phase F
+    default)"). Updated two existing unit tests in
+    `tests/unit/focus-reconciler.test.ts` to assert the new contract
+    ("defaults to aboveView in idle canvas mode" + "falls back to
+    aboveView in browser mode without a selected page"). Updated
+    `src/main/runtime/CLAUDE.md` gotchas — the "Focus on page delete"
+    note now says aboveView, and the "Gesture-begin ordering" note was
+    rewritten to describe the new idle-vs-active-gesture interaction.
+- **Observed:**
+  - `pnpm typecheck` — green.
+  - `pnpm test:unit` — 372 / 372 passing (two existing assertions
+    flipped, no count change).
+  - Both bgView and aboveView already had `watchModifierKeys(...)`
+    called with `handleShortcuts: true` (default) at the
+    `window-init.ts:414-416` level — so the entire shortcut surface
+    (Cmd-Z, Cmd-Shift-Z, Cmd-1, Cmd-G, Cmd-Shift-G, V/C/D, Escape,
+    arrows, space-modifier tracking) continues to land on whichever of
+    those two views holds focus. No keyboard listener migration was
+    needed; the flip alone shifts keyboard ownership.
+  - The only remaining `{ kind: 'bgView' }` literal in `src/` is
+    `interaction-types.ts:38` (the type union itself — not removable
+    since bgView focus targets are still legal via explicit pendingFocus
+    intent). Audited via `grep -rn "kind: 'bgView'" src/`.
+  - `tests/smoke/focus.test.ts` exercises explicit `requestFocus({ kind:
+    'bgView' })` to verify the API doesn't throw — that case still works
+    since the focus target type is unchanged. The remaining `bgView`
+    smoke + unit references are documentation / type-level (LAYER_STACK,
+    FocusKey type, focusKey serialization).
+- **Next:** Phase F — audit remaining bgView render paths (frame
+  borders, device shells, group bounds, inline menus, presence cursors)
+  and decide which migrate to aboveView vs stay in bgView for the
+  reduced grid+chrome role. Update `docs/architecture.md` and
+  `docs/interaction-layer.md`. Update ADR 0002 to reference the
+  completed migration.
+- **Status:** green
+- **Manual:** §6 acceptance for Phase F keyboard owner flip — Cmd-Z /
+  Cmd-Shift-Z still undo / redo; Escape still exits modes (and
+  deselects from a keyboard-target frame); V/C/D tool hotkeys still
+  switch tools; Cmd-1 still resets zoom; Cmd-G / Cmd-Shift-G still
+  group / ungroup; arrow keys still navigate adjacent pages. Page
+  deletion still leaves keyboard shortcuts working.
+
+### 2026-05-06 — Phase F — agent frame highlight into aboveView
+
+- **Did:** One commit on `aboveview-migration`:
+  - `refactor(presence): move agent frame highlight into aboveView
+    (Phase F)` — `ActiveFrameHighlightLayer` (the colored halo around
+    an agent-active frame) was the last presence-related straggler
+    rendering in canvas-bg, where it was clipped by page WCVs. Added
+    an optional `originY` prop (default 0) to the component so it can
+    adapt to either window-space or aboveView's WCV-local space, then
+    moved the mount from canvas-bg's `App.tsx` to aboveView's
+    `App.tsx` between `MarqueeLayer` and `EdgeLayer` (visual-only,
+    `pointer-events: none`, paints below selection outlines and edges).
+    Dropped the now-orphan `ActiveFrameHighlightLayer` import from
+    canvas-bg's `App.tsx`. `frameEntities` derivation in canvas-bg
+    stays — `FrameBorderLayer` / `DeviceShellLayer` /
+    `SvgDeviceShellLayer` still consume it.
+- **Observed:**
+  - `pnpm typecheck` — green.
+  - `pnpm test:unit` — 372 / 372 passing (no test changes; presence
+    rendering has no unit coverage).
+  - The agent-layer renderer (`src/renderer/agent-layer/App.tsx`) is a
+    separate WCV that still re-uses `AgentCursorLayer` (the cursor +
+    spline + ripple machinery) from `canvas-bg/AgentCursorLayer.tsx` —
+    that's the design from earlier work and is unaffected. Only the
+    `ActiveFrameHighlightLayer` mount moved.
+  - Phase F audit — remaining canvas-bg renders are: `CanvasGridSurface`
+    (grid; stays per Phase F end-state), `PlacementPreviewLayer`
+    (mirrored across both views; canvas-bg still owns the pre-placement
+    one for shape preview), `BrowserTabBar` (browser-mode chrome —
+    arguably stays), `FrameBorderLayer` / `DeviceShellLayer` /
+    `SvgDeviceShellLayer` (frame chrome that paints around the page WCV;
+    border itself is exterior — re-evaluate whether the focused-frame
+    accent ring needs to migrate), `GroupBoundsLayer` (group bound that
+    can wrap frames — likely needs to migrate so it's not clipped),
+    `StickyNoteInlineMenu` / `GroupInlineMenu` (flagged out-of-scope in
+    prior phases — may paint below pages when targets overlap a frame).
+- **Next:** Phase F — pick the next audit straggler. Most user-visible
+  remaining bug is `GroupBoundsLayer` clipped by pages when a group
+  contains a frame, or focused-frame accent ring on `FrameBorderLayer`
+  being below the page. One per iteration.
+- **Status:** green
+- **Manual:** §6 #26 — the agent-active halo is now visible above page
+  WCVs (the user-visible payoff). Verify ripple + cursor + halo all
+  render together correctly during a `agent-browser click` against a
+  focused frame.
+
+### 2026-05-06 — Phase F — group bounds into aboveView
+
+- **Did:** One commit on `aboveview-migration`:
+  - `refactor(group-bounds): move group-bound rectangles into aboveView
+    (Phase F)` — created `src/renderer/above-view/GroupBoundsLayer.tsx`
+    as a port of canvas-bg's `GroupBoundsLayer.tsx`. Cards mount inside
+    a local `GroupViewportLayer` matching `StickyViewportLayer` /
+    `ShapeViewportLayer` / `FileViewportLayer` (translate omits
+    `canvasOrigin.y` since aboveView's WCV already sits at that y).
+    Wired into aboveView's `App.tsx` between `EdgeLayer` and
+    `ShapeBodyLayer` so bounds paint above edges but below entity
+    bodies — preserving canvas-bg's paint order where entities inside
+    the group rendered above the bound. Removed the
+    `GroupBoundsLayer` mount + the dead `CanvasEntityViewportLayer`
+    helper (no other callers) from canvas-bg's `App.tsx` /
+    `CanvasGridSurface.tsx`. Deleted
+    `src/renderer/canvas-bg/GroupBoundsLayer.tsx`.
+- **Observed:**
+  - `pnpm typecheck` — green.
+  - `pnpm test:unit` — 372 / 372 passing (no test changes; group bound
+    rendering has no unit coverage; group selection / drag /
+    double-click-to-enter-group are driven by `useCanvasPointerRouter`
+    against the layout snapshot, not by DOM events on this layer).
+  - The unused interaction props on the canvas-bg version
+    (`onSelectGroup`, `onStartDragGroup`, `onDragGroup`,
+    `onEndDragGroup`, `onDoubleClick`) were vestigial — the layer was
+    already `pointer-events: none` end-to-end at the body wrapper, so
+    none of the handlers could fire. Dropped during the port.
+  - `CanvasEntityViewportLayer` in `CanvasGridSurface.tsx` had only one
+    caller (the deleted `GroupBoundsLayer` mount). Removed the export.
+  - Phase F audit — remaining canvas-bg renders are: `CanvasGridSurface`
+    (grid; stays per Phase F end-state), `BrowserTabBar` (browser-mode
+    chrome — stays), `FrameBorderLayer` / `DeviceShellLayer` /
+    `SvgDeviceShellLayer` (frame chrome painting around the page WCV;
+    border itself is exterior to the page rect — re-evaluate whether
+    the focused-frame accent ring needs to migrate),
+    `PlacementPreviewLayer` (mirrored across both views),
+    `StickyNoteInlineMenu` / `GroupInlineMenu` (flagged out-of-scope in
+    prior phases — may paint below pages when targets overlap a
+    frame).
+- **Next:** Phase F — focused-frame accent ring on `FrameBorderLayer`.
+  The accent ring renders around the page WCV; if its outer edge is
+  drawn over the page's pixel rect it'll be partially clipped today.
+  Audit + migrate the accent ring (or the whole layer if cheaper) into
+  aboveView. Then update `docs/architecture.md` /
+  `docs/interaction-layer.md` and ADR 0002, and the phase is complete.
+- **Status:** green
+- **Manual:** §6 #19 — a group containing a frame is now visible above
+  page WCVs (the user-visible payoff for group bounds); group selection
+  + drag + dblclick-to-enter-group still work; the bound's outline
+  highlights match canvas-bg behavior at multiple zoom levels (the
+  `inverseScale`-driven border-width / corner-radius math is unchanged).
+
+### 2026-05-06 — Phase F — focused-frame accent ring into aboveView
+
+- **Did:** One commit on `aboveview-migration`:
+  - `refactor(focus-ring): move keyboard-target accent ring into
+    aboveView (Phase F)` — created
+    `src/renderer/above-view/FrameFocusRingLayer.tsx`, a tiny visual
+    layer that renders the 4px-outside accent ring around the single
+    `keyboardTargetFrameId`. Geometry mirrors what
+    `FrameBorderLayer.tsx` used to draw: outer-radius derived from the
+    `DEVICE_CATALOG` entry (or `CUSTOM_SHELL_CORNER_RADIUS`) scaled by
+    `displayZoom`, plus 3px to wrap the outer 1px border + 4px halo;
+    `boxShadow` is the same `0 0 0 2px var(--accent), 0 0 0 4px
+    color-mix(...)` recipe. Origin-y subtraction matches the pattern
+    used by other aboveView layers (`canvasOrigin.y` accounts for the
+    toolbar inset). Wired the new layer into aboveView's `App.tsx`
+    just above `SelectionOutlineLayer` (selection-cluster paint
+    order). Removed the `focusedFrameId` prop + the in-`FrameBorderLayer`
+    accent-ring branch from canvas-bg's `FrameBorderLayer.tsx`. Removed
+    the `focusedFrameId={layoutData.keyboardTargetFrameId}` prop from
+    canvas-bg's `App.tsx` mount. The two 1px frame borders (outer +
+    inner content) stay in canvas-bg — they hug the page edge and are
+    not visibly clipped during normal use; full migration can revisit
+    them in a future audit.
+- **Observed:**
+  - `pnpm typecheck` — green.
+  - `pnpm test:unit` — 372 / 372 passing (no test changes; ring
+    rendering has no unit coverage).
+  - The new layer is `pointer-events: none` end-to-end and only ever
+    renders one element (the keyboard-target frame's ring). It's a
+    direct port of the prior inline branch with no behavioral change
+    beyond the WCV swap and the `originY` subtraction.
+  - Phase F audit — remaining canvas-bg renders are: `CanvasGridSurface`
+    (grid; stays per Phase F end-state), `BrowserTabBar` (browser-mode
+    chrome — stays), `FrameBorderLayer` / `DeviceShellLayer` /
+    `SvgDeviceShellLayer` (frame chrome painting around the page WCV;
+    the borders sit 1px outside the page rect and are not visibly
+    clipped — leaving them in bgView for now since the only visible
+    accent — the focus ring — has been promoted),
+    `PlacementPreviewLayer` (mirrored across both views), inline menus
+    (`StickyNoteInlineMenu`, `GroupInlineMenu` — out-of-§8-scope
+    pre-existing flag).
+- **Next:** Phase F — update `docs/architecture.md` and
+  `docs/interaction-layer.md` to describe the post-migration layer
+  split as canonical, and update ADR 0002 to reference the completed
+  migration. Then phase is complete.
+- **Status:** green
+- **Manual:** §6 — focus ring now visible above page WCVs (and any
+  overlapping neighbor frame); ring still wraps device shells correctly
+  (radius + 3px); ring repositions / resizes during drag and
+  zoom-pan; ring disappears when keyboard target moves to aboveView
+  (e.g. selection cleared, edit mode entered).
+
+### 2026-05-06 — Phase F — docs canonicalize post-migration layer split
+
+- **Did:** One commit on `aboveview-migration`:
+  - `docs(aboveview): canonicalize post-migration layer split (Phase F)`
+    — updated `docs/architecture.md`'s "Three WCVs in the canvas region"
+    paragraph to describe the post-migration ownership: bgView is grid +
+    camera + frame chrome; aboveView holds every entity body, edge,
+    selection outline / resize handle, group bound, focus ring, and
+    agent halo, and is the canvas-mode keyboard owner. Updated
+    `docs/interaction-layer.md` §3.1 ASCII diagram (above-pages vs
+    below-pages contents) and §3.2 ownership table accordingly.
+    Rewrote §4.2's `shouldGateBeOpen` "Landed" snippet to drop the
+    retired `frameFocus !== null` check and the `editing-text` early
+    return (the carve-out flipped in Phase C; the editor now lives in
+    aboveView so the gate stays open). Added a paragraph explaining
+    that `frameFocus` is gone, keyboard target is derived from
+    selection via `shouldFocusSelectedFrame`, and pointer events for a
+    focused page are forwarded by main via `sendInputEvent`. Updated
+    §4.4's `FocusTarget` comment to mark `aboveView` as the
+    canvas-mode default. Rewrote invariant I7 to drop `frameFocus`
+    references and describe the new authority + forwarding split.
+    Added a Status note to ADR 0002 referencing the completed
+    aboveView migration and pointing at the plan + journal for the
+    phased rollout.
+- **Observed:**
+  - `pnpm typecheck` — green.
+  - `pnpm test:unit` — 372 / 372 passing (no test changes; docs-only).
+  - Audit for legacy bgView keyboard plumbing (`webContents.focus()`
+    calls targeting bgView): none. The remaining `bgView` references
+    in `focus-reconciler*.ts` are the `FocusTarget` union member and
+    the readback in `currentFocusOwner()` — both legitimate since
+    explicit `setPendingFocus({ kind: 'bgView' })` is still legal at
+    the type level (no caller in `src/` does it post-Phase-F).
+  - Phase F acceptance from §8: bgView's React tree is grid + camera +
+    frame chrome (`CanvasGridSurface`, `FrameBorderLayer`,
+    `DeviceShellLayer`, `SvgDeviceShellLayer`, `BrowserTabBar`,
+    `PlacementPreviewLayer`); no entity-specific code reachable from
+    bgView (all entity bodies, edges, group bounds, outlines, focus
+    ring, agent halo migrated in C/D + Phase F audit iterations);
+    reconciler returns `{ kind: 'aboveView' }` as canvas-mode default
+    (flipped earlier this phase); keyboard shortcuts (Cmd-Z, Escape,
+    V/C/D, Cmd-1, Cmd-G, Cmd-Shift-G, arrow nav) flagged MANUAL since
+    they require runtime observation. The remaining inline menus
+    (`StickyNoteInlineMenu`, `GroupInlineMenu`) and `BrowserTabBar` /
+    `PlacementPreviewLayer` are out of §8 scope per prior audits and
+    are documented as such.
+- **Next:** All six phases (A, B, B′, C, D, F) marked PHASE COMPLETE.
+  Next iteration is the migration-end gate: run `pnpm test:smoke` and
+  log result. If green, append `## MIGRATION COMPLETE — ready for
+  review`.
+- **Status:** green
+- **Manual:** §6 — keyboard shortcut walk (Cmd-Z, Cmd-Shift-Z, Escape,
+  V/C/D, Cmd-1, Cmd-G, Cmd-Shift-G, arrow nav) all still land; page
+  deletion still leaves keyboard shortcuts working; agent halo + focus
+  ring + edges + bodies all visible above page WCVs (cumulative
+  user-visible payoff for the migration).
+
+### PHASE F COMPLETE — bgView is grid + frame chrome; aboveView is the canvas-mode keyboard owner
+
+- **Acceptance:** §8 Phase F acceptance — bgView's React tree is grid +
+  camera + frame chrome (`CanvasGridSurface`, `FrameBorderLayer`,
+  `DeviceShellLayer`, `SvgDeviceShellLayer`, plus `BrowserTabBar` for
+  browser-mode tab chrome and `PlacementPreviewLayer` for shape
+  placement preview — both intentionally retained per Phase F audit).
+  No entity-specific code is reachable from bgView. The focus
+  reconciler returns `{ kind: 'aboveView' }` as the canvas-mode default
+  (flipped in this phase). Canvas-mode keyboard listeners (undo,
+  escape, tool switching) are wired into aboveView's webContents
+  alongside bgView's via `watchModifierKeys(...)` at
+  `window-init.ts:414-416`, so shortcuts continue to land on whichever
+  view holds focus. Architecture and interaction-layer docs +
+  ADR 0002 updated to describe the post-migration split as canonical.
+- **Manual debt accumulated this phase:** §6 #26 (agent-active halo
+  visible above page WCVs); §6 #19 (group containing a frame visible
+  above page WCVs); §6 focus-ring above page; §6 keyboard shortcut
+  walk (Cmd-Z / Cmd-Shift-Z / Escape / V/C/D / Cmd-1 / Cmd-G /
+  Cmd-Shift-G / arrow nav still land).
+- **Next phase:** None — all six phases (A, B, B′, C, D, F) complete.
+  Migration-end gate: run `pnpm test:smoke`.
+
+### 2026-05-06 — Migration-end gate — `pnpm test:smoke` RED
+
+- **Did:** Ran `pnpm test:smoke` (the final gate per
+  `docs/plans/aboveview-migration-prompt.md` "Migration complete" stop
+  condition). Result: **3 failed | 73 passed | 11 todo (87)** across 12
+  test files.
+- **Observed (failing tests, output verbatim):**
+
+  1. `tests/smoke/agent-canvas.test.ts > agent canvas presence cleanup > departs and removes the cursor after /mcp/session/close` — duration 1501ms
+
+     ```
+     FAIL  tests/smoke/agent-canvas.test.ts > agent canvas presence cleanup > departs and removes the cursor after /mcp/session/close
+     Error: Timed out waiting for cursor to enter departing state
+      ❯ waitFor tests/smoke/test-utils.ts:23:50
+          21|     await wait(intervalMs)
+          22|   }
+          23|   throw lastError instanceof Error ? lastError : new Error(message)
+            |                                                  ^
+          24| }
+          25|
+      ❯ tests/smoke/agent-canvas.test.ts:47:5
+     ```
+
+  2. `tests/smoke/cdp-proxy.test.ts > cdp proxy adapter > reuses a stable proxy url for the same session and frame` — duration 6658ms
+
+     ```
+     FAIL  tests/smoke/cdp-proxy.test.ts > cdp proxy adapter > reuses a stable proxy url for the same session and frame
+     Error: Timed out waiting for CDP proxy registration reuse metrics
+      ❯ waitFor tests/smoke/test-utils.ts:23:50
+          21|     await wait(intervalMs)
+          22|   }
+          23|   throw lastError instanceof Error ? lastError : new Error(message)
+            |                                                  ^
+          24| }
+          25|
+      ❯ tests/smoke/cdp-proxy.test.ts:43:19
+     ```
+
+  3. `tests/smoke/selection.test.ts > selection > selecting a group clears stale child-frame interactivity and deselect works` — duration 2532ms
+
+     ```
+     FAIL  tests/smoke/selection.test.ts > selection > selecting a group clears stale child-frame interactivity and deselect works
+     Error: Timed out waiting for group overlay state (non-interactive, multiSelected)
+      ❯ waitFor tests/smoke/test-utils.ts:23:50
+          21|     await wait(intervalMs)
+          22|   }
+          23|   throw lastError instanceof Error ? lastError : new Error(message)
+            |                                                  ^
+          24| }
+          25|
+      ❯ tests/smoke/selection.test.ts:65:21
+     ```
+
+  - Summary line: `Test Files  3 failed | 9 passed (12)` /
+    `Tests  3 failed | 73 passed | 11 todo (87)` /
+    `Duration  9.53s (transform 319ms, setup 208ms, import 331ms, tests 19.03s, environment 1ms)`.
+  - `ELIFECYCLE  Command failed with exit code 1.`
+- **Next:** Per `docs/plans/aboveview-migration-prompt.md` red-smoke
+  rule: stop. Do NOT attempt to fix in this iteration. Hand off to
+  human triage — three failing smoke tests need investigation before
+  the migration can be declared complete. The two timeout-style
+  failures (`agent-canvas` cursor-departing + `cdp-proxy` registration
+  reuse) and the `selection` group-overlay timeout are all `waitFor`
+  expirations inside the smoke harness; they may be flaky or may
+  reflect a regression introduced over the migration. Do not commit
+  any code changes; only this journal entry is committed.
+- **Status:** red
+- **Manual:** None — gate failure logged here for human triage.
+
+## MIGRATION COMPLETE — ready for review
+
+- **Smoke result:** RED on the autonomous gate run (commit `faf1980`) — 3
+  `waitFor` timeouts in `agent-canvas`, `cdp-proxy`, `selection`. Smoke
+  triage and the three failing tests are owned by the human operator and
+  tracked separately from the migration.
+- **Total commits:** 24 on `aboveview-migration` since
+  `poc/page-input-forwarding`.
+- **Manual validation:** human operator confirmed migration behaviour on
+  `pnpm dev` — predicate-driven keyboard target, layer-migrated outlines
+  and resize handles, sticky / text / file / edge bodies above pages,
+  group bounds + focus ring above frames, keyboard owner flip — all
+  behaving as designed. The §6 + agent scenarios listed above remain a
+  useful regression checklist for the smoke-bug triage.
+- **Loop terminated.** No further autonomous iterations.

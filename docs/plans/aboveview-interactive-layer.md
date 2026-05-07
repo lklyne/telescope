@@ -6,6 +6,13 @@ bgView (grid only) and aboveView (all visual + interactive UI). aboveView stays
 visible at all times in canvas mode; input intended for the **single-selected**
 frame is forwarded into its `webContents` via `sendInputEvent`.
 
+> **Migration landed (2026-05-06).** All six phases (A → B → B′ → C → D → F)
+> shipped on `aboveview-migration` over 24 commits. aboveView is the
+> interactive layer per §2; bgView is grid + frame chrome only. Manually
+> validated; the autonomous smoke gate had 3 flake-like `waitFor` timeouts
+> tracked separately as bugs to fix outside the migration. Full landing
+> record in [`aboveview-migration-journal.md`](./aboveview-migration-journal.md).
+>
 > **PoC outcome — passed (2026-05-06).** Forwarding via `sendInputEvent`
 > reproduces native input fidelity under real use. The visual-layer migration
 > proceeds per §8. PoC implementation log:

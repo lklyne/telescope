@@ -204,12 +204,19 @@ function AgentCursor({
   )
 }
 
+/** Halo around an agent-active frame so it's discoverable while CDP runs.
+ *  Mounts in aboveView (Phase F) so the halo paints above page WCVs; pass
+ *  `originY={canvasOrigin.y}` to align frame coords against aboveView's WCV
+ *  whose origin sits at the toolbar inset. Defaults to 0 for callers that
+ *  still live at window-space (none today). */
 export function ActiveFrameHighlightLayer({
   cursors,
   frames,
+  originY = 0,
 }: {
   cursors: AgentPresenceCursor[]
   frames: CanvasSceneFrameEntity[]
+  originY?: number
 }) {
   const activeFrames = useMemo(() => {
     const map = new Map<string, string>()
@@ -233,7 +240,7 @@ export function ActiveFrameHighlightLayer({
             className="absolute rounded-sm pointer-events-none"
             style={{
               left: frame.screenX + inset,
-              top: frame.screenY + inset,
+              top: frame.screenY + inset - originY,
               width: frame.screenWidth - inset * 2,
               height: frame.screenHeight - inset * 2,
               boxShadow: `0 0 0 2px ${activeFrames.get(frame.id)!}, 0 0 24px 4px color-mix(in srgb, ${activeFrames.get(frame.id)!} 25%, transparent)`,

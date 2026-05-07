@@ -165,10 +165,19 @@ overlay, focus handoff, or drag-and-drop target, read it first — the
 following commitments are load-bearing and costly to unwind later.
 
 **Three WCVs in the canvas region.** `bgView` below pages, 0–N live page
-views in the middle, one merged `aboveView` on top. Every canvas-level
-gesture visual and every input capture happens in `aboveView`. Adding a
-new transparent overlay WCV is almost always wrong — compose into
-`aboveView` as a React layer instead.
+views in the middle, one merged `aboveView` on top. Post-aboveView
+migration (2026-05-06), `bgView` carries only the canvas grid + camera
+transform plus a small amount of frame chrome (frame borders, device
+shells); every entity body (sticky, shape, file/markdown/wireframe/
+component/image/video), every edge, every selection outline / resize
+handle / hover indicator, every group bound, the keyboard-target focus
+ring, and the agent-active halo render in `aboveView`. `aboveView` is
+also the canvas-mode keyboard owner — `FocusReconciler`'s default is
+`{ kind: 'aboveView' }` and the only other keyboard target is a page
+WCV during forwarded frame interaction (driven by the
+`shouldFocusSelectedFrame` predicate). Adding a new transparent
+overlay WCV is almost always wrong — compose into `aboveView` as a
+React layer instead.
 
 **One sibling window outside the WCV stack.** `cursorOverlayWindow` is a
 child `BrowserWindow` of `win`, hosting the `agent-layer` renderer. It

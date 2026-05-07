@@ -133,6 +133,14 @@ function routeByPayload(
         side: payload.side,
       }
     case 'frame-body':
+      // Additive modifier wins over the forward-into-page shortcut: shift/
+      // cmd-click on the frame body must reach the selection system so users
+      // can extend a multi-selection from a single-selected frame (the page
+      // content blocker is removed in that state, so the click would
+      // otherwise land in the webpage). Mirrors `chrome` and `entity-body`.
+      if (isAdditive(context.modifiers)) {
+        return { kind: 'toggle-select', entityId: payload.entityId, entityKind: 'frame' }
+      }
       // PoC: on the single-selected frame's body, forward the pointer event
       // into the page so the user interacts with web content directly.
       // Otherwise (unselected or multi-selected) keep the existing

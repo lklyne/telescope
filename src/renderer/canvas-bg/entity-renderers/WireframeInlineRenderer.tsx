@@ -53,6 +53,18 @@ export function WireframeInlineRenderer({
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [fetchContent])
 
+  // Sibling chrome (theme picker) writes to disk and dispatches this event.
+  useEffect(() => {
+    const handleExternalChange = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ file?: string }>).detail
+      if (detail?.file !== entity.file) return
+      if (debounceRef.current) return
+      fetchContent()
+    }
+    window.addEventListener('wireframe-file-changed', handleExternalChange)
+    return () => window.removeEventListener('wireframe-file-changed', handleExternalChange)
+  }, [entity.file, fetchContent])
+
   const handleChange = useCallback(
     (json: string) => {
       setContent(json)

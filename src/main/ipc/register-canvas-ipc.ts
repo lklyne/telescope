@@ -37,6 +37,12 @@ import {
 import { tryEnter, commitActive } from '../runtime/interaction-controller'
 import { setTextEditingActive } from '../runtime/keyboard-shortcuts'
 import { enterFrameFocus, withFocusEventsSuppressed } from '../runtime/frame-focus'
+import {
+  forwardPointerToFrame,
+  forwardWheelToFrame,
+  type ForwardPointerPayload,
+  type ForwardWheelPayload,
+} from '../runtime/page-input-forwarding'
 import { markDirty } from '../runtime/layout-dirty'
 import {
   createWorkspaceTab,
@@ -258,6 +264,22 @@ export function registerCanvasIpc(): void {
     markDirty('canvas')
     requestLayout()
   })
+
+  // PoC: aboveView forwards wheel/pointer events that hit the body of the
+  // single-selected frame so the page reacts as if clicked/scrolled directly.
+  // See docs/plans/aboveview-interactive-layer-poc.md.
+  ipcMain.on(
+    'canvas-forward-wheel',
+    (_event, { frameId, payload }: { frameId: string; payload: ForwardWheelPayload }) => {
+      forwardWheelToFrame(frameId, payload)
+    },
+  )
+  ipcMain.on(
+    'canvas-forward-pointer',
+    (_event, { frameId, payload }: { frameId: string; payload: ForwardPointerPayload }) => {
+      forwardPointerToFrame(frameId, payload)
+    },
+  )
 
   ipcMain.on('canvas-set-text-editing', (event, { active }: { active: boolean }) => {
     setTextEditingActive(event.sender, active)

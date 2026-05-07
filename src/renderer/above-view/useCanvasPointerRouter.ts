@@ -90,6 +90,7 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
   'noop',
   'enter-frame-focus',
   'frame-body-press',
+  'forward-pointer-down',
   'begin-entity-drag',
   'begin-group-drag',
   'begin-resize',
@@ -185,6 +186,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         selectedEntityIds: layout.selectedEntityIds,
         frameFocused: layout.frameFocus !== null,
         isPrimaryButton: event.button === 0,
+        button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
         modifiers,
         spaceHeld: spaceHeldRef.current,
       }
@@ -293,6 +295,8 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return true
     case 'frame-body-press':
       return runFrameBodyPress(action, api, event, attemptId)
+    case 'forward-pointer-down':
+      return runForwardPointer(action, api, event, layoutRef)
     case 'toggle-select':
       if (action.entityKind === 'frame') {
         api.selectFrame(action.entityId, { shift: true, meta: false, ctrl: false })
@@ -789,6 +793,88 @@ function runBackgroundSelectionGesture(
   window.addEventListener('pointerup', onUp)
   window.addEventListener('pointercancel', onCancel)
   window.addEventListener('blur', onCancel)
+  return true
+}
+
+function runForwardPointer(
+  action: Extract<CanvasPointerAction, { kind: 'forward-pointer-down' }>,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+): boolean {
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
+  const { entityId, button } = action
+  let lastWindowX = event.clientX
+  let lastWindowY = event.clientY + layoutRef.current.canvasOrigin.y
+  api.forwardPointerToFrame(entityId, {
+    kind: 'down',
+    windowX: lastWindowX,
+    windowY: lastWindowY,
+    button,
+    clickCount: event.detail || 1,
+    shiftKey: event.shiftKey,
+    ctrlKey: event.ctrlKey,
+    altKey: event.altKey,
+    metaKey: event.metaKey,
+  })
+
+  // Important: do NOT register a window `blur` listener here. Forwarding
+  // `mouseDown` causes the focus-reconciler to move webContents focus to the
+  // target page, which fires `blur` on aboveView. If we treated that as a
+  // cancel, we'd tear down the gesture before `pointerup` arrives — leaving
+  // the page stuck with a phantom mouseDown and the next click looking like
+  // a release+drag rather than a fresh click.
+  const cleanup = () => {
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+  }
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    lastWindowX = ev.clientX
+    lastWindowY = ev.clientY + layoutRef.current.canvasOrigin.y
+    api.forwardPointerToFrame(entityId, {
+      kind: 'move',
+      windowX: lastWindowX,
+      windowY: lastWindowY,
+      button,
+      shiftKey: ev.shiftKey,
+      ctrlKey: ev.ctrlKey,
+      altKey: ev.altKey,
+      metaKey: ev.metaKey,
+    })
+  }
+  const sendUp = (ev: PointerEvent | null) => {
+    const winX = ev ? ev.clientX : lastWindowX
+    const winY = ev ? ev.clientY + layoutRef.current.canvasOrigin.y : lastWindowY
+    api.forwardPointerToFrame(entityId, {
+      kind: 'up',
+      windowX: winX,
+      windowY: winY,
+      button,
+      clickCount: ev?.detail || 1,
+      shiftKey: ev?.shiftKey ?? false,
+      ctrlKey: ev?.ctrlKey ?? false,
+      altKey: ev?.altKey ?? false,
+      metaKey: ev?.metaKey ?? false,
+    })
+  }
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    cleanup()
+    sendUp(ev)
+  }
+  const onCancel = () => {
+    cleanup()
+    // Always release the page's mouseDown state so a canceled gesture
+    // doesn't leak a stuck button.
+    sendUp(null)
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
   return true
 }
 

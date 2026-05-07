@@ -53,6 +53,7 @@ const baseCtx: CanvasPointerContext = {
   selectedEntityIds: [],
   frameFocused: false,
   isPrimaryButton: true,
+  button: 'left',
   modifiers: { shift: false, meta: false, ctrl: false },
   spaceHeld: false,
 }
@@ -63,6 +64,36 @@ describe('routePointerDown', () => {
     const target = hitTest(inputs([f]), { x: 500, y: 400 })
     const action = routePointerDown(target, baseCtx)
     expect(action).toEqual({ kind: 'frame-body-press', entityId: 'f1', preserveSelection: false })
+  })
+
+  it('frame body pointerdown on single-selected frame → forward-pointer-down', () => {
+    const f = frame()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['f1'] })
+    expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'left' })
+  })
+
+  it('right-click on single-selected frame body → forward-pointer-down (right)', () => {
+    const f = frame()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      isPrimaryButton: false,
+      button: 'right',
+    })
+    expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'right' })
+  })
+
+  it('frame body pointerdown when frame is in multi-selection → frame-body-press (drag)', () => {
+    const f = frame()
+    const t = text()
+    const target = hitTest(inputs([f, t], ['f1', 't1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1', 't1'],
+    })
+    expect(action).toMatchObject({ kind: 'frame-body-press', entityId: 'f1' })
   })
 
   it('chrome click on frame → begin-entity-drag', () => {

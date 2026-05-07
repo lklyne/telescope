@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
+  CanvasSceneFileEntity,
   CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
   LayoutUpdateData,
@@ -23,6 +24,7 @@ import { DRAW_CURSOR } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
+import { FileBodyLayer, type FileJsonModeMap } from './FileBodyLayer'
 import { SelectionOutlineLayer } from './SelectionOutlineLayer'
 import { ShapeBodyLayer } from './ShapeBodyLayer'
 import { StickyBodyLayer } from './StickyBodyLayer'
@@ -41,6 +43,7 @@ import {
   useCanvasPointerRouter,
 } from './useCanvasPointerRouter'
 import { EdgeDragLayer } from './EdgeDragLayer'
+import { EdgeLayer } from './EdgeLayer'
 import { FrameChromeOverlay } from './FrameChrome'
 import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
@@ -93,6 +96,11 @@ export default function App({
   )
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayPayload | null>(null)
   const [captureMode, setCaptureMode] = useState(false)
+  // Phase D: file bodies own their own jsonMode state in aboveView. The chrome
+  // layer (FileChrome) doesn't read this today; if a wireframe theme/JSON
+  // toggle moves into the chrome later it'll need an IPC channel to flip
+  // entries here. Empty Map for now — wireframe renderers default to false.
+  const fileJsonModeMap = useMemo<FileJsonModeMap>(() => new Map(), [])
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
 
   useEffect(() => api.onSelectionOverlayChanged(setSelectionOverlay), [])
@@ -198,6 +206,14 @@ export default function App({
     threadInputRef,
   })
   const drawInteractionEnabled = layoutData.annotationMode === 'draw' && !openThreadId
+  const selectedEdgeIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const target of layoutData.selection) {
+      if (target.kind === 'edge') ids.add(target.id)
+    }
+    return ids
+  }, [layoutData.selection])
+  const hoveredEntityId = layoutData.hover?.id ?? null
   const overlayInteractive = Boolean(
     pendingAnnotation ||
       pendingRegionRect ||
@@ -802,6 +818,20 @@ export default function App({
           <MarqueeLayer overlay={selectionOverlay} />
 
           {layoutData.viewMode === 'canvas' ? (
+            <EdgeLayer
+              edges={layoutData.edges}
+              entities={layoutData.entities}
+              hoveredEntityId={hoveredEntityId}
+              isDark={isDark}
+              interaction={layoutData.interaction}
+              selectedEdgeIds={selectedEdgeIds}
+              selectedEntityIds={layoutData.selectedEntityIds}
+              zoom={layoutData.zoom}
+              originY={layoutData.canvasOrigin.y}
+            />
+          ) : null}
+
+          {layoutData.viewMode === 'canvas' ? (
             <ShapeBodyLayer
               entities={layoutData.entities.filter(
                 (e): e is CanvasSceneShapeEntity => e.kind === 'shape',
@@ -837,6 +867,22 @@ export default function App({
               zoom={layoutData.zoom}
               onPendingFocusConsumed={() => setPendingTextEditId(null)}
               onUpdateText={(id, text) => api.updateTextEntity(id, { text })}
+              onTextEditingChange={api.setTextEditing}
+            />
+          ) : null}
+
+          {layoutData.viewMode === 'canvas' ? (
+            <FileBodyLayer
+              entities={layoutData.entities.filter(
+                (e): e is CanvasSceneFileEntity => e.kind === 'file',
+              )}
+              isDark={isDark}
+              selectedEntityIdSet={new Set(layoutData.selectedEntityIds)}
+              selectedEntityCount={layoutData.selectedEntityIds.length}
+              jsonModeMap={fileJsonModeMap}
+              canvasOrigin={layoutData.canvasOrigin}
+              pan={layoutData.pan}
+              zoom={layoutData.zoom}
               onTextEditingChange={api.setTextEditing}
             />
           ) : null}

@@ -18,7 +18,7 @@ Phases (per §8 sequencing A → B → B′ → C → D → F):
 - [x] Phase B — selection outlines + resize handles into aboveView
 - [x] Phase B′ — honor entity z-order in body hit-test
 - [x] Phase C — sticky / text / shape entity bodies into aboveView
-- [ ] Phase D — file entity bodies + edges into aboveView
+- [x] Phase D — file entity bodies + edges into aboveView
 - [ ] Phase F — bgView reduces to grid only + keyboard owner flip
 
 (E and G are deferred per the plan and out of scope for this migration.)
@@ -356,3 +356,141 @@ because it requires observing the running app.
   may paint below page when sticky overlaps a frame (deferred —
   inline-menu migration not in §8 scope).
 - **Next phase:** Phase D — file entity bodies + edges into aboveView.
+
+### 2026-05-06 — Phase D — edges into aboveView
+
+- **Did:** One commit on `aboveview-migration`:
+  - `refactor(edges): move edge bodies + anchor dots into aboveView
+    (Phase D)` — created `src/renderer/above-view/EdgeLayer.tsx` as a
+    direct port of canvas-bg's `EdgeLayer.tsx`. The svg is purely visual
+    (`pointer-events: none` end-to-end); edge interaction is already
+    driven by `useCanvasPointerRouter` against the layout snapshot, so
+    the only mechanical change was the y-origin shift: every anchor
+    coord now subtracts `canvasOrigin.y` since aboveView's WCV starts at
+    the toolbar inset (the `getAnchorPoint`, `getAnchorHitRect`, and
+    `AnchorDots` helpers grew an `originY` parameter; auto-side
+    selection uses raw `screenY` because it operates in window-space and
+    is symmetric, so the offset cancels). Wired into aboveView's
+    `App.tsx` between `MarqueeLayer` and `ShapeBodyLayer` to preserve
+    canvas-bg's prior paint order (edges below entity bodies). Moved
+    the `selectedEdgeIds` derivation and `hoveredEntityId` read into
+    aboveView's `App.tsx`. Removed the `<EdgeLayer>` mount, the
+    `selectedEdgeIds`/`hoveredEntityId` derivations, and the now-orphan
+    `handleHoverEntity` callback from canvas-bg's `App.tsx`. Deleted
+    `src/renderer/canvas-bg/EdgeLayer.tsx`.
+- **Observed:**
+  - `pnpm typecheck` — green.
+  - `pnpm test:unit` — 372 / 372 passing (no test changes; edge
+    rendering has no unit coverage; edge hit-test logic in `hit-test.ts`
+    + `useCanvasPointerRouter` is unchanged and remains covered).
+  - The dead `onMouseEnter`/`onMouseLeave` handlers on the anchor hit
+    rect (already inert because `pointerEvents: 'none'` was set above
+    them in the bgView source) were dropped during the port — they
+    couldn't fire and added noise.
+  - `EdgeDragLayer` (rubber-band preview) already lived in aboveView
+    from the ADR 0001 work; this commit makes saved edges + anchor dots
+    join it, so the entire edge surface is now in one tree.
+  - Edges now paint above frame WCVs — a connection drawn between two
+    frames is no longer clipped by either page (Phase D user-visible
+    payoff for edges).
+- **Next:** Phase D — file entity bodies (`FileBlockLayer` + the
+  `RendererSwitch`-mounted image / video / markdown / wireframe /
+  component bodies) into aboveView.
+- **Status:** green
+- **Manual:** §6 #19 / general boundary scenarios — verify edge drawn
+  between frames is visible above both pages (the user-visible payoff);
+  edge selection + drag-to-reroute still works; anchor dots appear on
+  hover/selection at the correct spots (within ~1px due to integer
+  rounding around `canvasOrigin.y`).
+
+### 2026-05-06 — Phase D — file entity bodies into aboveView
+
+- **Did:** One commit on `aboveview-migration`:
+  - `refactor(file): move file entity bodies into aboveView (Phase D)`
+    — created `src/renderer/above-view/FileBodyLayer.tsx`, a port of
+    canvas-bg's `FileBlockLayer.tsx` covering the renderer-plugin-mounted
+    image / video / markdown / wireframe / component / fallback bodies
+    plus the `Show in Finder` context menu. Cards mount inside a local
+    `FileViewportLayer` mirroring `StickyViewportLayer` /
+    `ShapeViewportLayer` (translate omits `canvasOrigin.y` since
+    aboveView's WCV already sits at that y). Wired into aboveView's
+    `App.tsx` between `StickyBodyLayer` and `SelectionOutlineLayer` so
+    files paint above stickies/shapes/edges (preserves prior canvas-bg
+    layer order). `fileJsonModeMap` state moved from canvas-bg's
+    `App.tsx` into aboveView's `App.tsx` (fresh empty Map; chrome layer
+    doesn't read it today, so wireframes default to false until a
+    future IPC channel mirrors flips between chrome and body). Removed
+    `FileBlockLayer` mount + the now-orphan `fileJsonModeMap`,
+    `getEntityLayerZoom`, `selectedEntityIdSet`,
+    `selectedGroupDescendantIds`, `drawingEntities`, `marqueePreviewIds`
+    state, `onSelectionOverlayChanged` listener, and
+    `<EntityHoverProvider>` wrap from canvas-bg's `App.tsx`. Deleted
+    `FileBlockLayer.tsx`, `SelectableEntityShell.tsx`,
+    `EntityHoverProvider.tsx`, and the `EntityBlockLayers.tsx` facade
+    (all orphaned).
+- **Observed:**
+  - `pnpm typecheck` — green.
+  - `pnpm test:unit` — 372 / 372 passing (no test changes; file body
+    rendering has no unit coverage; router-driven select / drag / resize
+    against `useCanvasPointerRouter` geometry is unchanged).
+  - `FileShell` (replacing `SelectableEntityShell`) drops the
+    `EntityHoverProvider` setter context entirely — same simplification
+    as `StickyShell` / `ShapeShell`. Hover for files comes from
+    aboveView's window pointermove handler via `api.hoverFrame`.
+  - `RendererSwitch` and the registry-mounted renderers themselves
+    (`ImageInlineRenderer`, `VideoInlineRenderer`,
+    `MarkdownInlineRenderer`, `WireframeInlineRenderer`,
+    `ComponentPlaceholderRenderer`, `FileFallbackRenderer`) stay in
+    `canvas-bg/entity-renderers/` and are imported from aboveView. No
+    behavioral migration needed — they're plain React components and
+    they pick up keyboard focus from aboveView's WCV directly during
+    inline edit (markdown contenteditable, wireframe text).
+  - Markdown / wireframe inline edit now inherits the Phase C carve-out
+    flip (gate stays open + reconciler routes to aboveView during
+    `editing-text`) since aboveView is where the contenteditable lives.
+  - Inline menus (`StickyNoteInlineMenu`, `GroupInlineMenu`) still live
+    in canvas-bg's `App.tsx` — they're floating UI on top of bodies and
+    out of §8 scope (pre-existing flag from Phase C). They may paint
+    below pages when their target overlaps a frame; deferred.
+  - `FrameBorderLayer` / `DeviceShellLayer` / `SvgDeviceShellLayer` in
+    canvas-bg still consume `fileEntities` for device-frame chrome and
+    are intentionally left alone — they paint frame-and-file borders
+    that the canvas-bg "between bgView and pages" sandwich relies on.
+    Phase F audits whether any of those need to move.
+- **Next:** Phase F — bgView reduces to grid only + keyboard owner flip.
+- **Status:** green
+- **Manual:** §6 #19 — file (image / video / markdown / wireframe /
+  component) placed over a focused frame is now visible above the page
+  (Phase D user-visible payoff for files); markdown / wireframe inline
+  edit (caret + keystrokes) lands in aboveView's contenteditable; exit
+  edit returns forwarded input to the underlying frame; §9 drag-image-
+  out from a focused page — re-check that the OS-level drag still
+  initiates from the image-renderer source (carve-out mapped to this
+  phase, runtime observation required); video play / scroll-within
+  works while a frame is forwarded; right-click "Show in Finder" still
+  opens.
+
+### PHASE D COMPLETE — file entity bodies + edges render in aboveView
+
+- **Acceptance:** §8 Phase D acceptance — all `RendererSwitch`-mounted
+  bodies (image / video / markdown / wireframe / component / fallback)
+  paint in aboveView via `FileBodyLayer.tsx`. Edges already migrated in
+  the prior iteration via `EdgeLayer.tsx`. A drawn edge between two
+  frames + a file entity placed over a frame are now both visible above
+  page WCVs. Inline interactive bits (markdown contenteditable,
+  wireframe text, video controls, anchor dots) keep working because
+  aboveView's WCV holds the keyboard / pointer input the renderers
+  need; the gate is open in canvas mode and the focus reconciler routes
+  `editing-text` to aboveView (Phase C carve-out flip).
+- **Manual debt accumulated this phase:** §6 #19 (file over focused
+  frame is visible above page); markdown / wireframe inline edit caret
+  + keystrokes + exit-and-resume-forwarding manual walk; §9 drag-image-
+  out — re-check that the OS-level drag still initiates from a focused-
+  page image-renderer source (carve-out runtime check); right-click
+  Show-in-Finder still works on a file body that overlaps a frame;
+  edge / anchor-dot manual checks carried from prior Phase D entry;
+  inline menus (`StickyNoteInlineMenu`, `GroupInlineMenu`) still in
+  canvas-bg — may paint below page when their target overlaps a frame
+  (pre-existing flag, out of §8 scope, deferred).
+- **Next phase:** Phase F — bgView reduces to grid only + keyboard
+  owner flip.

@@ -1,4 +1,4 @@
-import { useContext, useMemo, useRef } from 'react'
+import { useContext, useMemo } from 'react'
 import type {
   CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
@@ -23,14 +23,10 @@ import {
 } from './entityConstants'
 import { CornerResizeHandle, EdgeResizeHandle } from './ResizeHandles'
 import { SelectionResizeGrid } from './SelectionResizeGrid'
-import { useMultiCornerResize, useMultiEdgeResize } from './useMultiSelectionResize'
-import type { MultiResizeEntity } from './useMultiSelectionResize'
-import { useGroupDragGesture } from './useGroupBoundsDrag'
 
 // Re-export for consumers that imported from this file
 export type { EntityResizePatch } from './entityConstants'
 export { MIN_GROUP_WIDTH, MIN_GROUP_HEIGHT } from './entityConstants'
-export { useCornerResize, useEdgeResize } from './useEntityResize'
 export { CornerResizeHandle, EdgeResizeHandle } from './ResizeHandles'
 
 // --- Selection overlay components ---
@@ -59,7 +55,7 @@ function FrameSelectionOverlay({
         width: frame.screenWidth + 12,
         height: frame.screenHeight + 12,
         borderColor: selectionColor(isDark),
-        pointerEvents: interactionsEnabled && showResizeHandles ? 'auto' : 'none',
+        pointerEvents: 'none',
       }}
       data-overlay-ui
     >
@@ -85,31 +81,15 @@ function GroupSelectionOverlay({
   group,
   isDark,
   onResize,
-  onStartDragGroup,
-  onDragGroup,
-  onEndDragGroup,
 }: {
   group: CanvasSceneGroupEntity
   isDark: boolean
   onResize: (id: string, patch: EntityResizePatch) => void
-  onStartDragGroup: (groupId: string) => void
-  onDragGroup: (groupId: string, dx: number, dy: number) => void
-  onEndDragGroup: () => void
 }) {
-  const ref = useRef<HTMLDivElement>(null)
   const zoom = group.width > 0 ? group.screenWidth / group.width : 1
-  useGroupDragGesture({
-    target: ref,
-    groupId: group.id,
-    selectOnBegin: false,
-    onStartDragGroup,
-    onDragGroup,
-    onEndDragGroup,
-  })
 
   return (
     <div
-      ref={ref}
       className="absolute border-2"
       style={{
         left: group.screenX,
@@ -118,7 +98,7 @@ function GroupSelectionOverlay({
         height: group.screenHeight,
         borderColor: selectionColor(isDark),
         borderRadius: 2,
-        pointerEvents: 'auto',
+        pointerEvents: 'none',
       }}
       data-overlay-ui
     >
@@ -145,7 +125,6 @@ function EntitySelectionOverlay({
   isSelected,
   showResizeHandles,
   onResize,
-  onMouseDown,
 }: {
   entity: CanvasSceneTextEntity | CanvasSceneFileEntity | CanvasSceneDrawingEntity | CanvasSceneShapeEntity
   borderRadius: number
@@ -153,7 +132,6 @@ function EntitySelectionOverlay({
   isSelected: boolean
   showResizeHandles: boolean
   onResize: (id: string, patch: EntityResizePatch) => void
-  onMouseDown?: (id: string, event: React.MouseEvent) => void
 }) {
   const minWidth =
     entity.kind === 'text'
@@ -186,15 +164,10 @@ function EntitySelectionOverlay({
         height: entity.screenHeight + 4,
         borderColor: selectionColor(isDark),
         borderRadius,
-        pointerEvents: isSelected && overlayOwnsResizeHandles ? 'auto' : 'none',
+        pointerEvents: 'none',
         cursor: isSelected && entity.kind === 'drawing' ? 'grab' : undefined,
       }}
       data-overlay-ui
-      onMouseDown={(event) => {
-        if (!isSelected || !onMouseDown) return
-        if (event.target !== event.currentTarget) return
-        onMouseDown(entity.id, event)
-      }}
     >
       {isSelected && showResizeHandles && overlayOwnsResizeHandles ? (
         <SelectionResizeGrid
@@ -219,14 +192,10 @@ function EntitySelectionOverlay({
 
 function MultiSelectionBoundingBox({
   selectedEntities,
-  zoom,
   isDark,
-  onResizeMulti,
 }: {
   selectedEntities: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; canvasX: number; canvasY: number; width: number; height: number; screenX: number; screenY: number; screenWidth: number; screenHeight: number }>
-  zoom: number
   isDark: boolean
-  onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
 }) {
   const screenBbox = useMemo(() => {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
@@ -238,32 +207,6 @@ function MultiSelectionBoundingBox({
     }
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
   }, [selectedEntities])
-
-  const canvasBbox = useMemo(() => {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const e of selectedEntities) {
-      minX = Math.min(minX, e.canvasX)
-      minY = Math.min(minY, e.canvasY)
-      maxX = Math.max(maxX, e.canvasX + e.width)
-      maxY = Math.max(maxY, e.canvasY + e.height)
-    }
-    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-  }, [selectedEntities])
-
-  const multiEntities: MultiResizeEntity[] = useMemo(
-    () => selectedEntities.map((e) => ({ id: e.id, kind: e.kind, canvasX: e.canvasX, canvasY: e.canvasY, width: e.width, height: e.height })),
-    [selectedEntities],
-  )
-
-  const resizeArgs = { entities: multiEntities, canvasBbox, zoom, onResize: onResizeMulti }
-  const resizeTL = useMultiCornerResize({ ...resizeArgs, corner: 'top-left' })
-  const resizeTR = useMultiCornerResize({ ...resizeArgs, corner: 'top-right' })
-  const resizeBL = useMultiCornerResize({ ...resizeArgs, corner: 'bottom-left' })
-  const resizeBR = useMultiCornerResize({ ...resizeArgs, corner: 'bottom-right' })
-  const resizeT = useMultiEdgeResize({ ...resizeArgs, edge: 'top' })
-  const resizeR = useMultiEdgeResize({ ...resizeArgs, edge: 'right' })
-  const resizeB = useMultiEdgeResize({ ...resizeArgs, edge: 'bottom' })
-  const resizeL = useMultiEdgeResize({ ...resizeArgs, edge: 'left' })
 
   const pad = 8
 
@@ -277,18 +220,18 @@ function MultiSelectionBoundingBox({
         height: screenBbox.height + pad * 2,
         borderColor: selectionColor(isDark),
         borderStyle: 'solid',
-        pointerEvents: 'auto',
+        pointerEvents: 'none',
       }}
       data-overlay-ui
     >
-      <EdgeResizeHandle edge="top" beginResize={resizeT} />
-      <EdgeResizeHandle edge="right" beginResize={resizeR} />
-      <EdgeResizeHandle edge="bottom" beginResize={resizeB} />
-      <EdgeResizeHandle edge="left" beginResize={resizeL} />
-      <CornerResizeHandle corner="top-left" isDark={isDark} beginResize={resizeTL} />
-      <CornerResizeHandle corner="top-right" isDark={isDark} beginResize={resizeTR} />
-      <CornerResizeHandle corner="bottom-left" isDark={isDark} beginResize={resizeBL} />
-      <CornerResizeHandle corner="bottom-right" isDark={isDark} beginResize={resizeBR} />
+      <EdgeResizeHandle edge="top" />
+      <EdgeResizeHandle edge="right" />
+      <EdgeResizeHandle edge="bottom" />
+      <EdgeResizeHandle edge="left" />
+      <CornerResizeHandle corner="top-left" isDark={isDark} />
+      <CornerResizeHandle corner="top-right" isDark={isDark} />
+      <CornerResizeHandle corner="bottom-left" isDark={isDark} />
+      <CornerResizeHandle corner="bottom-right" isDark={isDark} />
     </div>
   )
 }
@@ -301,18 +244,14 @@ export function CanvasSelectionOutlineLayer({
   allShapeEntities,
   frameInteractionsEnabled,
   isDark,
-  zoom,
   selectedIdSet,
   marqueePreviewIds,
   hoveredEntityId,
-  onFrameMouseDown,
   onResizeFrame,
   onResizeTextEntity,
   onResizeFileEntity,
   onResizeDrawingEntity,
   onResizeShapeEntity,
-  onResizeMulti,
-  onDrawingMouseDown,
 }: {
   frames: CanvasSceneFrameEntity[]
   allTextEntities: CanvasSceneTextEntity[]
@@ -328,14 +267,12 @@ export function CanvasSelectionOutlineLayer({
    *  when SelectableEntityShell's mouseenter/leave can't fire (e.g. when
    *  above-view is covering the canvas because saved drawings are visible). */
   hoveredEntityId: string | null
-  onFrameMouseDown: (frameId: string, event: React.MouseEvent) => void
   onResizeFrame: (id: string, patch: EntityResizePatch) => void
   onResizeTextEntity: (id: string, patch: EntityResizePatch) => void
   onResizeFileEntity: (id: string, patch: EntityResizePatch) => void
   onResizeDrawingEntity: (id: string, patch: EntityResizePatch) => void
   onResizeShapeEntity: (id: string, patch: EntityResizePatch) => void
   onResizeMulti: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
-  onDrawingMouseDown: (drawingId: string, event: React.MouseEvent) => void
 }) {
   const localHoverId = useContext(EntityHoverValueContext)
   const entityHoverId = localHoverId ?? hoveredEntityId
@@ -371,12 +308,10 @@ export function CanvasSelectionOutlineLayer({
   return (
     <>
       {isMultiSelect && allSelectedEntities.length > 1 ? (
-        <MultiSelectionBoundingBox
-          selectedEntities={allSelectedEntities}
-          zoom={zoom}
-          isDark={isDark}
-          onResizeMulti={onResizeMulti}
-        />
+          <MultiSelectionBoundingBox
+            selectedEntities={allSelectedEntities}
+            isDark={isDark}
+          />
       ) : null}
       {frames.map((frame) => {
         const isSelected = selectedIdSet.has(frame.id)
@@ -402,15 +337,9 @@ export function CanvasSelectionOutlineLayer({
               width: frame.screenWidth + 12,
               height: frame.screenHeight + 12,
               borderColor: selectionColor(isDark),
-              pointerEvents: frameInteractionsEnabled && !isSelected ? 'auto' : 'none',
-              cursor: frameInteractionsEnabled && !isSelected ? 'grab' : undefined,
+              pointerEvents: 'none',
             }}
             data-overlay-ui
-            onMouseDown={
-              frameInteractionsEnabled && !isSelected
-                ? (e) => onFrameMouseDown(frame.id, e)
-                : undefined
-            }
           />
         )
       })}
@@ -434,7 +363,6 @@ export function CanvasSelectionOutlineLayer({
                     ? onResizeShapeEntity
                     : onResizeDrawingEntity
             }
-            onMouseDown={entity.kind === 'drawing' ? onDrawingMouseDown : undefined}
           />
         )
       })}
@@ -448,18 +376,12 @@ export function GroupSelectionOverlayLayer({
   selectedGroupId,
   suppressOverlay = false,
   onResizeGroup,
-  onStartDragGroup,
-  onDragGroup,
-  onEndDragGroup,
 }: {
   groups: CanvasSceneGroupEntity[]
   isDark: boolean
   selectedGroupId: string | null
   suppressOverlay?: boolean
   onResizeGroup: (id: string, patch: EntityResizePatch) => void
-  onStartDragGroup: (groupId: string) => void
-  onDragGroup: (groupId: string, dx: number, dy: number) => void
-  onEndDragGroup: () => void
 }) {
   if (suppressOverlay) return null
   if (!selectedGroupId) return null
@@ -471,9 +393,6 @@ export function GroupSelectionOverlayLayer({
       group={group}
       isDark={isDark}
       onResize={onResizeGroup}
-      onStartDragGroup={onStartDragGroup}
-      onDragGroup={onDragGroup}
-      onEndDragGroup={onEndDragGroup}
     />
   )
 }

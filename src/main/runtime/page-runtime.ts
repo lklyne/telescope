@@ -3,7 +3,6 @@
 export {
   findPageById,
   findPageByPageView,
-  findPageBySender,
   pages,
 } from './runtime-context'
 export { handleFrameIpcResponse, requestNodeDetail } from './frame-ipc'
@@ -24,6 +23,5 @@ export {
 } from './frame-queries'
 
 export {
-  removePage,
   setMcpConnectionStatus,
 } from './runtime-core'

@@ -17,11 +17,22 @@
  */
 
 import { app } from 'electron'
-import { appendFileSync, mkdirSync } from 'node:fs'
+import { appendFileSync, mkdirSync, statSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import type { WebContents } from 'electron'
 
 let errorLogPath: string | null = null
+// Re-entrancy guard: when stdout/file writes themselves fail (EIO/ENOSPC),
+// the resulting throw lands in the uncaughtException handler that calls
+// logCrash again. Without this flag we tight-loop and fill disk to TB
+// scale in minutes — see the May 2026 incident.
+let inFlight = false
+// Once writes have started failing with disk-full / IO errors, stop trying
+// for the rest of the session. Better to lose log lines than to wedge the
+// process or cascade-fill disk.
+let disabled = false
+const FATAL_FS_CODES = new Set(['ENOSPC', 'EIO', 'EROFS', 'ENOENT'])
+const MAX_LOG_BYTES = 50 * 1024 * 1024 // 50 MB hard cap; rotates to .old
 
 function ensureErrorLogPath(): string {
   if (errorLogPath) return errorLogPath
@@ -31,6 +42,14 @@ function ensureErrorLogPath(): string {
   return errorLogPath
 }
 
+function rotateIfOversized(path: string): void {
+  try {
+    const { size } = statSync(path)
+    if (size < MAX_LOG_BYTES) return
+    try { renameSync(path, `${path}.old`) } catch {}
+  } catch { /* missing file — nothing to rotate */ }
+}
+
 function formatDetail(detail: unknown): string {
   if (detail instanceof Error) return detail.stack ?? detail.message
   if (typeof detail === 'string') return detail
@@ -38,9 +57,24 @@ function formatDetail(detail: unknown): string {
 }
 
 export function logCrash(kind: string, detail: unknown): void {
-  const line = `[${new Date().toISOString()}] ${kind}\n${formatDetail(detail)}\n\n`
-  try { appendFileSync(ensureErrorLogPath(), line) } catch {}
-  console.error(kind, detail)
+  if (disabled || inFlight) return
+  inFlight = true
+  try {
+    const line = `[${new Date().toISOString()}] ${kind}\n${formatDetail(detail)}\n\n`
+    try {
+      const path = ensureErrorLogPath()
+      rotateIfOversized(path)
+      appendFileSync(path, line)
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException | undefined)?.code
+      if (code && FATAL_FS_CODES.has(code)) disabled = true
+    }
+    // Mirror to stdout, but never let a stdout failure escape — a broken
+    // pipe / EIO here is what triggered the original infinite loop.
+    try { console.error(kind, detail) } catch { /* swallowed by design */ }
+  } finally {
+    inFlight = false
+  }
 }
 
 /** Forward renderer console.error / console.warn into the crash log. */

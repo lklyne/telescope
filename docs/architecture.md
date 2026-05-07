@@ -45,7 +45,6 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │                    the main window, not a WCV — see         │
 │                    docs/interaction-layer.md §3.1.          │
 │  toolbar/          Zoom, tool modes, navigation             │
-│  chrome-header/    Address bar, nav buttons per frame       │
 │  left-sidebar/     Workspace tree (canvases, frames)        │
 │  right-details-panel/  Inspector (properties, settings)     │
 │  devtools-resize-handle/  Devtools panel splitter           │

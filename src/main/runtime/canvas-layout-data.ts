@@ -53,6 +53,7 @@ import {
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
+import { currentFrameFocus } from './frame-focus'
 import {
   pageContentSize,
   boundEffectivePageContentSize as effectivePageContentSize,
@@ -448,6 +449,7 @@ export function buildCanvasLayoutData(
       targetRect: c.targetRect,
       updatedAt: c.updatedAt,
     })),
+    frameFocus: currentFrameFocus(),
   } as LayoutUpdateData
 }
 

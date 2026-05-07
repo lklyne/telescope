@@ -58,11 +58,6 @@ const config: ForgeConfig = {
           target: 'preload',
         },
         {
-          entry: 'src/preload/chrome-header.ts',
-          config: 'vite.preload.config.ts',
-          target: 'preload',
-        },
-        {
           entry: 'src/preload/canvas-bg.ts',
           config: 'vite.preload.config.ts',
           target: 'preload',

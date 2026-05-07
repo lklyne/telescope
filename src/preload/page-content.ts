@@ -206,43 +206,11 @@ window.addEventListener(
   { passive: false, capture: true }
 )
 
-// Additive-selection intercept.
-//
-// When a frame is singly selected, `interactive` is true and the blocking
-// overlay is removed — clicks on the body land inside the webpage. Without
-// this capturing listener, there is no way to shift-click the frame body
-// to toggle its selection. Routing the mousedown to main as a page-select
-// with modifiers keeps OS-level additive selection working regardless of
-// the interactive / overlay state.
-window.addEventListener(
-  'mousedown',
-  (e: MouseEvent) => {
-    if (e.button !== 0) return
-    if (!e.shiftKey && !e.metaKey && !e.ctrlKey) return
-    if (annotationMode === 'region_select') return
-    if (annotateEnabled) return
-    if (isDomInspectionEnabled()) return
-    selectionDebug('additive-click-intercept', {
-      shift: e.shiftKey,
-      meta: e.metaKey,
-      ctrl: e.ctrlKey,
-    })
-    e.preventDefault()
-    e.stopImmediatePropagation()
-    ipcRenderer.send('page-select', {
-      modifiers: {
-        shift: e.shiftKey,
-        meta: e.metaKey,
-        ctrl: e.ctrlKey,
-      },
-    })
-  },
-  { capture: true },
-)
-
 // --- Selection overlay ---
-// When the page is not interactive (unselected), inject an overlay that blocks
-// all pointer events and forwards wheel/click to canvas operations.
+// When the page is not interactive, inject an overlay that blocks native page
+// input and forwards only native/page-neutral viewport affordances. Canvas
+// selection, drag, resize, marquee, placement, and edge gestures are owned by
+// aboveView's canvas pointer router.
 
 function injectBlockingOverlay(): void {
   const overlayMode = annotationMode === 'region_select' ? 'region_select' : 'default'
@@ -272,103 +240,14 @@ function injectBlockingOverlay(): void {
     cursor: 'default',
   })
 
-  // Click to select, drag to move. Selection is deferred to mouseup so that
-  // a drag gesture moves the frame without selecting it first.
-  let cleanupDrag: (() => void) | null = null
-
   overlay.addEventListener('mousedown', (e: MouseEvent) => {
     if (e.button === 0) {
-      selectionDebug('overlay-mousedown-page-select', {
+      selectionDebug('overlay-mousedown-left-suppressed', {
         clientX: e.clientX,
         clientY: e.clientY,
       })
       e.preventDefault()
       e.stopPropagation()
-
-      // Clean up any stale drag listeners from a previous mousedown
-      if (cleanupDrag) cleanupDrag()
-
-      if (annotationMode === 'region_select') {
-        const clearRegionSelect = () => {
-          window.removeEventListener('mousemove', onMove)
-          window.removeEventListener('mouseup', onUp)
-          window.removeEventListener('blur', onBlur)
-          ipcRenderer.send('page-region-select-overlay', null)
-        }
-
-        const onMove = (me: MouseEvent) => {
-          ipcRenderer.send('page-region-select-overlay', {
-            screenX: Math.min(e.screenX, me.screenX),
-            screenY: Math.min(e.screenY, me.screenY),
-            width: Math.abs(me.screenX - e.screenX),
-            height: Math.abs(me.screenY - e.screenY),
-          })
-        }
-
-        const onUp = (me: MouseEvent) => {
-          clearRegionSelect()
-          cleanupDrag = null
-          ipcRenderer.send('page-region-select-commit', {
-            screenX: Math.min(e.screenX, me.screenX),
-            screenY: Math.min(e.screenY, me.screenY),
-            width: Math.abs(me.screenX - e.screenX),
-            height: Math.abs(me.screenY - e.screenY),
-          })
-        }
-
-        const onBlur = () => {
-          clearRegionSelect()
-          cleanupDrag = null
-        }
-
-        cleanupDrag = clearRegionSelect
-        window.addEventListener('mousemove', onMove)
-        window.addEventListener('mouseup', onUp)
-        window.addEventListener('blur', onBlur)
-        return
-      }
-
-      // Start drag tracking with window-level listeners so the drag
-      // survives the overlay being removed when the page becomes interactive.
-      let lastScreenX = e.screenX
-      let lastScreenY = e.screenY
-      let dragStarted = false
-
-      const onMove = (me: MouseEvent) => {
-        if (!dragStarted) {
-          ipcRenderer.send('page-group-drag-start')
-          dragStarted = true
-        }
-        const dx = me.screenX - lastScreenX
-        const dy = me.screenY - lastScreenY
-        lastScreenX = me.screenX
-        lastScreenY = me.screenY
-        if (dx !== 0 || dy !== 0) {
-          ipcRenderer.send('page-group-drag', { dx, dy })
-        }
-      }
-
-      const onUp = () => {
-        window.removeEventListener('mousemove', onMove)
-        window.removeEventListener('mouseup', onUp)
-        cleanupDrag = null
-        if (dragStarted) {
-          ipcRenderer.send('page-group-drag-end')
-        } else {
-          ipcRenderer.send('page-select', {
-            modifiers: {
-              shift: e.shiftKey,
-              meta: e.metaKey,
-              ctrl: e.ctrlKey,
-            },
-          })
-        }
-      }
-
-      cleanupDrag = onUp
-
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
     }
   })
 
@@ -418,107 +297,8 @@ function injectBlockingOverlay(): void {
 
   document.body.appendChild(overlay)
   cleanupBlockingOverlayListeners = () => {
-    if (cleanupDrag) cleanupDrag()
     middleDrag = null
     window.removeEventListener('mouseup', handleWindowMouseUp)
-  }
-}
-
-function injectGroupDragOverlay(): void {
-  const existingOverlay = document.getElementById('__canvas-blocking-overlay')
-  if (
-    existingOverlay instanceof HTMLDivElement &&
-    existingOverlay.dataset.overlayKind === 'group-drag'
-  ) {
-    return
-  }
-  removeBlockingOverlay()
-  selectionDebug('inject-group-drag-overlay')
-
-  const overlay = document.createElement('div')
-  overlay.id = '__canvas-blocking-overlay'
-  overlay.dataset.overlayKind = 'group-drag'
-  Object.assign(overlay.style, {
-    position: 'fixed',
-    top: '0',
-    left: '0',
-    width: '100%',
-    height: '100%',
-    zIndex: '2147483646',
-    background: 'transparent',
-    cursor: 'grab',
-  })
-
-  let dragActive = false
-  let lastScreenX = 0
-  let lastScreenY = 0
-  let cleanupDragListeners: (() => void) | null = null
-
-  const stopDrag = () => {
-    if (!dragActive) return
-    dragActive = false
-    overlay.style.cursor = 'grab'
-    if (cleanupDragListeners) {
-      cleanupDragListeners()
-      cleanupDragListeners = null
-    }
-    ipcRenderer.send('page-group-drag-end')
-  }
-
-  overlay.addEventListener('mousedown', (e: MouseEvent) => {
-    if (e.button !== 0) return
-    selectionDebug('group-drag-overlay-mousedown', {
-      clientX: e.clientX,
-      clientY: e.clientY,
-    })
-    dragActive = true
-    lastScreenX = e.screenX
-    lastScreenY = e.screenY
-    overlay.style.cursor = 'grabbing'
-    e.preventDefault()
-    e.stopPropagation()
-    ipcRenderer.send('page-group-drag-start')
-
-    // Track on window while the drag is active so layout updates that move the
-    // frame do not immediately end the gesture via overlay hover transitions.
-    const onMove = (moveEvent: MouseEvent) => {
-      if (!dragActive) return
-      const dx = moveEvent.screenX - lastScreenX
-      const dy = moveEvent.screenY - lastScreenY
-      lastScreenX = moveEvent.screenX
-      lastScreenY = moveEvent.screenY
-      moveEvent.preventDefault()
-      moveEvent.stopPropagation()
-      if (dx !== 0 || dy !== 0) {
-        ipcRenderer.send('page-group-drag', { dx, dy })
-      }
-    }
-
-    const onUp = (upEvent: MouseEvent) => {
-      if (upEvent.button !== 0) return
-      upEvent.preventDefault()
-      upEvent.stopPropagation()
-      stopDrag()
-    }
-
-    if (cleanupDragListeners) cleanupDragListeners()
-    cleanupDragListeners = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  })
-
-  window.addEventListener('blur', stopDrag)
-  document.body.appendChild(overlay)
-  cleanupBlockingOverlayListeners = () => {
-    if (cleanupDragListeners) {
-      cleanupDragListeners()
-      cleanupDragListeners = null
-    }
-    stopDrag()
-    window.removeEventListener('blur', stopDrag)
   }
 }
 
@@ -538,12 +318,10 @@ function applyInteractiveState(): void {
   selectionDebug('applyInteractiveState')
   if (isDomInspectionEnabled() || annotateEnabled) {
     removeBlockingOverlay()
-  } else if (annotationMode === 'region_select') {
-    injectBlockingOverlay()
   } else if (interactive) {
     removeBlockingOverlay()
   } else if (multiSelected) {
-    injectGroupDragOverlay()
+    injectBlockingOverlay()
   } else {
     injectBlockingOverlay()
   }

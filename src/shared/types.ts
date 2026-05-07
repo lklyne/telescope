@@ -386,6 +386,8 @@ export interface LayoutUpdateData {
   edges: WorkspaceEdge[]
   groups?: CanvasSceneGroupEntity[]
   presenceCursors: AgentPresenceCursor[]
+  /** Currently focused frame (ADR 0001). Null when no frame is focused. */
+  frameFocus: { id: string; since: number } | null
 }
 
 export type PresenceSurface = 'canvas' | 'frame'
@@ -549,16 +551,6 @@ export interface LeftSidebarData {
   viewMode: WorkspaceViewMode
   hasFrames: boolean
   items: SidebarCanvasItem[]
-}
-
-export interface ChromeUpdateData {
-  label: string
-  width: number
-  height: number
-  url: string
-  presetIndex: number
-  selected: boolean
-  linked: boolean
 }
 
 export interface ToolbarSelectionData {
@@ -1019,6 +1011,10 @@ export type SelectionOverlayPayload = {
   rect: SelectionOverlayRect
   variant?: 'default' | 'region-select' | 'place-shape'
   shapeKind?: ShapeKind
+  /** Entity IDs the marquee currently overlaps. Populated only for the
+   *  default variant; the canvas-bg outline layer reads this to draw a
+   *  "would-be selected" highlight on each entity inside the rect. */
+  entityIds?: string[]
 }
 
 export type UiViewMode =
@@ -1532,7 +1528,7 @@ export interface CanvasBgElectronAPI {
   placePendingEntity: (canvasX: number, canvasY: number) => void
   cancelPendingPlacement: () => void
   clearToolMode: () => void
-  startDragFrame: (frameId: string) => void
+  startDragFrame: (frameId: string, selection?: CanvasDragStartSelection) => void
   dragFrame: (frameId: string, dx: number, dy: number) => void
   endDragFrame: () => void
   dragCopyFrame: (frameId: string, canvasX: number, canvasY: number) => void
@@ -1564,6 +1560,9 @@ export interface CanvasBgElectronAPI {
     dragRect?: { x: number; y: number; width: number; height: number } | null,
   ) => void
   onShapeBeginEdit: (callback: (data: { entityId: string }) => void) => () => void
+  onTextBeginEdit: (callback: (data: { entityId: string }) => void) => () => void
+  requestTextEdit: (entityId: string) => void
+  requestShapeEdit: (entityId: string) => void
   showFileInFinder: (filePath: string) => void
   updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) => void
   duplicateGroup: (id: string) => void
@@ -1586,7 +1585,7 @@ export interface CanvasBgElectronAPI {
   startDragGroup: (groupId: string) => void
   dragGroup: (groupId: string, dx: number, dy: number) => void
   endDragGroup: () => void
-  startDragEntity: (entityId: string) => void
+  startDragEntity: (entityId: string, selection?: CanvasDragStartSelection) => void
   dragEntity: (entityId: string, dx: number, dy: number) => void
   endDragEntity: () => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
@@ -1628,6 +1627,9 @@ export interface CanvasBgElectronAPI {
   selectEdge: (edgeId: string | null) => void
   hoverFrame: (frameId: string | null) => void
   setTextEditing: (active: boolean) => void
+  /** ADR 0001: programmatically promote a frame to focused (page receives
+   *  native input). Triggered by canvas-pointer-router on a frame-body hit. */
+  enterFrameFocus: (frameId: string) => void
   readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
@@ -1640,6 +1642,11 @@ export interface CanvasBgElectronAPI {
     callback: (data: LayoutUpdateData['fixProgress']) => void,
   ) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
+}
+
+export type CanvasDragStartSelection = {
+  entityKind: CanvasEntityKind
+  preserveSelection?: boolean
 }
 
 export interface FloatingUiElectronAPI {
@@ -1952,24 +1959,3 @@ export interface AnnotationCreateRequest {
 }
 
 // --- Electron API Interfaces ---
-
-export interface ChromeHeaderElectronAPI {
-  navigate: (url: string) => void
-  goBack: () => void
-  goForward: () => void
-  openDevTools: () => void
-  duplicate: () => void
-  reload: () => void
-  toggleLinked: () => void
-  debugLog: (...args: unknown[]) => void
-  close: () => void
-  drag: (dx: number, dy: number) => void
-  select: () => void
-  cyclePreset: (direction: number) => void
-  setPreset: (index: number) => void
-  dropdownOpen: () => void
-  dropdownClose: () => void
-  getInitialData: () => Promise<ThemeBootstrapData>
-  onChromeUpdate: (callback: (data: ChromeUpdateData) => void) => () => void
-  onThemeChanged: (callback: (data: ThemeData) => void) => () => void
-}

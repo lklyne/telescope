@@ -28,10 +28,24 @@ export type FocusState = {
   commentOverlayActive: boolean
   /** Explicit intent set by a subsystem (overrides derivation). Cleared after reconcile. */
   pendingFocus: FocusTarget | null
+  /** Click-to-enter focused frame (ADR 0001). When set, the focused
+   *  page owns focus regardless of view mode or selection. */
+  focusedFrameId: string | null
 }
 
 export function expectedFocus(state: FocusState): FocusTarget {
   if (state.pendingFocus) return state.pendingFocus
+
+  // Click-to-enter frame focus (ADR 0001) takes precedence over the
+  // view-mode default. Gesture modes still win — a drag started on
+  // canvas chrome should not be hijacked by a focused frame.
+  if (
+    state.focusedFrameId &&
+    state.interactionMode === 'idle' &&
+    !state.commentOverlayActive
+  ) {
+    return { kind: 'page', id: state.focusedFrameId }
+  }
 
   // Gesture-active: input gate (aboveView) owns focus.
   switch (state.interactionMode) {

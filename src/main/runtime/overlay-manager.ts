@@ -5,6 +5,7 @@
 import type { SelectionOverlayPayload } from '../../shared/types'
 import {
   aboveView,
+  bgView,
   win,
 } from './view-refs'
 import { layoutCache } from './layout-cache'
@@ -134,6 +135,11 @@ export function setSelectionOverlayRect(
 
   if (aboveView) {
     safeSend(aboveView.webContents, 'canvas-selection-overlay', overlay)
+  }
+  // canvas-bg consumes the same payload to render per-entity marquee
+  // preview outlines (`overlay.entityIds`).
+  if (bgView) {
+    safeSend(bgView.webContents, 'canvas-selection-overlay', overlay)
   }
   // The gate predicate reads selectionMarqueeVisible, so a rect change
   // can flip aboveView bounds on/off. Bounds + visibility are centralized

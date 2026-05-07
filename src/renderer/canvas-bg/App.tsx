@@ -15,17 +15,15 @@ import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
 import { buildSelectedFrameIdSet } from './canvasBgSelectors'
 import { EntityHoverProvider } from './EntityHoverProvider'
-import { CanvasDebugBadge, CanvasGridSurface, PlacementPreviewLayer, DragCopyPreviewLayer, CanvasEntityViewportLayer } from './CanvasGridSurface'
+import { CanvasDebugBadge, CanvasGridSurface, PlacementPreviewLayer, CanvasEntityViewportLayer } from './CanvasGridSurface'
 import { BrowserTabBar } from './BrowserTabBar'
 import { CanvasSelectionOutlineLayer, GroupSelectionOverlayLayer } from './CanvasSelectionLayers'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { FrameBorderLayer } from './FrameBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
-import { FrameChromeLayer } from './FrameChromeLayer'
 import { TextBlockLayer } from './TextBlockLayer'
 import { ShapeBlockLayer } from './ShapeBlockLayer'
 import { FileBlockLayer, type FileJsonModeMap } from './FileBlockLayer'
-import { FileChromeLayer } from './FileChromeLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { ActiveFrameHighlightLayer } from './AgentCursorLayer'
 import { EdgeLayer } from './EdgeLayer'
@@ -33,7 +31,6 @@ import { GroupInlineMenu, StickyNoteInlineMenu } from './InlineEntityMenu'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { usePendingPlacementState } from './usePendingPlacementState'
 import { useCanvasViewportGestures, type ShapePlacementDragPreview } from './useCanvasViewportGestures'
-import { useFrameChromeDrag } from './useFrameChromeDrag'
 import { descendantIdsForGroup, selectedGroupHasDescendantFrame } from './groupMembership'
 import { SELECTED_FRAME_MENU_SHOW_DELAY_MS } from '../../shared/selectedFrameMenu'
 
@@ -56,40 +53,40 @@ export default function App({
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
   const { pendingPlacementPreview, setPlacementCursor } =
     usePendingPlacementState(layoutData)
-  const {
-    chromeDraggingRef,
-    dragCopyPreview,
-    handleChromeMouseDown,
-    syncChromeDragCopyMode,
-  } = useFrameChromeDrag({
-    api,
-    layoutRef,
-  })
-
   const [marqueePreviewIds, setMarqueePreviewIds] = useState<Set<string> | null>(null)
   const [shapePlacementPreview, setShapePlacementPreview] =
     useState<ShapePlacementDragPreview | null>(null)
-  const [fileJsonModeMap, setFileJsonModeMap] = useState<FileJsonModeMap>(() => new Map())
+  const fileJsonModeMap = useMemo<FileJsonModeMap>(() => new Map(), [])
   const [captureMode, setCaptureMode] = useState(false)
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
+
+  // Marquee preview: above-view's pointer router computes the overlap and
+  // ships `entityIds` alongside the overlay rect; we just unpack into a Set.
+  useEffect(
+    () =>
+      api.onSelectionOverlayChanged((overlay) => {
+        if (!overlay || overlay.variant !== 'default' || !overlay.entityIds?.length) {
+          setMarqueePreviewIds(null)
+          return
+        }
+        setMarqueePreviewIds(new Set(overlay.entityIds))
+      }),
+    [],
+  )
 
   useCanvasViewportGestures({
     api,
     bgRef,
     layoutRef,
     setPlacementCursor,
-    onMarqueePreview: setMarqueePreviewIds,
     onShapePlacementPreview: setShapePlacementPreview,
   })
 
   useCanvasGlobalShortcuts({
     api,
     layoutRef,
-    chromeDraggingRef,
-    syncChromeDragCopyMode,
   })
 
-  const handleSelectEdge = useCallback((edgeId: string | null) => api.selectEdge(edgeId), [api])
   const handleHoverEntity = useCallback((entityId: string | null) => api.hoverFrame(entityId), [api])
 
   const frameEntities = useMemo(
@@ -132,6 +129,19 @@ export default function App({
     () =>
       api.onShapeBeginEdit(({ entityId }) => {
         setPendingShapeEditId(entityId)
+      }),
+    [],
+  )
+  const [pendingTextEditId, setPendingTextEditId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!pendingTextEditId) return
+    const timeoutId = window.setTimeout(() => setPendingTextEditId(null), 1000)
+    return () => window.clearTimeout(timeoutId)
+  }, [pendingTextEditId])
+  useEffect(
+    () =>
+      api.onTextBeginEdit(({ entityId }) => {
+        setPendingTextEditId(entityId)
       }),
     [],
   )
@@ -250,7 +260,6 @@ export default function App({
               }}
             />
           ) : null}
-          <DragCopyPreviewLayer dragCopyPreview={dragCopyPreview} isDark={isDark} />
         </>
       ) : null}
 
@@ -272,7 +281,6 @@ export default function App({
             onDoubleClick={(groupId) => {
               api.enterGroup(groupId)
             }}
-            onRenameGroup={api.renameGroup}
           />
         </CanvasEntityViewportLayer>
       ) : null}
@@ -287,14 +295,7 @@ export default function App({
           selectedEdgeIds={selectedEdgeIds}
           selectedEntityIds={layoutData.selectedEntityIds}
           zoom={layoutData.zoom}
-          onBeginEdgeDrag={api.beginEdgeDrag}
-          onCancelEdgeDrag={api.cancelEdgeDrag}
-          onCommitEdgeDrag={api.commitEdgeDrag}
-          onCommitEdgeEdit={api.commitEdgeEdit}
-          onDiscardEdgeEdit={api.discardEdgeEdit}
           onHoverEntity={handleHoverEntity}
-          onSelectEdge={handleSelectEdge}
-          onUpdateEdgeDragTarget={api.updateEdgeDragTarget}
         />
       ) : null}
 
@@ -319,9 +320,6 @@ export default function App({
             selectedGroupId={layoutData.selectedGroupId ?? null}
             suppressOverlay={selectedGroupControlsMirroredToAboveView}
             onResizeGroup={(id, patch) => api.updateGroupEntity(id, patch)}
-            onStartDragGroup={api.startDragGroup}
-            onDragGroup={api.dragGroup}
-            onEndDragGroup={api.endDragGroup}
           />
         ) : null}
 
@@ -335,6 +333,7 @@ export default function App({
         <FrameBorderLayer
           frames={borderFrames}
           fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
+          focusedFrameId={layoutData.frameFocus?.id ?? null}
         />
         <DeviceShellLayer
           frames={borderFrames.filter((f) => !f.useSvgDeviceShell)}
@@ -345,49 +344,6 @@ export default function App({
           frames={borderFrames.filter((f) => f.useSvgDeviceShell)}
           isDark={isDark}
         />
-
-        {layoutData.viewMode === 'canvas' ? (
-          <FrameChromeLayer
-            frames={frameEntities}
-            dragEnabled={frameInteractionsEnabled}
-            isDark={isDark}
-            selectedFrameId={layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null}
-            hoveredFrameId={hoveredEntityId}
-            isIdle={layoutData.interaction.kind === 'idle'}
-            handleChromeMouseDown={handleChromeMouseDown}
-            onHoverFrame={handleHoverEntity}
-            onNavigateFrame={api.navigateFrame}
-            onGoBackFrame={api.goBackFrame}
-            onGoForwardFrame={api.goForwardFrame}
-            onReloadFrame={api.reloadFrame}
-            onShowContextMenu={api.showFrameContextMenu}
-          />
-        ) : null}
-
-        {layoutData.viewMode === 'canvas' ? (
-          <FileChromeLayer
-            entities={fileEntities}
-            isDark={isDark}
-            selectedEntityId={layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null}
-            hoveredEntityId={hoveredEntityId}
-            isIdle={layoutData.interaction.kind === 'idle'}
-            callbacks={{
-              onHoverEntity: handleHoverEntity,
-              onStartDragEntity: api.startDragEntity,
-              onDragEntity: api.dragEntity,
-              onEndDragEntity: api.endDragEntity,
-              onRenameFileEntity: api.renameFileEntity,
-              onWriteFile: api.writeNoteFile,
-              onJsonModeChange: (entityId, jsonMode) => {
-                setFileJsonModeMap((prev) => {
-                  const next = new Map(prev)
-                  next.set(entityId, jsonMode)
-                  return next
-                })
-              },
-            }}
-          />
-        ) : null}
 
         {layoutData.viewMode === 'canvas' && !captureMode ? (
           <CanvasSelectionOutlineLayer
@@ -402,45 +358,12 @@ export default function App({
             selectedIdSet={selectedEntityIdSet}
             marqueePreviewIds={marqueePreviewIds}
             hoveredEntityId={hoveredEntityId}
-            onFrameMouseDown={handleChromeMouseDown}
             onResizeFrame={(id, patch) => api.updateFrameBounds(id, patch)}
             onResizeTextEntity={(id, patch) => api.updateTextEntity(id, patch)}
             onResizeFileEntity={(id, patch) => api.updateFileEntity(id, patch)}
             onResizeDrawingEntity={(id, patch) => api.updateDrawingEntity(id, patch)}
             onResizeShapeEntity={(id, patch) => api.updateShapeEntity(id, patch)}
             onResizeMulti={(entries) => api.resizeMultiSelection(entries)}
-            onDrawingMouseDown={(id, event) => {
-              event.stopPropagation()
-              const isAdditive = event.shiftKey || event.metaKey || event.ctrlKey
-              if (isAdditive) {
-                api.selectEntity(id, 'drawing', {
-                  shift: event.shiftKey,
-                  meta: event.metaKey,
-                  ctrl: event.ctrlKey,
-                })
-                return
-              }
-              api.selectEntity(id, 'drawing')
-              api.startDragEntity(id)
-              let lastX = event.screenX
-              let lastY = event.screenY
-              const onMove = (moveEvent: MouseEvent) => {
-                const dx = moveEvent.screenX - lastX
-                const dy = moveEvent.screenY - lastY
-                lastX = moveEvent.screenX
-                lastY = moveEvent.screenY
-                api.dragEntity(id, dx, dy)
-              }
-              const onUp = () => {
-                window.removeEventListener('mousemove', onMove)
-                window.removeEventListener('mouseup', onUp)
-                window.removeEventListener('blur', onUp)
-                api.endDragEntity()
-              }
-              window.addEventListener('mousemove', onMove)
-              window.addEventListener('mouseup', onUp)
-              window.addEventListener('blur', onUp)
-            }}
           />
         ) : null}
 
@@ -483,6 +406,8 @@ export default function App({
             getZoom={getEntityLayerZoom}
             isDark={isDark}
             marqueePreviewIds={marqueePreviewIds}
+            pendingEditEntityId={pendingTextEditId}
+            onPendingFocusConsumed={() => setPendingTextEditId(null)}
             onDrag={api.dragEntity}
             onDragEnd={api.endDragEntity}
             onDragStart={api.startDragEntity}

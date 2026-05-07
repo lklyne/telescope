@@ -39,6 +39,7 @@ import {
   zoom,
 } from './runtime-context'
 import { shouldGateBeOpen } from './gate-predicate'
+import { currentFrameFocus } from './frame-focus'
 import {
   getUiState,
   annotationMode as uiAnnotationMode,
@@ -294,6 +295,7 @@ export function layoutAllViews(): void {
       selectedEntityKinds: selectedTargets.map((t) => t.kind),
       selectionOwnsFrameContent,
       hasSavedDrawings: drawingEntities.length > 0,
+      frameFocus: currentFrameFocus(),
     })
     const bounds = shouldCover
           ? {
@@ -352,7 +354,6 @@ export function layoutAllViews(): void {
     if (!isVisibleInCurrentMode) {
       page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
-      page.lastChromeBoundsKey = setBoundsIfChanged(page.chromeView, HIDDEN_BOUNDS, page.lastChromeBoundsKey)
       continue
     }
     const bounds = boundScreenBoundsForPage(page)
@@ -365,7 +366,6 @@ export function layoutAllViews(): void {
     if (!isOnScreen && interactionState.kind !== 'dragging-entities' && !isAutomationActive) {
       page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
-      page.lastChromeBoundsKey = setBoundsIfChanged(page.chromeView, HIDDEN_BOUNDS, page.lastChromeBoundsKey)
       devtoolsPanelDebug('layout:page', {
         pageId: page.id,
         durationMs: Date.now() - pageStart,
@@ -389,7 +389,6 @@ export function layoutAllViews(): void {
     page.pageView.setBorderRadius(borderRadius)
     page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, bounds.frame, page.lastFrameBoundsKey)
     page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, bounds.page, page.lastPageBoundsKey)
-    page.lastChromeBoundsKey = setBoundsIfChanged(page.chromeView, { x: 0, y: 0, width: 0, height: 0 }, page.lastChromeBoundsKey)
 
     const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
     const nativeScale = screen.getPrimaryDisplay().scaleFactor

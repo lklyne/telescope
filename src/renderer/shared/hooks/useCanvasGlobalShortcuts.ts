@@ -11,17 +11,12 @@ import {
 export function useCanvasGlobalShortcuts(input: {
   api: CanvasBgElectronAPI
   layoutRef: RefObject<LayoutUpdateData>
-  chromeDraggingRef: RefObject<boolean>
-  syncChromeDragCopyMode: (copyMode: boolean) => void
 }) {
-  const { api, layoutRef, chromeDraggingRef, syncChromeDragCopyMode } = input
+  const { api, layoutRef } = input
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!document.hasFocus()) return
-      if (chromeDraggingRef.current && event.key === 'Alt') {
-        syncChromeDragCopyMode(true)
-      }
       if (isTypingTarget(event.target)) return
 
       const layout = layoutRef.current
@@ -51,11 +46,8 @@ export function useCanvasGlobalShortcuts(input: {
       }
     }
 
-    const handleKeyUp = (event: KeyboardEvent) => {
+    const handleKeyUp = (_event: KeyboardEvent) => {
       if (!document.hasFocus()) return
-      if (chromeDraggingRef.current && event.key === 'Alt') {
-        syncChromeDragCopyMode(false)
-      }
     }
 
     // Canvas entity copy/cut/paste — bound to DOM clipboard events so that:
@@ -112,5 +104,5 @@ export function useCanvasGlobalShortcuts(input: {
       document.removeEventListener('cut', handleCut)
       document.removeEventListener('paste', handlePaste)
     }
-  }, [api, chromeDraggingRef, layoutRef, syncChromeDragCopyMode])
+  }, [api, layoutRef])
 }

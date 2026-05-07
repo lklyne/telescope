@@ -1,17 +1,19 @@
 // Shared constants for canvas entity resize and layout.
 
-export interface EntityResizePatch {
-  width: number
-  height: number
-  canvasX?: number
-  canvasY?: number
+// The resize ADT lives in src/shared/resize-accumulator.ts so renderer
+// hooks and the canvas-pointer-router agree on shapes.
+import type {
+  AspectRatioResizeMode,
+  EntityResizePatch,
+  ResizeCorner,
+  ResizeEdge,
+} from '../../shared/resize-accumulator'
+export type {
+  EntityResizePatch,
+  ResizeCorner,
+  ResizeEdge,
+  AspectRatioResizeMode,
 }
-
-export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
-export type ResizeEdge = 'top' | 'right' | 'bottom' | 'left'
-
-/** How Shift interacts with aspect ratio while resizing. */
-export type AspectRatioResizeMode = 'off' | 'shift-unlocks' | 'shift-locks'
 
 export {
   IMAGE_EXTENSIONS,
@@ -20,6 +22,7 @@ export {
   WIREFRAME_EXTENSIONS,
 } from '../../shared/file-extensions'
 import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from '../../shared/file-extensions'
+import { RESIZE_HANDLE_VISUAL_PX } from '../../shared/canvas-hit-geometry'
 
 /** Images/videos: lock aspect unless Shift. Other files: free resize unless Shift (then lock). */
 export function aspectRatioResizeModeForCanvasFile(filePath: string): AspectRatioResizeMode {
@@ -27,7 +30,7 @@ export function aspectRatioResizeModeForCanvasFile(filePath: string): AspectRati
   return 'shift-locks'
 }
 
-export const HANDLE_SIZE = 8
+export const HANDLE_SIZE = RESIZE_HANDLE_VISUAL_PX
 
 export const MIN_GROUP_WIDTH = 120
 export const MIN_GROUP_HEIGHT = 80

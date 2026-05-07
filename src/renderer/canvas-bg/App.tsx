@@ -333,7 +333,7 @@ export default function App({
         <FrameBorderLayer
           frames={borderFrames}
           fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
-          focusedFrameId={layoutData.frameFocus?.id ?? null}
+          focusedFrameId={layoutData.keyboardTargetFrameId}
         />
         <DeviceShellLayer
           frames={borderFrames.filter((f) => !f.useSvgDeviceShell)}

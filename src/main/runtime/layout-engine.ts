@@ -27,6 +27,7 @@ import { layoutCache } from './layout-cache'
 import { consumeDirty } from './layout-dirty'
 import { applyStack } from './layer-stack'
 import { reconcileFocus } from './focus-reconciler-runtime'
+import { reconcilePageCursorBridge } from './page-cursor-bridge'
 import {
   automationInteractiveFrameCounts,
   hoverTarget,
@@ -39,7 +40,6 @@ import {
   zoom,
 } from './runtime-context'
 import { shouldGateBeOpen } from './gate-predicate'
-import { currentFrameFocus } from './frame-focus'
 import {
   getUiState,
   annotationMode as uiAnnotationMode,
@@ -295,7 +295,6 @@ export function layoutAllViews(): void {
       selectedEntityKinds: selectedTargets.map((t) => t.kind),
       selectionOwnsFrameContent,
       hasSavedDrawings: drawingEntities.length > 0,
-      frameFocus: currentFrameFocus(),
     })
     const bounds = shouldCover
           ? {
@@ -527,8 +526,11 @@ export function layoutAllViews(): void {
   consumeDirty('pages')
   consumeDirty('devtools')
 
-  // Post-layout: reconcile focus once against the post-mutation world.
+  // Post-layout: reconcile focus + page-cursor bridge against the
+  // post-mutation world. Both observe the same predicate
+  // (`currentKeyboardTargetFrameId`).
   reconcileFocus()
+  reconcilePageCursorBridge()
 
   devtoolsPanelDebug('layout:all-views-complete', {
     durationMs: Date.now() - layoutStart,

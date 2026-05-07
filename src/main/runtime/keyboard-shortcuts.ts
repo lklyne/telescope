@@ -9,7 +9,7 @@ import { undo, redo, canUndo, canRedo } from './workspace-undo'
 import { pendingPlacement as uiPendingPlacement } from '../ui-state'
 import { selectAdjacentPage } from './selection-state'
 import { layoutAllViews } from './layout-engine'
-import { currentFrameFocus, exitFrameFocus } from './frame-focus'
+import { currentKeyboardTargetFrameId, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
 import { requestLayout } from './viewport-control'
 
@@ -119,10 +119,10 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
       return
     }
 
-    // Escape exits frame focus (ADR 0001). The page being focused is what
-    // routes its keypresses here; we preventDefault so the page doesn't
-    // also see the Escape. Note: confirmed flaky in Phase 1 — diagnose
-    // before promoting Phase 2.
+    // Escape on the keyboard-target frame deselects it. The page is what
+    // routes the keystroke here; preventDefault so the page doesn't also
+    // see the Escape. The selection commit triggers a layout pass which
+    // re-runs the focus reconciler and moves keyboard back to bgView.
     if (
       input.type === 'keyDown' &&
       input.key === 'Escape' &&
@@ -130,10 +130,10 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
       !input.meta &&
       !input.control &&
       !input.alt &&
-      currentFrameFocus()
+      currentKeyboardTargetFrameId()
     ) {
       event.preventDefault()
-      exitFrameFocus('escape')
+      selectNone()
       markDirty('canvas')
       requestLayout()
       return

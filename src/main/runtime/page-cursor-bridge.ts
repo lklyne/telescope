@@ -1,28 +1,27 @@
 /**
- * Page cursor bridge — mirror the focused frame's `cursor-changed` events
- * onto aboveView's `<body>` CSS cursor so the OS shows the right pointer
- * (hand on links, I-beam over text, etc).
+ * Page cursor bridge — mirror the keyboard-target frame's `cursor-changed`
+ * events onto aboveView's `<body>` CSS cursor so the OS shows the right
+ * pointer (hand on links, I-beam over text, etc).
  *
  * The OS picks the cursor from the topmost WebContentsView at the pointer
- * location. With aboveView always covering the canvas in canvas mode
- * (PoC `docs/plans/aboveview-interactive-layer-poc.md`), the page's own
- * cursor styling never reaches the OS — so we forward Chromium's chosen
- * cursor type to aboveView and let aboveView drive `document.body.cursor`.
+ * location. With aboveView always covering the canvas in canvas mode, the
+ * page's own cursor styling never reaches the OS — so we forward
+ * Chromium's chosen cursor type to aboveView and let aboveView drive
+ * `document.body.cursor`.
  *
- * Pure plumbing: subscribes to `frame-focus`, attaches a `cursor-changed`
- * listener to the focused page's webContents, broadcasts the cursor type
- * to aboveView via `aboveview-cursor-update`. On exit (or refocus) the
- * previous listener is detached and the cursor is reset.
+ * Reconciles per layout pass: compares the predicate-derived keyboard
+ * target against the currently-attached frame and (de)attaches the
+ * `cursor-changed` listener accordingly. Called from `layoutAllViews()`
+ * alongside `reconcileFocus()`.
  */
 
 import { findPageById } from './runtime-context'
-import { subscribeFrameFocus } from './frame-focus'
+import { currentKeyboardTargetFrameId } from './selection-controller'
 import { aboveView } from './view-refs'
 import { safeSend } from './safe-send'
 
 type CursorChangeEvent = (event: Electron.Event, type: string) => void
 
-let installed = false
 let attachedFrameId: string | null = null
 let attachedListener: CursorChangeEvent | null = null
 
@@ -57,18 +56,13 @@ function reset(): void {
   safeSend(aboveView.webContents, 'aboveview-cursor-update', { type: null })
 }
 
-export function installPageCursorBridge(): void {
-  if (installed) return
-  installed = true
-
-  subscribeFrameFocus((state) => {
-    if (!state) {
-      detach()
-      reset()
-      return
-    }
-    if (state.id === attachedFrameId) return
-    detach()
-    attach(state.id)
-  })
+export function reconcilePageCursorBridge(): void {
+  const target = currentKeyboardTargetFrameId()
+  if (target === attachedFrameId) return
+  detach()
+  if (target) {
+    attach(target)
+  } else {
+    reset()
+  }
 }

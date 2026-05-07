@@ -11,7 +11,7 @@ import { expectedFocus, focusKey, type FocusState } from './focus-reconciler'
 import { aboveView, bgView, toolbarView, leftSidebarView, win } from './view-refs'
 import { pages, interactionState, pendingFocus, setPendingFocus } from './runtime-context'
 import { isCommentOverlayVisible, selectedPageIndex, workspaceViewMode } from '../ui-state'
-import { focusedFrameId, withFocusEventsSuppressed } from './frame-focus'
+import { currentKeyboardTargetFrameId } from './selection-controller'
 
 function interactionModeKey(): FocusState['interactionMode'] {
   switch (interactionState.kind) {
@@ -35,7 +35,7 @@ function currentFocusState(): FocusState {
     workspaceViewMode: workspaceViewMode(),
     commentOverlayActive: isCommentOverlayVisible(),
     pendingFocus,
-    focusedFrameId: focusedFrameId(),
+    focusedFrameId: currentKeyboardTargetFrameId(),
   }
 }
 
@@ -81,12 +81,7 @@ export function reconcileFocus(): void {
   const expected = expectedFocus(state)
   if (focusKey(expected) !== currentlyFocusedKey()) {
     const target = resolve(expected)
-    if (target && !target.isDestroyed()) {
-      // Suppress page focus events during programmatic focus so the
-      // resulting webContents `focus` doesn't get classified as the user
-      // clicking into a frame (ADR 0001).
-      withFocusEventsSuppressed(() => target.focus())
-    }
+    if (target && !target.isDestroyed()) target.focus()
   }
   if (pendingFocus) setPendingFocus(null)
 }

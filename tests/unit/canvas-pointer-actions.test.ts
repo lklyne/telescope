@@ -51,7 +51,6 @@ function inputs(entities: CanvasSceneEntity[], selected: string[] = []): HitInpu
 
 const baseCtx: CanvasPointerContext = {
   selectedEntityIds: [],
-  frameFocused: false,
   isPrimaryButton: true,
   button: 'left',
   modifiers: { shift: false, meta: false, ctrl: false },

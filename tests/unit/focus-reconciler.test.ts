@@ -44,8 +44,8 @@ describe('expectedFocus', () => {
     expect(expectedFocus(state({ commentOverlayActive: true }))).toEqual({ kind: 'aboveView' })
   })
 
-  describe('focusedFrameId (ADR 0001)', () => {
-    it('routes to the focused page in idle canvas mode', () => {
+  describe('focusedFrameId (predicate-derived keyboard target)', () => {
+    it('routes to the target page in idle canvas mode', () => {
       expect(expectedFocus(state({ focusedFrameId: 'f1' })))
         .toEqual({ kind: 'page', id: 'f1' })
     })

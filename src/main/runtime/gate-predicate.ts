@@ -1,22 +1,14 @@
 /**
  * Gate predicate — should the aboveView overlay cover the canvas?
  *
- * Spec §4.2 + ADR 0001. The gate is open (non-zero bounds) whenever
- * aboveView needs to capture pointer input or paint canvas-level UI.
- * Frame focus (ADR 0001) is a hard gate-closer in any mode so the focused
- * page receives native input.
+ * In canvas mode the gate is unconditionally open: aboveView is the
+ * interactive layer. Pointer/wheel events that hit the single-selected
+ * frame's body are forwarded into the page from inside aboveView; chrome,
+ * selection outlines, marquee, drawings, and overlays keep painting and
+ * intercepting input there. Browser mode falls through to a narrower
+ * OR-chain so the gate stays closed unless a gesture or tool mode needs it.
  *
- * The "default-open in canvas mode" target from the plan is *not* yet in
- * effect — it would prevent the per-frame `chromeView` (URL bar, nav
- * buttons) and other bgView interactive surfaces from receiving pointer
- * events. Migrating those into the router or into aboveView is the
- * remaining work that lets the predicate collapse fully (§4.2 of the
- * plan). Until then we keep the legacy OR-chain in canvas mode too, but
- * the canvas-pointer-router is wired so every gate-open situation
- * (gestures, tool modes, etc.) goes through the single hit-test arbiter.
- *
- * Pure and testable. Authority lives in main; the renderer no longer
- * drives `setCommentOverlayActive` for the canvas-mode path.
+ * Pure and testable. Authority lives in main.
  */
 import type { InteractionMode } from '../../shared/interaction-types'
 import type { CanvasEntityKind } from '../../shared/types'
@@ -34,18 +26,9 @@ export type GateInputs = {
   selectedEntityKinds: readonly CanvasEntityKind[]
   selectionOwnsFrameContent: boolean
   hasSavedDrawings: boolean
-  /** Frame focus (ADR 0001). When set, the focused page receives native input,
-   *  so the gate must close so events fall through to the WebContentsView. */
-  frameFocus: { id: string } | null
 }
 
 export function shouldGateBeOpen(inputs: GateInputs): boolean {
-  // PoC (aboveview-interactive-layer-poc.md): aboveView stays default-open in
-  // canvas mode regardless of frameFocus. Pointer/wheel events that hit the
-  // single-selected frame's body are forwarded into the page from inside
-  // aboveView; everything else (chrome, selection outlines, marquee, etc.)
-  // keeps painting and intercepting input. The legacy ADR 0001 gate-flip on
-  // frameFocus has been retired here.
   // Inspect + annotate-comment drive feedback off the page's webContents
   // mousemove (eyedropper, comment hover). Keep the gate closed unless
   // the comment composer has been opened.
@@ -53,13 +36,9 @@ export function shouldGateBeOpen(inputs: GateInputs): boolean {
     return inputs.commentOverlayActive
   }
   // Inline text edit owns its bgView textarea — the gate must yield so
-  // keystrokes land in the textarea.
+  // keystrokes land in the textarea. (Phase C retires this carve-out when
+  // inline editors migrate into aboveView.)
   if (inputs.interactionKind === 'editing-text') return false
-  // ADR 0002 §"Landing as a single PR" Step 7: in canvas mode the gate is
-  // default-open. Every interactive surface that used to live in bgView or
-  // a per-page chromeView has migrated into aboveView's React tree and is
-  // tagged `data-overlay-ui`, so the canvas-pointer-router yields to them
-  // structurally and forwards the rest of the input through itself.
   if (inputs.viewMode === 'canvas') return true
   return browserModeNeedsGate(inputs)
 }

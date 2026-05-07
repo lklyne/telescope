@@ -267,8 +267,6 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-select-edge', { edgeId }),
   hoverFrame: (frameId: string | null) =>
     ipcRenderer.send('canvas-hover-frame', { frameId }),
-  enterFrameFocus: (frameId: string) =>
-    ipcRenderer.send('canvas-frame-focus-enter', { frameId }),
   forwardWheelToFrame: (frameId, payload) =>
     ipcRenderer.send('canvas-forward-wheel', { frameId, payload }),
   forwardPointerToFrame: (frameId, payload) =>

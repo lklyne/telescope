@@ -3,6 +3,7 @@ import type { SelectionMutationMode } from '../../shared/selection-modifiers'
 import {
   devtoolsPanelTab as uiDevtoolsPanelTab,
   getUiState,
+  isCommentOverlayVisible,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
   setCanvasMode as setUiCanvasMode,
@@ -13,6 +14,7 @@ import {
 import {
   findPageById,
   hoverTarget,
+  interactionState,
   pages,
   setHoverTarget,
 } from './runtime-context'
@@ -29,10 +31,11 @@ import { textEntities } from './text-entity-state'
 import { breadcrumb } from '../sentry-context'
 import { descendantEntityIdsForGroup } from './group-descendants'
 import {
-  currentFrameFocus,
-  enterFrameFocus,
-  exitFrameFocus,
-} from './frame-focus'
+  shouldFocusSelectedFrame,
+  type FocusSelectionInput,
+} from '../../shared/should-focus-selected-frame'
+import type { InteractionMode } from '../../shared/interaction-types'
+import type { CanvasInteractionState } from '../../shared/types'
 
 type SelectionCommand =
   | { kind: 'none' }
@@ -51,24 +54,47 @@ type CommitOptions = {
   syncInspection?: boolean
 }
 
-/**
- * PoC mirror: selection state drives frameFocus so the existing
- * focus-reconciler keeps calling `webContents.focus()` on the focused page.
- * Idempotence in `enterFrameFocus` plus `frame-focus-selection.ts`'s
- * focus→selection mirror short-circuits the loop on the second pass.
- *
- * Temporary — collapses with `frame-focus.*` in the post-PoC cleanup
- * (`docs/plans/aboveview-interactive-layer.md` §8 step 1).
- */
-function mirrorSelectionToFrameFocus(selection: SelectionCommand): void {
-  if (
-    selection.kind === 'single-entity' &&
-    selection.entityKind === 'frame'
-  ) {
-    enterFrameFocus(selection.entityId, 'programmatic')
-    return
+function predicateSelectionInput(selection: UiState['selection']): FocusSelectionInput {
+  if (selection.kind === 'single-entity') {
+    return {
+      kind: 'single-entity',
+      entityId: selection.entityId,
+      entityKind: selection.entityKind,
+    }
   }
-  if (currentFrameFocus()) exitFrameFocus('programmatic')
+  if (selection.kind === 'multi-entity') {
+    return { kind: 'multi-entity', entityIds: selection.entityIds }
+  }
+  return { kind: 'none' }
+}
+
+function predicateInteractionKind(
+  state: CanvasInteractionState,
+): InteractionMode['kind'] {
+  switch (state.kind) {
+    case 'idle': return 'idle'
+    case 'panning-canvas': return 'panning'
+    case 'marquee-select': return 'marquee'
+    case 'dragging-entities': return 'dragging-entities'
+    case 'resizing-entity': return 'resizing-entity'
+    case 'dragging-edge': return 'dragging-edge'
+    case 'editing-text': return 'editing-text'
+  }
+}
+
+/**
+ * Predicate-derived "which frame should hold keyboard + receive forwarded
+ * input." Single source of truth for the focus reconciler, page cursor
+ * bridge, and Escape handling. See `shouldFocusSelectedFrame`.
+ */
+export function currentKeyboardTargetFrameId(): string | null {
+  const ui = getUiState()
+  return shouldFocusSelectedFrame({
+    selection: predicateSelectionInput(ui.selection),
+    interactionKind: predicateInteractionKind(interactionState),
+    toolMode: ui.toolMode,
+    commentOverlayActive: isCommentOverlayVisible(ui),
+  })
 }
 
 function selectionEquals(a: UiState['selection'], b: SelectionCommand): boolean {
@@ -166,7 +192,6 @@ function commitSelection(
   }
 
   setUiSelection(nextSelection)
-  mirrorSelectionToFrameFocus(nextSelection)
   breadcrumb('selection', nextSelection.kind, describeSelection(nextSelection))
 
   if (!browserSelectionAllowed(nextSelection) && uiDevtoolsPanelTab() === 'browser-devtools') {

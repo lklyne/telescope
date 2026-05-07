@@ -62,7 +62,7 @@ describe('layout directive — pure-create row', () => {
     expect(result.positions[1].canvasY).toBe(200)
   })
 
-  it('falls back to insets=0 when only width/height given (back-compat)', async () => {
+  it('treats items without insets as un-framed (insets default to 0)', async () => {
     const result = await applyLayoutDirective({
       layout: { kind: 'row', gap: 'xs', originX: 0, originY: 0 },
       items: [
@@ -79,8 +79,6 @@ describe('layout directive — pure-create row', () => {
 
 describe('layout directive — re-layout existing entities', () => {
   it('reorganizes existing frames into a 2-col grid and fills in kinds', async () => {
-    // Create frames one at a time (multi-frame batch creation has a known
-    // issue where only the first frame survives — orthogonal to this plan).
     const ids: string[] = []
     for (let i = 0; i < 4; i++) {
       const r = await createFrames([

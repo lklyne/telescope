@@ -1,5 +1,4 @@
-// Pure layout math for the upsert layout directive (and the legacy batch
-// placement path). No runtime imports; safe to test in isolation.
+import type { BatchLayoutMode } from '../shared/types'
 
 export interface LayoutBox { width: number; height: number }
 
@@ -13,7 +12,7 @@ export interface LayoutMetrics {
 
 export function computeLayoutMetrics(
   items: LayoutBox[],
-  kind: 'row' | 'column' | 'grid',
+  kind: BatchLayoutMode,
   colGap: number,
   rowGap: number,
   cols?: number,
@@ -57,7 +56,7 @@ export function computeLayoutMetrics(
  */
 export function computeLayoutPositions(
   items: LayoutBox[],
-  kind: 'row' | 'column' | 'grid',
+  kind: BatchLayoutMode,
   colGap: number,
   rowGap: number,
   origin: { x: number; y: number },

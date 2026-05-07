@@ -33,6 +33,7 @@ import {
   entityDataInsetsById,
   entityKindById,
   selectionBounds,
+  unionBounds,
 } from './workspace-entities'
 import { computeLayoutMetrics, computeLayoutPositions, type LayoutBox } from './layout-math'
 
@@ -171,10 +172,6 @@ export function findPlacement(request: PlacementRequest): PlacementResult {
 export function findBatchPlacement(request: BatchPlacementRequest): BatchPlacementResult {
   const gap = snapToGrid(request.gap ?? CLUSTER_HORIZONTAL_GUTTER)
   const layout = request.layout ?? 'row'
-  // Items are described as outer (visible) footprints. Layout in outer space
-  // ensures `gap` is the visible whitespace between bezels; positions are then
-  // offset by each item's `insetX/insetY` so callers receive inner data-origin
-  // coordinates (canvasX/canvasY).
   const items = request.items.map((i) => ({
     width: snapToGrid(i.width),
     height: snapToGrid(i.height),
@@ -215,6 +212,10 @@ export function findBatchPlacement(request: BatchPlacementRequest): BatchPlaceme
  * existing items → findPlacement), look up sizes for items carrying an `id`,
  * compute positions. Used by upsertEntities when a `layout` directive is
  * present.
+ *
+ * Layout runs in OUTER space so `gap` measures visible whitespace between
+ * device-shell bezels; positions are offset back to inner data-origin
+ * coordinates before returning. No snap-to-grid — directives are precise.
  */
 export function applyLayoutDirective(request: ApplyDirectiveRequest): ApplyDirectiveResult {
   const directive = request.layout
@@ -224,14 +225,13 @@ export function applyLayoutDirective(request: ApplyDirectiveRequest): ApplyDirec
   const rowGap = resolveSpacing(directive.rowGap, baseGap)
   const warnings: string[] = []
 
-  // Resolve outer footprints + insets per item. Items with `id` look up the
-  // existing entity's outer bounds and data-origin insets; new items carry
-  // their own outer width/height plus optional insets (default 0). Layout runs
-  // in OUTER space so `gap` is visible whitespace; positions are offset back
-  // to inner data-origin coordinates before returning.
-  // No snap-to-grid — directives are precise; agents choose their own values.
+  // Single pass: collect everything we need per item — outer footprint, data
+  // insets, kind, and (for re-layouts) the existing entity's bounds for the
+  // implicit-origin fallback. Avoids re-traversing the entity graph 3× per id.
   const items: LayoutBox[] = []
   const itemInsets: Array<{ insetX: number; insetY: number }> = []
+  const kinds: ApplyDirectiveResult['kinds'] = []
+  const existingBounds: WorkspaceBounds[] = []
   for (let idx = 0; idx < request.items.length; idx++) {
     const it = request.items[idx]
     if (it.id) {
@@ -241,6 +241,8 @@ export function applyLayoutDirective(request: ApplyDirectiveRequest): ApplyDirec
       }
       items.push({ width: it.width ?? bounds.width, height: it.height ?? bounds.height })
       itemInsets.push(entityDataInsetsById(it.id))
+      kinds.push(entityKindById(it.id))
+      existingBounds.push(bounds)
       continue
     }
     if (it.width === undefined || it.height === undefined) {
@@ -248,9 +250,8 @@ export function applyLayoutDirective(request: ApplyDirectiveRequest): ApplyDirec
     }
     items.push({ width: it.width, height: it.height })
     itemInsets.push({ insetX: it.insetX ?? 0, insetY: it.insetY ?? 0 })
+    kinds.push(null)
   }
-
-  const kinds = request.items.map((it) => (it.id ? entityKindById(it.id) : null))
 
   if (items.length === 0) return { positions: [], kinds: [] }
 
@@ -258,8 +259,7 @@ export function applyLayoutDirective(request: ApplyDirectiveRequest): ApplyDirec
   let origin: { x: number; y: number }
   if (directive.originX !== undefined && directive.originY !== undefined) {
     // User specifies the first item's INNER (data-origin) position; convert
-    // to outer by subtracting that item's insets so layout math operates on
-    // outer footprints consistently.
+    // to outer by subtracting that item's insets so layout math is consistent.
     origin = {
       x: directive.originX - itemInsets[0].insetX,
       y: directive.originY - itemInsets[0].insetY,
@@ -269,31 +269,22 @@ export function applyLayoutDirective(request: ApplyDirectiveRequest): ApplyDirec
     if (!near) {
       throw new Error(`applyLayoutDirective: near entity "${directive.near}" not found`)
     }
-    // entityBoundsById returns OUTER bounds for frames (inner + shell + chrome).
     if (kind === 'column') {
       origin = { x: near.x, y: near.y + near.height + rowGap }
     } else {
       origin = { x: near.x + near.width + colGap, y: near.y }
     }
+  } else if (existingBounds.length > 0) {
+    const bbox = unionBounds(existingBounds)!
+    origin = { x: bbox.x, y: bbox.y }
   } else {
-    // Implicit origin: bbox of existing items being re-laid-out, if any.
-    const existingBounds = request.items
-      .map((it) => (it.id ? entityBoundsById(it.id) : null))
-      .filter((b): b is NonNullable<typeof b> => b !== null)
-    if (existingBounds.length > 0) {
-      const minX = Math.min(...existingBounds.map((b) => b.x))
-      const minY = Math.min(...existingBounds.map((b) => b.y))
-      origin = { x: minX, y: minY }
-    } else {
-      // Pure-create directive with no anchor: fall back to findPlacement.
-      const metrics = computeLayoutMetrics(items, kind, colGap, rowGap, directive.cols)
-      const placement = findPlacement({
-        width: metrics.bbWidth,
-        height: metrics.bbHeight,
-        anchor: 'selection_or_empty_region',
-      })
-      origin = { x: placement.canvasX, y: placement.canvasY }
-    }
+    const metrics = computeLayoutMetrics(items, kind, colGap, rowGap, directive.cols)
+    const placement = findPlacement({
+      width: metrics.bbWidth,
+      height: metrics.bbHeight,
+      anchor: 'selection_or_empty_region',
+    })
+    origin = { x: placement.canvasX, y: placement.canvasY }
   }
 
   const outerPositions = computeLayoutPositions(items, kind, colGap, rowGap, origin, directive.cols)

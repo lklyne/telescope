@@ -76,11 +76,9 @@ function sizeForItem(item: Record<string, unknown>): ItemFootprint {
     const insets = showFrame
       ? (device ? shellInsetsForDevice(device.id, orientation) : CUSTOM_SHELL_INSETS)
       : { top: 0, right: 0, bottom: 0, left: 0 }
-    // Outer footprint includes device-shell bezels (the always-visible chrome
-    // around the page). The chrome action header that floats above each frame
-    // is hover-only and is *not* reserved here — it's handled separately by
-    // occupied-region inflation in workspace-placement so it doesn't widen
-    // user-facing layout gaps.
+    // Footprint includes device-shell bezels only. The hover-only chrome
+    // action header is reserved separately via occupied-region inflation so
+    // it doesn't widen user-facing layout gaps.
     return {
       width: inner.width + insets.left + insets.right,
       height: inner.height + insets.top + insets.bottom,

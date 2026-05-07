@@ -7,26 +7,38 @@ import { tags as t } from '@lezer/highlight'
 
 export const externalUpdate = Annotation.define<boolean>()
 
+// Shared metrics — must match `.text-block-markdown` rules in
+// shared/markdownStyles.css so view↔edit mode swap doesn't reflow.
+export const MARKDOWN_TOKENS = {
+  fontSize: '12px',
+  fontFamily: 'system-ui, sans-serif',
+  lineHeight: '1.5',
+  headingWeight: '600',
+  h1Size: '1.4em',
+  h2Size: '1.2em',
+  h3Size: '1.1em',
+  linkColor: '#2563eb',
+} as const
+
 const markdownHighlightStyle = HighlightStyle.define([
-  { tag: t.heading1, fontWeight: 'bold', fontSize: '1.5em' },
-  { tag: t.heading2, fontWeight: 'bold', fontSize: '1.3em' },
-  { tag: t.heading3, fontWeight: 'bold', fontSize: '1.15em' },
-  { tag: t.heading4, fontWeight: 'bold' },
-  { tag: t.heading5, fontWeight: 'bold' },
-  { tag: t.heading6, fontWeight: 'bold' },
-  { tag: t.strong, fontWeight: 'bold' },
+  { tag: t.heading1, fontWeight: MARKDOWN_TOKENS.headingWeight, fontSize: MARKDOWN_TOKENS.h1Size },
+  { tag: t.heading2, fontWeight: MARKDOWN_TOKENS.headingWeight, fontSize: MARKDOWN_TOKENS.h2Size },
+  { tag: t.heading3, fontWeight: MARKDOWN_TOKENS.headingWeight, fontSize: MARKDOWN_TOKENS.h3Size },
+  { tag: t.heading4, fontWeight: MARKDOWN_TOKENS.headingWeight },
+  { tag: t.heading5, fontWeight: MARKDOWN_TOKENS.headingWeight },
+  { tag: t.heading6, fontWeight: MARKDOWN_TOKENS.headingWeight },
+  { tag: t.strong, fontWeight: MARKDOWN_TOKENS.headingWeight },
   { tag: t.emphasis, fontStyle: 'italic' },
   { tag: t.strikethrough, textDecoration: 'line-through' },
-  { tag: t.link, textDecoration: 'underline' },
-  { tag: t.url, color: '#3b82f6' },
+  { tag: t.link, textDecoration: 'underline', color: MARKDOWN_TOKENS.linkColor },
+  { tag: t.url, color: MARKDOWN_TOKENS.linkColor },
   {
     tag: t.monospace,
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
   },
   { tag: t.processingInstruction, opacity: '0.45' },
   { tag: t.contentSeparator, opacity: '0.45' },
-  { tag: t.quote, opacity: '0.85', fontStyle: 'italic' },
-  { tag: t.list, opacity: '0.85' },
+  { tag: t.quote, fontStyle: 'italic' },
 ])
 
 function buildEditorTheme(isDark: boolean): Extension {
@@ -35,8 +47,8 @@ function buildEditorTheme(isDark: boolean): Extension {
       '&': {
         backgroundColor: 'transparent',
         color: isDark ? '#e7e5e4' : '#1c1917',
-        fontSize: '12px',
-        fontFamily: 'system-ui, sans-serif',
+        fontSize: MARKDOWN_TOKENS.fontSize,
+        fontFamily: MARKDOWN_TOKENS.fontFamily,
         height: '100%',
       },
       '.cm-content': {
@@ -48,7 +60,7 @@ function buildEditorTheme(isDark: boolean): Extension {
       '.cm-scroller': {
         overflow: 'auto',
         fontFamily: 'inherit',
-        lineHeight: '1.5',
+        lineHeight: MARKDOWN_TOKENS.lineHeight,
       },
       '.cm-gutters': { display: 'none' },
     },

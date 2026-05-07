@@ -1,9 +1,15 @@
-import type { BatchLayoutMode } from '../../shared/types'
+import type {
+  ApplyDirectiveResult,
+  BatchLayoutMode,
+  LayoutDirective,
+} from '../../shared/types'
 import {
+  CUSTOM_SHELL_INSETS,
   LAPTOP_PRESET_INDEX,
   VIEWPORT_PRESETS,
   defaultOrientationForDevice,
   deviceForPresetIndex,
+  shellInsetsForDevice,
   sizeForOrientation,
 } from '../../shared/device-catalog'
 import { normalizeUserUrl } from '../../shared/url'
@@ -33,8 +39,59 @@ function deriveNoteName(text: string): string {
 // ---------------------------------------------------------------------------
 
 export interface UpsertOptions {
+  /** Legacy: simple layout flag for auto-placed creates (no canvasX/Y). */
   layout?: BatchLayoutMode
   gap?: number
+  /**
+   * Declarative layout directive. When present, computed positions override
+   * any per-item canvasX/Y for ALL items, including items with an `id` (which
+   * get re-laid-out). Mixed creates + re-layouts in one call are supported.
+   */
+  directive?: LayoutDirective
+}
+
+interface ItemFootprint {
+  /** Outer width (visible footprint, including device-shell bezels). */
+  width: number
+  /** Outer height (visible footprint, including device-shell bezels). */
+  height: number
+  /** Distance from outer top-left to entity data origin (canvasX). */
+  insetX: number
+  /** Distance from outer top-left to entity data origin (canvasY). */
+  insetY: number
+}
+
+function sizeForItem(item: Record<string, unknown>): ItemFootprint {
+  if (item.kind === 'frame') {
+    const presetIndex = (item.presetIndex as number | undefined) ?? LAPTOP_PRESET_INDEX
+    const preset = VIEWPORT_PRESETS[presetIndex]
+    const w = preset?.width ?? 1280
+    const h = preset?.height ?? 800
+    const device = deviceForPresetIndex(presetIndex)
+    const orientation =
+      (item.orientation as 'portrait' | 'landscape' | undefined) ??
+      defaultOrientationForDevice(device)
+    const inner = sizeForOrientation(w, h, orientation)
+    const showFrame = item.showDeviceFrame !== false
+    const insets = showFrame
+      ? (device ? shellInsetsForDevice(device.id, orientation) : CUSTOM_SHELL_INSETS)
+      : { top: 0, right: 0, bottom: 0, left: 0 }
+    // Footprint includes device-shell bezels only. The hover-only chrome
+    // action header is reserved separately via occupied-region inflation so
+    // it doesn't widen user-facing layout gaps.
+    return {
+      width: inner.width + insets.left + insets.right,
+      height: inner.height + insets.top + insets.bottom,
+      insetX: insets.left,
+      insetY: insets.top,
+    }
+  }
+  return {
+    width: Number(item.width) || 200,
+    height: Number(item.height) || 200,
+    insetX: 0,
+    insetY: 0,
+  }
 }
 
 export async function upsertEntities(
@@ -42,6 +99,48 @@ export async function upsertEntities(
   options?: UpsertOptions,
 ): Promise<{ created: string[]; updated: string[] }> {
   const results: { created: string[]; updated: string[] } = { created: [], updated: [] }
+
+  // Apply layout directive first, if present. Computes positions for all
+  // items (creates and re-layouts), overrides per-item canvasX/Y, and
+  // back-fills `kind` for items with `id` so the bucketer routes correctly.
+  if (options?.directive) {
+    const warnings: string[] = []
+    const directiveItems = items.map((item) => {
+      if (item.id) {
+        const out: { id: string; width?: number; height?: number } = { id: item.id as string }
+        if (item.width !== undefined) out.width = Number(item.width)
+        if (item.height !== undefined) out.height = Number(item.height)
+        return out
+      }
+      const footprint = sizeForItem(item)
+      return {
+        width: footprint.width,
+        height: footprint.height,
+        insetX: footprint.insetX,
+        insetY: footprint.insetY,
+      }
+    })
+    const result = await callApp<ApplyDirectiveResult>('/layout/apply-directive', {
+      method: 'POST',
+      body: JSON.stringify({ layout: options.directive, items: directiveItems }),
+    })
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].canvasX !== undefined || items[i].canvasY !== undefined) {
+        warnings.push(`item[${i}]: canvasX/canvasY ignored under layout directive`)
+      }
+      items[i].canvasX = result.positions[i].canvasX
+      items[i].canvasY = result.positions[i].canvasY
+      // Back-fill kind from runtime so bucketing routes the right way for
+      // items where the agent only passed an id.
+      if (items[i].id && !items[i].kind && result.kinds[i]) {
+        items[i].kind = result.kinds[i]
+      }
+    }
+    if (warnings.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn('upsert layout directive:', warnings.join('; '))
+    }
+  }
 
   // Single-pass grouping
   const frameCreates: Array<Record<string, unknown>> = []
@@ -77,29 +176,13 @@ export async function upsertEntities(
     (item) => item.canvasX === undefined || item.canvasY === undefined,
   )
   if (needsPlacement.length > 0) {
-    const sizes = needsPlacement.map((item) => {
-      if (item.kind === 'frame') {
-        const presetIndex = (item.presetIndex as number | undefined) ?? LAPTOP_PRESET_INDEX
-        const preset = VIEWPORT_PRESETS[presetIndex]
-        const w = preset?.width ?? 1280
-        const h = preset?.height ?? 800
-        const device = deviceForPresetIndex(presetIndex)
-        const orientation =
-          (item.orientation as 'portrait' | 'landscape' | undefined) ??
-          defaultOrientationForDevice(device)
-        return sizeForOrientation(w, h, orientation)
-      }
-      return {
-        width: Number(item.width) || 200,
-        height: Number(item.height) || 200,
-      }
-    })
+    const footprints = needsPlacement.map(sizeForItem)
     const placement = await callApp<{ positions: Array<{ canvasX: number; canvasY: number }> }>(
       '/layout/batch-placement',
       {
         method: 'POST',
         body: JSON.stringify({
-          items: sizes,
+          items: footprints,
           layout: options?.layout,
           gap: options?.gap,
           anchor: 'selection_or_empty_region',

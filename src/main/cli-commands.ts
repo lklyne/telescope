@@ -1,4 +1,5 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
+import { validateLayoutDirective } from '../shared/types'
 import { callApp } from './shared/app-client'
 import { handleBrowse, shellQuote } from './shared/browse-handler'
 import { upsertEntities, type UpsertOptions, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
@@ -62,18 +63,37 @@ const breakpoints: VerbHandler = async (args) => {
 }
 
 const upsert: VerbHandler = async (args) => {
-  // Read JSON items from stdin or positional
-  let items: Array<Record<string, unknown>>
-  if (args.boolFlags.has('json')) {
-    const input = await readStdin()
-    items = JSON.parse(input)
-  } else {
+  // Read JSON from stdin: either an array of items (legacy) or
+  // { layout: LayoutDirective, items: [...] } (directive form).
+  if (!args.boolFlags.has('json')) {
     printError('usage: specular upsert --json < items.json')
     return 1
   }
+  const input = await readStdin()
+  const parsed = JSON.parse(input)
   const options: UpsertOptions = {}
-  if (args.flags.layout) options.layout = args.flags.layout as UpsertOptions['layout']
-  if (args.flags.gap) options.gap = Number(args.flags.gap)
+  let items: Array<Record<string, unknown>>
+  if (Array.isArray(parsed)) {
+    items = parsed
+  } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.items)) {
+    items = parsed.items
+    if (parsed.layout) {
+      const err = validateLayoutDirective(parsed.layout)
+      if (err) {
+        printError(`upsert: ${err}`)
+        return 1
+      }
+      options.directive = parsed.layout as UpsertOptions['directive']
+    }
+  } else {
+    printError('upsert: expected an array of items or { layout, items }')
+    return 1
+  }
+  // CLI flags still work for the legacy auto-placement path.
+  if (args.flags.layout && !options.directive) {
+    options.layout = args.flags.layout as UpsertOptions['layout']
+  }
+  if (args.flags.gap && !options.directive) options.gap = Number(args.flags.gap)
   printJson(await upsertEntities(items, options))
   return 0
 }

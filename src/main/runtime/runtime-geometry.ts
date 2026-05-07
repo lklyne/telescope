@@ -77,7 +77,7 @@ export function pageCanvasBounds(
   }
 }
 
-function pageShellInsets(
+export function pageShellInsets(
   page: Pick<Page, 'metadata'>,
 ): { top: number; right: number; bottom: number; left: number } | null {
   const show = showDeviceFrameFromMetadata(page.metadata)

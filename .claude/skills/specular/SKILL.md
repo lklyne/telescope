@@ -54,22 +54,65 @@ canvas and frame operations go through the `specular` command.
 
 ### Upsert tips
 
-`upsert --json` is the fastest way to create many entities at once. For
-**frames**, it honors `canvasX`, `canvasY`, `presetIndex`, and
-`orientation: "landscape" | "portrait"` — use it to drop a batch of frames
-at exact positions with the right device preset in one call:
+`upsert --json` is the fastest way to create many entities at once. It accepts
+two shapes on stdin: a bare array of items (legacy), or `{layout, items}` with
+a declarative `layout` directive that places everything for you.
+
+**Use the `layout` directive for any composition of more than 2 items.** It
+takes a `kind` (`row` / `column` / `grid`), a `gap` (token or pixel number),
+and an anchor (`originX`/`originY`, `near: <id>`, or implicit). Same shape
+creates new items *and* reorganizes existing ones — pass an `id` to re-lay-out
+an entity that's already on the canvas.
 
 ```bash
+# Create three frames in a row at breakpoints
 cat << 'EOF' | specular upsert --json
-[
-  {"kind":"frame","url":"https://example.com","presetIndex":6,"orientation":"landscape","canvasX":200,"canvasY":200},
-  {"kind":"frame","url":"https://example.com","presetIndex":0,"canvasX":1520,"canvasY":200}
-]
+{
+  "layout": { "kind": "row", "gap": "m", "originX": 200, "originY": 200 },
+  "items": [
+    {"kind":"frame","url":"https://example.com","presetIndex":0},
+    {"kind":"frame","url":"https://example.com","presetIndex":3},
+    {"kind":"frame","url":"https://example.com","presetIndex":6}
+  ]
+}
 EOF
 ```
 
-For **files** (markdown, wireframe, image) upsert ignores `canvasX/canvasY` —
-the layout engine always places them. Images additionally ignore `width`.
+```bash
+# Reorganize 6 existing frames into a 3x2 grid
+cat << 'EOF' | specular upsert --json
+{
+  "layout": { "kind": "grid", "cols": 3, "gap": "m", "near": "frame_a" },
+  "items": [
+    {"id":"frame_a"}, {"id":"frame_b"}, {"id":"frame_c"},
+    {"id":"frame_d"}, {"id":"frame_e"}, {"id":"frame_f"}
+  ]
+}
+EOF
+```
+
+When a directive is present, per-item `canvasX`/`canvasY` are ignored. Without
+`originX/Y` or `near`, the directive anchors at the bounding box of any
+existing items in `items[]` (so re-layout doesn't teleport the cluster); with
+no existing items, it falls back to `find-placement`.
+
+**Spacing scale.** Tokens are aligned to the canvas grid (20px multiples).
+Numbers work too as an escape hatch:
+
+| Token | Pixels |
+|---|---|
+| `xs` | 20 |
+| `s` | 40 |
+| `m` | 60 |
+| `l` | 100 |
+| `xl` | 160 |
+
+For ad-hoc single drops, the bare-array form still works and honors `canvasX`,
+`canvasY`, `presetIndex`, and `orientation: "landscape" | "portrait"` per item.
+
+For **files** (markdown, wireframe, image) without a directive, upsert ignores
+`canvasX/canvasY` — the layout engine always places them. Images additionally
+ignore `width`.
 
 ### Note colors
 

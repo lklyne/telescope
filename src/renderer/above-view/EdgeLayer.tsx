@@ -1,3 +1,14 @@
+/**
+ * EdgeLayer — node-to-node edge bodies + anchor dots, rendered in aboveView
+ * (Phase D of the aboveView migration).
+ *
+ * Ported from `canvas-bg/EdgeLayer.tsx`. The svg is purely visual
+ * (`pointer-events: none` end-to-end); interaction is driven by
+ * `useCanvasPointerRouter` against the layout snapshot, so no event wiring
+ * changes here. Anchor coords are in window-space (`screenX`/`screenY`);
+ * aboveView's WCV origin sits at `canvasOrigin.y`, so we subtract it from
+ * every y when laying out the SVG geometry — matching the rest of aboveView.
+ */
 import { useMemo } from 'react'
 import type {
   CanvasInteractionState,
@@ -15,8 +26,8 @@ import {
   EDGE_ANCHOR_HIT_GAP_PX,
   EDGE_SIDES,
 } from '../../shared/canvas-hit-geometry'
-import { selectionColor, EDGE_COLOR_DEFAULT } from './canvasBgConstants'
-import { scaleEdgeHitTargetSize } from './edgeHitSizing'
+import { selectionColor, EDGE_COLOR_DEFAULT } from '../canvas-bg/canvasBgConstants'
+import { scaleEdgeHitTargetSize } from '../canvas-bg/edgeHitSizing'
 
 // --- Constants ---
 
@@ -33,18 +44,24 @@ interface AnchorPoint {
   side: EdgeSide
 }
 
-function getAnchorPoint(entity: CanvasSceneEntity, side: EdgeSide, zoom: number): AnchorPoint {
+function getAnchorPoint(
+  entity: CanvasSceneEntity,
+  side: EdgeSide,
+  zoom: number,
+  originY: number,
+): AnchorPoint {
   const { screenX, screenY, screenWidth, screenHeight } = entity
+  const localY = screenY - originY
   const dotOffset = EDGE_ANCHOR_DOT_OFFSET_PX * zoom
   switch (side) {
     case 'top':
-      return { x: screenX + screenWidth / 2, y: screenY - dotOffset, side }
+      return { x: screenX + screenWidth / 2, y: localY - dotOffset, side }
     case 'bottom':
-      return { x: screenX + screenWidth / 2, y: screenY + screenHeight + dotOffset, side }
+      return { x: screenX + screenWidth / 2, y: localY + screenHeight + dotOffset, side }
     case 'left':
-      return { x: screenX - dotOffset, y: screenY + screenHeight / 2, side }
+      return { x: screenX - dotOffset, y: localY + screenHeight / 2, side }
     case 'right':
-      return { x: screenX + screenWidth + dotOffset, y: screenY + screenHeight / 2, side }
+      return { x: screenX + screenWidth + dotOffset, y: localY + screenHeight / 2, side }
   }
 }
 
@@ -52,20 +69,22 @@ function getAnchorHitRect(
   entity: CanvasSceneEntity,
   side: EdgeSide,
   zoom: number,
+  originY: number,
 ): { x: number; y: number; width: number; height: number } {
   const { screenX, screenY, screenWidth, screenHeight } = entity
+  const localY = screenY - originY
   const along = scaleEdgeHitTargetSize(EDGE_ANCHOR_HIT_ALONG_PX, zoom)
   const across = scaleEdgeHitTargetSize(EDGE_ANCHOR_HIT_ACROSS_PX, zoom)
   const horizontal = side === 'top' || side === 'bottom'
   const width = horizontal ? along : across
   const height = horizontal ? across : along
   const cx = screenX + screenWidth / 2
-  const cy = screenY + screenHeight / 2
+  const cy = localY + screenHeight / 2
   switch (side) {
     case 'top':
-      return { x: cx - width / 2, y: screenY - EDGE_ANCHOR_HIT_GAP_PX - height, width, height }
+      return { x: cx - width / 2, y: localY - EDGE_ANCHOR_HIT_GAP_PX - height, width, height }
     case 'bottom':
-      return { x: cx - width / 2, y: screenY + screenHeight + EDGE_ANCHOR_HIT_GAP_PX, width, height }
+      return { x: cx - width / 2, y: localY + screenHeight + EDGE_ANCHOR_HIT_GAP_PX, width, height }
     case 'left':
       return { x: screenX - EDGE_ANCHOR_HIT_GAP_PX - width, y: cy - height / 2, width, height }
     case 'right':
@@ -118,19 +137,19 @@ function AnchorDots({
   isDark,
   isDragging,
   zoom,
-  onHoverEntity,
+  originY,
 }: {
   entity: CanvasSceneEntity
   isDark: boolean
   isDragging: boolean
   zoom: number
-  onHoverEntity: (entityId: string | null) => void
+  originY: number
 }) {
   return (
     <>
       {EDGE_SIDES.map((side) => {
-        const pt = getAnchorPoint(entity, side, zoom)
-        const hitRect = getAnchorHitRect(entity, side, zoom)
+        const pt = getAnchorPoint(entity, side, zoom, originY)
+        const hitRect = getAnchorHitRect(entity, side, zoom, originY)
         const showDot = isDragging
         return (
           <g key={side}>
@@ -144,6 +163,8 @@ function AnchorDots({
                 strokeWidth={1}
               />
             ) : null}
+            {/* Hit rect kept for parity with the bgView source, but pointer-events
+                are off — interaction lives in `useCanvasPointerRouter`. */}
             <rect
               x={hitRect.x}
               y={hitRect.y}
@@ -153,13 +174,6 @@ function AnchorDots({
               ry={EDGE_ANCHOR_HIT_CORNER_PX}
               fill="transparent"
               style={{ pointerEvents: 'none' }}
-              onMouseEnter={() => {
-                onHoverEntity(entity.id)
-              }}
-              onMouseLeave={() => {
-                if (isDragging) return
-                onHoverEntity(null)
-              }}
             />
           </g>
         )
@@ -179,7 +193,7 @@ export function EdgeLayer({
   selectedEdgeIds,
   selectedEntityIds,
   zoom,
-  onHoverEntity,
+  originY,
 }: {
   edges: WorkspaceEdge[]
   entities: CanvasSceneEntity[]
@@ -189,7 +203,7 @@ export function EdgeLayer({
   selectedEdgeIds: ReadonlySet<string>
   selectedEntityIds: string[]
   zoom: number
-  onHoverEntity: (entityId: string | null) => void
+  originY: number
 }) {
   const entityMap = useMemo(() => {
     const map = new Map<string, CanvasSceneEntity>()
@@ -220,8 +234,8 @@ export function EdgeLayer({
         ? { fromSide: edge.fromSide, toSide: edge.toSide }
         : autoSides(fromEntity, toEntity)
 
-      const from = getAnchorPoint(fromEntity, fromSide, zoom)
-      const to = getAnchorPoint(toEntity, toSide, zoom)
+      const from = getAnchorPoint(fromEntity, fromSide, zoom, originY)
+      const to = getAnchorPoint(toEntity, toSide, zoom, originY)
       const d = buildBezierPath(from, to, zoom)
       paths.push({
         id: edge.id,
@@ -233,7 +247,7 @@ export function EdgeLayer({
       })
     }
     return paths
-  }, [edges, entityMap, selectedEdgeIds, zoom])
+  }, [edges, entityMap, selectedEdgeIds, zoom, originY])
 
   // Which entities should show anchor dots: selected + hovered entities, or all during drag
   const anchorEntities = useMemo(() => {
@@ -328,7 +342,7 @@ export function EdgeLayer({
           isDark={isDark}
           isDragging={interaction.kind === 'dragging-edge'}
           zoom={zoom}
-          onHoverEntity={onHoverEntity}
+          originY={originY}
         />
       ))}
     </svg>

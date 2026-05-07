@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
-  CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
   CanvasSceneFrameEntity,
   CanvasSceneTextEntity,
@@ -12,22 +11,17 @@ import { useCanvasGlobalShortcuts } from '../shared/hooks/useCanvasGlobalShortcu
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
-import { buildSelectedFrameIdSet } from './canvasBgSelectors'
-import { EntityHoverProvider } from './EntityHoverProvider'
 import { CanvasDebugBadge, CanvasGridSurface, PlacementPreviewLayer, CanvasEntityViewportLayer } from './CanvasGridSurface'
 import { BrowserTabBar } from './BrowserTabBar'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { FrameBorderLayer } from './FrameBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
-import { FileBlockLayer, type FileJsonModeMap } from './FileBlockLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { ActiveFrameHighlightLayer } from './AgentCursorLayer'
-import { EdgeLayer } from './EdgeLayer'
 import { GroupInlineMenu, StickyNoteInlineMenu } from './InlineEntityMenu'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { usePendingPlacementState } from './usePendingPlacementState'
 import { useCanvasViewportGestures, type ShapePlacementDragPreview } from './useCanvasViewportGestures'
-import { descendantIdsForGroup } from './groupMembership'
 import { SELECTED_FRAME_MENU_SHOW_DELAY_MS } from '../../shared/selectedFrameMenu'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
@@ -49,26 +43,10 @@ export default function App({
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
   const { pendingPlacementPreview, setPlacementCursor } =
     usePendingPlacementState(layoutData)
-  const [marqueePreviewIds, setMarqueePreviewIds] = useState<Set<string> | null>(null)
   const [shapePlacementPreview, setShapePlacementPreview] =
     useState<ShapePlacementDragPreview | null>(null)
-  const fileJsonModeMap = useMemo<FileJsonModeMap>(() => new Map(), [])
   const [captureMode, setCaptureMode] = useState(false)
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
-
-  // Marquee preview: above-view's pointer router computes the overlap and
-  // ships `entityIds` alongside the overlay rect; we just unpack into a Set.
-  useEffect(
-    () =>
-      api.onSelectionOverlayChanged((overlay) => {
-        if (!overlay || overlay.variant !== 'default' || !overlay.entityIds?.length) {
-          setMarqueePreviewIds(null)
-          return
-        }
-        setMarqueePreviewIds(new Set(overlay.entityIds))
-      }),
-    [],
-  )
 
   useCanvasViewportGestures({
     api,
@@ -83,8 +61,6 @@ export default function App({
     layoutRef,
   })
 
-  const handleHoverEntity = useCallback((entityId: string | null) => api.hoverFrame(entityId), [api])
-
   const frameEntities = useMemo(
     () => layoutData.entities.filter((e): e is CanvasSceneFrameEntity => e.kind === 'frame'),
     [layoutData.entities],
@@ -97,19 +73,11 @@ export default function App({
     () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
     [layoutData.entities],
   )
-  const drawingEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasSceneDrawingEntity => e.kind === 'drawing'),
-    [layoutData.entities],
-  )
   const borderFrames = useMemo(
     () => layoutData.viewMode === 'browser'
       ? frameEntities.filter((f) => f.id === layoutData.activeBrowserTabId)
       : frameEntities,
     [frameEntities, layoutData.viewMode, layoutData.activeBrowserTabId],
-  )
-  const selectedEntityIdSet = useMemo(
-    () => buildSelectedFrameIdSet(layoutData.selectedEntityIds),
-    [layoutData.selectedEntityIds],
   )
   const selectedGroupEntity = useMemo(() => {
     if (!layoutData.selectedGroupId) return null
@@ -120,10 +88,6 @@ export default function App({
     const [selectedId] = layoutData.selectedEntityIds
     return textEntities.find((entity) => entity.id === selectedId) ?? null
   }, [layoutData.selectedEntityIds, textEntities])
-  const selectedGroupDescendantIds = useMemo(() => {
-    if (!layoutData.selectedGroupId) return new Set<string>()
-    return descendantIdsForGroup(layoutData.groups ?? [], layoutData.selectedGroupId)
-  }, [layoutData.groups, layoutData.selectedGroupId])
   const [delayedSelectedTextMenuId, setDelayedSelectedTextMenuId] = useState<string | null>(null)
   const [delayedSelectedGroupMenuId, setDelayedSelectedGroupMenuId] = useState<string | null>(null)
   const shouldQueueSelectedTextMenu =
@@ -162,18 +126,8 @@ export default function App({
     selectedTextEntity !== null && delayedSelectedTextMenuId === selectedTextEntity.id
   const showSelectedGroupMenu =
     selectedGroupEntity !== null && delayedSelectedGroupMenuId === selectedGroupEntity.id
-  const hoveredEntityId = layoutData.hover?.id ?? null
-  const selectedEdgeIds = useMemo(() => {
-    const ids = new Set<string>()
-    for (const target of layoutData.selection) {
-      if (target.kind === 'edge') ids.add(target.id)
-    }
-    return ids
-  }, [layoutData.selection])
-  const getEntityLayerZoom = useCallback(() => layoutRef.current.zoom, [layoutRef])
 
   return (
-    <EntityHoverProvider>
     <div
       className="relative h-screen w-screen overflow-hidden"
       style={{
@@ -239,20 +193,6 @@ export default function App({
         </CanvasEntityViewportLayer>
       ) : null}
 
-      {layoutData.viewMode === 'canvas' ? (
-        <EdgeLayer
-          edges={layoutData.edges}
-          entities={layoutData.entities}
-          hoveredEntityId={hoveredEntityId}
-          isDark={isDark}
-          interaction={layoutData.interaction}
-          selectedEdgeIds={selectedEdgeIds}
-          selectedEntityIds={layoutData.selectedEntityIds}
-          zoom={layoutData.zoom}
-          onHoverEntity={handleHoverEntity}
-        />
-      ) : null}
-
       {layoutData.viewMode === 'browser' ? (
         <BrowserTabBar
           activeBrowserTabId={layoutData.activeBrowserTabId}
@@ -315,36 +255,6 @@ export default function App({
       ) : null}
 
       {/* Selected frame menu now renders in the floating-ui view (above frames) */}
-
-      {layoutData.viewMode === 'canvas' ? (
-        <CanvasEntityViewportLayer
-          canvasOrigin={layoutData.canvasOrigin}
-          pan={layoutData.pan}
-          zoom={layoutData.zoom}
-        >
-          <FileBlockLayer
-            entities={fileEntities}
-            getZoom={getEntityLayerZoom}
-            isDark={isDark}
-            marqueePreviewIds={marqueePreviewIds}
-            onDrag={api.dragEntity}
-            onDragEnd={api.endDragEntity}
-            onDragStart={api.startDragEntity}
-            onGroupDrag={api.dragGroup}
-            onGroupDragEnd={api.endDragGroup}
-            onGroupDragStart={api.startDragGroup}
-            onResize={(id, patch) => api.updateFileEntity(id, patch)}
-            onSelect={(id, modifiers) => api.selectEntity(id, 'file', modifiers)}
-            onTextEditingChange={api.setTextEditing}
-            selectedEntityCount={layoutData.selectedEntityIds.length}
-            selectedEntityIdSet={selectedEntityIdSet}
-            selectedGroupDescendantIds={selectedGroupDescendantIds}
-            selectedGroupId={layoutData.selectedGroupId ?? null}
-            jsonModeMap={fileJsonModeMap}
-          />
-        </CanvasEntityViewportLayer>
-      ) : null}
     </div>
-    </EntityHoverProvider>
   )
 }

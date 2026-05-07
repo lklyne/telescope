@@ -12,6 +12,7 @@ import { useAnchoredPosition, type AnchorSlot } from './useAnchoredPosition'
 import type { LayoutUpdateData } from '../../shared/types'
 
 type Placement = 'above' | 'below' | 'overlay'
+type Align = 'stretch' | 'center'
 
 function Root({
   entityId,
@@ -19,6 +20,7 @@ function Root({
   open,
   slot = 'body',
   placement = 'below',
+  align = 'center',
   offset = 8,
   children,
 }: {
@@ -29,13 +31,20 @@ function Root({
   slot?: AnchorSlot
   /** How the popup positions relative to the anchor rect. */
   placement?: Placement
+  /**
+   * Horizontal alignment for `above`/`below` placements.
+   * `center` (default) positions the popup over the anchor's horizontal
+   * midpoint at its intrinsic width. `stretch` forces the popup width to
+   * match the anchor rect — useful for inline strips. `overlay` ignores this.
+   */
+  align?: Align
   /** Pixel gap between anchor edge and popup. Ignored for `overlay`. */
   offset?: number
   children: ReactNode
 }) {
   const rect = useAnchoredPosition(layout, entityId, slot)
   if (!open || !rect) return null
-  const style = popupStyle(rect, placement, offset)
+  const style = popupStyle(rect, placement, align, offset)
   return (
     <div
       data-overlay-ui
@@ -50,15 +59,22 @@ function Root({
 function popupStyle(
   rect: { x: number; y: number; width: number; height: number },
   placement: Placement,
+  align: Align,
   offset: number,
 ): React.CSSProperties {
-  switch (placement) {
-    case 'above':
-      return { left: rect.x, top: rect.y - offset, width: rect.width, transform: 'translateY(-100%)' }
-    case 'below':
-      return { left: rect.x, top: rect.y + rect.height + offset, width: rect.width }
-    case 'overlay':
-      return { left: rect.x, top: rect.y, width: rect.width, height: rect.height }
+  if (placement === 'overlay') {
+    return { left: rect.x, top: rect.y, width: rect.width, height: rect.height }
+  }
+  const isAbove = placement === 'above'
+  const top = isAbove ? rect.y - offset : rect.y + rect.height + offset
+  const verticalTransform = isAbove ? 'translateY(-100%)' : ''
+  if (align === 'stretch') {
+    return { left: rect.x, top, width: rect.width, transform: verticalTransform || undefined }
+  }
+  return {
+    left: rect.x + rect.width / 2,
+    top,
+    transform: `translateX(-50%) ${verticalTransform}`.trim(),
   }
 }
 

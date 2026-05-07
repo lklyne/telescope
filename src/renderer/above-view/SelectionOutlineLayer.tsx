@@ -144,7 +144,6 @@ function EntitySelectionOverlay({
   const aspectRatioResizeMode =
     entity.kind === 'file' ? aspectRatioResizeModeForCanvasFile(entity.file) : 'off'
   const zoom = entity.width > 0 ? entity.screenWidth / entity.width : 1
-  const overlayOwnsResizeHandles = entity.kind === 'drawing'
 
   return (
     <div
@@ -161,7 +160,7 @@ function EntitySelectionOverlay({
       }}
       data-overlay-ui
     >
-      {isSelected && showResizeHandles && overlayOwnsResizeHandles ? (
+      {isSelected && showResizeHandles ? (
         <SelectionResizeGrid
           id={entity.id}
           width={entity.width}

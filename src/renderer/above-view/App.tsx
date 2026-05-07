@@ -51,6 +51,7 @@ import { EdgeLayer } from './EdgeLayer'
 import { FrameChromeOverlay } from './FrameChrome'
 import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
+import { StickyNotePopover } from './StickyNotePopover'
 import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
 import { useAnnotationOverlayShortcuts } from '../shared/hooks/useAnnotationOverlayShortcuts'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
@@ -147,6 +148,14 @@ export default function App({
   // Marquee preview ids — outline layer highlights entities that the in-flight
   // marquee currently overlaps. canvas-bg used to derive this; aboveView owns
   // the marquee gesture, so we derive locally from `selectionOverlay`.
+  const selectedTextEntity = useMemo<CanvasSceneTextEntity | null>(() => {
+    if (layoutData.selectedEntityIds.length !== 1) return null
+    const [selectedId] = layoutData.selectedEntityIds
+    const entity = layoutData.entities.find((e) => e.id === selectedId)
+    return entity?.kind === 'text' ? entity : null
+  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const interactionIdle = layoutData.interaction.kind === 'idle'
+
   const marqueePreviewIds = useMemo(() => {
     if (
       !selectionOverlay ||
@@ -842,6 +851,7 @@ export default function App({
               selectedEntityIds={layoutData.selectedEntityIds}
               zoom={layoutData.zoom}
               originY={layoutData.canvasOrigin.y}
+              onSelectEdge={api.selectEdge}
             />
           ) : null}
 
@@ -937,6 +947,16 @@ export default function App({
           <FrameChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
           <FileChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
           <GroupRenameOverlay api={api} layoutData={layoutData} isDark={isDark} />
+
+          {layoutData.viewMode === 'canvas' ? (
+            <StickyNotePopover
+              api={api}
+              isDark={isDark}
+              layout={layoutData}
+              selectedTextEntity={selectedTextEntity}
+              interactionIdle={interactionIdle}
+            />
+          ) : null}
         </>
       ) : null}
     </div>

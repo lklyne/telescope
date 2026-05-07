@@ -18,7 +18,6 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CanvasSceneShapeEntity } from '../../shared/types'
 import { lightenHex, resolveCanvasColor, withAlpha } from '../../shared/canvas-colors'
-import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 
 const DEFAULT_STROKE_WIDTH = 2
 const FILL_OPACITY = 0.24
@@ -311,8 +310,6 @@ function ShapeShell({
   canvasY,
   width,
   height,
-  isDark,
-  isSelected,
   children,
 }: {
   id: string
@@ -320,13 +317,10 @@ function ShapeShell({
   canvasY: number
   width: number
   height: number
-  isDark: boolean
-  isSelected: boolean
   children: React.ReactNode
 }) {
   // Shapes have no card background or shadow (transparent). The body
-  // children paint the rectangle/ellipse/diamond fill themselves. Resize
-  // handles stay visual-only; the router hit-tests against entity geometry.
+  // children paint the rectangle/ellipse/diamond fill themselves.
   return (
     <div
       data-entity-id={id}
@@ -343,18 +337,6 @@ function ShapeShell({
       }}
     >
       {children}
-      {isSelected ? (
-        <>
-          <EdgeResizeHandle edge="top" scaleWithZoom />
-          <EdgeResizeHandle edge="right" scaleWithZoom />
-          <EdgeResizeHandle edge="bottom" scaleWithZoom />
-          <EdgeResizeHandle edge="left" scaleWithZoom />
-          <CornerResizeHandle corner="top-left" isDark={isDark} scaleWithZoom />
-          <CornerResizeHandle corner="top-right" isDark={isDark} scaleWithZoom />
-          <CornerResizeHandle corner="bottom-left" isDark={isDark} scaleWithZoom />
-          <CornerResizeHandle corner="bottom-right" isDark={isDark} scaleWithZoom />
-        </>
-      ) : null}
     </div>
   )
 }
@@ -385,8 +367,6 @@ function ShapeCard({
       canvasY={shape.canvasY}
       width={shape.width}
       height={shape.height}
-      isDark={isDark}
-      isSelected={isSelected}
     >
       <MemoShapeBody
         shape={shape}

@@ -72,7 +72,12 @@ export function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 export function isOverlayUiTarget(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest('[data-overlay-ui]'))
+  if (!(target instanceof Element)) return false
+  // Resize handles live inside the selection overlay (which is tagged
+  // `data-overlay-ui`) but they ARE routable — the canvas pointer router
+  // hit-tests the click position to dispatch begin-resize.
+  if (target.closest('[data-resize-handle]')) return false
+  return Boolean(target.closest('[data-overlay-ui]'))
 }
 
 function hasNoModifierKeys(

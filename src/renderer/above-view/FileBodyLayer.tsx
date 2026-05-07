@@ -20,7 +20,6 @@ import { memo } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import type { CanvasSceneFileEntity, SelectionModifiers } from '../../shared/types'
-import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import {
   RendererSwitch,
 } from '../canvas-bg/entity-renderers/RendererSwitch'
@@ -104,18 +103,6 @@ function FileShell({
       }}
     >
       {children}
-      {isSelected ? (
-        <>
-          <EdgeResizeHandle edge="top" scaleWithZoom />
-          <EdgeResizeHandle edge="right" scaleWithZoom />
-          <EdgeResizeHandle edge="bottom" scaleWithZoom />
-          <EdgeResizeHandle edge="left" scaleWithZoom />
-          <CornerResizeHandle corner="top-left" isDark={isDark} scaleWithZoom />
-          <CornerResizeHandle corner="top-right" isDark={isDark} scaleWithZoom />
-          <CornerResizeHandle corner="bottom-left" isDark={isDark} scaleWithZoom />
-          <CornerResizeHandle corner="bottom-right" isDark={isDark} scaleWithZoom />
-        </>
-      ) : null}
     </div>
   )
 }

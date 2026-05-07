@@ -1,7 +1,7 @@
 import type { CSSProperties, MouseEventHandler, ReactNode } from 'react'
 import { Copy, Trash2 } from 'lucide-react'
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
-import type { CanvasSceneGroupEntity, CanvasSceneTextEntity } from '../../shared/types'
+import type { CanvasSceneGroupEntity } from '../../shared/types'
 
 const MENU_OFFSET_Y = 14
 
@@ -66,73 +66,6 @@ export function InlineEntityMenu({
     >
       {children}
     </div>
-  )
-}
-
-export function StickyNoteInlineMenu({
-  isDark,
-  note,
-  onDuplicate,
-  onDelete,
-  onSelectColor,
-}: {
-  isDark: boolean
-  note: CanvasSceneTextEntity
-  onDuplicate: () => void
-  onDelete: () => void
-  onSelectColor: (color: string) => void
-}) {
-  return (
-    <InlineEntityMenu entity={note} isDark={isDark}>
-      <div className="flex items-center gap-1.5">
-        {CANVAS_COLOR_OPTIONS.map((option) => {
-          const resolved = resolveCanvasColor(option.id)
-          const isActive = resolveCanvasColor(note.color) === resolved
-          return (
-            <button
-              key={option.id}
-              type="button"
-              aria-label={`Set sticky note color to ${option.label}`}
-              className={`flex h-5 w-5 items-center justify-center rounded-full border transition-transform hover:scale-105 ${
-                isActive
-                  ? isDark
-                    ? 'border-white/80 bg-zinc-900'
-                    : 'border-zinc-900/80 bg-white'
-                  : isDark
-                    ? 'border-transparent hover:border-zinc-600'
-                    : 'border-transparent hover:border-zinc-300'
-              }`}
-              onClick={() => onSelectColor(option.id)}
-            >
-              <span
-                className="block h-3.5 w-3.5 rounded-full"
-                style={{ background: resolved }}
-              />
-            </button>
-          )
-        })}
-      </div>
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          className={iconButtonClassName(isDark)}
-          onClick={onDuplicate}
-          title="Duplicate Text"
-          aria-label="Duplicate Text"
-        >
-          <Copy size={14} />
-        </button>
-        <button
-          type="button"
-          className={deleteButtonClassName(isDark)}
-          onClick={onDelete}
-          title="Delete Text"
-          aria-label="Delete Text"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-    </InlineEntityMenu>
   )
 }
 

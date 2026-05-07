@@ -19,7 +19,6 @@ import { memo, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import type { CanvasSceneTextEntity } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
-import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 
 /**
  * Wraps the sticky body cards in a viewport transform so they live in
@@ -91,18 +90,6 @@ function StickyShell({
       }}
     >
       {children}
-      {isSelected ? (
-        <>
-          <EdgeResizeHandle edge="top" scaleWithZoom />
-          <EdgeResizeHandle edge="right" scaleWithZoom />
-          <EdgeResizeHandle edge="bottom" scaleWithZoom />
-          <EdgeResizeHandle edge="left" scaleWithZoom />
-          <CornerResizeHandle corner="top-left" isDark={isDark} scaleWithZoom />
-          <CornerResizeHandle corner="top-right" isDark={isDark} scaleWithZoom />
-          <CornerResizeHandle corner="bottom-left" isDark={isDark} scaleWithZoom />
-          <CornerResizeHandle corner="bottom-right" isDark={isDark} scaleWithZoom />
-        </>
-      ) : null}
     </div>
   )
 }

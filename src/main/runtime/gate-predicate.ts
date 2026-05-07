@@ -52,8 +52,8 @@ function browserModeNeedsGate(inputs: GateInputs): boolean {
 }
 
 function interactionOpensGate(interactionKind: GateInputs['interactionKind']): boolean {
-  // Post-Phase-C: inline editors (sticky / shape / markdown / wireframe) render
-  // in aboveView, so `editing-text` needs the gate open like every other
+  // Inline editors (sticky / shape / markdown / wireframe) render in
+  // aboveView, so `editing-text` needs the gate open like every other
   // non-idle interaction kind.
   return interactionKind !== 'idle'
 }

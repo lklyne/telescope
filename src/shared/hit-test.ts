@@ -31,9 +31,8 @@ import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
 
 // --- Public types ---
 
-export type ResizeHandle =
-  | 'n' | 's' | 'e' | 'w'
-  | 'ne' | 'nw' | 'se' | 'sw'
+export type { ResizeHandle } from './resize-accumulator'
+import type { ResizeHandle } from './resize-accumulator'
 
 export type HitPayload =
   | { kind: 'resize-handle'; entityId: string; entityKind: CanvasEntityKind; handle: ResizeHandle }

@@ -4,7 +4,6 @@ import { pages } from '../runtime/page-runtime'
 import {
   applyDragDelta,
   finalizeDrag,
-  findMovableEntity,
   initializeDrag,
 } from '../runtime/document-commands'
 import {
@@ -116,13 +115,7 @@ function resolveDraggedEntityIds(entityId: string): string[] {
 let activeDragSession: {
   kind: 'frame' | 'entity' | 'group'
   ids: string[]
-  sessionId: number
-  startPositions: Map<string, { x: number; y: number }>
-  deltaCount: number
-  cumDx: number
-  cumDy: number
 } | null = null
-let dragSessionCounter = 0
 
 function applyDragStartSelection(
   entityId: string,
@@ -140,48 +133,15 @@ function beginDragSession(
   kind: 'frame' | 'entity' | 'group',
   entityIds: string[],
 ): boolean {
-  const sessionId = dragSessionCounter + 1
-  console.log(`[session #${sessionId}] beginDragSession attempt`, {
-    kind,
-    entityIds,
-    interactionState: currentInteractionState().kind,
-    activeSession: activeDragSession ? activeDragSession.sessionId : null,
-  })
-  if (!entityIds.length) {
-    console.log(`[session #${sessionId}] REFUSED — no ids`)
-    return false
-  }
+  if (!entityIds.length) return false
   if (activeDragSession && currentInteractionState().kind === 'idle') {
     activeDragSession = null
   }
-  if (activeDragSession) {
-    console.log(`[session #${sessionId}] REFUSED — active session exists`, {
-      activeSessionId: activeDragSession.sessionId,
-    })
-    return false
-  }
+  if (activeDragSession) return false
   const token = tryEnter({ kind: 'dragging-entities', entityIds })
-  if ('refused' in token) {
-    console.log(`[session #${sessionId}] REFUSED — tryEnter denied`, token)
-    return false
-  }
-  dragSessionCounter = sessionId
-  const startPositions = new Map<string, { x: number; y: number }>()
-  for (const id of entityIds) {
-    const entity = findMovableEntity(id)
-    if (entity) startPositions.set(id, { x: entity.canvasX, y: entity.canvasY })
-  }
-  activeDragSession = {
-    kind,
-    ids: [...entityIds],
-    sessionId,
-    startPositions,
-    deltaCount: 0,
-    cumDx: 0,
-    cumDy: 0,
-  }
+  if ('refused' in token) return false
+  activeDragSession = { kind, ids: [...entityIds] }
   initializeDrag(entityIds)
-  console.log(`[session #${sessionId}] STARTED`, { kind, idsLen: entityIds.length })
   return true
 }
 
@@ -195,28 +155,7 @@ function activeDragIds(
 }
 
 function endDragSession(kind: 'frame' | 'entity' | 'group'): void {
-  if (!activeDragSession || activeDragSession.kind !== kind) {
-    console.log(`[session ?] endDragSession no-op — kind=${kind}, active=${activeDragSession?.kind ?? 'none'}`)
-    return
-  }
-  const session = activeDragSession
-  const movement: Array<{ id: string; dy: number; from: number; to: number }> = []
-  let movedAny = false
-  for (const [id, start] of session.startPositions) {
-    const entity = findMovableEntity(id)
-    if (!entity) continue
-    const dy = entity.canvasY - start.y
-    if (dy !== 0) movedAny = true
-    movement.push({ id: id.slice(0, 16), dy, from: start.y, to: entity.canvasY })
-  }
-  console.log(`[session #${session.sessionId}] ENDED`, {
-    kind,
-    deltaCount: session.deltaCount,
-    cumDx: Number(session.cumDx.toFixed(2)),
-    cumDy: Number(session.cumDy.toFixed(2)),
-    movedAny,
-    movement,
-  })
+  if (!activeDragSession || activeDragSession.kind !== kind) return
   activeDragSession = null
   finalizeDrag()
   commitActive()
@@ -275,21 +214,7 @@ export function registerCanvasDragIpc(): void {
     'canvas-drag-frame',
     (_event, { frameId, dx, dy }: { frameId: string; dx: number; dy: number }) => {
       const frameIds = activeDragIds('frame', frameId)
-      if (!frameIds) {
-        console.log(`[session ?] canvas-drag-frame DROPPED`, {
-          frameId: frameId.slice(0, 16),
-          activeSessionId: activeDragSession?.sessionId ?? null,
-          activeKind: activeDragSession?.kind ?? null,
-          dx,
-          dy,
-        })
-        return
-      }
-      if (activeDragSession) {
-        activeDragSession.deltaCount += 1
-        activeDragSession.cumDx += dx
-        activeDragSession.cumDy += dy
-      }
+      if (!frameIds) return
       if (frameIds.length === 1) {
         const idx = pages.findIndex((candidate) => candidate.id === frameId)
         if (idx !== -1) selectPage(idx)
@@ -340,21 +265,7 @@ export function registerCanvasDragIpc(): void {
     'canvas-drag-entity',
     (_event, { entityId, dx, dy }: { entityId: string; dx: number; dy: number }) => {
       const entityIds = activeDragIds('entity', entityId)
-      if (!entityIds) {
-        console.log(`[session ?] canvas-drag-entity DROPPED`, {
-          entityId: entityId.slice(0, 16),
-          activeSessionId: activeDragSession?.sessionId ?? null,
-          activeKind: activeDragSession?.kind ?? null,
-          dx,
-          dy,
-        })
-        return
-      }
-      if (activeDragSession) {
-        activeDragSession.deltaCount += 1
-        activeDragSession.cumDx += dx
-        activeDragSession.cumDy += dy
-      }
+      if (!entityIds) return
       applyDragDelta(entityIds, dx, dy)
       requestLayout()
     },

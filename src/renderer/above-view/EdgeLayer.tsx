@@ -1,13 +1,11 @@
 /**
- * EdgeLayer — node-to-node edge bodies + anchor dots, rendered in aboveView
- * (Phase D of the aboveView migration).
+ * EdgeLayer — node-to-node edge bodies + anchor dots, rendered in aboveView.
  *
- * Ported from `canvas-bg/EdgeLayer.tsx`. The svg is purely visual
- * (`pointer-events: none` end-to-end); interaction is driven by
- * `useCanvasPointerRouter` against the layout snapshot, so no event wiring
- * changes here. Anchor coords are in window-space (`screenX`/`screenY`);
- * aboveView's WCV origin sits at `canvasOrigin.y`, so we subtract it from
- * every y when laying out the SVG geometry — matching the rest of aboveView.
+ * The svg is purely visual (`pointer-events: none` end-to-end); interaction
+ * is driven by `useCanvasPointerRouter` against the layout snapshot. Anchor
+ * coords arrive in window-space (`screenX`/`screenY`); aboveView's WCV
+ * origin sits at `canvasOrigin.y`, so subtract it from every y when laying
+ * out SVG geometry — matching the rest of aboveView.
  */
 import { useEffect, useMemo, useState } from 'react'
 import type {

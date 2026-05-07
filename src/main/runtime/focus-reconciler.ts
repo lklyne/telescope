@@ -57,8 +57,8 @@ export function expectedFocus(state: FocusState): FocusTarget {
     case 'dragging-edge':
       return { kind: 'aboveView' }
     case 'editing-text':
-      // Post-Phase-C: inline canvas editors (sticky notes, shapes, markdown
-      // files, wireframes) render in aboveView, so keyboard focus lives there
+      // Inline canvas editors (sticky notes, shapes, markdown files,
+      // wireframes) render in aboveView, so keyboard focus lives there
       // while typing.
       return { kind: 'aboveView' }
     case 'idle':
@@ -77,13 +77,10 @@ export function expectedFocus(state: FocusState): FocusTarget {
     return { kind: 'page', id: state.selectedPageId }
   }
 
-  // Canvas mode default: aboveView (Phase F — aboveView is the singleton
-  // keyboard owner in canvas mode; canvas-mode shortcuts like Cmd-Z, Escape,
-  // and tool hotkeys are wired into aboveView's webContents alongside bgView's
-  // via `watchModifierKeys`, so they continue to work). The browser-mode
-  // fallback (no selected page) also lands here — that's a degenerate state
-  // where no page exists yet, and aboveView is a fine keyboard owner until
-  // one does.
+  // Canvas mode default: aboveView is the singleton keyboard owner. Canvas
+  // shortcuts (Cmd-Z, Escape, tool hotkeys) are wired into aboveView's
+  // webContents via `watchModifierKeys`. The browser-mode no-selected-page
+  // fallback also lands here — a degenerate state with no page yet.
   return { kind: 'aboveView' }
 }
 

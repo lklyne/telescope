@@ -122,8 +122,7 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
     // Escape on the keyboard-target frame deselects it. The page is what
     // routes the keystroke here; preventDefault so the page doesn't also
     // see the Escape. The selection commit triggers a layout pass which
-    // re-runs the focus reconciler and moves keyboard back to aboveView
-    // (Phase F default).
+    // re-runs the focus reconciler and moves keyboard back to aboveView.
     if (
       input.type === 'keyDown' &&
       input.key === 'Escape' &&

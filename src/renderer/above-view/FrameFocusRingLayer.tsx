@@ -18,12 +18,11 @@ type RingTarget = {
   width: number
 }
 
-/** Phase F — focused-frame accent ring lives in aboveView so it paints above
- *  page WCVs (and any neighboring page that overlaps the frame's outer rect).
- *  Geometry mirrors the ring previously rendered inside `FrameBorderLayer` in
- *  canvas-bg: 4px outside the outer frame border with a 2px accent + 2px
- *  translucent halo. originY is canvasOrigin.y so frames in window-coords
- *  land at the right WCV-local y. */
+/** Focused-frame accent ring. Lives in aboveView so it paints above page
+ *  WCVs (and any neighboring page that overlaps the frame's outer rect):
+ *  4px outside the outer frame border, 2px accent + 2px translucent halo.
+ *  originY is canvasOrigin.y so window-coord frames land at the right
+ *  WCV-local y. */
 export function FrameFocusRingLayer({
   frames,
   fileEntities,

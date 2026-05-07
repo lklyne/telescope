@@ -158,8 +158,7 @@ export function cancel(token: Token, _reason: CancelReason): void {
 /**
  * Commit whatever is active without needing a token. Twin of cancelActive,
  * for IPC gesture-end handlers that don't plumb tokens through the IPC
- * schema. Phase D replaces these with real token-carrying IPCs when the
- * gestures move onto useDragGesture.
+ * schema.
  */
 export function commitActive(): void {
   if (!current) {
@@ -177,8 +176,7 @@ export function commitActive(): void {
  *
  * Per spec §4.1, only four blessed sites should call this: the token timer,
  * the undo observer, external selection mutations, and tab-switch teardown.
- * Phase B additionally uses it for IPC abort paths until Phase D rewires
- * gestures onto useDragGesture with real token plumbing.
+ * IPC gesture abort paths also rely on it where tokens aren't plumbed yet.
  */
 export function cancelActive(reason: CancelReason): void {
   if (!current) {

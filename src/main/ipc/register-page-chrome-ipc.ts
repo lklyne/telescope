@@ -14,7 +14,10 @@ import {
   setHoverEntity,
 } from '../runtime/ui-actions'
 import { interactionBlocksPageHover } from '../runtime/interaction-state'
-import { annotationMode as uiAnnotationMode } from '../ui-state'
+import {
+  annotationMode as uiAnnotationMode,
+  workspaceViewMode as uiWorkspaceViewMode,
+} from '../ui-state'
 import {
   findPageByPageView,
   pages,
@@ -50,6 +53,13 @@ export function registerPageChromeIpc(): void {
   ipcMain.on('frame-hover', (event, hovered: boolean) => {
     if (interactionBlocksPageHover()) return
     if (uiAnnotationMode() === 'region_select') return
+    // Canvas mode: aboveView's gate is unconditionally open (gate-predicate.ts),
+    // so its hit-test is the sole hover authority. The page only sees synthetic
+    // events forwarded by aboveView, and the blocking overlay's mouseenter can
+    // fire spuriously when re-injected under a "stuck" perceived cursor — which
+    // would clobber a just-cleared hover after deselect. Browser mode still
+    // needs this signal because the gate closes there.
+    if (uiWorkspaceViewMode() === 'canvas') return
     const page = pages.find((candidate) => candidate.pageView.webContents === event.sender)
     setHoverEntity(hovered && page ? { id: page.id, kind: 'frame' } : null)
   })

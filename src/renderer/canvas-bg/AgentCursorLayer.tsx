@@ -205,10 +205,8 @@ function AgentCursor({
 }
 
 /** Halo around an agent-active frame so it's discoverable while CDP runs.
- *  Mounts in aboveView (Phase F) so the halo paints above page WCVs; pass
- *  `originY={canvasOrigin.y}` to align frame coords against aboveView's WCV
- *  whose origin sits at the toolbar inset. Defaults to 0 for callers that
- *  still live at window-space (none today). */
+ *  Pass `originY={canvasOrigin.y}` when mounted in aboveView so frame coords
+ *  align against the WCV whose origin sits at the toolbar inset. */
 export function ActiveFrameHighlightLayer({
   cursors,
   frames,

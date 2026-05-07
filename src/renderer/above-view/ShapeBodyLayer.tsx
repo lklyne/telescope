@@ -1,18 +1,12 @@
 /**
- * ShapeBodyLayer — shape (rectangle / ellipse / diamond) bodies, rendered in
- * aboveView (Phase C of the aboveView migration).
+ * ShapeBodyLayer — shape (rectangle / ellipse / diamond) bodies. Mounted
+ * in aboveView so a shape placed over a frame is actually drawn above it.
  *
- * The previous implementation lived in `canvas-bg/ShapeBlockLayer.tsx`, where
- * bodies painted under the page WCVs and could not be visible above frames.
- * They now mount in aboveView so a shape placed over a frame is actually
- * drawn above it.
- *
- * Hit-tests still happen in `useCanvasPointerRouter` against the layout
- * snapshot (front-to-back per Phase B′), so this layer is purely visual for
- * selection / drag / resize gestures. The contenteditable label inside is
- * the one place we *do* need real DOM events — those work because the cards
- * mount inside aboveView's WCV which already has keyboard focus during
- * text editing.
+ * Hit-tests run in `useCanvasPointerRouter` against the layout snapshot
+ * (front-to-back), so this layer is purely visual for selection/drag/resize.
+ * The contenteditable label inside is the one exception — it needs real
+ * DOM events, and works because the cards mount inside aboveView's WCV
+ * which already holds keyboard focus during edit.
  */
 
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'

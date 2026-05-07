@@ -17,7 +17,7 @@ Phases (per §8 sequencing A → B → B′ → C → D → F):
 - [x] Phase A — collapse `frame-focus.*` into selection
 - [x] Phase B — selection outlines + resize handles into aboveView
 - [x] Phase B′ — honor entity z-order in body hit-test
-- [ ] Phase C — sticky / text / shape entity bodies into aboveView
+- [x] Phase C — sticky / text / shape entity bodies into aboveView
 - [ ] Phase D — file entity bodies + edges into aboveView
 - [ ] Phase F — bgView reduces to grid only + keyboard owner flip
 
@@ -187,3 +187,172 @@ because it requires observing the running app.
 - **Manual debt accumulated this phase:** none.
 - **Next phase:** Phase C — sticky / text / shape entity bodies into
   aboveView.
+
+### 2026-05-06 — Phase C — sticky bodies (text entities) into aboveView
+
+- **Did:** One commit on `aboveview-migration`:
+  - `refactor(sticky): move sticky note bodies into aboveView (Phase C)`
+    — created `src/renderer/above-view/StickyBodyLayer.tsx`, a port of
+    canvas-bg's `TextBlockLayer.tsx`. Cards mount inside a local
+    `StickyViewportLayer` that applies the canvas zoom/pan transform
+    without `canvasOrigin.y` (aboveView's WCV origin already sits at
+    that y, so cards in canvas coords land at the right window-y).
+    Wired into aboveView's `App.tsx` between `MarqueeLayer` and
+    `SelectionOutlineLayer`. Mirrored `pendingTextEditId` state +
+    `onTextBeginEdit` listener into aboveView so dblclick-to-edit
+    still flips a sticky into edit mode. `register-canvas-ipc.ts` now
+    fans `text-begin-edit` to both bgView and aboveView (whichever
+    layer mounts the body picks it up). Deleted
+    `src/renderer/canvas-bg/TextBlockLayer.tsx`. Removed the
+    `<TextBlockLayer>` mount + `pendingTextEditId` state + listener
+    from canvas-bg's `App.tsx`. Updated the `EntityBlockLayers.tsx`
+    facade to drop the re-export.
+- **Observed:**
+  - `pnpm typecheck` — green.
+  - `pnpm test:unit` — 372 / 372 passing (no test changes; sticky
+    rendering has no unit coverage).
+  - The router's `entity-body` hit-test continues to work unchanged —
+    geometry comes from the layout snapshot, not DOM. Phase B′'s
+    front-to-back iteration means a sticky declared after a frame in
+    `entityOrder` now wins clicks that overlap both, which is the
+    user-visible payoff.
+  - `SelectableEntityShell`'s `EntityHoverProvider` context had no
+    readers (only writers via `setHoveredEntityId`). The aboveView
+    port drops it entirely — `SelectionOutlineLayer` already reads
+    hover from `layoutData.hover.id`, broadcast by main.
+  - Inline menus (`StickyNoteInlineMenu`, `GroupInlineMenu`) still
+    render in canvas-bg. They're floating UI on top of bodies and
+    will eventually need to migrate too — out of scope for Phase C
+    per the plan ("entity bodies" only). Selected-text-entity menu
+    therefore now paints below pages when a frame overlaps the
+    sticky; flagged as MANUAL for the human walk.
+  - Shape bodies and the `editing-text` carve-outs
+    (`gate-predicate.ts:41`, `focus-reconciler.ts:58-61`) still need
+    to migrate before Phase C is complete.
+- **Next:** Phase C — shape bodies into aboveView (port
+  `ShapeBlockLayer.tsx`).
+- **Status:** green
+- **Manual:** §6 #19 — sticky positioned over a focused frame is now
+  visible above the page (Phase C user-visible payoff); dblclick the
+  sticky enters edit mode, keystrokes land in the textarea, exit
+  returns forwarded input to the frame; `StickyNoteInlineMenu` may
+  paint below the page when selected sticky overlaps a frame (inline
+  menu migration deferred to future phase).
+
+### 2026-05-06 — Phase C — shape bodies into aboveView
+
+- **Did:** One commit on `aboveview-migration`:
+  - `refactor(shape): move shape bodies into aboveView (Phase C)` —
+    created `src/renderer/above-view/ShapeBodyLayer.tsx`, a port of
+    canvas-bg's `ShapeBlockLayer.tsx` covering rectangle, ellipse, and
+    diamond bodies plus the in-shape contenteditable label. Cards
+    mount inside a local `ShapeViewportLayer` mirroring
+    `StickyViewportLayer` (translate omits `canvasOrigin.y` since
+    aboveView's WCV already sits at that y). Wired into aboveView's
+    `App.tsx` between `MarqueeLayer` and `StickyBodyLayer` so shapes
+    paint below stickies/files (preserves prior canvas-bg layer
+    order). Mirrored `pendingShapeEditId` state + `onShapeBeginEdit`
+    listener for dblclick / post-creation auto-edit.
+    `register-canvas-ipc.ts` (`canvas-request-shape-edit` handler) and
+    `register-canvas-entity-ipc.ts` (post-shape-creation auto-edit)
+    now both fan `shape-begin-edit` to both bgView and aboveView.
+    Deleted `src/renderer/canvas-bg/ShapeBlockLayer.tsx`. Removed the
+    `<ShapeBlockLayer>` mount + `pendingShapeEditId` /
+    `requestShapeEdit` plumbing + the unused `CanvasSceneShapeEntity`
+    import from canvas-bg's `App.tsx`.
+- **Observed:**
+  - `pnpm typecheck` — green.
+  - `pnpm test:unit` — 372 / 372 passing (no test changes; shape body
+    rendering has no unit coverage).
+  - The sticky port introduced `StickyShell` to replace
+    `SelectableEntityShell` because the router does drag / resize /
+    select; followed the same pattern with `ShapeShell`. Hover for
+    shapes is forwarded by aboveView's window pointermove handler via
+    `api.hoverFrame`, so the `EntityHoverProvider` setter usage from
+    `SelectableEntityShell` was correctly dropped.
+  - The contenteditable label in shapes is the one place we need real
+    DOM events; it works because aboveView's WCV holds keyboard focus
+    during text editing (same condition as stickies post-Phase-C
+    plan).
+  - Inline menus (`StickyNoteInlineMenu`, `GroupInlineMenu`) and
+    `EntityHoverProvider` still live in canvas-bg's `App.tsx` because
+    canvas-bg still mounts the file block layer. They migrate
+    alongside file bodies in Phase D.
+  - `EntityBlockLayers.tsx` facade still re-exports `FileBlockLayer`
+    + `GroupBoundsLayer` but has no remaining importers in `src/`.
+    Left in place — clean-up belongs to Phase D / F, not this chunk.
+- **Next:** Phase C — retire the `editing-text` carve-outs in
+  `gate-predicate.ts:41` and `focus-reconciler.ts:58-61` (per §8 Phase
+  C bullets) before declaring the phase complete. After that: Phase D
+  — file entity bodies + edges into aboveView.
+- **Status:** green
+- **Manual:** §6 #19 — shape positioned over a focused frame is now
+  visible above the page (Phase C user-visible payoff for shapes);
+  dblclick the shape enters edit mode, keystrokes land in the
+  contenteditable, exit returns forwarded input to the frame.
+
+### 2026-05-06 — Phase C — retire editing-text carve-outs
+
+- **Did:** One commit on `aboveview-migration`:
+  - `refactor(focus): keyboard target is aboveView while editing-text
+    (Phase C)` — deleted the `if (interactionKind === 'editing-text')
+    return false` early-return in `gate-predicate.ts` (was line 41) so
+    the gate now stays open during inline editing in canvas mode (and
+    falls through to the OR-chain in browser mode). Also removed the
+    `&& interactionKind !== 'editing-text'` exclusion from
+    `interactionOpensGate` so editing-text opens the gate in browser
+    mode too — the editor lives in aboveView post-Phase-C, so the gate
+    must be open for keystrokes to reach it. Flipped
+    `focus-reconciler.ts`'s `editing-text` case from `{ kind: 'bgView' }`
+    to `{ kind: 'aboveView' }` and rewrote the comment. Updated the
+    matching gate-predicate test ("closed while inline text is being
+    edited" → "open while inline text is being edited") and the
+    focus-reconciler test ("editing-text routes to bgView" → "...routes
+    to aboveView").
+- **Observed:**
+  - `pnpm typecheck` — green.
+  - `pnpm test:unit` — 372 / 372 passing (no count change; two existing
+    assertions were inverted to match the new contract).
+  - `should-focus-selected-frame.ts` already excludes `editing-text`
+    (case 1 in the predicate), so the keyboard target will be aboveView
+    rather than the page while typing — exactly what the new reconciler
+    returns. The two predicates compose correctly without a third edit.
+  - `layout-engine.ts:286` just maps interaction-state.kind → gate
+    input; nothing to change there. The `selectionOwnsFrameContent`
+    branch in browser mode is unaffected.
+  - Confirmed `editing-text` references via grep land in: `shared/types`
+    (state shape), `interaction-controller` (entry/exit), `interaction-
+    state` (transition), `selection-controller` (label mapper),
+    `focus-reconciler-runtime` (state binding), `layout-engine` (gate
+    inputs), `register-canvas-ipc` (begin-edit IPC). None of those care
+    about the gate value or focus target — they all consume the
+    interaction kind itself, which is unchanged.
+- **Next:** Phase D — file entity bodies + edges into aboveView.
+- **Status:** green
+- **Manual:** §6 acceptance for Phase C — sticky/shape edit mode places
+  caret in the editor (now in aboveView) and keystrokes land there;
+  exiting edit mode returns forwarded input to the underlying frame;
+  page still scrolls when wheeling outside the sticky/shape.
+
+### PHASE C COMPLETE — sticky/shape bodies render and edit in aboveView; editing-text carve-outs retired
+
+- **Acceptance:** §8 Phase C acceptance — sticky and shape bodies now
+  paint in aboveView (`StickyBodyLayer.tsx`, `ShapeBodyLayer.tsx`,
+  prior commits). With Phase B′'s z-ordered hit-test, a sticky/shape
+  declared front over a frame now wins clicks. Inline edit mode keeps
+  the gate open (`gate-predicate.ts` no longer early-returns on
+  `editing-text`) and routes keyboard focus to aboveView
+  (`focus-reconciler.ts` `editing-text` → `{ kind: 'aboveView' }`),
+  so keystrokes land in the contenteditable instead of leaking to the
+  page below. Exiting edit mode returns to idle, the predicate
+  (`shouldFocusSelectedFrame`) re-elects the page as keyboard target
+  on the next layout pass, forwarding resumes. Note: TextBody in §8 is
+  this codebase's text-entity (sticky) — there's no separate text body
+  type.
+- **Manual debt accumulated this phase:** §6 #19 (multi-select bounding
+  box / sticky/shape over focused frame); editor caret + keystrokes +
+  exit-and-resume-forwarding manual walk; §6 boundary scenarios re-walk
+  after layer migration; `StickyNoteInlineMenu` still in canvas-bg —
+  may paint below page when sticky overlaps a frame (deferred —
+  inline-menu migration not in §8 scope).
+- **Next phase:** Phase D — file entity bodies + edges into aboveView.

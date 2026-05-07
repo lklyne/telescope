@@ -35,9 +35,9 @@ describe('expectedFocus', () => {
     })
   }
 
-  it('editing-text routes to bgView', () => {
+  it('editing-text routes to aboveView (post-Phase-C: inline editors live in aboveView)', () => {
     expect(expectedFocus(state({ interactionMode: 'editing-text', editingTextEntityId: 'e1' })))
-      .toEqual({ kind: 'bgView' })
+      .toEqual({ kind: 'aboveView' })
   })
 
   it('routes to aboveView when comment overlay is active', () => {

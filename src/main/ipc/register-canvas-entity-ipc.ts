@@ -171,6 +171,9 @@ export function registerCanvasEntityIpc(): void {
         if (bgView && !bgView.webContents.isDestroyed()) {
           bgView.webContents.send('shape-begin-edit', { entityId: created.id })
         }
+        if (aboveView && !aboveView.webContents.isDestroyed()) {
+          aboveView.webContents.send('shape-begin-edit', { entityId: created.id })
+        }
       } else {
         createFrameAtPosition({
           sourceFrameId: placement.sourceFrameId,

@@ -32,8 +32,8 @@ describe('shouldGateBeOpen — canvas mode (default-open per ADR 0002 Step 7)', 
     expect(shouldGateBeOpen({ ...base(), interactionKind: kind })).toBe(true)
   })
 
-  it('closed while inline text is being edited (textarea is in bgView)', () => {
-    expect(shouldGateBeOpen({ ...base(), interactionKind: 'editing-text' })).toBe(false)
+  it('open while inline text is being edited (post-Phase-C: editor lives in aboveView)', () => {
+    expect(shouldGateBeOpen({ ...base(), interactionKind: 'editing-text' })).toBe(true)
   })
 
   it.each(['annotate-draw', 'annotate-region-select'] as const)(

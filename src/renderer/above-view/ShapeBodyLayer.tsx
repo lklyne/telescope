@@ -1,14 +1,59 @@
+/**
+ * ShapeBodyLayer — shape (rectangle / ellipse / diamond) bodies, rendered in
+ * aboveView (Phase C of the aboveView migration).
+ *
+ * The previous implementation lived in `canvas-bg/ShapeBlockLayer.tsx`, where
+ * bodies painted under the page WCVs and could not be visible above frames.
+ * They now mount in aboveView so a shape placed over a frame is actually
+ * drawn above it.
+ *
+ * Hit-tests still happen in `useCanvasPointerRouter` against the layout
+ * snapshot (front-to-back per Phase B′), so this layer is purely visual for
+ * selection / drag / resize gestures. The contenteditable label inside is
+ * the one place we *do* need real DOM events — those work because the cards
+ * mount inside aboveView's WCV which already has keyboard focus during
+ * text editing.
+ */
+
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CanvasSceneShapeEntity, SelectionModifiers } from '../../shared/types'
+import type { CanvasSceneShapeEntity } from '../../shared/types'
 import { lightenHex, resolveCanvasColor, withAlpha } from '../../shared/canvas-colors'
-import { SelectableEntityShell } from './SelectableEntityShell'
-import type { EntityResizePatch } from './entityConstants'
-import { MIN_SHAPE_WIDTH, MIN_SHAPE_HEIGHT } from './entityConstants'
+import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 
 const DEFAULT_STROKE_WIDTH = 2
 const FILL_OPACITY = 0.24
 const FILL_LIGHTEN = 0.5
 const NEUTRAL_SLATE = '#6b7280'
+
+/**
+ * Wraps the shape cards in a viewport transform so they live in
+ * canvas-coordinate space. AboveView's WCV origin already sits at
+ * `canvasOrigin.y` (the toolbar inset), so the translate omits that axis
+ * — only `canvasOrigin.x` and `pan` apply. Matches `StickyViewportLayer`.
+ */
+function ShapeViewportLayer({
+  canvasOrigin,
+  pan,
+  zoom,
+  children,
+}: {
+  canvasOrigin: { x: number; y: number }
+  pan: { x: number; y: number }
+  zoom: number
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      className="pointer-events-none absolute left-0 top-0 origin-top-left"
+      style={{
+        ['--canvas-zoom' as string]: zoom,
+        transform: `translate(${canvasOrigin.x + pan.x}px, ${pan.y}px) scale(${zoom})`,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
 
 function ShapeText({
   text,
@@ -31,9 +76,9 @@ function ShapeText({
 }) {
   const ref = useRef<HTMLDivElement>(null)
 
-  // Keep DOM textContent in sync with prop while not editing. Avoids overwriting
-  // the user's in-flight typing. useLayoutEffect runs before paint so the
-  // initial mount never shows an empty frame.
+  // Keep DOM textContent in sync with prop while not editing. Avoids
+  // overwriting the user's in-flight typing. useLayoutEffect runs before
+  // paint so the initial mount never shows an empty frame.
   useLayoutEffect(() => {
     if (!editing && ref.current && ref.current.textContent !== text) {
       ref.current.textContent = text
@@ -217,10 +262,11 @@ function ShapeBody({
     )
   }
 
-  // diamond: a true rhombus with vertices at the midpoints of each bounding-box
-  // edge. Drawn as an SVG polygon so the stroke stays uniform when the bounding
-  // box is non-square. The text box is the largest axis-aligned rectangle that
-  // fits inside the rhombus — which is half the bbox width × half the height.
+  // diamond: a true rhombus with vertices at the midpoints of each
+  // bounding-box edge. Drawn as an SVG polygon so the stroke stays uniform
+  // when the bounding box is non-square. The text box is the largest
+  // axis-aligned rectangle that fits inside the rhombus — half the bbox
+  // width × half the height.
   return (
     <>
       <svg
@@ -259,85 +305,88 @@ const MemoShapeBody = memo(ShapeBody, (a, b) => {
   )
 })
 
+function ShapeShell({
+  id,
+  canvasX,
+  canvasY,
+  width,
+  height,
+  isDark,
+  isSelected,
+  children,
+}: {
+  id: string
+  canvasX: number
+  canvasY: number
+  width: number
+  height: number
+  isDark: boolean
+  isSelected: boolean
+  children: React.ReactNode
+}) {
+  // Shapes have no card background or shadow (transparent). The body
+  // children paint the rectangle/ellipse/diamond fill themselves. Resize
+  // handles stay visual-only; the router hit-tests against entity geometry.
+  return (
+    <div
+      data-entity-id={id}
+      className="absolute pointer-events-auto"
+      style={{
+        left: canvasX,
+        top: canvasY,
+        width,
+        height,
+        background: 'transparent',
+        overflow: 'visible',
+        cursor: 'default',
+        touchAction: 'none',
+      }}
+    >
+      {children}
+      {isSelected ? (
+        <>
+          <EdgeResizeHandle edge="top" scaleWithZoom />
+          <EdgeResizeHandle edge="right" scaleWithZoom />
+          <EdgeResizeHandle edge="bottom" scaleWithZoom />
+          <EdgeResizeHandle edge="left" scaleWithZoom />
+          <CornerResizeHandle corner="top-left" isDark={isDark} scaleWithZoom />
+          <CornerResizeHandle corner="top-right" isDark={isDark} scaleWithZoom />
+          <CornerResizeHandle corner="bottom-left" isDark={isDark} scaleWithZoom />
+          <CornerResizeHandle corner="bottom-right" isDark={isDark} scaleWithZoom />
+        </>
+      ) : null}
+    </div>
+  )
+}
+
 function ShapeCard({
   shape,
   isDark,
   isSelected,
-  isMarqueePreview,
   canEdit,
   pendingFocus,
-  selectedGroupDragTargetId,
-  onSelect,
-  onResize,
   onUpdateText,
   onTextEditingChange,
-  onRequestEdit,
   onPendingFocusConsumed,
-  onDragStart,
-  onDrag,
-  onDragEnd,
-  onGroupDragStart,
-  onGroupDrag,
-  onGroupDragEnd,
-  getZoom,
 }: {
   shape: CanvasSceneShapeEntity
   isDark: boolean
   isSelected: boolean
-  isMarqueePreview: boolean
   canEdit: boolean
   pendingFocus: boolean
-  selectedGroupDragTargetId?: string | null
-  onSelect: (id: string, modifiers?: SelectionModifiers) => void
-  onResize: (id: string, patch: EntityResizePatch) => void
   onUpdateText: (id: string, text: string) => void
   onTextEditingChange: (active: boolean) => void
-  onRequestEdit: (id: string) => void
   onPendingFocusConsumed: () => void
-  onDragStart: (id: string) => void
-  onDrag: (id: string, dx: number, dy: number) => void
-  onDragEnd: () => void
-  onGroupDragStart: (groupId: string) => void
-  onGroupDrag: (groupId: string, dx: number, dy: number) => void
-  onGroupDragEnd: () => void
-  getZoom: () => number
 }) {
   return (
-    <SelectableEntityShell
+    <ShapeShell
       id={shape.id}
       canvasX={shape.canvasX}
       canvasY={shape.canvasY}
       width={shape.width}
       height={shape.height}
-      getZoom={getZoom}
-      minWidth={MIN_SHAPE_WIDTH}
-      minHeight={MIN_SHAPE_HEIGHT}
       isDark={isDark}
       isSelected={isSelected}
-      isMarqueePreview={isMarqueePreview}
-      background="transparent"
-      showCardShadow={false}
-      onSelect={onSelect}
-      onDoubleClick={(entityId, event) => {
-        event.preventDefault()
-        event.stopPropagation()
-        onRequestEdit(entityId)
-      }}
-      onResize={onResize}
-      onDragStart={onDragStart}
-      onDrag={onDrag}
-      onDragEnd={onDragEnd}
-      selectedGroupDragTargetId={selectedGroupDragTargetId}
-      onGroupDragStart={onGroupDragStart}
-      onGroupDrag={onGroupDrag}
-      onGroupDragEnd={onGroupDragEnd}
-      shouldStartDrag={(event) => {
-        const target = event.target as HTMLElement | null
-        if (target?.closest('[contenteditable="true"]')) return false
-        return true
-      }}
-      aspectRatioResizeMode="shift-locks"
-      overflowVisible
     >
       <MemoShapeBody
         shape={shape}
@@ -349,87 +398,51 @@ function ShapeCard({
         onTextEditingChange={onTextEditingChange}
         onPendingFocusConsumed={onPendingFocusConsumed}
       />
-    </SelectableEntityShell>
+    </ShapeShell>
   )
 }
 
-export function ShapeBlockLayer({
+export function ShapeBodyLayer({
   entities,
-  getZoom,
   isDark,
-  marqueePreviewIds,
   selectedEntityIdSet,
   selectedEntityCount,
-  selectedGroupId,
-  selectedGroupDescendantIds,
   pendingEditEntityId,
-  onSelect,
-  onUpdateText,
-  onResize,
-  onTextEditingChange,
-  onRequestEdit,
+  canvasOrigin,
+  pan,
+  zoom,
   onPendingFocusConsumed,
-  onDragStart,
-  onDrag,
-  onDragEnd,
-  onGroupDragStart,
-  onGroupDrag,
-  onGroupDragEnd,
+  onUpdateText,
+  onTextEditingChange,
 }: {
   entities: CanvasSceneShapeEntity[]
-  getZoom: () => number
   isDark: boolean
-  marqueePreviewIds: Set<string> | null
   selectedEntityIdSet: Set<string>
   selectedEntityCount: number
-  selectedGroupId: string | null
-  selectedGroupDescendantIds: Set<string>
   pendingEditEntityId: string | null
-  onSelect: (id: string, modifiers?: SelectionModifiers) => void
-  onUpdateText: (id: string, text: string) => void
-  onResize: (id: string, patch: EntityResizePatch) => void
-  onTextEditingChange: (active: boolean) => void
-  onRequestEdit: (id: string) => void
+  canvasOrigin: { x: number; y: number }
+  pan: { x: number; y: number }
+  zoom: number
   onPendingFocusConsumed: () => void
-  onDragStart: (id: string) => void
-  onDrag: (id: string, dx: number, dy: number) => void
-  onDragEnd: () => void
-  onGroupDragStart: (groupId: string) => void
-  onGroupDrag: (groupId: string, dx: number, dy: number) => void
-  onGroupDragEnd: () => void
+  onUpdateText: (id: string, text: string) => void
+  onTextEditingChange: (active: boolean) => void
 }) {
   if (!entities.length) return null
   return (
-    <>
+    <ShapeViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
       {entities.map((shape) => (
         <ShapeCard
           key={shape.id}
           shape={shape}
-          getZoom={getZoom}
           isDark={isDark}
           isSelected={selectedEntityIdSet.has(shape.id)}
-          isMarqueePreview={marqueePreviewIds?.has(shape.id) ?? false}
           canEdit={selectedEntityCount === 1 && selectedEntityIdSet.has(shape.id)}
           pendingFocus={pendingEditEntityId === shape.id}
-          selectedGroupDragTargetId={
-            selectedGroupId && selectedGroupDescendantIds.has(shape.id)
-              ? selectedGroupId
-              : null
-          }
-          onSelect={onSelect}
-          onResize={onResize}
           onUpdateText={onUpdateText}
           onTextEditingChange={onTextEditingChange}
-          onRequestEdit={onRequestEdit}
           onPendingFocusConsumed={onPendingFocusConsumed}
-          onDragStart={onDragStart}
-          onDrag={onDrag}
-          onDragEnd={onDragEnd}
-          onGroupDragStart={onGroupDragStart}
-          onGroupDrag={onGroupDrag}
-          onGroupDragEnd={onGroupDragEnd}
         />
       ))}
-    </>
+    </ShapeViewportLayer>
   )
 }

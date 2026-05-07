@@ -35,10 +35,6 @@ export function shouldGateBeOpen(inputs: GateInputs): boolean {
   if (inputs.toolMode === 'inspect' || inputs.toolMode === 'annotate-comment') {
     return inputs.commentOverlayActive
   }
-  // Inline text edit owns its bgView textarea — the gate must yield so
-  // keystrokes land in the textarea. (Phase C retires this carve-out when
-  // inline editors migrate into aboveView.)
-  if (inputs.interactionKind === 'editing-text') return false
   if (inputs.viewMode === 'canvas') return true
   return browserModeNeedsGate(inputs)
 }
@@ -56,7 +52,10 @@ function browserModeNeedsGate(inputs: GateInputs): boolean {
 }
 
 function interactionOpensGate(interactionKind: GateInputs['interactionKind']): boolean {
-  return interactionKind !== 'idle' && interactionKind !== 'editing-text'
+  // Post-Phase-C: inline editors (sticky / shape / markdown / wireframe) render
+  // in aboveView, so `editing-text` needs the gate open like every other
+  // non-idle interaction kind.
+  return interactionKind !== 'idle'
 }
 
 /**

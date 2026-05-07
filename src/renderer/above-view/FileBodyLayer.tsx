@@ -1,19 +1,13 @@
 /**
  * FileBodyLayer — file-entity bodies (image, video, markdown, wireframe,
- * component placeholder, fallback), rendered in aboveView (Phase D of the
- * aboveView migration).
+ * component placeholder, fallback). Mounted in aboveView so a file placed
+ * over a frame is actually drawn above it.
  *
- * The previous implementation lived in `canvas-bg/FileBlockLayer.tsx`, where
- * bodies painted under the page WCVs and could not be visible above frames.
- * They now mount in aboveView so a file placed over a frame is actually drawn
- * above it.
- *
- * Hit-tests still happen in `useCanvasPointerRouter` against the layout
- * snapshot (front-to-back per Phase B′), so this layer is purely visual for
- * selection / drag / resize gestures. The contenteditable inside markdown /
- * wireframe renderers is the one place we *do* need real DOM events — those
- * work because the cards mount inside aboveView's WCV which already has
- * keyboard focus during text editing.
+ * Hit-tests run in `useCanvasPointerRouter` against the layout snapshot
+ * (front-to-back), so this layer is purely visual for selection/drag/resize.
+ * The contenteditable inside markdown / wireframe renderers is the one
+ * exception — it needs real DOM events, and works because the cards mount
+ * inside aboveView's WCV which already holds keyboard focus during edit.
  */
 
 import { memo } from 'react'

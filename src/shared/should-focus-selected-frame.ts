@@ -1,6 +1,4 @@
 /**
- * Phase A predicate (docs/plans/aboveview-interactive-layer.md §8).
- *
  * Returns the page id that should hold keyboard input and receive forwarded
  * pointer/wheel events, or null when canvas-level UI (aboveView, an inline
  * editor, a tool gesture) owns keyboard instead.

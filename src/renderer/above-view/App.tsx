@@ -54,6 +54,7 @@ import { GroupRenameOverlay } from './GroupRenameLabel'
 import { StickyNotePopover } from './StickyNotePopover'
 import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
 import { useAnnotationOverlayShortcuts } from '../shared/hooks/useAnnotationOverlayShortcuts'
+import { useCanvasGlobalShortcuts } from '../shared/hooks/useCanvasGlobalShortcuts'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
@@ -101,19 +102,16 @@ export default function App({
   )
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayPayload | null>(null)
   const [captureMode, setCaptureMode] = useState(false)
-  // Phase D: file bodies own their own jsonMode state in aboveView. The chrome
-  // layer (FileChrome) doesn't read this today; if a wireframe theme/JSON
-  // toggle moves into the chrome later it'll need an IPC channel to flip
-  // entries here. Empty Map for now — wireframe renderers default to false.
+  // Empty placeholder until a wireframe theme/JSON toggle ships — wireframe
+  // renderers default to false when their id is absent from this map.
   const fileJsonModeMap = useMemo<FileJsonModeMap>(() => new Map(), [])
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
 
   useEffect(() => api.onSelectionOverlayChanged(setSelectionOverlay), [])
 
-  // Phase C: pendingTextEditId mirrors bgView's behavior — a text-begin-edit
-  // ping (from dblclick + keyboard shortcut) flips the matching sticky into
-  // edit mode. Auto-clears after 1s if the entity disappears or the layer
-  // never picks it up.
+  // A text-begin-edit ping (from dblclick + keyboard shortcut) flips the
+  // matching sticky into edit mode. Auto-clears after 1s if the entity
+  // disappears or the layer never picks it up.
   const [pendingTextEditId, setPendingTextEditId] = useState<string | null>(null)
   useEffect(() => {
     if (!pendingTextEditId) return
@@ -128,9 +126,8 @@ export default function App({
     [],
   )
 
-  // Phase C: same pattern for shape entities. `shape-begin-edit` is fanned
-  // out to both views by main; aboveView (the new owner of shape bodies)
-  // picks it up to flip the matching shape into edit mode.
+  // Same pattern for shape entities. Main fans `shape-begin-edit` out to
+  // both views; aboveView flips the matching shape into edit mode.
   const [pendingShapeEditId, setPendingShapeEditId] = useState<string | null>(null)
   useEffect(() => {
     if (!pendingShapeEditId) return
@@ -154,6 +151,10 @@ export default function App({
     const entity = layoutData.entities.find((e) => e.id === selectedId)
     return entity?.kind === 'text' ? entity : null
   }, [layoutData.selectedEntityIds, layoutData.entities])
+  const selectedEntityIdSet = useMemo(
+    () => new Set(layoutData.selectedEntityIds),
+    [layoutData.selectedEntityIds],
+  )
   const interactionIdle = layoutData.interaction.kind === 'idle'
 
   const marqueePreviewIds = useMemo(() => {
@@ -169,6 +170,7 @@ export default function App({
 
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
+  useCanvasGlobalShortcuts({ api, layoutRef })
 
   useEffect(() => {
     const cleanup = api.onLayoutUpdate((data) => {
@@ -561,11 +563,11 @@ export default function App({
     }),
     [],
   )
-  // PoC: pre-route wheel events that hit the single-selected frame's body
-  // into that frame's page. Cmd/Ctrl+wheel is already classified as 'zoom'
-  // by useViewportWheelAndMiddlePan and stays on the canvas. Wheel during
-  // a drag/marquee/edge gesture stays with the canvas — forwarding it
-  // would scroll the page underneath an in-flight gesture (§8 Phase A).
+  // Pre-route wheel events that hit the single-selected frame's body into
+  // that frame's page. Cmd/Ctrl+wheel is already classified as 'zoom' by
+  // useViewportWheelAndMiddlePan and stays on the canvas. Wheel during a
+  // drag/marquee/edge gesture also stays with the canvas — forwarding it
+  // would scroll the page underneath an in-flight gesture.
   const routeWheel = useCallback(
     (event: WheelEvent): boolean => {
       const layout = layoutRef.current
@@ -871,9 +873,7 @@ export default function App({
                 (e): e is CanvasSceneShapeEntity => e.kind === 'shape',
               )}
               isDark={isDark}
-              selectedEntityIdSet={
-                new Set(layoutData.selectedEntityIds)
-              }
+              selectedEntityIdSet={selectedEntityIdSet}
               selectedEntityCount={layoutData.selectedEntityIds.length}
               pendingEditEntityId={pendingShapeEditId}
               canvasOrigin={layoutData.canvasOrigin}
@@ -891,9 +891,7 @@ export default function App({
                 (e): e is CanvasSceneTextEntity => e.kind === 'text',
               )}
               isDark={isDark}
-              selectedEntityIdSet={
-                new Set(layoutData.selectedEntityIds)
-              }
+              selectedEntityIdSet={selectedEntityIdSet}
               selectedEntityCount={layoutData.selectedEntityIds.length}
               pendingEditEntityId={pendingTextEditId}
               canvasOrigin={layoutData.canvasOrigin}
@@ -911,7 +909,7 @@ export default function App({
                 (e): e is CanvasSceneFileEntity => e.kind === 'file',
               )}
               isDark={isDark}
-              selectedEntityIdSet={new Set(layoutData.selectedEntityIds)}
+              selectedEntityIdSet={selectedEntityIdSet}
               selectedEntityCount={layoutData.selectedEntityIds.length}
               jsonModeMap={fileJsonModeMap}
               canvasOrigin={layoutData.canvasOrigin}

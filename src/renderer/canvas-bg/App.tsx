@@ -6,7 +6,6 @@ import type {
   LayoutUpdateData,
   ThemeData,
 } from '../../shared/types'
-import { useCanvasGlobalShortcuts } from '../shared/hooks/useCanvasGlobalShortcuts'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
@@ -50,11 +49,6 @@ export default function App({
     layoutRef,
     setPlacementCursor,
     onShapePlacementPreview: setShapePlacementPreview,
-  })
-
-  useCanvasGlobalShortcuts({
-    api,
-    layoutRef,
   })
 
   const frameEntities = useMemo(

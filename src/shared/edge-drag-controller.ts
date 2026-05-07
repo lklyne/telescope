@@ -27,16 +27,16 @@
  * `commitEdgeEdit` / `discardEdgeEdit` / `cancelEdgeDrag` IPC calls.
  */
 
+import {
+  EDGE_ANCHOR_DOT_OFFSET_PX,
+  EDGE_ANCHOR_HIT_MIN_SCALE,
+  EDGE_SIDES,
+} from './canvas-hit-geometry'
 import type { CanvasSceneEntity, EdgeSide, WorkspaceEdge } from './types'
 
-// --- Geometry constants (mirrored from EdgeLayer.tsx; keep in sync) ---
-
-const SIDES: readonly EdgeSide[] = ['top', 'right', 'bottom', 'left']
-const DOT_OFFSET = 8
 const SNAP_DISTANCE = 48
 const CONTROL_POINT_MIN = 40
 const CONTROL_POINT_MAX = 200
-const MIN_HIT_SCALE = 0.35
 
 // --- Public types ---
 
@@ -187,7 +187,7 @@ export function getAnchorPoint(
   zoom: number,
 ): AnchorPoint {
   const { screenX, screenY, screenWidth, screenHeight } = entity
-  const dotOffset = DOT_OFFSET * zoom
+  const dotOffset = EDGE_ANCHOR_DOT_OFFSET_PX * zoom
   switch (side) {
     case 'top':
       return { x: screenX + screenWidth / 2, y: screenY - dotOffset, side }
@@ -233,7 +233,7 @@ function findClosestAnchorTarget(
   let best: SnapTarget | null = null
   for (const [entityId, entity] of entityMap) {
     if (entityId === fromEntityId) continue
-    for (const side of SIDES) {
+    for (const side of EDGE_SIDES) {
       const pt = getAnchorPoint(entity, side, zoom)
       const dist = Math.hypot(pt.x - clientX, pt.y - clientY)
       if (dist < snapDistance && (!best || dist < best.dist)) {
@@ -337,6 +337,6 @@ function oppositeSide(side: EdgeSide): EdgeSide {
 }
 
 function scaleSnapDistance(base: number, zoom: number): number {
-  const scale = Math.max(MIN_HIT_SCALE, Math.min(zoom, 1))
+  const scale = Math.max(EDGE_ANCHOR_HIT_MIN_SCALE, Math.min(zoom, 1))
   return base * scale
 }

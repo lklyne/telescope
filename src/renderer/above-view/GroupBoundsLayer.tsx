@@ -1,11 +1,6 @@
 /**
- * GroupBoundsLayer — group bound rectangles, rendered in aboveView
- * (Phase F of the aboveView migration).
- *
- * The previous implementation lived in `canvas-bg/GroupBoundsLayer.tsx`,
- * where the group-bound rectangle painted under the page WCVs. A group
- * that contains a frame had its border clipped by the page above. The
- * layer now mounts in aboveView so the bound is visible above frames.
+ * GroupBoundsLayer — group bound rectangles. Mounted in aboveView so a
+ * group containing a frame keeps its border visible above the page.
  *
  * Purely visual (`pointer-events: none` end-to-end) — selection / drag /
  * double-click-to-enter-group are all driven by `useCanvasPointerRouter`

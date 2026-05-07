@@ -1,11 +1,9 @@
 /**
  * SelectionOutlineLayer — selection outlines, multi-selection bounding box,
- * and resize handles, rendered in aboveView (Phase B of the aboveView migration).
+ * and resize handles. Lives in aboveView so it paints above page WCVs.
  *
- * The previous implementation lived in `canvas-bg/CanvasSelectionLayers.tsx`,
- * where it painted below page WCVs and got clipped. Resize hit-tests are
- * computed by `useCanvasPointerRouter` against entity geometry, so the
- * handles here are visual-only — pointer-events stay off.
+ * Resize hit-tests run in `useCanvasPointerRouter` against entity geometry,
+ * so the handles here are visual-only — pointer-events stay off.
  *
  * Coordinates are overlay-local: aboveView's WCV origin sits at
  * `canvasOrigin.y`, so window-space `screenY` is offset by that amount

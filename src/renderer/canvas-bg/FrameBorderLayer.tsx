@@ -72,9 +72,6 @@ export function FrameBorderLayer({
         // the two 1px borders simply overlap — visually identical to one border.
         // When a device shell is active the outer border traces the bezel edge
         // and the inner border traces the content viewport cutout.
-        // Phase F: the focused-frame accent ring used to live here. It now
-        // renders in aboveView via FrameFocusRingLayer so it paints above page
-        // WCVs (and overlapping neighbor frames).
         return (
           <React.Fragment key={frame.id}>
             {/* Outer frame border */}

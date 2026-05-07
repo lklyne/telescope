@@ -127,6 +127,36 @@ export function deleteFrames(frameIds: string[]) {
   return post<{ deletedFrameIds: string[] }>('/frames/delete', { frameIds })
 }
 
+export function updateFrames(frames: Array<{ id: string; canvasX?: number; canvasY?: number; presetIndex?: number }>) {
+  return post<{ updated: string[] }>('/frames/update', { frames })
+}
+
+export function applyLayoutDirective(body: {
+  layout: {
+    kind: 'row' | 'column' | 'grid'
+    gap?: number | string
+    rowGap?: number | string
+    colGap?: number | string
+    cols?: number
+    originX?: number
+    originY?: number
+    near?: string
+  }
+  items: Array<{
+    id?: string
+    width?: number
+    height?: number
+    insetX?: number
+    insetY?: number
+  }>
+}) {
+  return post<{
+    positions: Array<{ canvasX: number; canvasY: number }>
+    kinds: Array<string | null>
+    warnings?: string[]
+  }>('/layout/apply-directive', body)
+}
+
 export function takeScreenshot(frameId?: string) {
   return post<{ base64: string; mimeType: string }>('/frames/screenshot', { frameId })
 }

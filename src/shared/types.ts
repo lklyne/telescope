@@ -1345,7 +1345,14 @@ export interface PlacementResult {
 export type BatchLayoutMode = 'row' | 'column' | 'grid'
 
 export interface BatchPlacementRequest {
-  items: Array<{ width: number; height: number }>
+  /**
+   * Each item's `width`/`height` is the OUTER (visible) footprint, including
+   * device-shell bezels and chrome header. `insetX`/`insetY` (default 0)
+   * describe the offset from the outer top-left to the entity's data origin
+   * (`canvasX`/`canvasY`); the layout engine places outer footprints with
+   * `gap` and returns positions in inner data-origin coordinates.
+   */
+  items: Array<{ width: number; height: number; insetX?: number; insetY?: number }>
   layout?: BatchLayoutMode
   gap?: number
   anchor?: PlacementAnchor
@@ -1353,6 +1360,67 @@ export interface BatchPlacementRequest {
 
 export interface BatchPlacementResult {
   positions: Array<{ canvasX: number; canvasY: number }>
+}
+
+export type SpacingToken = 'xs' | 's' | 'm' | 'l' | 'xl'
+
+// All multiples of GRID_SIZE (20px) so token-spaced gaps stay snap-aligned.
+export const SPACING_TOKEN_PIXELS: Record<SpacingToken, number> = {
+  xs: 20,
+  s: 40,
+  m: 60,
+  l: 100,
+  xl: 160,
+}
+
+export function resolveSpacing(value: number | SpacingToken | undefined, fallback: number): number {
+  if (value === undefined) return fallback
+  if (typeof value === 'number') return value
+  return SPACING_TOKEN_PIXELS[value] ?? fallback
+}
+
+export interface LayoutDirective {
+  kind: BatchLayoutMode
+  gap?: number | SpacingToken
+  rowGap?: number | SpacingToken
+  colGap?: number | SpacingToken
+  cols?: number
+  originX?: number
+  originY?: number
+  near?: string
+}
+
+export interface ApplyDirectiveRequest {
+  layout: LayoutDirective
+  /**
+   * Each item is either an `id` (re-layout an existing entity — server resolves
+   * its outer footprint and data-origin insets) or a new item carrying its own
+   * `width`/`height` (treated as the outer/visible footprint, including any
+   * device-shell bezels and chrome header). `insetX`/`insetY` describe how far
+   * inside the outer top-left the entity's data origin (canvasX/canvasY) sits;
+   * for un-framed items pass `0` or omit. The directive lays out outer
+   * footprints with the configured `gap`, then returns each position offset
+   * back into inner data-origin coordinates.
+   */
+  items: Array<{
+    id?: string
+    width?: number
+    height?: number
+    insetX?: number
+    insetY?: number
+  }>
+}
+
+export interface ApplyDirectiveResult {
+  positions: Array<{ canvasX: number; canvasY: number }>
+  /**
+   * Resolved kind for each item: the kind of the existing entity (when an
+   * `id` was passed) or `null` for items being created. Lets the caller route
+   * updates to the correct entity-update endpoint without forcing the agent
+   * to specify `kind` for every re-layout target.
+   */
+  kinds: Array<CanvasEntityKind | null>
+  warnings?: string[]
 }
 
 export type TaskKind = 'breakpoint_map'

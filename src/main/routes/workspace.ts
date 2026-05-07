@@ -1,5 +1,6 @@
 import type { Route } from './types'
 import type {
+  ApplyDirectiveRequest,
   ApplyTaskLayoutRequest,
   BatchPlacementRequest,
   CanvasEntityKind,
@@ -10,7 +11,7 @@ import {
   getSelectionState,
   getWorkspaceGraph,
 } from '../workspace-entities'
-import { findBatchPlacement, findPlacement } from '../workspace-placement'
+import { applyLayoutDirective, findBatchPlacement, findPlacement } from '../workspace-placement'
 import {
   applyTaskLayout,
   layoutComponentStates,
@@ -150,6 +151,17 @@ export const workspaceRoutes: Route[] = [
     pattern: '/layout/batch-placement',
     async handler({ response, body }) {
       writeJson(response, 200, findBatchPlacement(body as BatchPlacementRequest))
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/layout/apply-directive',
+    async handler({ response, body }) {
+      try {
+        writeJson(response, 200, applyLayoutDirective(body as ApplyDirectiveRequest))
+      } catch (err) {
+        writeJson(response, 400, { error: err instanceof Error ? err.message : String(err) })
+      }
     },
   },
   {

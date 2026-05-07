@@ -1,4 +1,5 @@
 import type {
+  CanvasEntityKind,
   DeleteFramesRequest,
   DeleteFramesResponse,
   EdgeSide,
@@ -36,6 +37,7 @@ import {
   requestLayout,
   zoom,
 } from './runtime/surface-layout'
+import { pageShellInsets } from './runtime/runtime-geometry'
 import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
 import { boundsOverlap } from './runtime/runtime-geometry'
@@ -80,6 +82,38 @@ export function unionBounds(boundsList: WorkspaceBounds[]): WorkspaceBounds | nu
 
 export function entityBoundsById(entityId: string): WorkspaceBounds | null {
   return entityBoundsByIdWithVisited(entityId, new Set<string>())
+}
+
+/**
+ * Offset from the entity's outer top-left (as returned by `entityBoundsById`)
+ * to the entity's data origin (`canvasX`/`canvasY`). For framed pages this is
+ * the device-shell top/left insets; for un-framed pages and non-frame
+ * entities the bounds top-left already coincides with the data origin, so
+ * insets are zero. The hover-only chrome action header is intentionally not
+ * counted — `entityBoundsById` already returns selectable-bounds with
+ * `y = outer.y` (no chrome band above), and reserving chrome here would
+ * double-shift items that re-layout against an existing entity's bbox.
+ */
+export function entityDataInsetsById(entityId: string): { insetX: number; insetY: number } {
+  const page = findPageById(entityId)
+  if (page) {
+    const insets = pageShellInsets(page)
+    return {
+      insetX: insets?.left ?? 0,
+      insetY: insets?.top ?? 0,
+    }
+  }
+  return { insetX: 0, insetY: 0 }
+}
+
+export function entityKindById(entityId: string): CanvasEntityKind | null {
+  if (findPageById(entityId)) return 'frame'
+  if (textEntities.find((t) => t.id === entityId)) return 'text'
+  if (fileEntities.find((f) => f.id === entityId)) return 'file'
+  if (drawingEntities.find((d) => d.id === entityId)) return 'drawing'
+  if (shapeEntities.find((s) => s.id === entityId)) return 'shape'
+  if (workspaceGroups.find((g) => g.id === entityId)) return 'group'
+  return null
 }
 
 function entityBoundsByIdWithVisited(

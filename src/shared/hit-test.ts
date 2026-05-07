@@ -54,6 +54,11 @@ export interface HitInputs {
   edges: readonly WorkspaceEdge[]
   selectedEntityIds: readonly string[]
   selectedGroupId?: string | null
+  /** Optional. When set, anchor dots on the hovered entity are routable too —
+   *  matches the EdgeLayer renderer policy (selected + hovered show anchors)
+   *  and lets users grab an existing edge endpoint without first selecting
+   *  the connected node. */
+  hoveredEntityId?: string | null
   zoom: number
 }
 
@@ -132,15 +137,16 @@ function collectChromeTargets(inputs: HitInputs): HitTarget[] {
 }
 
 function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
-  const selected = new Set(inputs.selectedEntityIds)
-  if (inputs.selectedGroupId) selected.add(inputs.selectedGroupId)
+  const eligible = new Set(inputs.selectedEntityIds)
+  if (inputs.selectedGroupId) eligible.add(inputs.selectedGroupId)
+  if (inputs.hoveredEntityId) eligible.add(inputs.hoveredEntityId)
   const out: HitTarget[] = []
   for (const entity of inputs.entities) {
     if (!entityHasAnchors(entity.kind)) continue
-    // Mirror EdgeLayer's policy: anchors show on selected + hovered entities.
-    // For hit-test purposes we expose anchors on selected entities; hover
-    // is renderer-only ephemera.
-    if (!selected.has(entity.id)) continue
+    // Mirror EdgeLayer's policy: anchors show on selected + hovered entities,
+    // so both are routable. Hover is what lets a user grab an existing
+    // edge endpoint to re-route or delete without first selecting the node.
+    if (!eligible.has(entity.id)) continue
     for (const side of EDGE_SIDES) {
       out.push({
         layer: 'anchors',

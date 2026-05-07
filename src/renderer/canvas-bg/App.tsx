@@ -3,7 +3,6 @@ import type {
   CanvasBgElectronAPI,
   CanvasSceneFileEntity,
   CanvasSceneFrameEntity,
-  CanvasSceneTextEntity,
   LayoutUpdateData,
   ThemeData,
 } from '../../shared/types'
@@ -16,11 +15,10 @@ import { BrowserTabBar } from './BrowserTabBar'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { FrameBorderLayer } from './FrameBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
-import { GroupInlineMenu, StickyNoteInlineMenu } from './InlineEntityMenu'
+import { GroupInlineMenu } from './InlineEntityMenu'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { usePendingPlacementState } from './usePendingPlacementState'
 import { useCanvasViewportGestures, type ShapePlacementDragPreview } from './useCanvasViewportGestures'
-import { SELECTED_FRAME_MENU_SHOW_DELAY_MS } from '../../shared/selectedFrameMenu'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 const GROUP_MENU_DELAY_MS = 150
@@ -63,10 +61,6 @@ export default function App({
     () => layoutData.entities.filter((e): e is CanvasSceneFrameEntity => e.kind === 'frame'),
     [layoutData.entities],
   )
-  const textEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasSceneTextEntity => e.kind === 'text'),
-    [layoutData.entities],
-  )
   const fileEntities = useMemo(
     () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
     [layoutData.entities],
@@ -81,29 +75,7 @@ export default function App({
     if (!layoutData.selectedGroupId) return null
     return (layoutData.groups ?? []).find((group) => group.id === layoutData.selectedGroupId) ?? null
   }, [layoutData.groups, layoutData.selectedGroupId])
-  const selectedTextEntity = useMemo(() => {
-    if (layoutData.selectedEntityIds.length !== 1) return null
-    const [selectedId] = layoutData.selectedEntityIds
-    return textEntities.find((entity) => entity.id === selectedId) ?? null
-  }, [layoutData.selectedEntityIds, textEntities])
-  const [delayedSelectedTextMenuId, setDelayedSelectedTextMenuId] = useState<string | null>(null)
   const [delayedSelectedGroupMenuId, setDelayedSelectedGroupMenuId] = useState<string | null>(null)
-  const shouldQueueSelectedTextMenu =
-    layoutData.viewMode === 'canvas' &&
-    layoutData.interaction.kind === 'idle' &&
-    selectedTextEntity !== null
-  useEffect(() => {
-    if (!shouldQueueSelectedTextMenu || !selectedTextEntity) {
-      setDelayedSelectedTextMenuId(null)
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setDelayedSelectedTextMenuId(selectedTextEntity.id)
-    }, SELECTED_FRAME_MENU_SHOW_DELAY_MS)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [selectedTextEntity, shouldQueueSelectedTextMenu])
   const shouldQueueSelectedGroupMenu =
     layoutData.viewMode === 'canvas' &&
     layoutData.interaction.kind === 'idle' &&
@@ -120,8 +92,6 @@ export default function App({
 
     return () => window.clearTimeout(timeoutId)
   }, [selectedGroupEntity, shouldQueueSelectedGroupMenu])
-  const showSelectedTextMenu =
-    selectedTextEntity !== null && delayedSelectedTextMenuId === selectedTextEntity.id
   const showSelectedGroupMenu =
     selectedGroupEntity !== null && delayedSelectedGroupMenuId === selectedGroupEntity.id
 
@@ -197,18 +167,6 @@ export default function App({
           isDark={isDark}
         />
       </div>
-
-      {showSelectedTextMenu ? (
-        selectedTextEntity ? (
-          <StickyNoteInlineMenu
-            isDark={isDark}
-            note={selectedTextEntity}
-            onDuplicate={() => api.duplicateTextEntity(selectedTextEntity.id)}
-            onDelete={() => api.deleteTextEntity(selectedTextEntity.id)}
-            onSelectColor={(color) => api.updateTextEntity(selectedTextEntity.id, { color })}
-          />
-        ) : null
-      ) : null}
 
       {showSelectedGroupMenu ? (
         selectedGroupEntity ? (

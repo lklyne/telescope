@@ -9,7 +9,7 @@
  * aboveView's WCV origin sits at `canvasOrigin.y`, so we subtract it from
  * every y when laying out the SVG geometry — matching the rest of aboveView.
  */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type {
   CanvasInteractionState,
   CanvasSceneEntity,
@@ -145,12 +145,18 @@ function AnchorDots({
   zoom: number
   originY: number
 }) {
+  const [hoveredSide, setHoveredSide] = useState<EdgeSide | null>(null)
+
+  useEffect(() => {
+    if (!isDragging) setHoveredSide(null)
+  }, [isDragging])
+
   return (
     <>
       {EDGE_SIDES.map((side) => {
         const pt = getAnchorPoint(entity, side, zoom, originY)
         const hitRect = getAnchorHitRect(entity, side, zoom, originY)
-        const showDot = isDragging
+        const showDot = isDragging || hoveredSide === side
         return (
           <g key={side}>
             {showDot ? (
@@ -163,8 +169,10 @@ function AnchorDots({
                 strokeWidth={1}
               />
             ) : null}
-            {/* Hit rect kept for parity with the bgView source, but pointer-events
-                are off — interaction lives in `useCanvasPointerRouter`. */}
+            {/* Hit rect drives per-side hover so the dot lights up before drag.
+                Pointer-down still routes through `useCanvasPointerRouter`'s
+                window listener — we just need pointer-events on for hover and
+                cursor styling. */}
             <rect
               x={hitRect.x}
               y={hitRect.y}
@@ -173,7 +181,12 @@ function AnchorDots({
               rx={EDGE_ANCHOR_HIT_CORNER_PX}
               ry={EDGE_ANCHOR_HIT_CORNER_PX}
               fill="transparent"
-              style={{ pointerEvents: 'none' }}
+              style={{ cursor: 'crosshair', pointerEvents: 'all' }}
+              onMouseEnter={() => setHoveredSide(side)}
+              onMouseLeave={() => {
+                if (isDragging) return
+                setHoveredSide((current) => (current === side ? null : current))
+              }}
             />
           </g>
         )
@@ -194,6 +207,7 @@ export function EdgeLayer({
   selectedEntityIds,
   zoom,
   originY,
+  onSelectEdge,
 }: {
   edges: WorkspaceEdge[]
   entities: CanvasSceneEntity[]
@@ -204,6 +218,7 @@ export function EdgeLayer({
   selectedEntityIds: string[]
   zoom: number
   originY: number
+  onSelectEdge: (edgeId: string) => void
 }) {
   const entityMap = useMemo(() => {
     const map = new Map<string, CanvasSceneEntity>()
@@ -322,13 +337,20 @@ export function EdgeLayer({
             stroke={edgeColor}
             strokeWidth={1.5}
           />
-          {/* Zoom-scaled invisible hit target */}
+          {/* Zoom-scaled invisible hit target. Tagged `data-overlay-ui` so
+              the canvas pointer router skips its pointerdown — edge selection
+              fires from this path's `onClick` (mirrors main's behavior). */}
           <path
             d={d}
+            data-overlay-ui
             fill="none"
             stroke="transparent"
             strokeWidth={edgeSelectionHitWidth}
-            style={{ pointerEvents: 'none' }}
+            style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelectEdge(id)
+            }}
           />
         </g>
         )

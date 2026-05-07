@@ -38,7 +38,7 @@ export function CornerResizeHandle({
         border: `${borderWidth} solid ${selectionColor(isDark)}`,
         borderRadius: 0,
         cursor: CORNER_CURSORS[corner],
-        pointerEvents: beginResize ? 'auto' : 'none',
+        pointerEvents: 'auto',
         zIndex: 1,
       }}
     />
@@ -75,7 +75,7 @@ export function EdgeResizeHandle({
         width: isHorizontal ? undefined : size,
         height: isHorizontal ? size : undefined,
         cursor: EDGE_CURSORS[edge],
-        pointerEvents: beginResize ? 'auto' : 'none',
+        pointerEvents: 'auto',
         zIndex: 1,
       }}
     />

@@ -165,6 +165,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         edges: layout.edges ?? [],
         selectedEntityIds: layout.selectedEntityIds,
         selectedGroupId: layout.selectedGroupId ?? null,
+        hoveredEntityId: layout.hover?.id ?? null,
         zoom: layout.zoom ?? 1,
       }
       const target = hitTest(inputs, { x: event.clientX, y: windowY })
@@ -224,6 +225,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
           edges: layout.edges ?? [],
           selectedEntityIds: layout.selectedEntityIds,
           selectedGroupId: layout.selectedGroupId ?? null,
+          hoveredEntityId: layout.hover?.id ?? null,
           zoom: layout.zoom ?? 1,
         },
         { x: event.clientX, y: windowY },

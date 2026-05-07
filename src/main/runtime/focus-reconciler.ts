@@ -57,9 +57,10 @@ export function expectedFocus(state: FocusState): FocusTarget {
     case 'dragging-edge':
       return { kind: 'aboveView' }
     case 'editing-text':
-      // Inline canvas editors (sticky notes, markdown files, wireframes)
-      // live in bgView, so keep focus there while typing.
-      return { kind: 'bgView' }
+      // Post-Phase-C: inline canvas editors (sticky notes, shapes, markdown
+      // files, wireframes) render in aboveView, so keyboard focus lives there
+      // while typing.
+      return { kind: 'aboveView' }
     case 'idle':
       break
   }

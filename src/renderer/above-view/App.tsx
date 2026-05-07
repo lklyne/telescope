@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
+  CanvasSceneShapeEntity,
+  CanvasSceneTextEntity,
   LayoutUpdateData,
   SelectionOverlayPayload,
   ThemeData,
@@ -22,6 +24,8 @@ import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { SelectionOutlineLayer } from './SelectionOutlineLayer'
+import { ShapeBodyLayer } from './ShapeBodyLayer'
+import { StickyBodyLayer } from './StickyBodyLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
 import {
   AnnotationThreadPopover,
@@ -92,6 +96,41 @@ export default function App({
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
 
   useEffect(() => api.onSelectionOverlayChanged(setSelectionOverlay), [])
+
+  // Phase C: pendingTextEditId mirrors bgView's behavior — a text-begin-edit
+  // ping (from dblclick + keyboard shortcut) flips the matching sticky into
+  // edit mode. Auto-clears after 1s if the entity disappears or the layer
+  // never picks it up.
+  const [pendingTextEditId, setPendingTextEditId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!pendingTextEditId) return
+    const timeoutId = window.setTimeout(() => setPendingTextEditId(null), 1000)
+    return () => window.clearTimeout(timeoutId)
+  }, [pendingTextEditId])
+  useEffect(
+    () =>
+      api.onTextBeginEdit(({ entityId }) => {
+        setPendingTextEditId(entityId)
+      }),
+    [],
+  )
+
+  // Phase C: same pattern for shape entities. `shape-begin-edit` is fanned
+  // out to both views by main; aboveView (the new owner of shape bodies)
+  // picks it up to flip the matching shape into edit mode.
+  const [pendingShapeEditId, setPendingShapeEditId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!pendingShapeEditId) return
+    const timeoutId = window.setTimeout(() => setPendingShapeEditId(null), 1000)
+    return () => window.clearTimeout(timeoutId)
+  }, [pendingShapeEditId])
+  useEffect(
+    () =>
+      api.onShapeBeginEdit(({ entityId }) => {
+        setPendingShapeEditId(entityId)
+      }),
+    [],
+  )
 
   // Marquee preview ids — outline layer highlights entities that the in-flight
   // marquee currently overlaps. canvas-bg used to derive this; aboveView owns
@@ -761,6 +800,46 @@ export default function App({
           />
 
           <MarqueeLayer overlay={selectionOverlay} />
+
+          {layoutData.viewMode === 'canvas' ? (
+            <ShapeBodyLayer
+              entities={layoutData.entities.filter(
+                (e): e is CanvasSceneShapeEntity => e.kind === 'shape',
+              )}
+              isDark={isDark}
+              selectedEntityIdSet={
+                new Set(layoutData.selectedEntityIds)
+              }
+              selectedEntityCount={layoutData.selectedEntityIds.length}
+              pendingEditEntityId={pendingShapeEditId}
+              canvasOrigin={layoutData.canvasOrigin}
+              pan={layoutData.pan}
+              zoom={layoutData.zoom}
+              onPendingFocusConsumed={() => setPendingShapeEditId(null)}
+              onUpdateText={(id, text) => api.updateShapeEntity(id, { text })}
+              onTextEditingChange={api.setTextEditing}
+            />
+          ) : null}
+
+          {layoutData.viewMode === 'canvas' ? (
+            <StickyBodyLayer
+              entities={layoutData.entities.filter(
+                (e): e is CanvasSceneTextEntity => e.kind === 'text',
+              )}
+              isDark={isDark}
+              selectedEntityIdSet={
+                new Set(layoutData.selectedEntityIds)
+              }
+              selectedEntityCount={layoutData.selectedEntityIds.length}
+              pendingEditEntityId={pendingTextEditId}
+              canvasOrigin={layoutData.canvasOrigin}
+              pan={layoutData.pan}
+              zoom={layoutData.zoom}
+              onPendingFocusConsumed={() => setPendingTextEditId(null)}
+              onUpdateText={(id, text) => api.updateTextEntity(id, { text })}
+              onTextEditingChange={api.setTextEditing}
+            />
+          ) : null}
 
           {layoutData.viewMode === 'canvas' ? (
             <SelectionOutlineLayer

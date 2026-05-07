@@ -4,7 +4,6 @@ import type {
   CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
   CanvasSceneFrameEntity,
-  CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
   LayoutUpdateData,
   ThemeData,
@@ -20,8 +19,6 @@ import { BrowserTabBar } from './BrowserTabBar'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { FrameBorderLayer } from './FrameBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
-import { TextBlockLayer } from './TextBlockLayer'
-import { ShapeBlockLayer } from './ShapeBlockLayer'
 import { FileBlockLayer, type FileJsonModeMap } from './FileBlockLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { ActiveFrameHighlightLayer } from './AgentCursorLayer'
@@ -103,46 +100,6 @@ export default function App({
   const drawingEntities = useMemo(
     () => layoutData.entities.filter((e): e is CanvasSceneDrawingEntity => e.kind === 'drawing'),
     [layoutData.entities],
-  )
-  const shapeEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasSceneShapeEntity => e.kind === 'shape'),
-    [layoutData.entities],
-  )
-  const [pendingShapeEditId, setPendingShapeEditId] = useState<string | null>(null)
-  const requestShapeEdit = useCallback((entityId: string) => {
-    api.selectEntity(entityId, 'shape')
-    setPendingShapeEditId(entityId)
-  }, [])
-  useEffect(() => {
-    if (!pendingShapeEditId) return
-    const timeoutId = window.setTimeout(() => setPendingShapeEditId(null), 1000)
-    return () => window.clearTimeout(timeoutId)
-  }, [pendingShapeEditId])
-  useEffect(() => {
-    if (!pendingShapeEditId) return
-    if (!shapeEntities.some((entity) => entity.id === pendingShapeEditId)) {
-      setPendingShapeEditId(null)
-    }
-  }, [pendingShapeEditId, shapeEntities])
-  useEffect(
-    () =>
-      api.onShapeBeginEdit(({ entityId }) => {
-        setPendingShapeEditId(entityId)
-      }),
-    [],
-  )
-  const [pendingTextEditId, setPendingTextEditId] = useState<string | null>(null)
-  useEffect(() => {
-    if (!pendingTextEditId) return
-    const timeoutId = window.setTimeout(() => setPendingTextEditId(null), 1000)
-    return () => window.clearTimeout(timeoutId)
-  }, [pendingTextEditId])
-  useEffect(
-    () =>
-      api.onTextBeginEdit(({ entityId }) => {
-        setPendingTextEditId(entityId)
-      }),
-    [],
   )
   const borderFrames = useMemo(
     () => layoutData.viewMode === 'browser'
@@ -358,69 +315,6 @@ export default function App({
       ) : null}
 
       {/* Selected frame menu now renders in the floating-ui view (above frames) */}
-
-      {layoutData.viewMode === 'canvas' ? (
-        <CanvasEntityViewportLayer
-          canvasOrigin={layoutData.canvasOrigin}
-          pan={layoutData.pan}
-          zoom={layoutData.zoom}
-        >
-          <TextBlockLayer
-            entities={textEntities}
-            getZoom={getEntityLayerZoom}
-            isDark={isDark}
-            marqueePreviewIds={marqueePreviewIds}
-            pendingEditEntityId={pendingTextEditId}
-            onPendingFocusConsumed={() => setPendingTextEditId(null)}
-            onDrag={api.dragEntity}
-            onDragEnd={api.endDragEntity}
-            onDragStart={api.startDragEntity}
-            onGroupDrag={api.dragGroup}
-            onGroupDragEnd={api.endDragGroup}
-            onGroupDragStart={api.startDragGroup}
-            onResize={(id, patch) => api.updateTextEntity(id, patch)}
-            onSelect={(id, modifiers) => api.selectEntity(id, 'text', modifiers)}
-            onTextEditingChange={api.setTextEditing}
-            onUpdateText={(id, text) => api.updateTextEntity(id, { text })}
-            selectedEntityCount={layoutData.selectedEntityIds.length}
-            selectedEntityIdSet={selectedEntityIdSet}
-            selectedGroupDescendantIds={selectedGroupDescendantIds}
-            selectedGroupId={layoutData.selectedGroupId ?? null}
-          />
-        </CanvasEntityViewportLayer>
-      ) : null}
-
-      {layoutData.viewMode === 'canvas' ? (
-        <CanvasEntityViewportLayer
-          canvasOrigin={layoutData.canvasOrigin}
-          pan={layoutData.pan}
-          zoom={layoutData.zoom}
-        >
-          <ShapeBlockLayer
-            entities={shapeEntities}
-            getZoom={getEntityLayerZoom}
-            isDark={isDark}
-            marqueePreviewIds={marqueePreviewIds}
-            pendingEditEntityId={pendingShapeEditId}
-            onDrag={api.dragEntity}
-            onDragEnd={api.endDragEntity}
-            onDragStart={api.startDragEntity}
-            onGroupDrag={api.dragGroup}
-            onGroupDragEnd={api.endDragGroup}
-            onGroupDragStart={api.startDragGroup}
-            onResize={(id, patch) => api.updateShapeEntity(id, patch)}
-            onSelect={(id, modifiers) => api.selectEntity(id, 'shape', modifiers)}
-            onRequestEdit={requestShapeEdit}
-            onPendingFocusConsumed={() => setPendingShapeEditId(null)}
-            onTextEditingChange={api.setTextEditing}
-            onUpdateText={(id, text) => api.updateShapeEntity(id, { text })}
-            selectedEntityCount={layoutData.selectedEntityIds.length}
-            selectedEntityIdSet={selectedEntityIdSet}
-            selectedGroupDescendantIds={selectedGroupDescendantIds}
-            selectedGroupId={layoutData.selectedGroupId ?? null}
-          />
-        </CanvasEntityViewportLayer>
-      ) : null}
 
       {layoutData.viewMode === 'canvas' ? (
         <CanvasEntityViewportLayer

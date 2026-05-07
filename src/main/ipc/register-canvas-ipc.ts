@@ -221,13 +221,18 @@ export function registerCanvasIpc(): void {
 
   // ADR 0002 §"Landing as a single PR" Step 6: dblclick on a text/shape body
   // in aboveView dispatches request-text-edit / enter-shape-edit. The router
-  // sends here; main selects the entity and pings bgView (the layer where the
-  // editable surface still lives) so it can focus the textarea / open the
-  // shape inline editor.
+  // sends here; main selects the entity and pings the layer where the editable
+  // surface lives so it can focus the textarea / open the shape inline editor.
+  // Phase C of the aboveView migration moves the sticky body into aboveView,
+  // so the ping fans out to both views — the layer with the body picks it up,
+  // the other ignores.
   ipcMain.on('canvas-request-text-edit', (_event, { entityId }: { entityId: string }) => {
     selectEntity(entityId, 'text')
     if (bgView && !bgView.webContents.isDestroyed()) {
       bgView.webContents.send('text-begin-edit', { entityId })
+    }
+    if (aboveView && !aboveView.webContents.isDestroyed()) {
+      aboveView.webContents.send('text-begin-edit', { entityId })
     }
   })
 
@@ -235,6 +240,9 @@ export function registerCanvasIpc(): void {
     selectEntity(entityId, 'shape')
     if (bgView && !bgView.webContents.isDestroyed()) {
       bgView.webContents.send('shape-begin-edit', { entityId })
+    }
+    if (aboveView && !aboveView.webContents.isDestroyed()) {
+      aboveView.webContents.send('shape-begin-edit', { entityId })
     }
   })
 

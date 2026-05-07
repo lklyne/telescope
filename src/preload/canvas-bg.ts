@@ -94,7 +94,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY }),
   cancelPendingPlacement: () => ipcRenderer.send('cancel-pending-placement'),
   clearToolMode: () => ipcRenderer.send('toolbar-clear-tool-mode'),
-  startDragFrame: (frameId) => ipcRenderer.send('canvas-drag-frame-start', { frameId }),
+  startDragFrame: (frameId, selection) =>
+    ipcRenderer.send('canvas-drag-frame-start', { frameId, selection }),
   dragFrame: (frameId, dx, dy) => ipcRenderer.send('canvas-drag-frame', { frameId, dx, dy }),
   endDragFrame: () => ipcRenderer.send('canvas-drag-frame-end'),
   dragCopyFrame: (frameId, canvasX, canvasY) =>
@@ -142,6 +143,18 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.on('shape-begin-edit', handler)
     return () => ipcRenderer.removeListener('shape-begin-edit', handler)
   },
+  onTextBeginEdit: (callback) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { entityId: string },
+    ) => callback(data)
+    ipcRenderer.on('text-begin-edit', handler)
+    return () => ipcRenderer.removeListener('text-begin-edit', handler)
+  },
+  requestTextEdit: (entityId) =>
+    ipcRenderer.send('canvas-request-text-edit', { entityId }),
+  requestShapeEdit: (entityId) =>
+    ipcRenderer.send('canvas-request-shape-edit', { entityId }),
   showFileInFinder: (filePath: string) =>
     ipcRenderer.send('canvas-show-file-in-finder', { filePath }),
   updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) =>
@@ -176,8 +189,8 @@ const api: CanvasBgElectronAPI = {
   dragGroup: (groupId: string, dx: number, dy: number) =>
     ipcRenderer.send('canvas-drag-group', { groupId, dx, dy }),
   endDragGroup: () => ipcRenderer.send('canvas-drag-group-end'),
-  startDragEntity: (entityId: string) =>
-    ipcRenderer.send('canvas-drag-entity-start', { entityId }),
+  startDragEntity: (entityId: string, selection) =>
+    ipcRenderer.send('canvas-drag-entity-start', { entityId, selection }),
   dragEntity: (entityId: string, dx: number, dy: number) =>
     ipcRenderer.send('canvas-drag-entity', { entityId, dx, dy }),
   endDragEntity: () => ipcRenderer.send('canvas-drag-entity-end'),
@@ -254,6 +267,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-select-edge', { edgeId }),
   hoverFrame: (frameId: string | null) =>
     ipcRenderer.send('canvas-hover-frame', { frameId }),
+  enterFrameFocus: (frameId: string) =>
+    ipcRenderer.send('canvas-frame-focus-enter', { frameId }),
   setTextEditing: (active: boolean) =>
     ipcRenderer.send('canvas-set-text-editing', { active }),
   readNoteFile: (filePath: string) =>

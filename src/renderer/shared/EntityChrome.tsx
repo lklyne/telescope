@@ -33,7 +33,7 @@ function Root({
   isDark,
   dragEnabled = true,
   isActive,
-  onMouseDown,
+  onPointerDown,
   onMouseEnter,
   onMouseLeave,
   children,
@@ -44,7 +44,7 @@ function Root({
   isDark: boolean
   dragEnabled?: boolean
   isActive: boolean
-  onMouseDown?: (e: React.MouseEvent) => void
+  onPointerDown?: (e: React.PointerEvent) => void
   onMouseEnter?: () => void
   onMouseLeave?: () => void
   children: ReactNode
@@ -82,7 +82,7 @@ function Root({
       >
         <div
           className="flex w-full items-center gap-1 py-1 text-zinc-900 dark:text-zinc-100"
-          onMouseDown={onMouseDown}
+          onPointerDown={onPointerDown}
         >
           {children}
         </div>
@@ -97,10 +97,10 @@ function Root({
 
 function DragTrigger({
   children,
-  onMouseDown,
+  onPointerDown,
 }: {
   children: ReactNode
-  onMouseDown?: (e: React.MouseEvent) => void
+  onPointerDown?: (e: React.PointerEvent) => void
 }) {
   const { isDark } = useContext(ChromeCtx)
   return (
@@ -109,7 +109,7 @@ function DragTrigger({
       className={`flex h-7 min-w-0 flex-1 cursor-grab items-center gap-1.5 rounded-[7px] border border-transparent px-1.5 text-xs select-none active:cursor-grabbing ${
         isDark ? 'text-zinc-300' : 'text-zinc-700'
       }`}
-      onMouseDown={onMouseDown}
+      onPointerDown={onPointerDown}
     >
       {children}
     </div>
@@ -149,7 +149,7 @@ function Actions({ children }: { children: ReactNode }) {
   return (
     <div
       className="flex shrink-0 items-center"
-      onMouseDown={(e) => { e.stopPropagation(); e.preventDefault() }}
+      onPointerDown={(e) => { e.stopPropagation(); e.preventDefault() }}
     >
       {children}
     </div>

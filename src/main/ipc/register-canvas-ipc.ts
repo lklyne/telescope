@@ -36,6 +36,8 @@ import {
 } from '../runtime/interaction-state'
 import { tryEnter, commitActive } from '../runtime/interaction-controller'
 import { setTextEditingActive } from '../runtime/keyboard-shortcuts'
+import { enterFrameFocus, withFocusEventsSuppressed } from '../runtime/frame-focus'
+import { markDirty } from '../runtime/layout-dirty'
 import {
   createWorkspaceTab,
   deleteWorkspaceTab,
@@ -212,10 +214,49 @@ export function registerCanvasIpc(): void {
     enterGroup(groupId, { clearInteraction: true })
   })
 
+  // ADR 0002 §"Landing as a single PR" Step 6: dblclick on a text/shape body
+  // in aboveView dispatches request-text-edit / enter-shape-edit. The router
+  // sends here; main selects the entity and pings bgView (the layer where the
+  // editable surface still lives) so it can focus the textarea / open the
+  // shape inline editor.
+  ipcMain.on('canvas-request-text-edit', (_event, { entityId }: { entityId: string }) => {
+    selectEntity(entityId, 'text')
+    if (bgView && !bgView.webContents.isDestroyed()) {
+      bgView.webContents.send('text-begin-edit', { entityId })
+    }
+  })
+
+  ipcMain.on('canvas-request-shape-edit', (_event, { entityId }: { entityId: string }) => {
+    selectEntity(entityId, 'shape')
+    if (bgView && !bgView.webContents.isDestroyed()) {
+      bgView.webContents.send('shape-begin-edit', { entityId })
+    }
+  })
+
   ipcMain.on('canvas-hover-frame', (_event, { frameId }: { frameId: string | null }) => {
     if (interactionBlocksPageHover()) return
     if (uiAnnotationMode() === 'region_select') return
     setHoveredFrame(frameId)
+  })
+
+  // ADR 0001: programmatically promote a frame to focused. Triggered by the
+  // canvas-pointer-router when it classifies a hit as `frame-body`. Updates
+  // the frame-focus state machine, then focuses the page's webContents so
+  // subsequent native input lands in the page. The page focus event is
+  // suppressed to avoid a double-enter (state machine is already updated).
+  ipcMain.on('canvas-frame-focus-enter', (_event, { frameId }: { frameId: string }) => {
+    const page = pages.find((candidate) => candidate.id === frameId)
+    if (!page) return
+    enterFrameFocus(frameId, 'click')
+    withFocusEventsSuppressed(() => {
+      try {
+        page.pageView.webContents.focus()
+      } catch (error) {
+        console.error('[frame-focus] programmatic focus threw', error)
+      }
+    })
+    markDirty('canvas')
+    requestLayout()
   })
 
   ipcMain.on('canvas-set-text-editing', (event, { active }: { active: boolean }) => {

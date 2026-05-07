@@ -102,7 +102,7 @@ export { pasteFramesFromClipboard } from '../workspace-clipboard'
  * Find any movable canvas entity by ID (frame or text entity).
  * Returns an object with mutable canvasX/canvasY.
  */
-function findMovableEntity(id: string): { canvasX: number; canvasY: number } | null {
+export function findMovableEntity(id: string): { canvasX: number; canvasY: number } | null {
   const page = pages.find((p) => p.id === id)
   if (page) return page
   const te = textEntities.find((n) => n.id === id)

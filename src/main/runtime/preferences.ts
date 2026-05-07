@@ -262,7 +262,6 @@ export function broadcastTheme(): void {
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]
     page.frameView.setBackgroundColor(frameColor())
-    page.chromeView.webContents.send('theme-changed', data)
   }
 }
 

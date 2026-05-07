@@ -38,7 +38,7 @@ Electron app with four source layers:
 
 ```
 src/main/          Main process: state, persistence, HTTP API, CLI, IPC routing
-src/preload/       Context bridges: one per renderer overlay (10 total)
+src/preload/       Context bridges: one per renderer overlay (9 total)
 src/renderer/      React apps: canvas-bg, toolbar, sidebar, inspector, overlays
 src/shared/        Types and pure utilities shared across processes
 ```
@@ -72,7 +72,7 @@ layout-*.ts          View positioning, z-order, dirty tracking
 ### Renderer structure
 
 Each renderer is an isolated React app. The main surface is canvas-bg/.
-Others (toolbar, chrome-header, left-sidebar, right-details-panel) are
+Others (toolbar, left-sidebar, right-details-panel) are
 smaller overlay panels with their own preload bridge.
 
 ### Entity-renderer plugins

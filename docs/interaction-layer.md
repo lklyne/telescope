@@ -161,6 +161,9 @@ The input gate is not a separate WCV — it's a *behavior* of `aboveView`. When 
 
 ```ts
 function shouldGateBeOpen(s: AppState): boolean {
+  // ADR 0001 — Frame focus closes the gate so the focused page receives
+  // native input. Always wins.
+  if (s.frameFocus !== null) return false
   return (
     s.interaction.mode.kind !== 'idle' ||
     s.toolMode !== 'select' ||       // draw, annotate, wire modes pre-arm the gate
@@ -171,6 +174,33 @@ function shouldGateBeOpen(s: AppState): boolean {
 ```
 
 Evaluated inside `layoutAllViews()`. `aboveView.setVisible(shouldGateBeOpen(state))` is the only call that toggles it.
+
+**Landed (ADR 0001 + ADR 0002):**
+
+```ts
+function shouldGateBeOpen(s: AppState): boolean {
+  if (s.frameFocus !== null) return false
+  // Inspect & annotate-comment drive feedback off the page's webContents
+  // mousemove (eyedropper, comment hover); keep the gate closed unless the
+  // composer is open.
+  if (s.toolMode === 'inspect' || s.toolMode === 'annotate-comment') {
+    return s.commentOverlayActive
+  }
+  if (s.interactionKind === 'editing-text') return false
+  if (s.viewMode === 'canvas') return true
+  return browserModeNeedsGate(s)
+}
+```
+
+The OR-chain in canvas mode has collapsed: the canvas-pointer-router (§4.2.1) classifies all pointerdowns from the always-on aboveView via `src/shared/hit-test.ts`, and every interactive surface that used to live in `bgView` or in a per-page `chromeView` WCV has moved into aboveView's React tree as `CanvasItemChrome` / `CanvasItemPopup` (`data-overlay-ui` so the router yields to them structurally). The per-page `chromeView` WCV and its `chrome-header` preload + renderer were retired wholesale; the chrome-action IPCs (`canvas-navigate-frame` / `canvas-back-frame` / etc., addressed by `frameId`) replace the sender-based `chrome-*` channels.
+
+### 4.2.1 Canvas pointer router (Phase 2 substrate)
+
+A single window-level pointerdown listener inside `aboveView` (`src/renderer/above-view/useCanvasPointerRouter.ts`) runs the shared `hitTest()` against the current layout snapshot and dispatches a typed `CanvasPointerAction` (`src/shared/canvas-pointer-actions.ts`). The hit-test priority table — resize-handle > chrome > anchor > body > background — is encoded once and tested in isolation (`tests/unit/canvas-pointer-actions.test.ts` includes the #41 anchor-near-chrome regression).
+
+The router consumes the full action set (`FULL_ROUTER_CONSUME`): `enter-frame-focus`, `begin-entity-drag`, `begin-group-drag`, `begin-resize`, `begin-edge-drag`, `toggle-select`, `background-click`, `begin-marquee`, `begin-pan`. The remaining viewport helper is limited to wheel zoom/pan and middle-button pan.
+
+A sibling pure mapper, `routePointerDoubleClick`, classifies double-clicks; the router installs a window-level `dblclick` capture listener and dispatches `enter-shape-edit` / `enter-group` / `request-text-edit` (and yields `enter-group-rename` to the GroupRenameLabel's own DOM `onDoubleClick`). The text/shape branches use the `canvas-request-text-edit` / `canvas-request-shape-edit` IPC channels, which select the entity in main and signal bgView to focus its inline editor.
 
 **Gate responsibilities when visible:**
 1. Capture pointer events at the WCV boundary.
@@ -277,6 +307,8 @@ function useDragGesture<T>(spec: DragGestureSpec<T>): void
 
 ### 4.7 Bitmap compositor (pages below the active set)
 
+> **Status (ADR 0001 + ADR 0002):** Optional. The original motivation — keeping the gate always-on without breaking native page input — is supplanted by click-to-enter focus and (per [ADR 0002](./adr/0002-canvas-anchored-overlay-ui.md)) by moving canvas-anchored overlay UI into aboveView's React tree so the gate flip can't orphan it. The compositor is now a future memory/CPU optimisation if N-live-frame regresses, not a load-bearing input-authority requirement.
+
 Inactive pages (not selected, not scroll-peer of selected, not loading, no DevTools) render via offscreen `BrowserWindow` with `offscreen: true` at low frame rate. Their bitmaps are drawn as React-rendered `<canvas>` elements inside `bgView`.
 
 Full staging plan lives in `docs/offscreen-rendering-research.md`. The interaction-layer contract this spec establishes:
@@ -347,7 +379,8 @@ These are the invariants that, if broken, produce the classes of bugs this refac
 | I4 | Focus is expressed as intent, applied by `FocusReconciler` | Focus storms, keyboard shortcuts silently broken |
 | I5 | Drop ownership is declared per `dragId`, never dedup by payload hash | Duplicate drops, missed drops |
 | I6 | `setBackgroundColor('#00000000')` set on every WCV before `addChildView` | White-flash during creation |
-| I7 | Only `aboveView` uses `setVisible(true/false)` to toggle input capture. `cursorOverlayWindow` is the sole exception — it's mouse-inert (`setIgnoreMouseEvents(true)`) and never captures, so the "one input authority" rule is preserved in spirit | Regression to the multi-overlay-coordination model |
+| I7 | (ADR 0001) `aboveView` is the single input authority in canvas mode; `frameFocus !== null` is the only condition that releases it so the focused page can receive native input. Per-layer pointerdown handlers in `bgView` are vestigial during Phase 2 migration and removed in Phase 3. `cursorOverlayWindow` remains mouse-inert (`setIgnoreMouseEvents(true)`) | Regression to the multi-overlay-coordination model and the #41 layer-arbitration bug class |
+| I8' | (ADR 0002) Canvas-anchored overlay UI (chrome, popups) lives in aboveView's React tree, not in `bgView` layers and not in per-page WCVs. Components tag themselves `data-overlay-ui`; the router yields to them on capture-phase pointerdown via `isOverlayUiTarget`. Geometry comes from `entity-chrome-slots.ts` + `useAnchoredPosition` | Chrome stops receiving clicks when the gate flips fully open; #41 anchor-near-chrome arbitration bugs reappear |
 | I8 | Pointer events only in renderer gesture code | Divergent behavior between capture/cleanup code |
 | I9 | Canvas coord math imported from `src/shared/coords.ts` | Hit-test drift between main and renderer |
 | I10 | Live pages only for active frames + scroll peers + loading + DevTools-attached | Memory/CPU regression, idle renderers |

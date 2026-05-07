@@ -14,12 +14,13 @@ function base(): GateInputs {
     selectedEntityKinds: [],
     selectionOwnsFrameContent: false,
     hasSavedDrawings: false,
+    frameFocus: null,
   }
 }
 
-describe('shouldGateBeOpen', () => {
-  it('closed when idle in select mode with nothing else', () => {
-    expect(shouldGateBeOpen(base())).toBe(false)
+describe('shouldGateBeOpen — canvas mode (default-open per ADR 0002 Step 7)', () => {
+  it('open when idle in select mode', () => {
+    expect(shouldGateBeOpen(base())).toBe(true)
   })
 
   it.each([
@@ -32,7 +33,7 @@ describe('shouldGateBeOpen', () => {
     expect(shouldGateBeOpen({ ...base(), interactionKind: kind })).toBe(true)
   })
 
-  it('stays closed while inline text is being edited', () => {
+  it('closed while inline text is being edited (textarea is in bgView)', () => {
     expect(shouldGateBeOpen({ ...base(), interactionKind: 'editing-text' })).toBe(false)
   })
 
@@ -44,96 +45,62 @@ describe('shouldGateBeOpen', () => {
   )
 
   it.each(['inspect', 'annotate-comment'] as const)(
-    'closed when toolMode is %s (frame receives mousemove for eyedropper)',
+    'closed when toolMode is %s without composer open (frame receives mousemove)',
     (toolMode) => {
       expect(shouldGateBeOpen({ ...base(), toolMode })).toBe(false)
     },
   )
 
-  it('open when space held', () => {
-    expect(shouldGateBeOpen({ ...base(), spaceHeld: true })).toBe(true)
-  })
+  it.each(['inspect', 'annotate-comment'] as const)(
+    'open when toolMode is %s and comment composer is active',
+    (toolMode) => {
+      expect(
+        shouldGateBeOpen({ ...base(), toolMode, commentOverlayActive: true }),
+      ).toBe(true)
+    },
+  )
 
-  it('open when hovering canvas chrome', () => {
-    expect(shouldGateBeOpen({ ...base(), hoveringCanvasChrome: true })).toBe(true)
-  })
-
-  it('open when commentOverlayActive', () => {
-    expect(shouldGateBeOpen({ ...base(), commentOverlayActive: true })).toBe(true)
-  })
-
-  it('open when marquee visible', () => {
-    expect(shouldGateBeOpen({ ...base(), selectionMarqueeVisible: true })).toBe(true)
-  })
-
-  it('open when the current selection owns frame content', () => {
-    expect(
-      shouldGateBeOpen({
-        ...base(),
-        selectionOwnsFrameContent: true,
-      }),
-    ).toBe(true)
-  })
-
-  it('closed for single text selection (menu stays in bgView)', () => {
+  it('open with selection in canvas mode', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
         selectedEntityIds: ['t1'],
         selectedEntityKinds: ['text'],
       }),
-    ).toBe(false)
-  })
-
-  it('open for single drawing selection (floating menu)', () => {
-    expect(
-      shouldGateBeOpen({
-        ...base(),
-        selectedEntityIds: ['d1'],
-        selectedEntityKinds: ['drawing'],
-      }),
     ).toBe(true)
   })
+})
 
-  it('closed for single frame selection (no menu)', () => {
-    expect(
-      shouldGateBeOpen({
-        ...base(),
-        selectedEntityIds: ['f1'],
-        selectedEntityKinds: ['frame'],
-      }),
-    ).toBe(false)
+describe('shouldGateBeOpen — browser mode falls through to browserModeNeedsGate', () => {
+  it('closed by default in browser mode', () => {
+    expect(shouldGateBeOpen({ ...base(), viewMode: 'browser' })).toBe(false)
   })
 
-  it('closed for multi-entity selection (no single-entity menu)', () => {
-    expect(
-      shouldGateBeOpen({
-        ...base(),
-        selectedEntityIds: ['t1', 't2'],
-        selectedEntityKinds: ['text', 'text'],
-      }),
-    ).toBe(false)
-  })
-
-  it('closed in browser viewMode even with text selection', () => {
+  it('open when commentOverlayActive in browser mode', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
         viewMode: 'browser',
-        selectedEntityIds: ['t1'],
-        selectedEntityKinds: ['text'],
+        commentOverlayActive: true,
       }),
-    ).toBe(false)
+    ).toBe(true)
   })
 
-  it('open when saved drawings exist and no frame is selected', () => {
-    expect(shouldGateBeOpen({ ...base(), hasSavedDrawings: true })).toBe(true)
-  })
-
-  it('closed when saved drawings exist but a single frame is selected', () => {
+  it('open when marquee visible in browser mode', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
+        viewMode: 'browser',
+        selectionMarqueeVisible: true,
+      }),
+    ).toBe(true)
+  })
+
+  it('closed in browser mode for single-frame selection with saved drawings', () => {
+    expect(
+      shouldGateBeOpen({
+        ...base(),
+        viewMode: 'browser',
         hasSavedDrawings: true,
         selectedEntityIds: ['f1'],
         selectedEntityKinds: ['frame'],
@@ -141,27 +108,48 @@ describe('shouldGateBeOpen', () => {
     ).toBe(false)
   })
 
-  it('open when saved drawings exist and multi-selection includes a frame', () => {
+  it('open in browser mode when saved drawings exist and multi-selection includes a frame', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
+        viewMode: 'browser',
         hasSavedDrawings: true,
         selectedEntityIds: ['f1', 't1'],
         selectedEntityKinds: ['frame', 'text'],
       }),
     ).toBe(true)
   })
+})
 
-  it.each(['inspect', 'annotate-comment'] as const)(
-    'closed when saved drawings exist but toolMode is %s',
-    (toolMode) => {
-      expect(
-        shouldGateBeOpen({
-          ...base(),
-          toolMode,
-          hasSavedDrawings: true,
-        }),
-      ).toBe(false)
-    },
-  )
+describe('shouldGateBeOpen — frame focus (ADR 0001)', () => {
+  it('closed when frame is focused, even if a gesture would otherwise open it', () => {
+    expect(
+      shouldGateBeOpen({
+        ...base(),
+        frameFocus: { id: 'frame-1' },
+        interactionKind: 'panning',
+        spaceHeld: true,
+        selectionMarqueeVisible: true,
+      }),
+    ).toBe(false)
+  })
+
+  it('closed when frame is focused, even with saved drawings', () => {
+    expect(
+      shouldGateBeOpen({
+        ...base(),
+        frameFocus: { id: 'frame-1' },
+        hasSavedDrawings: true,
+      }),
+    ).toBe(false)
+  })
+
+  it('open when frame focus is null and we are in canvas mode', () => {
+    expect(
+      shouldGateBeOpen({
+        ...base(),
+        frameFocus: null,
+      }),
+    ).toBe(true)
+  })
 })

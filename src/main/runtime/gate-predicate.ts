@@ -1,15 +1,22 @@
 /**
  * Gate predicate — should the aboveView overlay cover the canvas?
  *
- * Spec §4.2. The gate is open (non-zero bounds) whenever the canvas surface
- * needs to intercept pointer input or paint canvas-level UI: during any
- * non-idle gesture, while a non-select tool is armed, while space-pan is
- * held, while a marquee is showing,
- * while a selected drawing entity's inline menu is on screen, and
- * while saved drawings are visible above unselected frames.
+ * Spec §4.2 + ADR 0001. The gate is open (non-zero bounds) whenever
+ * aboveView needs to capture pointer input or paint canvas-level UI.
+ * Frame focus (ADR 0001) is a hard gate-closer in any mode so the focused
+ * page receives native input.
  *
- * The predicate is pure and testable. Its authority is main: the renderer
- * no longer drives `setCommentOverlayActive`.
+ * The "default-open in canvas mode" target from the plan is *not* yet in
+ * effect — it would prevent the per-frame `chromeView` (URL bar, nav
+ * buttons) and other bgView interactive surfaces from receiving pointer
+ * events. Migrating those into the router or into aboveView is the
+ * remaining work that lets the predicate collapse fully (§4.2 of the
+ * plan). Until then we keep the legacy OR-chain in canvas mode too, but
+ * the canvas-pointer-router is wired so every gate-open situation
+ * (gestures, tool modes, etc.) goes through the single hit-test arbiter.
+ *
+ * Pure and testable. Authority lives in main; the renderer no longer
+ * drives `setCommentOverlayActive` for the canvas-mode path.
  */
 import type { InteractionMode } from '../../shared/interaction-types'
 import type { CanvasEntityKind } from '../../shared/types'
@@ -27,9 +34,34 @@ export type GateInputs = {
   selectedEntityKinds: readonly CanvasEntityKind[]
   selectionOwnsFrameContent: boolean
   hasSavedDrawings: boolean
+  /** Frame focus (ADR 0001). When set, the focused page receives native input,
+   *  so the gate must close so events fall through to the WebContentsView. */
+  frameFocus: { id: string } | null
 }
 
 export function shouldGateBeOpen(inputs: GateInputs): boolean {
+  // ADR 0001: focus is the hard gate-closer. The user releases via
+  // Escape, click-canvas, or click-another-frame.
+  if (inputs.frameFocus) return false
+  // Inspect + annotate-comment drive feedback off the page's webContents
+  // mousemove (eyedropper, comment hover). Keep the gate closed unless
+  // the comment composer has been opened.
+  if (inputs.toolMode === 'inspect' || inputs.toolMode === 'annotate-comment') {
+    return inputs.commentOverlayActive
+  }
+  // Inline text edit owns its bgView textarea — the gate must yield so
+  // keystrokes land in the textarea.
+  if (inputs.interactionKind === 'editing-text') return false
+  // ADR 0002 §"Landing as a single PR" Step 7: in canvas mode the gate is
+  // default-open. Every interactive surface that used to live in bgView or
+  // a per-page chromeView has migrated into aboveView's React tree and is
+  // tagged `data-overlay-ui`, so the canvas-pointer-router yields to them
+  // structurally and forwards the rest of the input through itself.
+  if (inputs.viewMode === 'canvas') return true
+  return browserModeNeedsGate(inputs)
+}
+
+function browserModeNeedsGate(inputs: GateInputs): boolean {
   if (interactionOpensGate(inputs.interactionKind)) return true
   if (toolModeOpensGate(inputs.toolMode)) return true
   if (inputs.commentOverlayActive) return true
@@ -37,7 +69,6 @@ export function shouldGateBeOpen(inputs: GateInputs): boolean {
   if (inputs.hoveringCanvasChrome) return true
   if (inputs.selectionMarqueeVisible) return true
   if (inputs.selectionOwnsFrameContent) return true
-  if (hasFloatingMenu(inputs)) return true
   if (hasVisibleSavedDrawings(inputs)) return true
   return false
 }
@@ -56,15 +87,6 @@ function interactionOpensGate(interactionKind: GateInputs['interactionKind']): b
  */
 function toolModeOpensGate(toolMode: GateInputs['toolMode']): boolean {
   return toolMode === 'annotate-draw' || toolMode === 'annotate-region-select'
-}
-
-function hasFloatingMenu(inputs: GateInputs): boolean {
-  if (inputs.viewMode !== 'canvas') return false
-  if (inputs.selectedEntityIds.length !== 1) return false
-  const kind = inputs.selectedEntityKinds[0]
-  // Sticky-note controls render in bgView so text selection can keep
-  // native pointer access to the card and its resize handles.
-  return kind === 'drawing'
 }
 
 /**

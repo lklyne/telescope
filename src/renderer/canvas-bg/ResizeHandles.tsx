@@ -10,7 +10,7 @@ export function CornerResizeHandle({
 }: {
   corner: ResizeCorner
   isDark: boolean
-  beginResize: (e: React.MouseEvent) => void
+  beginResize?: (e: React.MouseEvent) => void
   scaleWithZoom?: boolean
 }) {
   const half = scaleWithZoom ? `calc(${HANDLE_SIZE / 2}px / var(--canvas-zoom, 1))` : HANDLE_SIZE / 2
@@ -38,7 +38,7 @@ export function CornerResizeHandle({
         border: `${borderWidth} solid ${selectionColor(isDark)}`,
         borderRadius: 0,
         cursor: CORNER_CURSORS[corner],
-        pointerEvents: 'auto',
+        pointerEvents: beginResize ? 'auto' : 'none',
         zIndex: 1,
       }}
     />
@@ -51,7 +51,7 @@ export function EdgeResizeHandle({
   scaleWithZoom = false,
 }: {
   edge: ResizeEdge
-  beginResize: (e: React.MouseEvent) => void
+  beginResize?: (e: React.MouseEvent) => void
   scaleWithZoom?: boolean
 }) {
   const half = scaleWithZoom ? `calc(${HANDLE_SIZE / 2}px / var(--canvas-zoom, 1))` : HANDLE_SIZE / 2
@@ -75,7 +75,7 @@ export function EdgeResizeHandle({
         width: isHorizontal ? undefined : size,
         height: isHorizontal ? size : undefined,
         cursor: EDGE_CURSORS[edge],
-        pointerEvents: 'auto',
+        pointerEvents: beginResize ? 'auto' : 'none',
         zIndex: 1,
       }}
     />

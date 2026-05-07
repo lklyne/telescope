@@ -21,6 +21,13 @@ import {
   consumeDragId,
   __resetForTests as resetDropOwnerForTests,
 } from '../runtime/drop-owner'
+import {
+  currentFrameFocus,
+  enterFrameFocus,
+  exitFrameFocus,
+  type FrameFocusEnterReason,
+  type FrameFocusExitReason,
+} from '../runtime/frame-focus'
 import { setPendingFocus, pages } from '../runtime/runtime-context'
 import { markDirty } from '../runtime/layout-dirty'
 import { requestLayout } from '../runtime/viewport-control'
@@ -133,6 +140,37 @@ export const testRoutes: Route[] = [
     async handler({ response }) {
       resetDropOwnerForTests()
       writeJson(response, 200, { ok: true })
+    },
+  },
+
+  // --- Frame focus (ADR 0001) ---
+  {
+    method: 'GET',
+    pattern: '/test/frame-focus/current',
+    async handler({ response }) {
+      writeJson(response, 200, { frameFocus: currentFrameFocus() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/frame-focus/enter',
+    async handler({ response, body }) {
+      const { id, reason } = body as { id: string; reason?: FrameFocusEnterReason }
+      enterFrameFocus(id, reason ?? 'click')
+      markDirty('canvas')
+      requestLayout()
+      writeJson(response, 200, { frameFocus: currentFrameFocus() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/frame-focus/exit',
+    async handler({ response, body }) {
+      const { reason } = body as { reason: FrameFocusExitReason }
+      exitFrameFocus(reason)
+      markDirty('canvas')
+      requestLayout()
+      writeJson(response, 200, { frameFocus: currentFrameFocus() })
     },
   },
 ]

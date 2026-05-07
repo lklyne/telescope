@@ -417,9 +417,10 @@ because it requires observing the running app.
     `App.tsx` between `StickyBodyLayer` and `SelectionOutlineLayer` so
     files paint above stickies/shapes/edges (preserves prior canvas-bg
     layer order). `fileJsonModeMap` state moved from canvas-bg's
-    `App.tsx` into aboveView's `App.tsx` (fresh empty Map; chrome layer
-    doesn't read it today, so wireframes default to false until a
-    future IPC channel mirrors flips between chrome and body). Removed
+    `App.tsx` into aboveView's `App.tsx` (initially a frozen empty Map;
+    later re-wired to a `useState` Map with a `setFileJsonMode` setter
+    threaded into `FileChromeOverlay`, since chrome and body now share
+    the aboveView WCV — no IPC channel needed). Removed
     `FileBlockLayer` mount + the now-orphan `fileJsonModeMap`,
     `getEntityLayerZoom`, `selectedEntityIdSet`,
     `selectedGroupDescendantIds`, `drawingEntities`, `marqueePreviewIds`

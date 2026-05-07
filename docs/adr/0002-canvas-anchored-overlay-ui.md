@@ -118,7 +118,7 @@ The change is sweeping but coherent; it ships as one PR rather than incrementall
 ### Open follow-ups
 
 - Consider promoting `local/no-mouse-events` to `error` after auditing the remaining native/editing-only mouse handlers.
-- Wireframe JSON-mode toggle was removed from the aboveView FileChrome (cross-WCV state needs a fresh `layout-update` field) — restore as a Step 5 follow-up.
+- Wireframe JSON-mode toggle restored 2026-05-07 — chrome and body share the aboveView WCV, so a `useState` Map in `App.tsx` with a setter threaded into `FileChromeOverlay` was sufficient (no IPC channel needed, contrary to the original removal note).
 
 ## Tests
 

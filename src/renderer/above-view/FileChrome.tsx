@@ -1,10 +1,7 @@
 /**
- * FileChrome — per-file-entity chrome (filename label + rename, optional
- * wireframe theme picker) rendered in aboveView. Per ADR 0002 §2.
- *
- * Wireframe JSON-mode toggle deferred to follow-up — the `FileBlockLayer`
- * still owns its own jsonMode state in canvas-bg and aboveView would need a
- * fresh IPC channel + layout-broadcast field to drive it cross-WCV.
+ * FileChrome — per-file-entity chrome (filename label + rename, wireframe
+ * theme picker, wireframe JSON-mode toggle) rendered in aboveView. Per
+ * ADR 0002 §2.
  */
 
 import { memo, useCallback, useState } from 'react'
@@ -25,10 +22,12 @@ export function FileChromeOverlay({
   api,
   layoutData,
   isDark,
+  onJsonModeChange,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
   isDark: boolean
+  onJsonModeChange?: (entityId: string, jsonMode: boolean) => void
 }) {
   if (layoutData.viewMode !== 'canvas') return null
   const fileEntities = layoutData.entities.filter(
@@ -52,6 +51,7 @@ export function FileChromeOverlay({
           isDark={isDark}
           isSelected={entity.id === selectedEntityId && isIdle}
           isActive={(entity.id === selectedEntityId && isIdle) || entity.id === hoveredEntityId}
+          onJsonModeChange={onJsonModeChange}
         />
       ))}
     </>
@@ -65,6 +65,7 @@ const FileChromeItem = memo(function FileChromeItem({
   isDark,
   isSelected,
   isActive,
+  onJsonModeChange,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
@@ -72,6 +73,7 @@ const FileChromeItem = memo(function FileChromeItem({
   isDark: boolean
   isSelected: boolean
   isActive: boolean
+  onJsonModeChange?: (entityId: string, jsonMode: boolean) => void
 }) {
   const isWireframe = WIREFRAME_EXTENSIONS.test(entity.file)
   const fileName = entity.file.split('/').pop() ?? entity.file
@@ -81,6 +83,12 @@ const FileChromeItem = memo(function FileChromeItem({
 
   const [isRenaming, setIsRenaming] = useState(false)
   const [wireframeTheme, setWireframeTheme] = useState<WireframeThemeName>('light')
+  const [jsonMode, setJsonMode] = useState(false)
+  const handleJsonModeToggle = useCallback(() => {
+    const next = !jsonMode
+    setJsonMode(next)
+    onJsonModeChange?.(entity.id, next)
+  }, [jsonMode, entity.id, onJsonModeChange])
 
   const readTheme = useCallback(async () => {
     if (!isWireframe) return
@@ -105,6 +113,11 @@ const FileChromeItem = memo(function FileChromeItem({
         wf.theme = themeName
         await api.writeNoteFile(entity.file, JSON.stringify(wf, null, 2))
         setWireframeTheme(themeName)
+        // Chrome and body are siblings in this WCV — the body owns the
+        // file-content state and won't see disk writes on its own. Ping it.
+        window.dispatchEvent(
+          new CustomEvent('wireframe-file-changed', { detail: { file: entity.file } }),
+        )
       } catch {
         /* ignore */
       }
@@ -256,6 +269,17 @@ const FileChromeItem = memo(function FileChromeItem({
                       {wireframeTheme}
                     </span>
                   </div>
+                  <div
+                    style={{ height: 1, background: isDark ? '#3f3f46' : '#e4e4e7', margin: '0 -4px' }}
+                  />
+                  <button
+                    onClick={handleJsonModeToggle}
+                    className={`mt-1.5 flex w-full items-center gap-2 rounded-[7px] px-1 py-1.5 text-xs ${
+                      isDark ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'
+                    }`}
+                  >
+                    {jsonMode ? 'Switch to visual' : 'Edit as JSON'}
+                  </button>
                 </Popover.Popup>
               </Popover.Positioner>
             </Popover.Portal>

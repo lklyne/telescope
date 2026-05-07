@@ -52,6 +52,7 @@ import {
 import {
   entitiesOverlappingRect,
   isOverlayUiTarget,
+  isTypingTarget,
   normalizeRect,
   screenRectToCanvasRect,
 } from '../../shared/gesture-utils'
@@ -149,6 +150,12 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
 
     const handlePointerDown = (event: PointerEvent) => {
       if (isOverlayUiTarget(event.target)) return
+      // Yield to typing targets (textarea, input, contenteditable) so focus
+      // and cursor positioning land normally. Without this, the router's
+      // preventDefault on entity-body hits eats the click before the
+      // editable element can react — affects sticky textareas, markdown /
+      // wireframe-JSON file textareas, and any future inline editor.
+      if (isTypingTarget(event.target)) return
       if (event.button !== 0 && event.button !== 1 && event.button !== 2) return
 
       const layout = layoutRef.current
@@ -198,6 +205,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
 
     const handleDblClick = (event: MouseEvent) => {
       if (isOverlayUiTarget(event.target)) return
+      if (isTypingTarget(event.target)) return
       if (event.button !== 0) return
       const layout = layoutRef.current
       if (layout.viewMode !== 'canvas') return
@@ -406,7 +414,16 @@ function runFrameBodyPress(
       api.endDragFrame()
       return
     }
-    api.selectFrame(action.entityId, { shift: false, meta: false, ctrl: false })
+    // Thread modifiers through so a shift/cmd-click on an unselected or
+    // multi-selected frame body extends the selection instead of replacing
+    // it. Routing already converts additive clicks on frame-body to
+    // toggle-select, but reading the live modifier state here keeps the
+    // gesture honest if the user presses shift between down and up.
+    api.selectFrame(action.entityId, {
+      shift: ev.shiftKey,
+      meta: ev.metaKey,
+      ctrl: ev.ctrlKey,
+    })
   }
 
   const onCancel = (ev: Event) => {

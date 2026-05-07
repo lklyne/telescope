@@ -102,9 +102,15 @@ export default function App({
   )
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayPayload | null>(null)
   const [captureMode, setCaptureMode] = useState(false)
-  // Empty placeholder until a wireframe theme/JSON toggle ships — wireframe
-  // renderers default to false when their id is absent from this map.
-  const fileJsonModeMap = useMemo<FileJsonModeMap>(() => new Map(), [])
+  const [fileJsonModeMap, setFileJsonModeMap] = useState<FileJsonModeMap>(() => new Map())
+  const setFileJsonMode = useCallback((entityId: string, jsonMode: boolean) => {
+    setFileJsonModeMap((prev) => {
+      const next = new Map(prev)
+      if (jsonMode) next.set(entityId, true)
+      else next.delete(entityId)
+      return next
+    })
+  }, [])
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
 
   useEffect(() => api.onSelectionOverlayChanged(setSelectionOverlay), [])
@@ -943,7 +949,12 @@ export default function App({
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
 
           <FrameChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
-          <FileChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
+          <FileChromeOverlay
+            api={api}
+            layoutData={layoutData}
+            isDark={isDark}
+            onJsonModeChange={setFileJsonMode}
+          />
           <GroupRenameOverlay api={api} layoutData={layoutData} isDark={isDark} />
 
           {layoutData.viewMode === 'canvas' ? (

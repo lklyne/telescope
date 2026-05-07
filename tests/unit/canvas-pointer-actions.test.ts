@@ -95,6 +95,41 @@ describe('routePointerDown', () => {
     expect(action).toMatchObject({ kind: 'frame-body-press', entityId: 'f1' })
   })
 
+  it('shift-click on single-selected frame body → toggle-select (extends selection, does not forward)', () => {
+    const f = frame()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      modifiers: { shift: true, meta: false, ctrl: false },
+    })
+    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'frame' })
+  })
+
+  it('cmd-click on unselected frame body → toggle-select (extends selection)', () => {
+    const f = frame()
+    const t = text()
+    const target = hitTest(inputs([f, t], ['t1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['t1'],
+      modifiers: { shift: false, meta: true, ctrl: false },
+    })
+    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'frame' })
+  })
+
+  it('shift-click on multi-selected frame body → toggle-select (drops it from selection)', () => {
+    const f = frame()
+    const t = text()
+    const target = hitTest(inputs([f, t], ['f1', 't1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1', 't1'],
+      modifiers: { shift: true, meta: false, ctrl: false },
+    })
+    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'frame' })
+  })
+
   it('chrome click on frame → begin-entity-drag', () => {
     const f = frame()
     // Chrome is the 36px strip above screenY.

@@ -17,15 +17,11 @@ import {
   squareConstrainedRect,
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
-import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
+import { DRAW_CURSOR } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
-import { MIN_GROUP_HEIGHT, MIN_GROUP_WIDTH } from '../canvas-bg/entityConstants'
-import {
-  selectedGroupHasDescendantFrame,
-} from '../canvas-bg/groupMembership'
-import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
+import { SelectionOutlineLayer } from './SelectionOutlineLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
 import {
   AnnotationThreadPopover,
@@ -66,52 +62,6 @@ function electronCursorToCss(type: string | null): string {
   return type
 }
 
-function SelectedGroupResizeOverlay({
-  isDark,
-  layoutData,
-}: {
-  isDark: boolean
-  layoutData: LayoutUpdateData
-}) {
-  const selectedGroupId = layoutData.selectedGroupId ?? null
-  if (!selectedGroupId) return null
-  if (!selectedGroupHasDescendantFrame(layoutData)) return null
-
-  const group = (layoutData.groups ?? []).find((candidate) => candidate.id === selectedGroupId)
-  if (!group) return null
-
-  const zoom = group.width > 0 ? group.screenWidth / group.width : 1
-
-  return (
-    <div
-      className="absolute border-2"
-      data-overlay-ui
-      style={{
-        left: group.screenX,
-        top: group.screenY - layoutData.canvasOrigin.y,
-        width: group.screenWidth,
-        height: group.screenHeight,
-        borderColor: selectionColor(isDark),
-        borderRadius: 2,
-        pointerEvents: 'none',
-      }}
-    >
-      <SelectionResizeGrid
-        id={group.id}
-        width={group.width}
-        height={group.height}
-        canvasX={group.canvasX}
-        canvasY={group.canvasY}
-        zoom={zoom}
-        minWidth={MIN_GROUP_WIDTH}
-        minHeight={MIN_GROUP_HEIGHT}
-        onResize={(id, patch) => api.updateGroupEntity(id, patch)}
-        isDark={isDark}
-      />
-    </div>
-  )
-}
-
 function overlayRectFromScreenRect(
   rect: { left: number; top: number; width: number; height: number },
   layout: LayoutUpdateData,
@@ -142,6 +92,20 @@ export default function App({
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
 
   useEffect(() => api.onSelectionOverlayChanged(setSelectionOverlay), [])
+
+  // Marquee preview ids — outline layer highlights entities that the in-flight
+  // marquee currently overlaps. canvas-bg used to derive this; aboveView owns
+  // the marquee gesture, so we derive locally from `selectionOverlay`.
+  const marqueePreviewIds = useMemo(() => {
+    if (
+      !selectionOverlay ||
+      selectionOverlay.variant !== 'default' ||
+      !selectionOverlay.entityIds?.length
+    ) {
+      return null
+    }
+    return new Set(selectionOverlay.entityIds)
+  }, [selectionOverlay])
 
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
@@ -798,7 +762,13 @@ export default function App({
 
           <MarqueeLayer overlay={selectionOverlay} />
 
-          <SelectedGroupResizeOverlay isDark={isDark} layoutData={layoutData} />
+          {layoutData.viewMode === 'canvas' ? (
+            <SelectionOutlineLayer
+              layoutData={layoutData}
+              isDark={isDark}
+              marqueePreviewIds={marqueePreviewIds}
+            />
+          ) : null}
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
 

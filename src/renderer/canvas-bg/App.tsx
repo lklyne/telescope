@@ -17,7 +17,6 @@ import { buildSelectedFrameIdSet } from './canvasBgSelectors'
 import { EntityHoverProvider } from './EntityHoverProvider'
 import { CanvasDebugBadge, CanvasGridSurface, PlacementPreviewLayer, CanvasEntityViewportLayer } from './CanvasGridSurface'
 import { BrowserTabBar } from './BrowserTabBar'
-import { CanvasSelectionOutlineLayer, GroupSelectionOverlayLayer } from './CanvasSelectionLayers'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { FrameBorderLayer } from './FrameBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
@@ -31,7 +30,7 @@ import { GroupInlineMenu, StickyNoteInlineMenu } from './InlineEntityMenu'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { usePendingPlacementState } from './usePendingPlacementState'
 import { useCanvasViewportGestures, type ShapePlacementDragPreview } from './useCanvasViewportGestures'
-import { descendantIdsForGroup, selectedGroupHasDescendantFrame } from './groupMembership'
+import { descendantIdsForGroup } from './groupMembership'
 import { SELECTED_FRAME_MENU_SHOW_DELAY_MS } from '../../shared/selectedFrameMenu'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
@@ -168,7 +167,6 @@ export default function App({
     if (!layoutData.selectedGroupId) return new Set<string>()
     return descendantIdsForGroup(layoutData.groups ?? [], layoutData.selectedGroupId)
   }, [layoutData.groups, layoutData.selectedGroupId])
-  const selectedGroupControlsMirroredToAboveView = selectedGroupHasDescendantFrame(layoutData)
   const [delayedSelectedTextMenuId, setDelayedSelectedTextMenuId] = useState<string | null>(null)
   const [delayedSelectedGroupMenuId, setDelayedSelectedGroupMenuId] = useState<string | null>(null)
   const shouldQueueSelectedTextMenu =
@@ -216,7 +214,6 @@ export default function App({
     return ids
   }, [layoutData.selection])
   const getEntityLayerZoom = useCallback(() => layoutRef.current.zoom, [layoutRef])
-  const frameInteractionsEnabled = layoutData.annotationMode !== 'region_select'
 
   return (
     <EntityHoverProvider>
@@ -313,16 +310,6 @@ export default function App({
       ) : null}
 
       <div className="pointer-events-none absolute inset-0">
-        {layoutData.viewMode === 'canvas' && !captureMode ? (
-          <GroupSelectionOverlayLayer
-            groups={layoutData.groups ?? []}
-            isDark={isDark}
-            selectedGroupId={layoutData.selectedGroupId ?? null}
-            suppressOverlay={selectedGroupControlsMirroredToAboveView}
-            onResizeGroup={(id, patch) => api.updateGroupEntity(id, patch)}
-          />
-        ) : null}
-
         {layoutData.viewMode === 'canvas' && layoutData.presenceCursors.length > 0 ? (
           <ActiveFrameHighlightLayer
             cursors={layoutData.presenceCursors}
@@ -344,29 +331,6 @@ export default function App({
           frames={borderFrames.filter((f) => f.useSvgDeviceShell)}
           isDark={isDark}
         />
-
-        {layoutData.viewMode === 'canvas' && !captureMode ? (
-          <CanvasSelectionOutlineLayer
-            frames={frameEntities.filter((e) => selectedEntityIdSet.has(e.id) || e.id === hoveredEntityId || marqueePreviewIds?.has(e.id))}
-            allTextEntities={textEntities}
-            allFileEntities={fileEntities}
-            allDrawingEntities={drawingEntities}
-            allShapeEntities={shapeEntities}
-            frameInteractionsEnabled={frameInteractionsEnabled}
-            isDark={isDark}
-            zoom={layoutData.zoom}
-            selectedIdSet={selectedEntityIdSet}
-            marqueePreviewIds={marqueePreviewIds}
-            hoveredEntityId={hoveredEntityId}
-            onResizeFrame={(id, patch) => api.updateFrameBounds(id, patch)}
-            onResizeTextEntity={(id, patch) => api.updateTextEntity(id, patch)}
-            onResizeFileEntity={(id, patch) => api.updateFileEntity(id, patch)}
-            onResizeDrawingEntity={(id, patch) => api.updateDrawingEntity(id, patch)}
-            onResizeShapeEntity={(id, patch) => api.updateShapeEntity(id, patch)}
-            onResizeMulti={(entries) => api.resizeMultiSelection(entries)}
-          />
-        ) : null}
-
       </div>
 
       {showSelectedTextMenu ? (

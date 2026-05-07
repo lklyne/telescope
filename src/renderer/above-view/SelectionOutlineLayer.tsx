@@ -32,6 +32,7 @@ import {
   MIN_TEXT_HEIGHT,
   MIN_TEXT_WIDTH,
 } from '../canvas-bg/entityConstants'
+import { MULTI_SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 
@@ -215,7 +216,7 @@ function MultiSelectionBoundingBox({
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
   }, [selectedEntities])
 
-  const pad = 8
+  const pad = MULTI_SELECTION_OUTLINE_PADDING_PX
 
   return (
     <div

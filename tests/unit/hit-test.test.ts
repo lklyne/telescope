@@ -113,6 +113,25 @@ describe('hit-test — resize handles vs body', () => {
     expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'ne' })
   })
 
+  it('clicking on the visible NE handle (offset by frame outline padding) resizes', () => {
+    // Frame outline pads the NE corner outward by 6px; the visible 8×8
+    // white handle is centered there, so a real user click typically lands
+    // a few pixels past the entity edge. Pre-fix this fell through to
+    // background → marquee.
+    const result = hitTest(inputs([f], ['f1']), { x: 606, y: 194 })
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'ne' })
+  })
+
+  it('clicking on the top edge handle far from the midpoint still resizes', () => {
+    // The visible top-edge resize handle spans the full edge corner-to-corner.
+    // Pre-fix the hit-test was a 12×12 patch at the midpoint only, so a click
+    // 30px from a corner fell through to background.
+    const result = hitTest(inputs([f], ['f1']), { x: 230, y: 195 })
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'n' })
+  })
+
   it('clicking deep in the body without selection enters focus', () => {
     const result = hitTest(inputs([f], []), { x: 400, y: 350 })
     expect(result.layer).toBe('body')
@@ -231,5 +250,49 @@ describe('hit-test — body z-order (front-to-back)', () => {
     // layer.
     const result = hitTest(inputs([t, g]), { x: 350, y: 320 })
     expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 't1' })
+  })
+})
+
+describe('hit-test — multi-selection resize handles', () => {
+  // Two text entities at (100,100,50,50) and (200,200,80,40) → bbox spans
+  // (100,100) to (280,240). Multi-bbox padding is 8 → outer corners at
+  // (92,92) and (288,248).
+  const t1 = text('t1', 100, 100, 50, 50)
+  const t2 = text('t2', 200, 200, 80, 40)
+
+  it('emits a multi-resize handle on the bbox SE corner when 2+ entities are selected', () => {
+    const result = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 288, y: 248 })
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toEqual({ kind: 'multi-resize-handle', handle: 'se' })
+  })
+
+  it('emits a multi-resize handle on the bbox NW corner', () => {
+    const result = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 92, y: 92 })
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toEqual({ kind: 'multi-resize-handle', handle: 'nw' })
+  })
+
+  it('per-entity handles are suppressed in multi-select (no entityId on the payload)', () => {
+    // Click directly on t1's NW corner — without multi-select this is a
+    // per-entity resize handle. With multi-select it must miss (the
+    // multi-bbox NW corner is at 92,92, well off from (100,100)) and fall
+    // through to the body layer.
+    const result = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 100, y: 100 })
+    expect(result.layer).not.toBe('resize-handles')
+  })
+
+  it('falls through to per-entity handles when only one entity is selected', () => {
+    const result = hitTest(inputs([t1, t2], ['t1']), { x: 100, y: 100 })
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 't1' })
+  })
+
+  it('skips the multi-bbox when fewer than two non-group entities are selected', () => {
+    // Selection includes a group + one entity — multi-bbox needs 2+
+    // non-group entities, so this should fall to per-entity handles only.
+    const g = group('g1', 0, 0, 50, 50)
+    const result = hitTest(inputs([t1, g], ['t1', 'g1']), { x: 100, y: 100 })
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 't1' })
   })
 })

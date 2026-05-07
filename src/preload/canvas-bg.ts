@@ -194,6 +194,9 @@ const api: CanvasBgElectronAPI = {
   dragEntity: (entityId: string, dx: number, dy: number) =>
     ipcRenderer.send('canvas-drag-entity', { entityId, dx, dy }),
   endDragEntity: () => ipcRenderer.send('canvas-drag-entity-end'),
+  beginResize: (entityId, entityKind) =>
+    ipcRenderer.send('canvas-resize-begin', { entityId, entityKind }),
+  endResize: () => ipcRenderer.send('canvas-resize-end'),
   commitRegionSelect: (canvasRect) => ipcRenderer.send('canvas-commit-region-select', canvasRect),
   createAnnotation: (request: AnnotationCreateRequest) =>
     ipcRenderer.send('canvas-create-annotation', request),

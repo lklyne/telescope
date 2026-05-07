@@ -296,6 +296,27 @@ export function registerCanvasDragIpc(): void {
   })
 
   ipcMain.on(
+    'canvas-resize-begin',
+    (
+      _event,
+      { entityId, entityKind }: { entityId: string; entityKind: import('../../shared/types').CanvasEntityKind },
+    ) => {
+      // Resize gesture begin. The renderer dispatches this BEFORE its first
+      // entity-bounds mutation so the layout pass triggered by that mutation
+      // sees `interactionState.kind === 'resizing-entity'` instead of `'idle'`.
+      // Without it the focus reconciler routes focus to the selected page on
+      // the first move tick, aboveView blurs, and the renderer's window-blur
+      // listener cancels the gesture after one pixel. Same gotcha as the
+      // drag-start ordering — see runtime/CLAUDE.md.
+      tryEnter({ kind: 'resizing-entity', target: { id: entityId, kind: entityKind } })
+    },
+  )
+
+  ipcMain.on('canvas-resize-end', () => {
+    commitActive()
+  })
+
+  ipcMain.on(
     'canvas-edge-drag-begin',
     (
       _event,

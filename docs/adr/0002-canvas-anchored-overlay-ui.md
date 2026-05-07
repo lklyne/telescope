@@ -1,6 +1,6 @@
 # ADR 0002 — Canvas-anchored overlay UI in aboveView
 
-**Status:** Accepted — Steps 1–7 landed 2026-05-05; Step 8 (demolition) partial; smoke regressions noted. **Extended by the aboveView interactive-layer migration (2026-05-06):** entity bodies, edges, group bounds, selection outlines / resize handles, focus ring, and agent halo now also render in aboveView; bgView is reduced to grid + camera + frame chrome; aboveView is the canvas-mode keyboard owner. See `docs/plans/aboveview-interactive-layer.md` and `docs/plans/aboveview-migration-journal.md` for the phased rollout (A → B → B′ → C → D → F).
+**Status:** Accepted — Steps 1–7 landed 2026-05-05; Step 8 (demolition) partial; smoke gate green as of 2026-05-07. **Extended by the aboveView interactive-layer migration (2026-05-06):** entity bodies, edges, group bounds, selection outlines / resize handles, focus ring, and agent halo now also render in aboveView; bgView is reduced to grid + camera + frame chrome; aboveView is the canvas-mode keyboard owner. See `docs/plans/aboveview-interactive-layer.md` and `docs/plans/aboveview-migration-journal.md` for the phased rollout (A → B → B′ → C → D → F).
 **Date:** 2026-05-05
 **Supersedes premise of:** the per-page `chromeView` `WebContentsView` created in `src/main/runtime/page-factory.ts`, and the per-bgView-layer interactive surfaces (group rename label, file chrome buttons, inline edit triggers).
 **Builds on:** [ADR 0001 — click-to-enter frame focus](./0001-click-to-enter-frame-focus.md).
@@ -113,12 +113,11 @@ The change is sweeping but coherent; it ships as one PR rather than incrementall
 
 - `pnpm typecheck` — clean.
 - `pnpm test:unit` — 355/355 pass.
-- `pnpm test:smoke` — 3 failures (`agent-canvas presence cleanup`, `cdp-proxy reuses stable proxy url`, `selection > group overlay non-interactive/multiSelected`). Pre-existing flake suspected — needs reproduction on `main` to confirm whether the gate flip is implicated. The selection failure references `page.interactive`, which interacts with the gate state and is the most likely real regression.
+- `pnpm test:smoke` — 76/76 pass (after 2026-05-07 fix). Initial gate-end run reported 3 failures (`agent-canvas presence cleanup`, `cdp-proxy reuses stable proxy url`, `selection > group overlay non-interactive/multiSelected`); root-caused to test pollution, not the gate flip. The smoke config ran files in parallel against a single shared Electron HTTP server, so concurrent files raced on selection / cdp-proxy / presence state. Adding `fileParallelism: false` to `vitest.smoke.config.ts` makes file execution serial; all three failures cleared on both `aboveview-migration` and `main`. The hypothesised `getSelectionOverlayState.interactive` regression was a false lead.
 
 ### Open follow-ups
 
 - Consider promoting `local/no-mouse-events` to `error` after auditing the remaining native/editing-only mouse handlers.
-- Confirm/fix the 3 smoke regressions; in particular check whether `getSelectionOverlayState`'s `interactive` field needs a new computation post-flip.
 - Wireframe JSON-mode toggle was removed from the aboveView FileChrome (cross-WCV state needs a fresh `layout-update` field) — restore as a Step 5 follow-up.
 
 ## Tests

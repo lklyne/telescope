@@ -46,6 +46,8 @@ export type CanvasPointerAction =
   | { kind: 'begin-group-drag'; groupId: string; preserveSelection: boolean }
   /** Begin a resize gesture from a handle. */
   | { kind: 'begin-resize'; entityId: string; entityKind: CanvasEntityKind; handle: ResizeHandle }
+  /** Begin a proportional resize on the multi-selection bounding box. */
+  | { kind: 'begin-multi-resize'; handle: ResizeHandle }
   /** Begin an edge-create drag from an anchor. */
   | { kind: 'begin-edge-drag'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
   /** Modifier-additive selection toggle (no drag). */
@@ -108,6 +110,8 @@ function routeByPayload(
         entityKind: payload.entityKind,
         handle: payload.handle,
       }
+    case 'multi-resize-handle':
+      return { kind: 'begin-multi-resize', handle: payload.handle }
     case 'chrome': {
       const additive = isAdditive(context.modifiers)
       if (additive) {

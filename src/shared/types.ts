@@ -1589,6 +1589,8 @@ export interface CanvasBgElectronAPI {
   startDragEntity: (entityId: string, selection?: CanvasDragStartSelection) => void
   dragEntity: (entityId: string, dx: number, dy: number) => void
   endDragEntity: () => void
+  beginResize: (entityId: string, entityKind: CanvasEntityKind) => void
+  endResize: () => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
   createAnnotation: (request: AnnotationCreateRequest) => void
   createDrawing: (input: { canvasX: number; canvasY: number; width: number; height: number; strokes: AnnotationDrawingStroke[] }) => void

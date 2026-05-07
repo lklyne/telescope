@@ -847,12 +847,39 @@ because it requires observing the running app.
 - **Status:** red
 - **Manual:** None — gate failure logged here for human triage.
 
+### 2026-05-07 — Smoke triage — gate now GREEN
+
+- **Did:** Triaged the 3 `waitFor` timeouts logged on 2026-05-06.
+  Reproduced all three on both `aboveview-migration` and `main` in the
+  full suite; reproduced none in isolated single-file runs
+  (`pnpm test:smoke selection|cdp-proxy|agent-canvas` — all pass on
+  both branches). Root cause: `vitest.smoke.config.ts` set
+  `sequence: { concurrent: false }` (which only governs `it.concurrent`)
+  but never disabled file-level parallelism, so vitest spawned multiple
+  workers running smoke files in parallel against the same Electron
+  HTTP server, racing on selection / cdp-proxy registration metrics /
+  presence cursor state.
+- **Fix:** Added `fileParallelism: false` to `vitest.smoke.config.ts`.
+- **Result:** `Test Files 12 passed (12) / Tests 76 passed | 11 todo
+  (87)` on `aboveview-migration`, and same on `main`. `pnpm test:smoke`
+  is green on both branches. Wall-time delta is negligible (~24s vs
+  prior parallel run).
+- **Implication for ADR 0002:** the hypothesised `getSelectionOverlayState`
+  `interactive` post-flip regression was a false lead — the same
+  selection test fails on `main` (just at a slightly different
+  assertion line, depending on which concurrent file got there first).
+  Open follow-up #2 in the ADR is removed.
+- **Status:** green
+- **Manual:** None required.
+
 ## MIGRATION COMPLETE — ready for review
 
-- **Smoke result:** RED on the autonomous gate run (commit `faf1980`) — 3
-  `waitFor` timeouts in `agent-canvas`, `cdp-proxy`, `selection`. Smoke
-  triage and the three failing tests are owned by the human operator and
-  tracked separately from the migration.
+- **Smoke result:** GREEN — `pnpm test:smoke` is 76/76 on
+  `aboveview-migration`. The 3 failures logged on 2026-05-06 against
+  commit `faf1980` were test-pollution artefacts of parallel file
+  execution against a shared Electron, not migration regressions; fixed
+  by `fileParallelism: false` in `vitest.smoke.config.ts` on
+  2026-05-07.
 - **Total commits:** 24 on `aboveview-migration` since
   `poc/page-input-forwarding`.
 - **Manual validation:** human operator confirmed migration behaviour on

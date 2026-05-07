@@ -53,11 +53,17 @@ If a future change violates any of these, the change is wrong for this system, n
 ├──────────────────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────────────────┐  │
 │  │ ABOVE-PAGES PLANE                                  │  │
-│  │   aboveView (single WCV)                           │  │
+│  │   aboveView (single WCV) — canvas-mode keyboard    │  │
 │  │   ├─ input gate (canvas gesture capture)           │  │
 │  │   ├─ selection / marquee / drag visuals            │  │
-│  │   ├─ comments, annotations, floating UI            │  │
-│  │   └─ over-page tooltips, hover chrome              │  │
+│  │   ├─ entity bodies (sticky, shape, file, image,    │  │
+│  │   │     video, markdown, wireframe, component)     │  │
+│  │   ├─ edges + anchor dots                           │  │
+│  │   ├─ group bounds                                  │  │
+│  │   ├─ selection outlines + resize handles           │  │
+│  │   ├─ keyboard-target focus ring + agent halo       │  │
+│  │   ├─ canvas-anchored chrome (CanvasItemChrome)     │  │
+│  │   └─ comments, annotations, floating UI            │  │
 │  ├────────────────────────────────────────────────────┤  │
 │  │ LIVE PAGES (0-N WCVs)                              │  │
 │  │   One per active frame: selected + scroll peers    │  │
@@ -66,9 +72,8 @@ If a future change violates any of these, the change is wrong for this system, n
 │  │ BELOW-PAGES PLANE                                  │  │
 │  │   bgView (single WCV)                              │  │
 │  │   ├─ canvas grid, camera, pan/zoom transform       │  │
-│  │   ├─ frame borders, device shells, chrome headers  │  │
-│  │   ├─ text/file blocks, groups, edges               │  │
-│  │   └─ bitmap compositor for inactive pages          │  │
+│  │   ├─ frame borders + device shells                 │  │
+│  │   └─ bitmap compositor for inactive pages (future) │  │
 │  └────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────┘
 
@@ -87,9 +92,9 @@ The cursor overlay is deliberately outside the three-plane model. It sits in its
 
 | Plane | Owns visuals | Owns input | Number of WCVs |
 |---|---|---|---|
-| `bgView` | Everything drawn below pages, including inactive-page bitmaps | Nothing (always `setVisible(true)`, but input arbitration happens in `aboveView` when any gesture is active) | 1 |
-| `liveViews` | Active web content | Native page input (when `aboveView` gate is off) | 0-N |
-| `aboveView` | Everything drawn above pages; all gesture visuals | All canvas-level input when visible | 1 |
+| `bgView` | Canvas grid + camera transform + frame borders/device shells + (future) inactive-page bitmaps | Nothing (always `setVisible(true)`; never holds keyboard focus post-migration) | 1 |
+| `liveViews` | Active web content | Native page input + keyboard, only while the `shouldFocusSelectedFrame` predicate elects a single page as keyboard target | 0-N |
+| `aboveView` | Entity bodies, edges, group bounds, selection outlines + resize handles, focus ring, agent halo, canvas-anchored chrome / popups, marquee + drag visuals, comments / annotations / floating UI | All canvas-level pointer input + canvas-mode keyboard (default `FocusTarget`) | 1 |
 | `toolbar` / `sidebar` / `devtools` | Their own UI | Their own UI | 1 each |
 | `cursorOverlayWindow` | Agent-presence cursors (paint-only) | Nothing — `setIgnoreMouseEvents(true)` | Not a WCV; sibling child `BrowserWindow` of `win` |
 
@@ -157,42 +162,29 @@ Any other site that feels it needs `cancelActive` is almost certainly a gesture 
 
 The input gate is not a separate WCV — it's a *behavior* of `aboveView`. When any canvas gesture is active or available, `aboveView` is `setVisible(true)` and captures all pointer events in the canvas region. When the user should interact with page content directly, `aboveView` is `setVisible(false)` and native page input works.
 
-**Visibility predicate (single source of truth):**
+**Visibility predicate (single source of truth, post-aboveView migration):**
 
 ```ts
 function shouldGateBeOpen(s: AppState): boolean {
-  // ADR 0001 — Frame focus closes the gate so the focused page receives
-  // native input. Always wins.
-  if (s.frameFocus !== null) return false
-  return (
-    s.interaction.mode.kind !== 'idle' ||
-    s.toolMode !== 'select' ||       // draw, annotate, wire modes pre-arm the gate
-    s.modifiers.space ||             // hold-space pan
-    s.hoveringCanvasChrome           // hovering a frame border, resize handle, etc.
-  )
-}
-```
-
-Evaluated inside `layoutAllViews()`. `aboveView.setVisible(shouldGateBeOpen(state))` is the only call that toggles it.
-
-**Landed (ADR 0001 + ADR 0002):**
-
-```ts
-function shouldGateBeOpen(s: AppState): boolean {
-  if (s.frameFocus !== null) return false
   // Inspect & annotate-comment drive feedback off the page's webContents
   // mousemove (eyedropper, comment hover); keep the gate closed unless the
   // composer is open.
   if (s.toolMode === 'inspect' || s.toolMode === 'annotate-comment') {
     return s.commentOverlayActive
   }
-  if (s.interactionKind === 'editing-text') return false
+  // Canvas mode: aboveView is always-on. Inline text/shape edit also runs
+  // in aboveView (the contenteditable lives there post-Phase C), so the
+  // gate stays open during `editing-text` rather than ducking to bgView.
   if (s.viewMode === 'canvas') return true
   return browserModeNeedsGate(s)
 }
 ```
 
+Evaluated inside `layoutAllViews()`. `aboveView.setVisible(shouldGateBeOpen(state))` is the only call that toggles it.
+
 The OR-chain in canvas mode has collapsed: the canvas-pointer-router (§4.2.1) classifies all pointerdowns from the always-on aboveView via `src/shared/hit-test.ts`, and every interactive surface that used to live in `bgView` or in a per-page `chromeView` WCV has moved into aboveView's React tree as `CanvasItemChrome` / `CanvasItemPopup` (`data-overlay-ui` so the router yields to them structurally). The per-page `chromeView` WCV and its `chrome-header` preload + renderer were retired wholesale; the chrome-action IPCs (`canvas-navigate-frame` / `canvas-back-frame` / etc., addressed by `frameId`) replace the sender-based `chrome-*` channels.
+
+The `frameFocus` runtime field that ADR 0001 introduced no longer exists: keyboard target is derived from selection via `shouldFocusSelectedFrame` (a pure predicate), and the gate stays open in canvas mode regardless. Pointer events that should reach a focused page are forwarded by main via `sendInputEvent` — see `src/main/runtime/page-input-forwarding.ts`.
 
 ### 4.2.1 Canvas pointer router (Phase 2 substrate)
 
@@ -252,9 +244,9 @@ interface FocusReconciler {
 }
 
 type FocusTarget =
-  | { kind: 'bgView' }           // default
-  | { kind: 'aboveView' }        // during gesture
-  | { kind: 'page', id: string } // when editing text in a live page
+  | { kind: 'aboveView' }        // canvas-mode default (post-Phase-F)
+  | { kind: 'bgView' }           // legacy / explicit; not used as default anymore
+  | { kind: 'page', id: string } // when shouldFocusSelectedFrame elects a page
   | { kind: 'toolbar' | 'sidebar' }
 ```
 
@@ -379,7 +371,7 @@ These are the invariants that, if broken, produce the classes of bugs this refac
 | I4 | Focus is expressed as intent, applied by `FocusReconciler` | Focus storms, keyboard shortcuts silently broken |
 | I5 | Drop ownership is declared per `dragId`, never dedup by payload hash | Duplicate drops, missed drops |
 | I6 | `setBackgroundColor('#00000000')` set on every WCV before `addChildView` | White-flash during creation |
-| I7 | (ADR 0001) `aboveView` is the single input authority in canvas mode; `frameFocus !== null` is the only condition that releases it so the focused page can receive native input. Per-layer pointerdown handlers in `bgView` are vestigial during Phase 2 migration and removed in Phase 3. `cursorOverlayWindow` remains mouse-inert (`setIgnoreMouseEvents(true)`) | Regression to the multi-overlay-coordination model and the #41 layer-arbitration bug class |
+| I7 | (ADR 0001 + aboveView migration) `aboveView` is the always-on canvas-mode input authority and the canvas-mode keyboard owner. The gate no longer toggles on a `frameFocus` runtime field — that field was retired; keyboard target is derived from selection via `shouldFocusSelectedFrame` and pointer/wheel events that should reach a focused page are forwarded from main via `sendInputEvent` (`src/main/runtime/page-input-forwarding.ts`). Per-layer pointerdown handlers in `bgView` are gone. `cursorOverlayWindow` remains mouse-inert (`setIgnoreMouseEvents(true)`) | Regression to the multi-overlay-coordination model and the #41 layer-arbitration bug class |
 | I8' | (ADR 0002) Canvas-anchored overlay UI (chrome, popups) lives in aboveView's React tree, not in `bgView` layers and not in per-page WCVs. Components tag themselves `data-overlay-ui`; the router yields to them on capture-phase pointerdown via `isOverlayUiTarget`. Geometry comes from `entity-chrome-slots.ts` + `useAnchoredPosition` | Chrome stops receiving clicks when the gate flips fully open; #41 anchor-near-chrome arbitration bugs reappear |
 | I8 | Pointer events only in renderer gesture code | Divergent behavior between capture/cleanup code |
 | I9 | Canvas coord math imported from `src/shared/coords.ts` | Hit-test drift between main and renderer |

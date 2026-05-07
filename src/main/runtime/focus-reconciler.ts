@@ -77,8 +77,14 @@ export function expectedFocus(state: FocusState): FocusTarget {
     return { kind: 'page', id: state.selectedPageId }
   }
 
-  // Canvas mode default: bgView (canvas keyboard shortcuts, undo).
-  return { kind: 'bgView' }
+  // Canvas mode default: aboveView (Phase F — aboveView is the singleton
+  // keyboard owner in canvas mode; canvas-mode shortcuts like Cmd-Z, Escape,
+  // and tool hotkeys are wired into aboveView's webContents alongside bgView's
+  // via `watchModifierKeys`, so they continue to work). The browser-mode
+  // fallback (no selected page) also lands here — that's a degenerate state
+  // where no page exists yet, and aboveView is a fine keyboard owner until
+  // one does.
+  return { kind: 'aboveView' }
 }
 
 /** Stable key for comparing FocusTargets without importing Electron refs. */

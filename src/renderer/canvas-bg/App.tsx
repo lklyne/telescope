@@ -11,13 +11,11 @@ import { useCanvasGlobalShortcuts } from '../shared/hooks/useCanvasGlobalShortcu
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
-import { CanvasDebugBadge, CanvasGridSurface, PlacementPreviewLayer, CanvasEntityViewportLayer } from './CanvasGridSurface'
+import { CanvasDebugBadge, CanvasGridSurface, PlacementPreviewLayer } from './CanvasGridSurface'
 import { BrowserTabBar } from './BrowserTabBar'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { FrameBorderLayer } from './FrameBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
-import { GroupBoundsLayer } from './GroupBoundsLayer'
-import { ActiveFrameHighlightLayer } from './AgentCursorLayer'
 import { GroupInlineMenu, StickyNoteInlineMenu } from './InlineEntityMenu'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { usePendingPlacementState } from './usePendingPlacementState'
@@ -171,28 +169,6 @@ export default function App({
         </>
       ) : null}
 
-      {layoutData.viewMode === 'canvas' && (layoutData.groups?.length ?? 0) > 0 ? (
-        <CanvasEntityViewportLayer
-          canvasOrigin={layoutData.canvasOrigin}
-          pan={layoutData.pan}
-          zoom={layoutData.zoom}
-        >
-          <GroupBoundsLayer
-            groups={layoutData.groups ?? []}
-            isDark={isDark}
-            selectedGroupId={layoutData.selectedGroupId ?? null}
-            zoom={layoutData.zoom}
-            onSelectGroup={api.selectGroup}
-            onStartDragGroup={api.startDragGroup}
-            onDragGroup={api.dragGroup}
-            onEndDragGroup={api.endDragGroup}
-            onDoubleClick={(groupId) => {
-              api.enterGroup(groupId)
-            }}
-          />
-        </CanvasEntityViewportLayer>
-      ) : null}
-
       {layoutData.viewMode === 'browser' ? (
         <BrowserTabBar
           activeBrowserTabId={layoutData.activeBrowserTabId}
@@ -207,17 +183,9 @@ export default function App({
       ) : null}
 
       <div className="pointer-events-none absolute inset-0">
-        {layoutData.viewMode === 'canvas' && layoutData.presenceCursors.length > 0 ? (
-          <ActiveFrameHighlightLayer
-            cursors={layoutData.presenceCursors}
-            frames={frameEntities}
-          />
-        ) : null}
-
         <FrameBorderLayer
           frames={borderFrames}
           fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
-          focusedFrameId={layoutData.keyboardTargetFrameId}
         />
         <DeviceShellLayer
           frames={borderFrames.filter((f) => !f.useSvgDeviceShell)}

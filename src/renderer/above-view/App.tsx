@@ -3,6 +3,7 @@ import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
   CanvasSceneFileEntity,
+  CanvasSceneFrameEntity,
   CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
   LayoutUpdateData,
@@ -21,10 +22,13 @@ import {
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { DRAW_CURSOR } from '../canvas-bg/canvasBgConstants'
+import { ActiveFrameHighlightLayer } from '../canvas-bg/AgentCursorLayer'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer, type FileJsonModeMap } from './FileBodyLayer'
+import { FrameFocusRingLayer } from './FrameFocusRingLayer'
+import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { SelectionOutlineLayer } from './SelectionOutlineLayer'
 import { ShapeBodyLayer } from './ShapeBodyLayer'
 import { StickyBodyLayer } from './StickyBodyLayer'
@@ -817,6 +821,16 @@ export default function App({
 
           <MarqueeLayer overlay={selectionOverlay} />
 
+          {layoutData.viewMode === 'canvas' && layoutData.presenceCursors.length > 0 ? (
+            <ActiveFrameHighlightLayer
+              cursors={layoutData.presenceCursors}
+              frames={layoutData.entities.filter(
+                (e): e is CanvasSceneFrameEntity => e.kind === 'frame',
+              )}
+              originY={layoutData.canvasOrigin.y}
+            />
+          ) : null}
+
           {layoutData.viewMode === 'canvas' ? (
             <EdgeLayer
               edges={layoutData.edges}
@@ -828,6 +842,16 @@ export default function App({
               selectedEntityIds={layoutData.selectedEntityIds}
               zoom={layoutData.zoom}
               originY={layoutData.canvasOrigin.y}
+            />
+          ) : null}
+
+          {layoutData.viewMode === 'canvas' && (layoutData.groups?.length ?? 0) > 0 ? (
+            <GroupBoundsLayer
+              groups={layoutData.groups ?? []}
+              isDark={isDark}
+              zoom={layoutData.zoom}
+              canvasOrigin={layoutData.canvasOrigin}
+              pan={layoutData.pan}
             />
           ) : null}
 
@@ -884,6 +908,19 @@ export default function App({
               pan={layoutData.pan}
               zoom={layoutData.zoom}
               onTextEditingChange={api.setTextEditing}
+            />
+          ) : null}
+
+          {layoutData.viewMode === 'canvas' ? (
+            <FrameFocusRingLayer
+              frames={layoutData.entities.filter(
+                (e): e is CanvasSceneFrameEntity => e.kind === 'frame',
+              )}
+              fileEntities={layoutData.entities.filter(
+                (e): e is CanvasSceneFileEntity => e.kind === 'file',
+              )}
+              focusedFrameId={layoutData.keyboardTargetFrameId}
+              originY={layoutData.canvasOrigin.y}
             />
           ) : null}
 

@@ -15,8 +15,8 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
 }
 
 describe('expectedFocus', () => {
-  it('defaults to bgView in idle canvas mode', () => {
-    expect(expectedFocus(state())).toEqual({ kind: 'bgView' })
+  it('defaults to aboveView in idle canvas mode (Phase F: aboveView is the keyboard owner)', () => {
+    expect(expectedFocus(state())).toEqual({ kind: 'aboveView' })
   })
 
   it('returns the selected page in browser mode', () => {
@@ -24,9 +24,9 @@ describe('expectedFocus', () => {
       .toEqual({ kind: 'page', id: 'p1' })
   })
 
-  it('falls back to bgView in browser mode without a selected page', () => {
+  it('falls back to aboveView in browser mode without a selected page (Phase F)', () => {
     expect(expectedFocus(state({ workspaceViewMode: 'browser' })))
-      .toEqual({ kind: 'bgView' })
+      .toEqual({ kind: 'aboveView' })
   })
 
   for (const mode of ['panning', 'marquee', 'dragging-entities', 'resizing-entity', 'dragging-edge'] as const) {

@@ -281,10 +281,11 @@ export function removePageAtIndex(idx: number): Page | null {
   page.frameView.webContents.close()
   page.pageView.webContents.close()
   page.devtoolsHostView?.webContents.close()
-  // Transfer focus to bgView so keyboard shortcuts (including undo) keep
+  // Transfer focus to aboveView so keyboard shortcuts (including undo) keep
   // working after the deleted page's webContents is destroyed. The actual
   // focus() call lands at the end of the next layout pass via reconcileFocus.
-  setPendingFocus({ kind: 'bgView' })
+  // (Phase F — aboveView is the canvas-mode keyboard owner.)
+  setPendingFocus({ kind: 'aboveView' })
   pages.splice(idx, 1)
   markDirty('canvas', 'sidebar', 'toolbar', 'pages')
   invalidateAgentSnapshot(page.id)

@@ -1,6 +1,6 @@
 # ADR 0002 — Canvas-anchored overlay UI in aboveView
 
-**Status:** Accepted — Steps 1–7 landed 2026-05-05; Step 8 (demolition) partial; smoke regressions noted.
+**Status:** Accepted — Steps 1–7 landed 2026-05-05; Step 8 (demolition) partial; smoke regressions noted. **Extended by the aboveView interactive-layer migration (2026-05-06):** entity bodies, edges, group bounds, selection outlines / resize handles, focus ring, and agent halo now also render in aboveView; bgView is reduced to grid + camera + frame chrome; aboveView is the canvas-mode keyboard owner. See `docs/plans/aboveview-interactive-layer.md` and `docs/plans/aboveview-migration-journal.md` for the phased rollout (A → B → B′ → C → D → F).
 **Date:** 2026-05-05
 **Supersedes premise of:** the per-page `chromeView` `WebContentsView` created in `src/main/runtime/page-factory.ts`, and the per-bgView-layer interactive surfaces (group rename label, file chrome buttons, inline edit triggers).
 **Builds on:** [ADR 0001 — click-to-enter frame focus](./0001-click-to-enter-frame-focus.md).

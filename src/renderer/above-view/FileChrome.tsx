@@ -6,7 +6,7 @@
 
 import { memo, useCallback, useState } from 'react'
 import { Popover } from '@base-ui/react/popover'
-import { EllipsisVertical, FileText } from 'lucide-react'
+import { EllipsisVertical } from 'lucide-react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneFileEntity,
@@ -14,6 +14,7 @@ import type {
 } from '../../shared/types'
 import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from '../canvas-bg/entityConstants'
 import { CanvasItemChrome } from './CanvasItemChrome'
+import { iconForFilePath } from '../shared/fileIcon'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { WIREFRAME_THEME_OPTIONS } from '../canvas-bg/wireframe/WireframeRenderer'
 import type { WireframeThemeName } from '../canvas-bg/wireframe/wireframe-types'
@@ -80,6 +81,7 @@ const FileChromeItem = memo(function FileChromeItem({
   const displayName = isWireframe
     ? fileName.replace(/\.wireframe\.json$/i, '')
     : fileName.replace(/\.md$/i, '')
+  const FileIcon = iconForFilePath(entity.file)
 
   const [isRenaming, setIsRenaming] = useState(false)
   const [wireframeTheme, setWireframeTheme] = useState<WireframeThemeName>('light')
@@ -211,7 +213,7 @@ const FileChromeItem = memo(function FileChromeItem({
       <CanvasItemChrome.DragTrigger
         onPointerDown={isRenaming ? (event) => event.stopPropagation() : undefined}
       >
-        <FileText size={13} className="shrink-0 text-zinc-400" />
+        <FileIcon size={13} className="shrink-0 text-zinc-400" />
         <InlineEditLabel
           value={displayName}
           isEditing={isRenaming}

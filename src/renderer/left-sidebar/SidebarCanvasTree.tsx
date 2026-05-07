@@ -9,12 +9,12 @@ import {
   Diamond,
   Folder,
   FolderOpen,
-  Image,
   PenLine,
   Square,
   StickyNote,
 } from 'lucide-react'
 import type { LeftSidebarElectronAPI, SidebarCanvasItem, SidebarFileItem, SidebarFrameItem, SidebarGroupItem, SidebarTextItem } from '../../shared/types'
+import { iconForFilePath } from '../shared/fileIcon'
 import { FrameListItem } from '../shared/frameListItem'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 
@@ -379,10 +379,11 @@ function SidebarCanvasTreeItem({
   }
 
   const canRenameFile = RENAMABLE_FILE_PATTERN.test(item.file)
+  const FileIcon = iconForFilePath(item.file)
   return (
     <div>
       <EntityListItem
-        icon={<Image size={14} className="shrink-0 text-zinc-500" />}
+        icon={<FileIcon size={14} className="shrink-0 text-zinc-500" />}
         label={item.label}
         active={isSelected}
         isDark={isDark}

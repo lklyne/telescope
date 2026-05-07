@@ -86,13 +86,16 @@ export function entityBoundsById(entityId: string): WorkspaceBounds | null {
 
 /**
  * Offset from the entity's outer top-left (as returned by `entityBoundsById`)
- * to the entity's data origin (`canvasX`/`canvasY`). For framed pages this is
- * the device-shell top/left insets; for un-framed pages and non-frame
- * entities the bounds top-left already coincides with the data origin, so
- * insets are zero. The hover-only chrome action header is intentionally not
- * counted — `entityBoundsById` already returns selectable-bounds with
- * `y = outer.y` (no chrome band above), and reserving chrome here would
- * double-shift items that re-layout against an existing entity's bbox.
+ * to its data origin (`canvasX`/`canvasY`). For framed pages this is the
+ * device-shell top/left insets; otherwise zero.
+ *
+ * Asymmetry to keep in mind: `entityBoundsById` for a frame returns
+ * `frameSelectableBounds` whose `height` includes `page.chromeHeight` (the
+ * hover-only action band). This function does NOT include `chromeHeight` in
+ * `insetY`, because the bounds' `y` is `outer.y` (no chrome band above the
+ * top edge). The consequence is that re-layout against an existing frame in
+ * a column or below-`near` arrangement reserves an extra `chromeHeight` of
+ * vertical space — by design, since the action band needs somewhere to live.
  */
 export function entityDataInsetsById(entityId: string): { insetX: number; insetY: number } {
   const page = findPageById(entityId)
@@ -106,14 +109,38 @@ export function entityDataInsetsById(entityId: string): { insetX: number; insetY
   return { insetX: 0, insetY: 0 }
 }
 
-export function entityKindById(entityId: string): CanvasEntityKind | null {
-  if (findPageById(entityId)) return 'frame'
-  if (textEntities.find((t) => t.id === entityId)) return 'text'
-  if (fileEntities.find((f) => f.id === entityId)) return 'file'
-  if (drawingEntities.find((d) => d.id === entityId)) return 'drawing'
-  if (shapeEntities.find((s) => s.id === entityId)) return 'shape'
-  if (workspaceGroups.find((g) => g.id === entityId)) return 'group'
+type AnyEntity =
+  | { canvasX: number; canvasY: number; width: number; height: number; id: string }
+
+/**
+ * Single dispatch point for "find an entity by id and tell me what kind it is."
+ * `entityKindById` and `entityBoundsByIdWithVisited` both delegate here so the
+ * id-keyed lookup chain runs only once per call. Pages are returned as-is so
+ * the bounds path can use `frameSelectableBounds` (selectable bounds differ
+ * from raw `{canvasX, canvasY, width, height}` for frames).
+ */
+function findEntityById(
+  entityId: string,
+): { kind: 'frame'; page: ReturnType<typeof findPageById> }
+  | { kind: 'text' | 'file' | 'drawing' | 'shape' | 'group'; entity: AnyEntity }
+  | null {
+  const page = findPageById(entityId)
+  if (page) return { kind: 'frame', page }
+  const te = textEntities.find((t) => t.id === entityId)
+  if (te) return { kind: 'text', entity: te }
+  const fe = fileEntities.find((f) => f.id === entityId)
+  if (fe) return { kind: 'file', entity: fe }
+  const de = drawingEntities.find((d) => d.id === entityId)
+  if (de) return { kind: 'drawing', entity: de }
+  const se = shapeEntities.find((s) => s.id === entityId)
+  if (se) return { kind: 'shape', entity: se }
+  const group = workspaceGroups.find((g) => g.id === entityId)
+  if (group) return { kind: 'group', entity: group }
   return null
+}
+
+export function entityKindById(entityId: string): CanvasEntityKind | null {
+  return findEntityById(entityId)?.kind ?? null
 }
 
 function entityBoundsByIdWithVisited(
@@ -121,29 +148,14 @@ function entityBoundsByIdWithVisited(
   visited: Set<string>,
 ): WorkspaceBounds | null {
   if (visited.has(entityId)) return null
-  const nextVisited = new Set(visited)
-  nextVisited.add(entityId)
-
-  const page = findPageById(entityId)
-  if (page) {
-    return frameSelectableBounds(page)
+  const found = findEntityById(entityId)
+  if (!found) return null
+  if (found.kind === 'frame' && found.page) {
+    return frameSelectableBounds(found.page)
   }
-  const te = textEntities.find((t) => t.id === entityId)
-  if (te) return { x: te.canvasX, y: te.canvasY, width: te.width, height: te.height }
-  const fe = fileEntities.find((f) => f.id === entityId)
-  if (fe) return { x: fe.canvasX, y: fe.canvasY, width: fe.width, height: fe.height }
-  const de = drawingEntities.find((d) => d.id === entityId)
-  if (de) return { x: de.canvasX, y: de.canvasY, width: de.width, height: de.height }
-  const se = shapeEntities.find((s) => s.id === entityId)
-  if (se) return { x: se.canvasX, y: se.canvasY, width: se.width, height: se.height }
-  const group = workspaceGroups.find((candidate) => candidate.id === entityId)
-  if (group) {
-    return {
-      x: group.canvasX,
-      y: group.canvasY,
-      width: group.width,
-      height: group.height,
-    }
+  if (found.kind !== 'frame') {
+    const e = found.entity
+    return { x: e.canvasX, y: e.canvasY, width: e.width, height: e.height }
   }
   return null
 }

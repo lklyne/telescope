@@ -215,7 +215,8 @@ export function findBatchPlacement(request: BatchPlacementRequest): BatchPlaceme
  *
  * Layout runs in OUTER space so `gap` measures visible whitespace between
  * device-shell bezels; positions are offset back to inner data-origin
- * coordinates before returning. No snap-to-grid — directives are precise.
+ * coordinates before returning. User-supplied origins are honored exactly;
+ * the no-anchor fallback uses `findPlacement`, which still snaps to grid.
  */
 export function applyLayoutDirective(request: ApplyDirectiveRequest): ApplyDirectiveResult {
   const directive = request.layout

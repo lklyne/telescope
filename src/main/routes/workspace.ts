@@ -7,6 +7,7 @@ import type {
   LayoutComponentStatesRequest,
   PlacementRequest,
 } from '../../shared/types'
+import { validateLayoutDirective } from '../../shared/types'
 import {
   getSelectionState,
   getWorkspaceGraph,
@@ -157,10 +158,16 @@ export const workspaceRoutes: Route[] = [
     method: 'POST',
     pattern: '/layout/apply-directive',
     async handler({ response, body }) {
+      const req = body as ApplyDirectiveRequest
+      const err = validateLayoutDirective(req?.layout)
+      if (err) {
+        writeJson(response, 400, { error: err })
+        return
+      }
       try {
-        writeJson(response, 200, applyLayoutDirective(body as ApplyDirectiveRequest))
-      } catch (err) {
-        writeJson(response, 400, { error: err instanceof Error ? err.message : String(err) })
+        writeJson(response, 200, applyLayoutDirective(req))
+      } catch (e) {
+        writeJson(response, 400, { error: e instanceof Error ? e.message : String(e) })
       }
     },
   },

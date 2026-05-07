@@ -1,4 +1,5 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
+import { validateLayoutDirective } from '../shared/types'
 import { callApp } from './shared/app-client'
 import { handleBrowse, shellQuote } from './shared/browse-handler'
 import { upsertEntities, type UpsertOptions, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
@@ -76,7 +77,14 @@ const upsert: VerbHandler = async (args) => {
     items = parsed
   } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.items)) {
     items = parsed.items
-    if (parsed.layout) options.directive = parsed.layout as UpsertOptions['directive']
+    if (parsed.layout) {
+      const err = validateLayoutDirective(parsed.layout)
+      if (err) {
+        printError(`upsert: ${err}`)
+        return 1
+      }
+      options.directive = parsed.layout as UpsertOptions['directive']
+    }
   } else {
     printError('upsert: expected an array of items or { layout, items }')
     return 1

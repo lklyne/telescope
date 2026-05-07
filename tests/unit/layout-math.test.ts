@@ -4,7 +4,11 @@ import {
   computeLayoutPositions,
   type LayoutBox,
 } from '../../src/main/layout-math'
-import { resolveSpacing, SPACING_TOKEN_PIXELS } from '../../src/shared/types'
+import {
+  resolveSpacing,
+  SPACING_TOKEN_PIXELS,
+  validateLayoutDirective,
+} from '../../src/shared/types'
 
 const ORIGIN = { x: 0, y: 0 }
 
@@ -19,6 +23,39 @@ describe('resolveSpacing', () => {
   })
   it('falls back when undefined', () => {
     expect(resolveSpacing(undefined, 24)).toBe(24)
+  })
+})
+
+describe('validateLayoutDirective', () => {
+  it('accepts a minimal valid directive', () => {
+    expect(validateLayoutDirective({ kind: 'row' })).toBeNull()
+  })
+  it('accepts the full surface', () => {
+    expect(validateLayoutDirective({
+      kind: 'grid', gap: 'm', rowGap: 24, colGap: 'l', cols: 3,
+      originX: 100, originY: 200, near: 'frame_x',
+    })).toBeNull()
+  })
+  it('rejects bad kind', () => {
+    expect(validateLayoutDirective({ kind: 'flex' })).toMatch(/layout\.kind/)
+  })
+  it('rejects bad spacing tokens', () => {
+    expect(validateLayoutDirective({ kind: 'row', gap: 'huge' })).toMatch(/layout\.gap/)
+  })
+  it('rejects non-positive cols', () => {
+    expect(validateLayoutDirective({ kind: 'grid', cols: 0 })).toMatch(/layout\.cols/)
+    expect(validateLayoutDirective({ kind: 'grid', cols: 1.5 })).toMatch(/layout\.cols/)
+  })
+  it('requires originX and originY together', () => {
+    expect(validateLayoutDirective({ kind: 'row', originX: 100 })).toMatch(/originX and originY/)
+    expect(validateLayoutDirective({ kind: 'row', originY: 100 })).toMatch(/originX and originY/)
+  })
+  it('rejects non-string near', () => {
+    expect(validateLayoutDirective({ kind: 'row', near: 42 })).toMatch(/layout\.near/)
+  })
+  it('rejects non-object', () => {
+    expect(validateLayoutDirective(null)).toMatch(/expected an object/)
+    expect(validateLayoutDirective('row')).toMatch(/expected an object/)
   })
 })
 

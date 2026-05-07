@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
+import { Compartment, EditorState } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
 import type { CanvasSceneFileEntity } from '../../../shared/types'
 import { filePathToSrc, getFileApi } from './filePathToSrc'
+import {
+  createMarkdownExtensions,
+  externalUpdate,
+  reconfigureTheme,
+} from './markdown-codemirror'
 
 export function MarkdownInlineRenderer({
   entity,
@@ -67,7 +74,15 @@ export function MarkdownInlineRenderer({
     }
   }, [canEdit, onTextEditingChange])
 
-  const handleChange = (value: string) => {
+  // Editor refs and callbacks
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const viewRef = useRef<EditorView | null>(null)
+  const themeCompartmentRef = useRef<Compartment | null>(null)
+  const handleChangeRef = useRef<(value: string) => void>(() => {})
+  const handleFocusRef = useRef<() => void>(() => {})
+  const handleBlurRef = useRef<() => void>(() => {})
+
+  handleChangeRef.current = (value: string) => {
     setLocalText(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
@@ -76,33 +91,101 @@ export function MarkdownInlineRenderer({
     }, 300)
   }
 
+  handleFocusRef.current = () => {
+    isFocusedRef.current = true
+    onTextEditingChange(true)
+  }
+
+  handleBlurRef.current = () => {
+    isFocusedRef.current = false
+    onTextEditingChange(false)
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+    fileApi.writeNoteFile(entity.file, localText)
+    setMdContent(localText)
+  }
+
+  // Mount the editor whenever we enter edit mode.
+  useEffect(() => {
+    if (!canEdit) return
+    const container = containerRef.current
+    if (!container) return
+
+    const { extensions, themeCompartment } = createMarkdownExtensions(isDark)
+    themeCompartmentRef.current = themeCompartment
+
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: localText,
+        extensions: [
+          ...extensions,
+          EditorView.updateListener.of((update) => {
+            if (!update.docChanged) return
+            if (
+              update.transactions.some((tr) => tr.annotation(externalUpdate))
+            ) {
+              return
+            }
+            handleChangeRef.current(update.state.doc.toString())
+          }),
+          EditorView.domEventHandlers({
+            focus: () => {
+              handleFocusRef.current()
+              return false
+            },
+            blur: () => {
+              handleBlurRef.current()
+              return false
+            },
+            mousedown: (event) => {
+              event.stopPropagation()
+              return false
+            },
+          }),
+        ],
+      }),
+      parent: container,
+    })
+    viewRef.current = view
+
+    return () => {
+      view.destroy()
+      viewRef.current = null
+      themeCompartmentRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit])
+
+  // Theme can change without re-mounting the editor.
+  useEffect(() => {
+    const view = viewRef.current
+    const compartment = themeCompartmentRef.current
+    if (!view || !compartment) return
+    reconfigureTheme(view, compartment, isDark)
+  }, [isDark])
+
+  // Push external doc updates (file reload) into the editor when it isn't focused.
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    if (view.hasFocus) return
+    const current = view.state.doc.toString()
+    if (current === localText) return
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: localText },
+      annotations: externalUpdate.of(true),
+    })
+  }, [localText])
+
   return (
     <div style={{ width: '100%', height: '100%', overflow: 'auto', padding: 12 }}>
       {canEdit ? (
-        <textarea
-          className="text-block-textarea w-full h-full resize-none border-none outline-none bg-transparent"
-          style={{
-            fontSize: 12,
-            color: isDark ? '#e7e5e4' : '#1c1917',
-            fontFamily: 'system-ui, sans-serif',
-          }}
-          value={localText}
-          placeholder="Write your note..."
-          onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => {
-            isFocusedRef.current = true
-            onTextEditingChange(true)
-          }}
-          onBlur={() => {
-            isFocusedRef.current = false
-            onTextEditingChange(false)
-            if (debounceRef.current) {
-              clearTimeout(debounceRef.current)
-              debounceRef.current = null
-            }
-            fileApi.writeNoteFile(entity.file, localText)
-            setMdContent(localText)
-          }}
+        <div
+          ref={containerRef}
+          className="markdown-codemirror-host"
+          style={{ width: '100%', height: '100%' }}
           onMouseDown={(e) => e.stopPropagation()}
         />
       ) : (

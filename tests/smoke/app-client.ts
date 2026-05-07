@@ -367,18 +367,3 @@ export function resetDropOwner() {
   return post<{ ok: true }>('/test/drop/reset')
 }
 
-// --- Frame focus (ADR 0001) ---
-
-export type FrameFocus = { id: string; since: number } | null
-
-export function getFrameFocus() {
-  return get<{ frameFocus: FrameFocus }>('/test/frame-focus/current')
-}
-
-export function enterFrameFocus(id: string, reason: 'click' | 'programmatic' = 'click') {
-  return post<{ frameFocus: FrameFocus }>('/test/frame-focus/enter', { id, reason })
-}
-
-export function exitFrameFocus(reason: 'blur' | 'escape' | 'frame-deleted' | 'tab-switch' | 'view-mode-switch' | 'programmatic') {
-  return post<{ frameFocus: FrameFocus }>('/test/frame-focus/exit', { reason })
-}

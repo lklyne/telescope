@@ -44,12 +44,6 @@ import {
 } from '../navigation-sync'
 import { watchModifierKeys } from './keyboard-shortcuts'
 import { breadcrumb } from '../sentry-context'
-import {
-  areFocusEventsSuppressed,
-  enterFrameFocus,
-  exitFrameFocusIfMatches,
-} from './frame-focus'
-import { workspaceViewMode as uiWorkspaceViewMode } from '../ui-state'
 
 function hostOf(url: string | undefined): string | undefined {
   if (!url) return undefined
@@ -248,34 +242,13 @@ export function createPage(config: PageConfig): Page {
   }
   page.pageView.webContents.loadURL(config.url).catch(() => {})
 
-  // Frame focus (ADR 0001): when a page's webContents gains focus from a
-  // user click in canvas mode, promote it to focused. When it loses focus,
-  // exit. Programmatic focus() calls (FocusReconciler, did-finish-load focus
-  // theft) are wrapped in withFocusEventsSuppressed and are ignored here.
-  page.pageView.webContents.on('focus', () => {
-    if (areFocusEventsSuppressed()) return
-    if (uiWorkspaceViewMode() !== 'canvas') return
-    // Skip focus events fired during page load — those are
-    // did-finish-load focus theft (Electron #42578), not user clicks.
-    if (page.pageView.webContents.isLoading()) return
-    enterFrameFocus(page.id, 'click')
-    markDirty('canvas')
-    requestLayout()
-  })
-  // PoC (aboveview-interactive-layer-poc.md): selection — not page focus —
-  // drives `frameFocus` now. Every pointerdown on aboveView momentarily
-  // moves native focus off the page, which used to fire `blur` here and
-  // cascade through `frame-focus-selection.ts` into a `selectNone()`,
-  // clearing the very selection we just established. The reconciler
-  // re-focuses the page on the next layout pass, so blur no longer needs
-  // to teach state about anything. Re-enable when post-PoC cleanup
-  // collapses frame-focus into selection.
+  // Selection — not page-side webContents focus — drives the keyboard
+  // target. The focus reconciler runs the predicate every layout pass and
+  // routes focus accordingly; nothing on this listener side is needed.
 
-  // Spike: webContents focus/blur reliability for ADR 0001 (frame focus
-  // model). Enable with `BLUR_SPIKE=1 pnpm dev`. Logs every focus/blur and
-  // devtools-open/close on this page's webContents so we can manually
-  // exercise DevTools attach, native dialogs, and programmatic focus moves
-  // and observe whether blur fires reliably.
+  // Optional spike: webContents focus/blur reliability. Enable with
+  // `BLUR_SPIKE=1 pnpm dev` to log every focus/blur and devtools-open/close
+  // on the page's webContents during diagnosis.
   if (process.env.BLUR_SPIKE === '1') {
     const tag = '[blur-spike]'
     const log = (event: string, extra?: Record<string, unknown>) => {
@@ -300,7 +273,6 @@ export function removePageAtIndex(idx: number): Page | null {
   const page = pages[idx]
   breadcrumb('page', 'remove', { host: hostOf(page.url) })
   clearPendingRequestsForFrame(page.id)
-  exitFrameFocusIfMatches(page.id, 'frame-deleted')
   win.contentView.removeChildView(page.frameView)
   win.contentView.removeChildView(page.pageView)
   if (page.devtoolsHostView) {

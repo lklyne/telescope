@@ -88,7 +88,6 @@ interface UseCanvasPointerRouterOptions {
 
 const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointerAction['kind']>([
   'noop',
-  'enter-frame-focus',
   'frame-body-press',
   'forward-pointer-down',
   'begin-entity-drag',
@@ -102,17 +101,10 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
 ])
 
 /** All routable kinds — used by tests and any caller that wants full
- *  router authority once the bgView interactive surfaces (chrome buttons,
- *  group rename label, inline edit triggers, etc.) have been migrated. */
+ *  router authority. Production aboveView passes this, making the router
+ *  the canvas-mode authority for selection, drag, resize, marquee, pan,
+ *  and edge gestures. */
 export const FULL_ROUTER_CONSUME = ALL_KINDS
-
-/**
- * Default consume set kept for tests and staged callers. Production aboveView
- * passes `FULL_ROUTER_CONSUME`, making this router the canvas-mode authority
- * for selection, drag, resize, marquee, pan, focus, and edge gestures.
- */
-export const DEFAULT_ROUTER_CONSUME: ReadonlySet<CanvasPointerAction['kind']> =
-  new Set<CanvasPointerAction['kind']>(['enter-frame-focus'])
 
 const GROUP_DRAG_THRESHOLD = 4
 const MARQUEE_DRAG_THRESHOLD = 4
@@ -184,7 +176,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       }
       const context: CanvasPointerContext = {
         selectedEntityIds: layout.selectedEntityIds,
-        frameFocused: layout.frameFocus !== null,
         isPrimaryButton: event.button === 0,
         button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
         modifiers,
@@ -197,7 +188,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         action: action.kind,
         cursor: { x: event.clientX, y: windowY },
         selected: layout.selectedEntityIds,
-        frameFocus: layout.frameFocus?.id ?? null,
+        keyboardTarget: layout.keyboardTargetFrameId,
         interaction: layout.interaction.kind,
       })
       if (!consumeRef.current.has(action.kind)) {
@@ -290,9 +281,6 @@ function dispatchAction(ctx: DispatchContext): boolean {
   switch (action.kind) {
     case 'noop':
       return false
-    case 'enter-frame-focus':
-      api.enterFrameFocus(action.entityId)
-      return true
     case 'frame-body-press':
       return runFrameBodyPress(action, api, event, attemptId)
     case 'forward-pointer-down':
@@ -464,7 +452,7 @@ function runFrameBodyPress(
       api.endDragFrame()
       return
     }
-    api.enterFrameFocus(action.entityId)
+    api.selectFrame(action.entityId, { shift: false, meta: false, ctrl: false })
   }
 
   const onCancel = (ev: Event) => {

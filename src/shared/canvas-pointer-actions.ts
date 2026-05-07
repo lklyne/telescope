@@ -5,8 +5,6 @@
  * decide which IPC action to dispatch. Keeping this as a pure function makes
  * the routing matrix testable in isolation of Electron and DOM — every cell
  * in the HitPayload × modifier-state grid can be exercised by a unit test.
- *
- * See docs/adr/0001-click-to-enter-frame-focus.md for the layer priority.
  */
 
 import type { CanvasEntityKind, EdgeSide, SelectionModifiers } from './types'
@@ -15,8 +13,6 @@ import type { HitPayload, HitTarget, ResizeHandle } from './hit-test'
 export type CanvasPointerContext = {
   /** Currently-selected entity ids in main's authoritative state. */
   selectedEntityIds: readonly string[]
-  /** True when a frame is currently focused (page receives native input). */
-  frameFocused: boolean
   /** True for left-button (button === 0) primary clicks; false for middle/right. */
   isPrimaryButton: boolean
   /** Which mouse button fired this event ('left'|'middle'|'right'). */
@@ -38,9 +34,7 @@ export type CanvasPointerContext = {
 export type CanvasPointerAction =
   /** No-op (e.g. middle-button click on background — handled by viewport pan). */
   | { kind: 'noop' }
-  /** Programmatically promote the frame to focused; subsequent input goes to the page. */
-  | { kind: 'enter-frame-focus'; entityId: string }
-  /** Frame body click/drag candidate: click enters focus, drag moves frame. */
+  /** Frame body click/drag candidate: click selects, drag moves frame. */
   | { kind: 'frame-body-press'; entityId: string; preserveSelection: boolean }
   /** Frame body hit on the **single-selected** frame: forward the pointerdown
    *  (and the subsequent move/up) into the page's webContents. PoC for the

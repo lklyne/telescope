@@ -531,11 +531,14 @@ export default function App({
   )
   // PoC: pre-route wheel events that hit the single-selected frame's body
   // into that frame's page. Cmd/Ctrl+wheel is already classified as 'zoom'
-  // by useViewportWheelAndMiddlePan and stays on the canvas.
+  // by useViewportWheelAndMiddlePan and stays on the canvas. Wheel during
+  // a drag/marquee/edge gesture stays with the canvas — forwarding it
+  // would scroll the page underneath an in-flight gesture (§8 Phase A).
   const routeWheel = useCallback(
     (event: WheelEvent): boolean => {
       const layout = layoutRef.current
       if (layout.viewMode !== 'canvas') return false
+      if (layout.interaction.kind !== 'idle') return false
       const selected = layout.selectedEntityIds
       if (selected.length !== 1) return false
       const frameId = selected[0]

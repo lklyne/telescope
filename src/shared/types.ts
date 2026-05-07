@@ -386,8 +386,9 @@ export interface LayoutUpdateData {
   edges: WorkspaceEdge[]
   groups?: CanvasSceneGroupEntity[]
   presenceCursors: AgentPresenceCursor[]
-  /** Currently focused frame (ADR 0001). Null when no frame is focused. */
-  frameFocus: { id: string; since: number } | null
+  /** Predicate-derived: the frame id that should hold keyboard + receive
+   *  forwarded input, or null. See `shouldFocusSelectedFrame`. */
+  keyboardTargetFrameId: string | null
 }
 
 export type PresenceSurface = 'canvas' | 'frame'
@@ -1627,11 +1628,8 @@ export interface CanvasBgElectronAPI {
   selectEdge: (edgeId: string | null) => void
   hoverFrame: (frameId: string | null) => void
   setTextEditing: (active: boolean) => void
-  /** ADR 0001: programmatically promote a frame to focused (page receives
-   *  native input). Triggered by canvas-pointer-router on a frame-body hit. */
-  enterFrameFocus: (frameId: string) => void
-  /** PoC: forward a wheel event hitting the single-selected frame's body to
-   *  the page's webContents (aboveview-interactive-layer-poc.md). */
+  /** Forward a wheel event hitting the single-selected frame's body to the
+   *  page's webContents (aboveview-interactive-layer-poc.md). */
   forwardWheelToFrame: (frameId: string, payload: ForwardWheelPayload) => void
   /** PoC: forward a pointer event hitting the single-selected frame's body
    *  to the page's webContents. */

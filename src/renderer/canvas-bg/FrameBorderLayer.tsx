@@ -34,8 +34,8 @@ export function FrameBorderLayer({
   frames: CanvasSceneFrameEntity[]
   fileEntities?: CanvasSceneFileEntity[]
   offsetY?: number
-  /** Frame currently in click-to-enter focus (ADR 0001). Renders an
-   *  accent ring around the outer border. */
+  /** Predicate-derived keyboard-target frame. Renders an accent ring
+   *  around the outer border. */
   focusedFrameId?: string | null
 }) {
   const items: BorderItem[] = [...frames, ...(fileEntities ?? []).filter((f) => f.showDeviceFrame)]

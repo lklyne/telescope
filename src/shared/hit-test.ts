@@ -153,14 +153,17 @@ function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
 }
 
 function collectBodyTargets(inputs: HitInputs): HitTarget[] {
-  // Front-to-back: groups are containers; their members render on top and
-  // should hit first. We approximate front-to-back by reversing the entity
-  // order with non-group entities ahead of groups. The full solution reads
-  // entityOrder from the workspace; for now, non-group-before-group is
-  // sufficient to satisfy the "click inside group selects inner" rule.
+  // Front-to-back hit order. `inputs.entities` is back-to-front (paint order:
+  // first item painted first, last item on top — matches JSON Canvas array
+  // order and `entityOrder`). For hit-testing we want the front-most entity
+  // to win, so non-group bodies iterate in reverse. Groups stay last in the
+  // hit list because they're containers — members painted above them must
+  // hit first ("click inside group selects inner"). Frame and non-group
+  // entity bodies sort together; the front-most wins regardless of kind.
   const groups: HitTarget[] = []
   const others: HitTarget[] = []
-  for (const entity of inputs.entities) {
+  for (let i = inputs.entities.length - 1; i >= 0; i--) {
+    const entity = inputs.entities[i]
     const target: HitTarget = {
       layer: 'body',
       region: { kind: 'rect', rect: bodyRect(entity) },

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
@@ -9,6 +9,12 @@ import {
   externalUpdate,
   reconfigureTheme,
 } from './markdown-codemirror'
+
+function renderMarkdownBody(mdContent: string | null) {
+  if (mdContent == null) return <span style={{ opacity: 0.4 }}>Loading...</span>
+  if (mdContent === '') return <span style={{ opacity: 0.4 }}>Write your note...</span>
+  return <Markdown>{mdContent}</Markdown>
+}
 
 export function MarkdownInlineRenderer({
   entity,
@@ -26,37 +32,23 @@ export function MarkdownInlineRenderer({
   const [localText, setLocalText] = useState('')
   const isFocusedRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const fetchContent = useCallback(() => {
-    const src = filePathToSrc(entity.file) + `?t=${Date.now()}`
-    fetch(src)
-      .then((res) => res.text())
-      .then((text) => {
-        setMdContent(text)
-        if (!isFocusedRef.current) setLocalText(text)
-      })
-      .catch(() => {})
-  }, [entity.file])
+  const flushRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    fetch(filePathToSrc(entity.file))
-      .then((res) => res.text())
-      .then((text) => {
-        if (cancelled) return
-        setMdContent(text)
-        if (!isFocusedRef.current) setLocalText(text)
-      })
-      .catch(() => {
-        if (!cancelled) setMdContent(null)
-      })
-    return () => {
-      cancelled = true
+    const fetchContent = () => {
+      fetch(filePathToSrc(entity.file) + `?t=${Date.now()}`)
+        .then((res) => res.text())
+        .then((text) => {
+          if (cancelled) return
+          setMdContent(text)
+          if (!isFocusedRef.current) setLocalText(text)
+        })
+        .catch(() => {
+          if (!cancelled) setMdContent(null)
+        })
     }
-  }, [entity.file])
-
-  // Covers external edits by agents/editors while the window was hidden.
-  useEffect(() => {
+    fetchContent()
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible') return
       if (debounceRef.current) return
@@ -64,8 +56,11 @@ export function MarkdownInlineRenderer({
       fetchContent()
     }
     document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [fetchContent])
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [entity.file])
 
   useEffect(() => {
     if (!canEdit && isFocusedRef.current) {
@@ -74,7 +69,6 @@ export function MarkdownInlineRenderer({
     }
   }, [canEdit, onTextEditingChange])
 
-  // Editor refs and callbacks
   const containerRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartmentRef = useRef<Compartment | null>(null)
@@ -84,9 +78,11 @@ export function MarkdownInlineRenderer({
 
   handleChangeRef.current = (value: string) => {
     setLocalText(value)
+    flushRef.current = () => fileApi.writeNoteFile(entity.file, value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      fileApi.writeNoteFile(entity.file, value)
+      flushRef.current?.()
+      flushRef.current = null
       debounceRef.current = null
     }, 300)
   }
@@ -103,11 +99,24 @@ export function MarkdownInlineRenderer({
       clearTimeout(debounceRef.current)
       debounceRef.current = null
     }
+    flushRef.current = null
     fileApi.writeNoteFile(entity.file, localText)
     setMdContent(localText)
   }
 
-  // Mount the editor whenever we enter edit mode.
+  // Flush a queued write if the component unmounts mid-debounce (e.g. tab
+  // switch, entity deletion) — otherwise the last typed keystrokes are lost.
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+        debounceRef.current = null
+        flushRef.current?.()
+        flushRef.current = null
+      }
+    }
+  }, [])
+
   useEffect(() => {
     if (!canEdit) return
     const container = containerRef.current
@@ -158,7 +167,6 @@ export function MarkdownInlineRenderer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canEdit])
 
-  // Theme can change without re-mounting the editor.
   useEffect(() => {
     const view = viewRef.current
     const compartment = themeCompartmentRef.current
@@ -166,7 +174,6 @@ export function MarkdownInlineRenderer({
     reconfigureTheme(view, compartment, isDark)
   }, [isDark])
 
-  // Push external doc updates (file reload) into the editor when it isn't focused.
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
@@ -198,15 +205,7 @@ export function MarkdownInlineRenderer({
             wordBreak: 'break-word',
           }}
         >
-          {mdContent != null ? (
-            mdContent ? (
-              <Markdown>{mdContent}</Markdown>
-            ) : (
-              <span style={{ opacity: 0.4 }}>Write your note...</span>
-            )
-          ) : (
-            <span style={{ opacity: 0.4 }}>Loading...</span>
-          )}
+          {renderMarkdownBody(mdContent)}
         </div>
       )}
     </div>

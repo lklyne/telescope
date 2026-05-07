@@ -12,6 +12,8 @@ export const EDGE_ANCHOR_HIT_MIN_SCALE = 0.35
 export const RESIZE_HANDLE_VISUAL_PX = 8
 export const RESIZE_HANDLE_HIT_PX = 12
 
+export const MULTI_SELECTION_OUTLINE_PADDING_PX = 8
+
 export const EDGE_SIDES: readonly EdgeSide[] = ['top', 'right', 'bottom', 'left']
 
 export function scaleEdgeAnchorHitSize(basePx: number, zoom: number): number {

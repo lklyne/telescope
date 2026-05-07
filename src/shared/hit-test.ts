@@ -18,6 +18,7 @@ import {
   EDGE_ANCHOR_HIT_GAP_PX,
   EDGE_SIDES,
   FRAME_CHROME_HEIGHT_PX,
+  MULTI_SELECTION_OUTLINE_PADDING_PX,
   RESIZE_HANDLE_HIT_PX,
   scaleEdgeAnchorHitSize,
 } from './canvas-hit-geometry'
@@ -36,6 +37,7 @@ import type { ResizeHandle } from './resize-accumulator'
 
 export type HitPayload =
   | { kind: 'resize-handle'; entityId: string; entityKind: CanvasEntityKind; handle: ResizeHandle }
+  | { kind: 'multi-resize-handle'; handle: ResizeHandle }
   | { kind: 'chrome'; entityId: string; entityKind: CanvasEntityKind }
   | { kind: 'anchor'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
   | { kind: 'frame-body'; entityId: string }
@@ -101,25 +103,112 @@ function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
 // --- Selectors ---
 
 function collectResizeHandles(inputs: HitInputs): HitTarget[] {
-  const selected = new Set(inputs.selectedEntityIds)
-  if (inputs.selectedGroupId) selected.add(inputs.selectedGroupId)
   const out: HitTarget[] = []
-  for (const entity of inputs.entities) {
-    if (!selected.has(entity.id)) continue
+
+  // Multi-selection: per-entity handles are visually hidden in favor of one
+  // bbox spanning the selection. Mirror that here — emit the eight multi-bbox
+  // handles plus per-entity handles for any selected group (groups have
+  // their own selection overlay independent of the multi-box). Fall through
+  // to the single-entity path if a bbox can't be formed (e.g. fewer than two
+  // non-group entities once groups are excluded).
+  const bbox =
+    inputs.selectedEntityIds.length > 1
+      ? multiSelectionScreenBbox(inputs.entities, inputs.selectedEntityIds)
+      : null
+  if (bbox) {
     for (const handle of HANDLES) {
       out.push({
         layer: 'resize-handles',
-        region: { kind: 'rect', rect: handleRect(entity, handle) },
-        payload: {
-          kind: 'resize-handle',
-          entityId: entity.id,
-          entityKind: entity.kind,
-          handle,
-        },
+        region: { kind: 'rect', rect: multiHandleRect(bbox, handle) },
+        payload: { kind: 'multi-resize-handle', handle },
       })
     }
+    if (inputs.selectedGroupId) {
+      const group = inputs.entities.find((e) => e.id === inputs.selectedGroupId)
+      if (group) pushPerEntityHandles(out, group)
+    }
+    return out
+  }
+
+  const selected = new Set(inputs.selectedEntityIds)
+  if (inputs.selectedGroupId) selected.add(inputs.selectedGroupId)
+  for (const entity of inputs.entities) {
+    if (!selected.has(entity.id)) continue
+    pushPerEntityHandles(out, entity)
   }
   return out
+}
+
+function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity): void {
+  for (const handle of HANDLES) {
+    out.push({
+      layer: 'resize-handles',
+      region: { kind: 'rect', rect: handleRect(entity, handle) },
+      payload: {
+        kind: 'resize-handle',
+        entityId: entity.id,
+        entityKind: entity.kind,
+        handle,
+      },
+    })
+  }
+}
+
+interface ScreenBbox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+function multiSelectionScreenBbox(
+  entities: readonly CanvasSceneEntity[],
+  selectedEntityIds: readonly string[],
+): ScreenBbox | null {
+  const ids = new Set(selectedEntityIds)
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  let count = 0
+  for (const e of entities) {
+    if (!ids.has(e.id)) continue
+    if (e.kind === 'group') continue
+    minX = Math.min(minX, e.screenX)
+    minY = Math.min(minY, e.screenY)
+    maxX = Math.max(maxX, e.screenX + e.screenWidth)
+    maxY = Math.max(maxY, e.screenY + e.screenHeight)
+    count++
+  }
+  if (count < 2) return null
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+}
+
+function multiHandleRect(bbox: ScreenBbox, handle: ResizeHandle): Rect {
+  const half = RESIZE_HANDLE_HIT_PX / 2
+  const pad = MULTI_SELECTION_OUTLINE_PADDING_PX
+  const left = bbox.x - pad
+  const top = bbox.y - pad
+  const right = bbox.x + bbox.width + pad
+  const bottom = bbox.y + bbox.height + pad
+  switch (handle) {
+    case 'nw':
+      return { x: left - half, y: top - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
+    case 'ne':
+      return { x: right - half, y: top - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
+    case 'se':
+      return { x: right - half, y: bottom - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
+    case 'sw':
+      return { x: left - half, y: bottom - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
+    case 'n':
+      return { x: left, y: top - half, width: right - left, height: RESIZE_HANDLE_HIT_PX }
+    case 's':
+      return { x: left, y: bottom - half, width: right - left, height: RESIZE_HANDLE_HIT_PX }
+    case 'w':
+      return { x: left - half, y: top, width: RESIZE_HANDLE_HIT_PX, height: bottom - top }
+    case 'e':
+      return { x: right - half, y: top, width: RESIZE_HANDLE_HIT_PX, height: bottom - top }
+  }
 }
 
 function collectChromeTargets(inputs: HitInputs): HitTarget[] {
@@ -185,27 +274,48 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
 
 // --- Geometry helpers ---
 
-const HANDLES: readonly ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
+// Order matters within a layer — first registered match wins. Corners come
+// before edges so a click at the very corner of a wide entity routes to the
+// corner handle (diagonal resize) rather than the edge strip that runs
+// through it.
+const HANDLES: readonly ResizeHandle[] = ['nw', 'ne', 'se', 'sw', 'n', 'e', 's', 'w']
+
+// Selection outlines sit slightly outside the entity body; resize handles
+// are centered on the outline corners/edges, not the entity itself. Match
+// the padding used by SelectionOutlineLayer so hit-test geometry tracks the
+// pixels users actually see.
+function outlinePaddingFor(kind: CanvasEntityKind): number {
+  switch (kind) {
+    case 'frame': return 6
+    case 'group': return 0
+    default: return 2
+  }
+}
 
 function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
   const half = RESIZE_HANDLE_HIT_PX / 2
-  const { x, y } = handleAnchor(entity, handle)
-  return { x: x - half, y: y - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
-}
-
-function handleAnchor(entity: CanvasSceneEntity, handle: ResizeHandle): Point {
+  const pad = outlinePaddingFor(entity.kind)
   const { screenX: x, screenY: y, screenWidth: w, screenHeight: h } = entity
-  const cx = x + w / 2
-  const cy = y + h / 2
   switch (handle) {
-    case 'nw': return { x, y }
-    case 'n':  return { x: cx, y }
-    case 'ne': return { x: x + w, y }
-    case 'e':  return { x: x + w, y: cy }
-    case 'se': return { x: x + w, y: y + h }
-    case 's':  return { x: cx, y: y + h }
-    case 'sw': return { x, y: y + h }
-    case 'w':  return { x, y: cy }
+    case 'nw':
+      return { x: x - pad - half, y: y - pad - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
+    case 'ne':
+      return { x: x + w + pad - half, y: y - pad - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
+    case 'se':
+      return { x: x + w + pad - half, y: y + h + pad - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
+    case 'sw':
+      return { x: x - pad - half, y: y + h + pad - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
+    // Edge handles run the full length of the entity edge — visually they
+    // span corner-to-corner. Corners are checked first (HANDLES order), so
+    // a click at the very corner still resolves to nw/ne/sw/se.
+    case 'n':
+      return { x, y: y - pad - half, width: w, height: RESIZE_HANDLE_HIT_PX }
+    case 's':
+      return { x, y: y + h + pad - half, width: w, height: RESIZE_HANDLE_HIT_PX }
+    case 'w':
+      return { x: x - pad - half, y, width: RESIZE_HANDLE_HIT_PX, height: h }
+    case 'e':
+      return { x: x + w + pad - half, y, width: RESIZE_HANDLE_HIT_PX, height: h }
   }
 }
 

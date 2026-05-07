@@ -45,6 +45,11 @@ import {
   type ResizeConfig,
 } from '../../shared/resize-accumulator'
 import {
+  applyMultiHandleDelta,
+  computeMultiSelectionBbox,
+  startMultiResize,
+} from '../../shared/multi-resize-accumulator'
+import {
   entitiesOverlappingRect,
   isOverlayUiTarget,
   normalizeRect,
@@ -93,6 +98,7 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
   'begin-entity-drag',
   'begin-group-drag',
   'begin-resize',
+  'begin-multi-resize',
   'begin-edge-drag',
   'toggle-select',
   'background-click',
@@ -284,6 +290,8 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return runGroupDrag(action, api, event)
     case 'begin-resize':
       return runResize(action, api, event, layoutRef)
+    case 'begin-multi-resize':
+      return runMultiResize(action, api, event, layoutRef)
     case 'begin-edge-drag':
       return runEdgeDrag(action, api, event, layoutRef, setEdgeDragState)
     case 'begin-marquee':
@@ -504,6 +512,63 @@ function runResize(
   const dispatchPatch = patchDispatcherForKind(entity.kind, action.entityId, api)
   if (!dispatchPatch) return false
 
+  // Enter resize mode in main BEFORE the first dispatchPatch. The bounds-update
+  // IPC synchronously requestLayouts; if interactionState is still 'idle' when
+  // reconcileFocus runs, focus moves to the selected page (frames only — they
+  // populate focusedFrameId), aboveView blurs, and the gesture is cancelled
+  // after a single tick. Same gotcha as drag-start ordering.
+  api.beginResize(action.entityId, entity.kind)
+
+  let lastX = event.screenX
+  let lastY = event.screenY
+  const cleanup = () => {
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener('blur', onCancel)
+    api.endResize()
+  }
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    const screenDx = ev.screenX - lastX
+    const screenDy = ev.screenY - lastY
+    lastX = ev.screenX
+    lastY = ev.screenY
+    const patch = applyHandleDelta(
+      acc,
+      action.handle,
+      { screenDx, screenDy, zoom, shiftKey: ev.shiftKey },
+      config,
+    )
+    dispatchPatch(patch)
+  }
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    cleanup()
+  }
+  const onCancel = () => cleanup()
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
+  window.addEventListener('blur', onCancel)
+  return true
+}
+
+function runMultiResize(
+  action: Extract<CanvasPointerAction, { kind: 'begin-multi-resize' }>,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+): boolean {
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
+  const layout = layoutRef.current
+  const seed = computeMultiSelectionBbox(layout.entities, layout.selectedEntityIds)
+  if (!seed) return false
+  const acc = startMultiResize(seed)
+  const zoom = layout.zoom ?? 1
+
   let lastX = event.screenX
   let lastY = event.screenY
   const cleanup = () => {
@@ -519,13 +584,8 @@ function runResize(
     const screenDy = ev.screenY - lastY
     lastX = ev.screenX
     lastY = ev.screenY
-    const patch = applyHandleDelta(
-      acc,
-      action.handle,
-      { screenDx, screenDy, zoom, shiftKey: ev.shiftKey },
-      config,
-    )
-    dispatchPatch(patch)
+    const entries = applyMultiHandleDelta(acc, action.handle, { screenDx, screenDy, zoom })
+    api.resizeMultiSelection(entries)
   }
   const onUp = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return

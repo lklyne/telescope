@@ -8,6 +8,8 @@ export default defineConfig({
     testTimeout: 15_000,
     hookTimeout: 30_000,
     sequence: { concurrent: false },
+    // Smoke tests share one Electron HTTP server — files must run serially.
+    fileParallelism: false,
     reporters: ['verbose'],
   },
 })

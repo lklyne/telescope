@@ -117,8 +117,9 @@ describe('routePointerDown', () => {
     const f = frame()
     const target = hitTest(
       inputs([f], ['f1']),
-      // Right-side anchor sits past screenX + screenWidth
-      { x: f.screenX + f.screenWidth + 10, y: f.screenY + f.screenHeight / 2 },
+      // Right-side anchor sits past the resize edge strip (frames extend the
+      // resize hit band to entity.right + 12 for the outline padding).
+      { x: f.screenX + f.screenWidth + 20, y: f.screenY + f.screenHeight / 2 },
     )
     const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['f1'] })
     expect(action).toMatchObject({ kind: 'begin-edge-drag', entityId: 'f1', side: 'right' })
@@ -166,6 +167,18 @@ describe('routePointerDown', () => {
     const target = hitTest(inputs([]), { x: 50, y: 50 })
     const action = routePointerDown(target, { ...baseCtx, isPrimaryButton: false })
     expect(action).toEqual({ kind: 'noop' })
+  })
+
+  it('multi-bbox SE handle → begin-multi-resize (no entityId on the action)', () => {
+    const t1 = text({ id: 't1', screenX: 100, screenY: 100, screenWidth: 50, screenHeight: 50 })
+    const t2 = text({ id: 't2', screenX: 200, screenY: 200, screenWidth: 80, screenHeight: 40 })
+    // Multi-bbox SE corner sits at (280+8, 240+8) = (288, 248).
+    const target = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 288, y: 248 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['t1', 't2'],
+    })
+    expect(action).toEqual({ kind: 'begin-multi-resize', handle: 'se' })
   })
 
   // --- Issue #41 regression: chrome wins over anchor in their overlap zone ---

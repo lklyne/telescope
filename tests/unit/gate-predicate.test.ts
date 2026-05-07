@@ -121,27 +121,27 @@ describe('shouldGateBeOpen — browser mode falls through to browserModeNeedsGat
   })
 })
 
-describe('shouldGateBeOpen — frame focus (ADR 0001)', () => {
-  it('closed when frame is focused, even if a gesture would otherwise open it', () => {
+describe('shouldGateBeOpen — frame focus (PoC: gate-flip retired)', () => {
+  // PoC retires the ADR 0001 gate-flip on frameFocus: aboveView stays
+  // default-open in canvas mode regardless of focus, and forwards body
+  // pointer/wheel into the page from inside aboveView's pointer router.
+  it('open when frame is focused and in canvas mode', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
         frameFocus: { id: 'frame-1' },
-        interactionKind: 'panning',
-        spaceHeld: true,
-        selectionMarqueeVisible: true,
       }),
-    ).toBe(false)
+    ).toBe(true)
   })
 
-  it('closed when frame is focused, even with saved drawings', () => {
+  it('open when frame is focused with saved drawings (drawings stay above)', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
         frameFocus: { id: 'frame-1' },
         hasSavedDrawings: true,
       }),
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it('open when frame focus is null and we are in canvas mode', () => {

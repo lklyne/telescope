@@ -269,6 +269,18 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-hover-frame', { frameId }),
   enterFrameFocus: (frameId: string) =>
     ipcRenderer.send('canvas-frame-focus-enter', { frameId }),
+  forwardWheelToFrame: (frameId, payload) =>
+    ipcRenderer.send('canvas-forward-wheel', { frameId, payload }),
+  forwardPointerToFrame: (frameId, payload) =>
+    ipcRenderer.send('canvas-forward-pointer', { frameId, payload }),
+  onPageCursorChange: (callback) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { type: string | null },
+    ) => callback(data)
+    ipcRenderer.on('aboveview-cursor-update', handler)
+    return () => ipcRenderer.removeListener('aboveview-cursor-update', handler)
+  },
   setTextEditing: (active: boolean) =>
     ipcRenderer.send('canvas-set-text-editing', { active }),
   readNoteFile: (filePath: string) =>

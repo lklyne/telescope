@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   classifyViewportWheel,
   isOverlayUiTarget,
@@ -14,7 +14,14 @@ interface ViewportWheelAndMiddlePanApi {
 export function useViewportWheelAndMiddlePan(
   enabled: boolean,
   api: ViewportWheelAndMiddlePanApi,
+  /** PoC: optional wheel pre-router. Return true to indicate the event has
+   *  been forwarded into a frame's page; the hook then skips its canvas
+   *  zoom/pan branch. Cmd/Ctrl+wheel zooms the canvas regardless (the
+   *  classifier checks before this is consulted). */
+  routeWheel?: (event: WheelEvent) => boolean,
 ) {
+  const routeWheelRef = useRef(routeWheel)
+  routeWheelRef.current = routeWheel
   useEffect(() => {
     if (!enabled) return
 
@@ -22,8 +29,12 @@ export function useViewportWheelAndMiddlePan(
 
     const onWheel = (event: WheelEvent) => {
       if (isOverlayUiTarget(event.target)) return
-      event.preventDefault()
       const action = classifyViewportWheel(event)
+      if (action.kind === 'pan' && routeWheelRef.current?.(event)) {
+        event.preventDefault()
+        return
+      }
+      event.preventDefault()
       if (action.kind === 'zoom') {
         api.canvasZoom(action.deltaY, action.mouseX, action.mouseY)
         return

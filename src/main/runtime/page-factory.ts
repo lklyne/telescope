@@ -47,9 +47,7 @@ import { breadcrumb } from '../sentry-context'
 import {
   areFocusEventsSuppressed,
   enterFrameFocus,
-  exitFrameFocus,
   exitFrameFocusIfMatches,
-  isFrameFocused,
 } from './frame-focus'
 import { workspaceViewMode as uiWorkspaceViewMode } from '../ui-state'
 
@@ -264,15 +262,14 @@ export function createPage(config: PageConfig): Page {
     markDirty('canvas')
     requestLayout()
   })
-  page.pageView.webContents.on('blur', () => {
-    // Blur is the exit signal; we never suppress it. Programmatic focus
-    // moves cascade through here naturally (e.g. reconciler focuses bgView
-    // → focused page blurs → exitFrameFocus).
-    if (!isFrameFocused(page.id)) return
-    exitFrameFocus('blur')
-    markDirty('canvas')
-    requestLayout()
-  })
+  // PoC (aboveview-interactive-layer-poc.md): selection — not page focus —
+  // drives `frameFocus` now. Every pointerdown on aboveView momentarily
+  // moves native focus off the page, which used to fire `blur` here and
+  // cascade through `frame-focus-selection.ts` into a `selectNone()`,
+  // clearing the very selection we just established. The reconciler
+  // re-focuses the page on the next layout pass, so blur no longer needs
+  // to teach state about anything. Re-enable when post-PoC cleanup
+  // collapses frame-focus into selection.
 
   // Spike: webContents focus/blur reliability for ADR 0001 (frame focus
   // model). Enable with `BLUR_SPIKE=1 pnpm dev`. Logs every focus/blur and

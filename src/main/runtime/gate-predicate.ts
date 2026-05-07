@@ -40,9 +40,12 @@ export type GateInputs = {
 }
 
 export function shouldGateBeOpen(inputs: GateInputs): boolean {
-  // ADR 0001: focus is the hard gate-closer. The user releases via
-  // Escape, click-canvas, or click-another-frame.
-  if (inputs.frameFocus) return false
+  // PoC (aboveview-interactive-layer-poc.md): aboveView stays default-open in
+  // canvas mode regardless of frameFocus. Pointer/wheel events that hit the
+  // single-selected frame's body are forwarded into the page from inside
+  // aboveView; everything else (chrome, selection outlines, marquee, etc.)
+  // keeps painting and intercepting input. The legacy ADR 0001 gate-flip on
+  // frameFocus has been retired here.
   // Inspect + annotate-comment drive feedback off the page's webContents
   // mousemove (eyedropper, comment hover). Keep the gate closed unless
   // the comment composer has been opened.

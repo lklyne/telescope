@@ -28,6 +28,11 @@ import { shapeEntities } from './shape-entity-state'
 import { textEntities } from './text-entity-state'
 import { breadcrumb } from '../sentry-context'
 import { descendantEntityIdsForGroup } from './group-descendants'
+import {
+  currentFrameFocus,
+  enterFrameFocus,
+  exitFrameFocus,
+} from './frame-focus'
 
 type SelectionCommand =
   | { kind: 'none' }
@@ -44,6 +49,26 @@ type CommitOptions = {
   clearInspect?: boolean
   notifyDevtools?: boolean
   syncInspection?: boolean
+}
+
+/**
+ * PoC mirror: selection state drives frameFocus so the existing
+ * focus-reconciler keeps calling `webContents.focus()` on the focused page.
+ * Idempotence in `enterFrameFocus` plus `frame-focus-selection.ts`'s
+ * focus→selection mirror short-circuits the loop on the second pass.
+ *
+ * Temporary — collapses with `frame-focus.*` in the post-PoC cleanup
+ * (`docs/plans/aboveview-interactive-layer.md` §8 step 1).
+ */
+function mirrorSelectionToFrameFocus(selection: SelectionCommand): void {
+  if (
+    selection.kind === 'single-entity' &&
+    selection.entityKind === 'frame'
+  ) {
+    enterFrameFocus(selection.entityId, 'programmatic')
+    return
+  }
+  if (currentFrameFocus()) exitFrameFocus('programmatic')
 }
 
 function selectionEquals(a: UiState['selection'], b: SelectionCommand): boolean {
@@ -141,6 +166,7 @@ function commitSelection(
   }
 
   setUiSelection(nextSelection)
+  mirrorSelectionToFrameFocus(nextSelection)
   breadcrumb('selection', nextSelection.kind, describeSelection(nextSelection))
 
   if (!browserSelectionAllowed(nextSelection) && uiDevtoolsPanelTab() === 'browser-devtools') {

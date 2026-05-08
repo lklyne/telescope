@@ -265,8 +265,6 @@ export interface PendingPlacement {
   textStyle?: TextEntityStyle
   width: number
   height: number
-  initialClientX: number | null
-  initialClientY: number | null
 }
 
 // --- Persisted Entity Types ---

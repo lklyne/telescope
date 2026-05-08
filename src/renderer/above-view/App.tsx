@@ -254,29 +254,18 @@ export default function App({
       api.setCommentOverlayActive(false)
     }
   }, [overlayInteractive])
-  // Above-view covers the canvas when saved drawings are present, so canvas-bg
-  // can't see pointermove — above-view owns placement preview here. Seed from
-  // the toolbar click that started placement; merged pointer handler below
-  // keeps it updated.
+  // Above-view is the sole owner of the placement preview ghost. The cursor
+  // starts null and is set by the first pointermove (handled below); we don't
+  // seed from main, because polling the OS cursor at layout time risks
+  // capturing toolbar coordinates and re-snapping the ghost on every layout
+  // broadcast.
   const pendingPlacement = layoutData.pendingPlacement
   const [placementCursor, setPlacementCursor] = useState<{
     clientX: number
     clientY: number
   } | null>(null)
   useEffect(() => {
-    if (!pendingPlacement) {
-      setPlacementCursor(null)
-      return
-    }
-    if (
-      pendingPlacement.initialClientX !== null &&
-      pendingPlacement.initialClientY !== null
-    ) {
-      setPlacementCursor({
-        clientX: pendingPlacement.initialClientX,
-        clientY: pendingPlacement.initialClientY,
-      })
-    }
+    if (!pendingPlacement) setPlacementCursor(null)
   }, [pendingPlacement])
   const placementPreview = useMemo(
     () => buildPendingPlacementPreview(layoutData, placementCursor),

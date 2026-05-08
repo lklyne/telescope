@@ -5,7 +5,6 @@
  * left sidebar, and annotation overlay renderers.
  */
 
-import { screen } from 'electron'
 import type {
   ActiveCanvasEntitySelection,
   AgentPresenceCursor,
@@ -24,7 +23,6 @@ import {
   aboveView,
   cursorOverlayWindow,
   leftSidebarView,
-  win,
 } from './view-refs'
 import { safeSend } from './safe-send'
 import { layoutCache } from './layout-cache'
@@ -95,16 +93,6 @@ import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { getPresenceCursors } from '../app-control-server'
 import { getFixProgress } from '../agent-fix/fix-progress'
-
-function mainWindowContentBounds(): {
-  x: number; y: number; width: number; height: number
-} | null {
-  if (!win || win.isDestroyed()) return null
-  if ('getContentBounds' in win && typeof win.getContentBounds === 'function') {
-    return win.getContentBounds()
-  }
-  return win.getBounds()
-}
 
 // --- Exported data builders ---
 
@@ -306,20 +294,6 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
     ? null
     : viewportPresetForIndex(presetIndex ?? 0)
   const customDims = sourcePage ? pageContentSize(sourcePage) : localFillBrowserViewportSize()
-  const contentBounds = mainWindowContentBounds()
-  const cursor = screen.getCursorScreenPoint()
-  const initialClientX =
-    contentBounds &&
-    cursor.x >= contentBounds.x &&
-    cursor.x <= contentBounds.x + contentBounds.width
-      ? cursor.x - contentBounds.x
-      : null
-  const initialClientY =
-    contentBounds &&
-    cursor.y >= contentBounds.y &&
-    cursor.y <= contentBounds.y + contentBounds.height
-      ? cursor.y - contentBounds.y
-      : null
   const shapeDefault = isShape && shapeKind ? defaultShapeSize(shapeKind) : null
   return {
     entityKind,
@@ -343,8 +317,6 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
           : customSize
             ? customDims.height
             : (preset?.height ?? 0),
-    initialClientX,
-    initialClientY,
   }
 }
 

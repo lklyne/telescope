@@ -12,9 +12,9 @@ export function buildFixPrompt(annotation: Annotation): string {
     lines.push(`Page URL: ${pageUrl}`)
   }
 
-  const frameName = annotation.metadata?.frameName
-  if (frameName) {
-    lines.push(`Frame: ${frameName}`)
+  const pageName = annotation.metadata?.pageName
+  if (pageName) {
+    lines.push(`Page: ${pageName}`)
   }
 
   const inspect = annotation.metadata?.inspectContext
@@ -61,7 +61,7 @@ export function buildFixPrompt(annotation: Annotation): string {
     const components = annotation.metadata?.regionComponents ?? []
     for (const group of components) {
       if (!group.components.length) continue
-      lines.push(`Components in region (${group.frameName}):`)
+      lines.push(`Components in region (${group.pageName}):`)
       for (const c of group.components) {
         const loc = c.sourceLocation
           ? c.sourceLocation.line != null
@@ -85,14 +85,14 @@ export function buildFixPrompt(annotation: Annotation): string {
   lines.push('Verify your change does not break typecheck when reasonable.')
   lines.push('')
   lines.push('Inspecting the live page: the specular skill already has it open. Prefer:')
-  lines.push('  specular snapshot -i -f <frameId>     # element refs + accessibility tree')
+  lines.push('  specular snapshot -i -f <pageId>     # element refs + accessibility tree')
   lines.push('  specular get styles @<ref>            # computed CSS for an element')
   lines.push('  specular get text @<ref>              # text content')
   lines.push('  specular get box @<ref>               # bounding box')
   lines.push(`  specular eval '<js>'                  # run JS in the page, returns result`)
-  lines.push('  specular screenshot -f <frameId>      # then Read the printed path to view')
+  lines.push('  specular screenshot -f <pageId>      # then Read the printed path to view')
   lines.push('Do not use chrome-devtools or any other browser automation tool — specular')
-  lines.push('covers every case above and has the right frame already focused.')
+  lines.push('covers every case above and has the right page already focused.')
   lines.push('')
   lines.push('Reply format — REQUIRED:')
   lines.push('- Your final output MUST end with one short IM-style summary line (under 280 chars), then a newline, then one of:')

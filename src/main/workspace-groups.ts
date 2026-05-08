@@ -32,7 +32,7 @@ import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
 import { markDirty } from './runtime/layout-dirty'
 import { makeId, cloneMetadata, pageCurrentUrl } from './workspace-utils'
 import {
-  deleteFrames,
+  deletePages,
   entityBoundsById,
   groupBounds,
   groupBoundsForEntityIds,
@@ -41,7 +41,7 @@ import {
   groupDescendantIds,
   selectionBounds,
   unionBounds,
-  frameBoundsById,
+  pageBoundsById,
 } from './workspace-entities'
 import { findDuplicatePlacement } from './workspace-placement'
 
@@ -270,7 +270,7 @@ export function duplicateGroup(input: {
 
 export function deleteGroups(input: DeleteGroupsRequest): DeleteGroupsResponse {
   const deletedGroupIds: string[] = []
-  const deletedFrameIds: string[] = []
+  const deletedPageIds: string[] = []
   const deletedEdgeIds: string[] = []
   const missingGroupIds: string[] = []
 
@@ -281,15 +281,15 @@ export function deleteGroups(input: DeleteGroupsRequest): DeleteGroupsResponse {
       continue
     }
     const group = workspaceGroups[idx]
-    if (input.deleteMemberFrames ?? true) {
-      const frameDeletion = deleteFrames({
-        frameIds: pages.filter((page) => page.parentGroupId === group.id).map((page) => page.id),
+    if (input.deleteMemberPages ?? true) {
+      const pageDeletion = deletePages({
+        pageIds: pages.filter((page) => page.parentGroupId === group.id).map((page) => page.id),
       })
-      deletedFrameIds.push(...frameDeletion.deletedFrameIds)
-      deletedEdgeIds.push(...frameDeletion.deletedEdgeIds)
+      deletedPageIds.push(...pageDeletion.deletedPageIds)
+      deletedEdgeIds.push(...pageDeletion.deletedEdgeIds)
     } else {
-      for (const frameId of pages.filter((page) => page.parentGroupId === group.id).map((page) => page.id)) {
-        const page = findPageById(frameId)
+      for (const pageId of pages.filter((page) => page.parentGroupId === group.id).map((page) => page.id)) {
+        const page = findPageById(pageId)
         if (page) {
           page.parentGroupId = undefined
           page.groupId = undefined
@@ -313,13 +313,13 @@ export function deleteGroups(input: DeleteGroupsRequest): DeleteGroupsResponse {
     requestLayout()
   }
 
-  if (deletedGroupIds.length || deletedFrameIds.length || deletedEdgeIds.length) {
+  if (deletedGroupIds.length || deletedPageIds.length || deletedEdgeIds.length) {
     scheduleWorkspaceAutosave()
   }
 
   return {
     deletedGroupIds,
-    deletedFrameIds,
+    deletedPageIds,
     deletedEdgeIds,
     missingGroupIds,
     warnings: missingGroupIds.length
@@ -329,7 +329,7 @@ export function deleteGroups(input: DeleteGroupsRequest): DeleteGroupsResponse {
 }
 
 export function focusTargets(input: {
-  frameIds?: string[]
+  pageIds?: string[]
   groupIds?: string[]
   bounds?: WorkspaceBounds
 }): { focused: boolean } {
@@ -356,14 +356,14 @@ export function focusTargets(input: {
     }
   }
 
-  if (input.frameIds?.length) {
+  if (input.pageIds?.length) {
     const bounds = unionBounds(
-      input.frameIds
-        .map(frameBoundsById)
+      input.pageIds
+        .map(pageBoundsById)
         .filter((item): item is WorkspaceBounds => item !== null),
     )
     if (bounds) {
-      selectPageById(input.frameIds[0])
+      selectPageById(input.pageIds[0])
       focusCanvasBounds(bounds)
       scheduleWorkspaceAutosave()
       return { focused: true }

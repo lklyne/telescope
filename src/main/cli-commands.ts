@@ -13,8 +13,8 @@ import { emitPresenceForVerb } from './cli-presence'
 
 type VerbHandler = (args: ParsedArgs) => Promise<number>
 
-function frameId(args: ParsedArgs): string | undefined {
-  return args.flags.frame ?? args.flags.f ?? undefined
+function pageId(args: ParsedArgs): string | undefined {
+  return args.flags.page ?? args.flags.f ?? undefined
 }
 
 // --- Canvas verbs ---
@@ -100,10 +100,10 @@ const upsert: VerbHandler = async (args) => {
 
 const create: VerbHandler = async (args) => {
   const subverb = args.positional[0]
-  if (subverb === 'frame') {
+  if (subverb === 'page') {
     const url = args.positional[1]
-    if (!url) { printError('usage: specular create frame <url>'); return 1 }
-    const item: Record<string, unknown> = { kind: 'frame', url }
+    if (!url) { printError('usage: specular create page <url>'); return 1 }
+    const item: Record<string, unknown> = { kind: 'page', url }
     item.presetIndex = args.flags.preset ? Number(args.flags.preset) : 6 // default to Laptop
     if (args.flags.at) {
       const [x, y] = args.flags.at.split(',').map(Number)
@@ -139,7 +139,7 @@ const create: VerbHandler = async (args) => {
     printJson(await upsertEntities([item]))
     return 0
   }
-  printError('usage: specular create <frame|note> ...')
+  printError('usage: specular create <page|note> ...')
   return 1
 }
 
@@ -153,7 +153,7 @@ const update: VerbHandler = async (args) => {
     if (!isNaN(x)) item.canvasX = x
     if (!isNaN(y)) item.canvasY = y
   }
-  // Frame-specific flags
+  // Page-specific flags
   if (args.flags.preset) item.presetIndex = Number(args.flags.preset)
   if (args.boolFlags.has('landscape')) item.orientation = 'landscape'
   if (args.boolFlags.has('portrait')) item.orientation = 'portrait'
@@ -165,8 +165,8 @@ const update: VerbHandler = async (args) => {
   return 0
 }
 
-function kindFromId(id: string): 'frame' | 'text' | 'file' | 'group' {
-  if (id.startsWith('frame_')) return 'frame'
+function kindFromId(id: string): 'page' | 'text' | 'file' | 'group' {
+  if (id.startsWith('page_')) return 'page'
   if (id.startsWith('text_')) return 'text'
   if (id.startsWith('group_')) return 'group'
   return 'file'
@@ -198,10 +198,10 @@ const deleteEntities: VerbHandler = async (args) => {
 }
 
 const focus: VerbHandler = async (args) => {
-  if (args.positional.length === 0) { printError('usage: specular focus <frameId> [frameId...]'); return 1 }
+  if (args.positional.length === 0) { printError('usage: specular focus <pageId> [pageId...]'); return 1 }
   printJson(await callApp('/camera/focus', {
     method: 'POST',
-    body: JSON.stringify({ frameIds: args.positional }),
+    body: JSON.stringify({ pageIds: args.positional }),
   }))
   return 0
 }
@@ -269,7 +269,7 @@ const annotations: VerbHandler = async (args) => {
   const result = await getAnnotationsSlim({
     status,
     url: args.flags.url,
-    frame_id: args.flags['frame-id'],
+    page_id: args.flags['page-id'],
   })
   printJson(result)
   return 0
@@ -289,9 +289,9 @@ const annotation: VerbHandler = async (args) => {
 const annotate: VerbHandler = async (args) => {
   const text = args.positional.join(' ')
   if (!text) { printError('usage: specular annotate <text>'); return 1 }
-  // Construct anchor: frame-specific if --frame-id given, else viewport
-  const anchor = args.flags['frame-id']
-    ? { type: 'frame', frameId: args.flags['frame-id'] }
+  // Construct anchor: page-specific if --page-id given, else viewport
+  const anchor = args.flags['page-id']
+    ? { type: 'page', pageId: args.flags['page-id'] }
     : { type: 'viewport' }
   printJson(await callApp('/annotations', {
     method: 'POST',
@@ -345,12 +345,12 @@ const reply: VerbHandler = async (args) => {
 const record: VerbHandler = async (args) => {
   const sub = args.positional[0]
   if (sub === 'start') {
-    const fid = args.positional[1] ?? frameId(args)
-    if (!fid) { printError('usage: specular record start <frameId>'); return 1 }
+    const fid = args.positional[1] ?? pageId(args)
+    if (!fid) { printError('usage: specular record start <pageId>'); return 1 }
     printJson(await callApp('/recording/start', {
       method: 'POST',
       body: JSON.stringify({
-        frameId: fid,
+        pageId: fid,
         outputPath: args.flags.output,
         fps: args.flags.fps ? Number(args.flags.fps) : undefined,
         quality: args.flags.quality,
@@ -424,7 +424,7 @@ function browseCommand(args: ParsedArgs, command: string): Promise<number> {
 }
 
 async function browseRaw(args: ParsedArgs, command: string): Promise<number> {
-  const result = await handleBrowse({ frame_id: frameId(args), command })
+  const result = await handleBrowse({ page_id: pageId(args), command })
   printContentBlocks(result.content)
   return 0
 }
@@ -492,7 +492,7 @@ const wait: VerbHandler = async (args) => {
 // --- Passthrough: unknown verbs go to agent-browser ---
 
 /** Flags consumed by specular that must not leak into agent-browser commands. */
-const SPECULAR_ONLY_FLAGS = new Set(['--frame', '-f'])
+const SPECULAR_ONLY_FLAGS = new Set(['--page', '-f'])
 
 function stripSpecularFlags(argv: string[]): string[] {
   const out: string[] = []

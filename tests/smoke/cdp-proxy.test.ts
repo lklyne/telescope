@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import {
-  createFrames,
-  deleteFrames,
+  createPages,
+  deletePages,
   getCdpProxyDebug,
-  getFrameCdpTarget,
+  getPageCdpTarget,
   getPresence,
   getSelection,
   getSelectionOverlayState,
@@ -13,29 +13,29 @@ import {
 } from './app-client'
 import { waitFor, openWebSocket, closeWebSocket } from './test-utils'
 
-const createdFrameIds: string[] = []
+const createdPageIds: string[] = []
 
 afterAll(async () => {
-  if (createdFrameIds.length) {
-    await deleteFrames(createdFrameIds.splice(0))
+  if (createdPageIds.length) {
+    await deletePages(createdPageIds.splice(0))
   }
 })
 
 describe('cdp proxy adapter', () => {
-  it('reuses a stable proxy url for the same session and frame', async () => {
-    const { frameIds } = await createFrames([
+  it('reuses a stable proxy url for the same session and page', async () => {
+    const { pageIds } = await createPages([
       { url: 'data:text/html,<button>proxy reuse</button>', canvasX: 160, canvasY: 160 },
     ])
-    const [frameId] = frameIds
-    createdFrameIds.push(frameId)
+    const [pageId] = pageIds
+    createdPageIds.push(pageId)
 
     const first = await waitFor(
-      () => getFrameCdpTarget(frameId, 'stable-session', 'stable-client'),
+      () => getPageCdpTarget(pageId, 'stable-session', 'stable-client'),
       (value) => Boolean(value.webSocketDebuggerUrl),
       'Timed out waiting for first CDP target',
     )
     const second = await waitFor(
-      () => getFrameCdpTarget(frameId, 'stable-session', 'stable-client'),
+      () => getPageCdpTarget(pageId, 'stable-session', 'stable-client'),
       (value) => Boolean(value.webSocketDebuggerUrl),
       'Timed out waiting for reused CDP target',
     )
@@ -43,24 +43,24 @@ describe('cdp proxy adapter', () => {
     const debug = await waitFor(
       () => getCdpProxyDebug(),
       (value) =>
-        value.registrations.some((item) => item.frameId === frameId && item.sessionId === 'stable-session') &&
+        value.registrations.some((item) => item.pageId === pageId && item.sessionId === 'stable-session') &&
         value.metrics.registrationsReused > 0,
       'Timed out waiting for CDP proxy registration reuse metrics',
       { maxAttempts: 40, intervalMs: 150 },
     )
-    const registrations = debug.registrations.filter((item) => item.frameId === frameId && item.sessionId === 'stable-session')
+    const registrations = debug.registrations.filter((item) => item.pageId === pageId && item.sessionId === 'stable-session')
     expect(registrations).toHaveLength(1)
-    expect(second.frameId).toBe(first.frameId)
+    expect(second.pageId).toBe(first.pageId)
     expect(second.targetId).toBe(first.targetId)
     expect(debug.metrics.registrationsReused).toBeGreaterThan(0)
   })
 
   it('keeps user selection stable while a proxy client is connected', async () => {
-    const { frameIds } = await createFrames([
+    const { pageIds } = await createPages([
       { url: 'data:text/html,<button>selection target</button>', canvasX: 540, canvasY: 220 },
     ])
-    createdFrameIds.push(...frameIds)
-    const [proxyFrameId] = frameIds
+    createdPageIds.push(...pageIds)
+    const [proxyPageId] = pageIds
 
     await deselectSelection()
 
@@ -68,9 +68,9 @@ describe('cdp proxy adapter', () => {
     expect(beforeSelection.selectedEntityId).toBeUndefined()
 
     const proxyTarget = await waitFor(
-      () => getFrameCdpTarget(proxyFrameId, 'selection-session', 'selection-client'),
+      () => getPageCdpTarget(proxyPageId, 'selection-session', 'selection-client'),
       (value) => Boolean(value.webSocketDebuggerUrl),
-      'Timed out waiting for proxy frame target',
+      'Timed out waiting for proxy page target',
     )
     const socket = await openWebSocket(proxyTarget.webSocketDebuggerUrl)
 
@@ -83,10 +83,10 @@ describe('cdp proxy adapter', () => {
 
     const overlayWhileConnected = await waitFor(
       () => getSelectionOverlayState(),
-      (value) => value.pages.find((page) => page.frameId === proxyFrameId)?.interactive === true,
-      'Timed out waiting for proxy frame overlay to become interactive',
+      (value) => value.pages.find((page) => page.pageId === proxyPageId)?.interactive === true,
+      'Timed out waiting for proxy page overlay to become interactive',
     )
-    expect(overlayWhileConnected.pages.find((page) => page.frameId === proxyFrameId)?.interactive).toBe(true)
+    expect(overlayWhileConnected.pages.find((page) => page.pageId === proxyPageId)?.interactive).toBe(true)
 
     await closeWebSocket(socket)
 
@@ -99,18 +99,18 @@ describe('cdp proxy adapter', () => {
 
     const overlayAfterClose = await waitFor(
       () => getSelectionOverlayState(),
-      (value) => value.pages.find((page) => page.frameId === proxyFrameId)?.interactive === false,
-      'Timed out waiting for proxy frame overlay to clear after disconnect',
+      (value) => value.pages.find((page) => page.pageId === proxyPageId)?.interactive === false,
+      'Timed out waiting for proxy page overlay to clear after disconnect',
     )
-    expect(overlayAfterClose.pages.find((page) => page.frameId === proxyFrameId)?.interactive).toBe(false)
+    expect(overlayAfterClose.pages.find((page) => page.pageId === proxyPageId)?.interactive).toBe(false)
   })
 
   it('departs the presence cursor when the CDP transport closes', async () => {
-    const { frameIds } = await createFrames([
+    const { pageIds } = await createPages([
       { url: 'data:text/html,<button>crash target</button>', canvasX: 880, canvasY: 220 },
     ])
-    createdFrameIds.push(...frameIds)
-    const [frameId] = frameIds
+    createdPageIds.push(...pageIds)
+    const [pageId] = pageIds
     const sessionId = 'crash-session'
     const clientName = 'crash-client'
 
@@ -119,10 +119,10 @@ describe('cdp proxy adapter', () => {
       sessionId,
       clientName,
       eventType: 'act',
-      surface: 'frame',
+      surface: 'page',
       phase: 'acting',
-      frameId,
-      coordinates: { frameX: 40, frameY: 40 },
+      pageId,
+      coordinates: { pageX: 40, pageY: 40 },
       labelKey: 'click_target',
       taskLabel: 'crash task',
     })
@@ -131,9 +131,9 @@ describe('cdp proxy adapter', () => {
     expect(seeded.cursors.find((cursor) => cursor.sessionId === sessionId)).toBeDefined()
 
     const proxyTarget = await waitFor(
-      () => getFrameCdpTarget(frameId, sessionId, clientName),
+      () => getPageCdpTarget(pageId, sessionId, clientName),
       (value) => Boolean(value.webSocketDebuggerUrl),
-      'Timed out waiting for crash-session proxy frame target',
+      'Timed out waiting for crash-session proxy page target',
     )
     const socket = await openWebSocket(proxyTarget.webSocketDebuggerUrl)
     await closeWebSocket(socket)

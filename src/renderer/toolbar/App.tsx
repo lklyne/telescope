@@ -31,7 +31,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     addressBarRef,
     currentPresetValue,
     hasSelection,
-    hasFrames,
+    hasPages,
     isBrowserMode,
     defaultToolActive,
     agentCursors,
@@ -79,9 +79,9 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [annotationMode, inspectEnabled, selection.viewMode])
   const isMac = navigator.userAgent.includes('Mac')
-  const showMultiFrameAddressBar = selection.selectionCount > 1
+  const showMultiPageAddressBar = selection.selectionCount > 1
   const showTabsModeAddressBar = isBrowserMode && hasSelection
-  const showCenterActionsOnly = !showMultiFrameAddressBar && !showTabsModeAddressBar
+  const showCenterActionsOnly = !showMultiPageAddressBar && !showTabsModeAddressBar
 
   return (
     <>
@@ -183,7 +183,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
               />
             </div>
           </div>
-        ) : showMultiFrameAddressBar ? (
+        ) : showMultiPageAddressBar ? (
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <ToolbarDivider isDark={isDark} />
             <div className="min-w-0 flex-1">
@@ -245,7 +245,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             isDark={isDark}
             devtoolsOpen={devtoolsOpen}
             isBrowserMode={isBrowserMode}
-            hasFrames={hasFrames}
+            hasPages={hasPages}
             onToggleDevTools={toolbarApi.toggleDevTools}
             onToggleBrowserMode={toolbarApi.toggleBrowserMode}
           />

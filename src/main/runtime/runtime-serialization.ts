@@ -17,7 +17,7 @@ const LEGACY_PRESET_INDEX_MAP: Record<number, number> = {
   11: 6,
 }
 
-type FrameLabelTarget = Pick<WorkspacePageSnapshot, 'presetIndex' | 'name' | 'title' | 'url'>
+type PageLabelTarget = Pick<WorkspacePageSnapshot, 'presetIndex' | 'name' | 'title' | 'url'>
 
 function hostnameLabel(url: string | undefined): string | null {
   if (!url) return null
@@ -43,14 +43,14 @@ export function viewportPresetForIndex(presetIndex: number) {
   return VIEWPORT_PRESETS[normalizePresetIndex(presetIndex)]
 }
 
-export function frameDisplayLabel(frame: FrameLabelTarget): string {
-  const trimmedTitle = frame.title?.trim()
+export function pageDisplayLabel(page: PageLabelTarget): string {
+  const trimmedTitle = page.title?.trim()
   if (trimmedTitle) return trimmedTitle
-  const trimmedName = frame.name?.trim()
+  const trimmedName = page.name?.trim()
   if (trimmedName) return trimmedName
-  const hostLabel = hostnameLabel(frame.url)
+  const hostLabel = hostnameLabel(page.url)
   if (hostLabel) return hostLabel
-  return viewportPresetForIndex(frame.presetIndex)?.label ?? 'Frame'
+  return viewportPresetForIndex(page.presetIndex)?.label ?? 'Page'
 }
 
 export function cloneAnnotationsForPersistence(

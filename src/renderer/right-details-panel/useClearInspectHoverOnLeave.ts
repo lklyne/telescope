@@ -9,23 +9,23 @@ import { rightDetailsPanelApi } from './rightDetailsPanelApi'
  * - When selection clears while the cursor is already outside the document,
  *   the hover highlight clears immediately.
  *
- * No-op while no frame is active.
+ * No-op while no page is active.
  */
 export function useClearInspectHoverOnLeave(
-  activeFrameId: string | null,
+  activePageId: string | null,
   selectedNodeId: string | null,
 ): void {
   const mouseInsideRef = useRef(false)
   useEffect(() => {
-    if (!activeFrameId) return
+    if (!activePageId) return
     const handleDocEnter = () => { mouseInsideRef.current = true }
     const handleDocLeave = () => {
       mouseInsideRef.current = false
-      rightDetailsPanelApi.setInspectHoverNode(activeFrameId, selectedNodeId ?? null)
+      rightDetailsPanelApi.setInspectHoverNode(activePageId, selectedNodeId ?? null)
     }
     // If selection just cleared and mouse is outside, clear hover now
     if (!selectedNodeId && !mouseInsideRef.current) {
-      rightDetailsPanelApi.setInspectHoverNode(activeFrameId, null)
+      rightDetailsPanelApi.setInspectHoverNode(activePageId, null)
     }
     document.documentElement.addEventListener('mouseenter', handleDocEnter)
     document.documentElement.addEventListener('mouseleave', handleDocLeave)
@@ -33,5 +33,5 @@ export function useClearInspectHoverOnLeave(
       document.documentElement.removeEventListener('mouseenter', handleDocEnter)
       document.documentElement.removeEventListener('mouseleave', handleDocLeave)
     }
-  }, [activeFrameId, selectedNodeId])
+  }, [activePageId, selectedNodeId])
 }

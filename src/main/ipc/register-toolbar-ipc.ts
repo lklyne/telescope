@@ -29,7 +29,7 @@ import {
 import { endDevtoolsResize, setDevtoolsWidthFromScreenX } from '../runtime/window-shell'
 import { selectBrowserTab } from '../runtime/runtime-core'
 import { findPageById, setPendingFocus } from '../runtime/runtime-context'
-import { addFrameFromSource } from '../workspace-frames'
+import { addPageFromSource } from '../workspace-pages'
 import { applyNavigationToSelectedPages } from '../navigation-sync'
 import { workspaceViewMode as uiWorkspaceViewMode } from '../ui-state'
 
@@ -134,25 +134,25 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on('add-page', (_event, presetIndex: number | 'custom') => {
     startPendingPlacement({
-      sourceFrameId: selectedPageId() ?? undefined,
+      sourcePageId: selectedPageId() ?? undefined,
       presetIndex: typeof presetIndex === 'number' ? presetIndex : undefined,
       customSize: presetIndex === 'custom',
     })
   })
 
-  ipcMain.on('add-browser-frame', (_event, presetIndex: number | 'custom') => {
-    const result = addFrameFromSource({
+  ipcMain.on('add-browser-page', (_event, presetIndex: number | 'custom') => {
+    const result = addPageFromSource({
       presetIndex: typeof presetIndex === 'number' ? presetIndex : 0,
       customSize: presetIndex === 'custom',
       mode: 'add_from_toolbar',
       focus: true,
     })
-    selectBrowserTab(result.frameId)
+    selectBrowserTab(result.pageId)
 
     // Focus the address bar after the new page finishes loading.
     // We must wait because Chromium auto-focuses a webContents when
     // its load completes, which would steal focus from the toolbar.
-    const page = findPageById(result.frameId)
+    const page = findPageById(result.pageId)
     if (toolbarView && page) {
       const focusToolbar = () => {
         if (!toolbarView) return

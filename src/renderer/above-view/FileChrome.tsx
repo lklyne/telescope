@@ -140,7 +140,7 @@ const FileChromeItem = memo(function FileChromeItem({
   const onPointerDown = !isRenaming
     ? (event: React.PointerEvent) => {
         const target = event.target as HTMLElement
-        if (target.closest('[data-frame-context-menu]')) return
+        if (target.closest('[data-page-context-menu]')) return
         event.preventDefault()
         event.stopPropagation()
         const pointerId = event.pointerId
@@ -205,10 +205,10 @@ const FileChromeItem = memo(function FileChromeItem({
       isActive={isActive}
       onPointerDown={onPointerDown}
       onMouseEnter={() => {
-        api.hoverFrame(entity.id)
+        api.hoverPage(entity.id)
         if (isWireframe) readTheme()
       }}
-      onMouseLeave={() => api.hoverFrame(null)}
+      onMouseLeave={() => api.hoverPage(null)}
     >
       <CanvasItemChrome.DragTrigger
         onPointerDown={isRenaming ? (event) => event.stopPropagation() : undefined}

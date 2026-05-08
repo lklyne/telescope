@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneFileEntity,
-  CanvasSceneFrameEntity,
+  CanvasScenePageEntity,
   LayoutUpdateData,
   ThemeData,
 } from '../../shared/types'
@@ -12,7 +12,7 @@ import { DRAW_CURSOR } from './canvasBgConstants'
 import { CanvasDebugBadge, CanvasGridSurface, PlacementPreviewLayer } from './CanvasGridSurface'
 import { BrowserTabBar } from './BrowserTabBar'
 import { DeviceShellLayer } from './DeviceShellLayer'
-import { FrameBorderLayer } from './FrameBorderLayer'
+import { PageBorderLayer } from './PageBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { GroupInlineMenu } from './InlineEntityMenu'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
@@ -51,19 +51,19 @@ export default function App({
     onShapePlacementPreview: setShapePlacementPreview,
   })
 
-  const frameEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasSceneFrameEntity => e.kind === 'frame'),
+  const pageEntities = useMemo(
+    () => layoutData.entities.filter((e): e is CanvasScenePageEntity => e.kind === 'page'),
     [layoutData.entities],
   )
   const fileEntities = useMemo(
     () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
     [layoutData.entities],
   )
-  const borderFrames = useMemo(
+  const borderPages = useMemo(
     () => layoutData.viewMode === 'browser'
-      ? frameEntities.filter((f) => f.id === layoutData.activeBrowserTabId)
-      : frameEntities,
-    [frameEntities, layoutData.viewMode, layoutData.activeBrowserTabId],
+      ? pageEntities.filter((f) => f.id === layoutData.activeBrowserTabId)
+      : pageEntities,
+    [pageEntities, layoutData.viewMode, layoutData.activeBrowserTabId],
   )
   const selectedGroupEntity = useMemo(() => {
     if (!layoutData.selectedGroupId) return null
@@ -139,25 +139,25 @@ export default function App({
           leftInset={layoutData.leftChromeWidth}
           browserTabs={layoutData.browserTabs}
           isDark={isDark}
-          onAddBrowserFrame={api.addBrowserFrame}
-          onDeleteFrame={api.deleteFrame}
-          onRenameFrame={api.renameFrame}
+          onAddBrowserPage={api.addBrowserPage}
+          onDeletePage={api.deletePage}
+          onRenamePage={api.renamePage}
           onSelectBrowserTab={api.selectBrowserTab}
         />
       ) : null}
 
       <div className="pointer-events-none absolute inset-0">
-        <FrameBorderLayer
-          frames={borderFrames}
+        <PageBorderLayer
+          pages={borderPages}
           fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
         />
         <DeviceShellLayer
-          frames={borderFrames.filter((f) => !f.useSvgDeviceShell)}
+          pages={borderPages.filter((f) => !f.useSvgDeviceShell)}
           fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
           isDark={isDark}
         />
         <SvgDeviceShellLayer
-          frames={borderFrames.filter((f) => f.useSvgDeviceShell)}
+          pages={borderPages.filter((f) => f.useSvgDeviceShell)}
           isDark={isDark}
         />
       </div>
@@ -174,7 +174,7 @@ export default function App({
         ) : null
       ) : null}
 
-      {/* Selected frame menu now renders in the floating-ui view (above frames) */}
+      {/* Selected page menu now renders in the floating-ui view (above pages) */}
     </div>
   )
 }

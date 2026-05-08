@@ -384,7 +384,7 @@ function attachChildHandlers(entry: InternalRepo, child: ChildProcess): void {
       entry.baseUrl = url
       entry.status = 'running'
       entry.lastError = undefined
-      // Auto-bind the dev server's own origin so frames pointing at it can
+      // Auto-bind the dev server's own origin so pages pointing at it can
       // receive fixes without the user having to link a repo manually.
       const origin = normalizeOrigin(url)
       if (origin && !entry.boundOrigins.some((b) => b.origin === origin)) {

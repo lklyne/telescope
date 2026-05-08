@@ -15,7 +15,7 @@ export function useViewportWheelAndMiddlePan(
   enabled: boolean,
   api: ViewportWheelAndMiddlePanApi,
   /** PoC: optional wheel pre-router. Return true to indicate the event has
-   *  been forwarded into a frame's page; the hook then skips its canvas
+   *  been forwarded into a page's page; the hook then skips its canvas
    *  zoom/pan branch. Cmd/Ctrl+wheel zooms the canvas regardless (the
    *  classifier checks before this is consulted). */
   routeWheel?: (event: WheelEvent) => boolean,

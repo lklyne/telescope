@@ -124,15 +124,15 @@ export function annotationScreenPos(
   layout: LayoutUpdateData,
 ): { x: number; y: number; transform: string } | null {
   const railAnchor = (
-    frame: LayoutUpdateData['entities'][number],
+    page: LayoutUpdateData['entities'][number],
     preferredY: number,
   ): { x: number; y: number; transform: string } => {
     const y = Math.min(
-      Math.max(preferredY, toOverlayY(layout, frame.screenY + 10)),
-      toOverlayY(layout, frame.screenY + frame.screenHeight - 10),
+      Math.max(preferredY, toOverlayY(layout, page.screenY + 10)),
+      toOverlayY(layout, page.screenY + page.screenHeight - 10),
     )
-    const rightX = frame.screenX + frame.screenWidth + 12
-    const leftX = frame.screenX - 12
+    const rightX = page.screenX + page.screenWidth + 12
+    const leftX = page.screenX - 12
     const canUseRight = rightX + 280 <= window.innerWidth
     return canUseRight
       ? { x: rightX, y, transform: 'translate(0, -50%)' }
@@ -162,28 +162,28 @@ export function annotationScreenPos(
       transform: 'translate(-50%, 0)',
     }
   }
-  if (anchor.type === 'frame' || anchor.type === 'element') {
-    const frame = layout.entities.find((f) => f.id === anchor.frameId)
-    if (!frame) return null
+  if (anchor.type === 'page' || anchor.type === 'element') {
+    const page = layout.entities.find((f) => f.id === anchor.pageId)
+    if (!page) return null
     if (anchor.type === 'element' && anchor.boundingBox) {
       const topInset = 8
       const rightInset = 8
       const x =
-        frame.screenX +
+        page.screenX +
         (anchor.boundingBox.x + anchor.boundingBox.width) *
-          (frame.screenWidth / frame.width) -
+          (page.screenWidth / page.width) -
         rightInset
       const y =
-        frame.screenY +
-        anchor.boundingBox.y * (frame.screenHeight / frame.height) +
+        page.screenY +
+        anchor.boundingBox.y * (page.screenHeight / page.height) +
         topInset
       const clampedX = Math.max(
-        frame.screenX + rightInset,
-        Math.min(x, frame.screenX + frame.screenWidth - rightInset),
+        page.screenX + rightInset,
+        Math.min(x, page.screenX + page.screenWidth - rightInset),
       )
       const clampedY = Math.max(
-        frame.screenY + topInset,
-        Math.min(y, frame.screenY + frame.screenHeight - topInset),
+        page.screenY + topInset,
+        Math.min(y, page.screenY + page.screenHeight - topInset),
       )
       return {
         x: clampedX,
@@ -191,11 +191,11 @@ export function annotationScreenPos(
         transform: 'translate(-100%, 0)',
       }
     }
-    if (anchor.type === 'frame') {
-      const y = toOverlayY(layout, frame.screenY + anchor.offsetY * frame.screenHeight)
-      return railAnchor(frame, y)
+    if (anchor.type === 'page') {
+      const y = toOverlayY(layout, page.screenY + anchor.offsetY * page.screenHeight)
+      return railAnchor(page, y)
     }
-    return railAnchor(frame, toOverlayY(layout, frame.screenY + frame.screenHeight / 2))
+    return railAnchor(page, toOverlayY(layout, page.screenY + page.screenHeight / 2))
   }
   return null
 }

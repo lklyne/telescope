@@ -11,7 +11,7 @@ import {
   win,
 } from './view-refs'
 import {
-  inspectSelectedNodeIdByFrame,
+  inspectSelectedNodeIdByPage,
   pages,
   setPendingFocus,
 } from './runtime-context'
@@ -24,7 +24,7 @@ import {
 } from '../ui-state'
 import { normalizePresetIndex } from './runtime-serialization'
 import type { Page } from './runtime-entities'
-import { frameOverridesFromMetadata } from './runtime-entities'
+import { pageOverridesFromMetadata } from './runtime-entities'
 import { markDirty } from './layout-dirty'
 import { requestLayout } from './viewport-control'
 import {
@@ -32,7 +32,7 @@ import {
   notifyDevtoolsPanelData,
   syncInspectionState,
 } from './inspect-session'
-import { clearPendingRequestsForFrame } from './frame-ipc'
+import { clearPendingRequestsForPage } from './page-ipc'
 import { sendInteractiveState } from './overlay-manager'
 import { broadcastCanvasZoomToPages } from './viewport-control'
 import { annotationsForPage } from './canvas-layout-data'
@@ -66,7 +66,7 @@ import {
 } from './runtime-constants'
 
 function makePageId(): string {
-  return `frame_${randomUUID()}`
+  return `page_${randomUUID()}`
 }
 
 function frameColor(): string {
@@ -204,9 +204,9 @@ export function createPage(config: PageConfig): Page {
     })
     sendInteractiveState()
     broadcastCanvasZoomToPages()
-    const overrides = frameOverridesFromMetadata(page.metadata)
+    const overrides = pageOverridesFromMetadata(page.metadata)
     if (overrides) {
-      page.pageView.webContents.send('apply-frame-overrides', overrides)
+      page.pageView.webContents.send('apply-page-overrides', overrides)
     }
     page.pageView.webContents.send('page-annotations-update', {
       annotations: annotationsForPage(page.id),
@@ -272,7 +272,7 @@ export function removePageAtIndex(idx: number): Page | null {
   if (!win || idx < 0 || idx >= pages.length) return null
   const page = pages[idx]
   breadcrumb('page', 'remove', { host: hostOf(page.url) })
-  clearPendingRequestsForFrame(page.id)
+  clearPendingRequestsForPage(page.id)
   win.contentView.removeChildView(page.frameView)
   win.contentView.removeChildView(page.pageView)
   if (page.devtoolsHostView) {
@@ -290,7 +290,7 @@ export function removePageAtIndex(idx: number): Page | null {
   invalidateAgentSnapshot(page.id)
   const previousSelectedIndex = uiSelectedPageIndex(pages.map((p) => p.id))
   updateSelectionForRemovedEntity(page.id)
-  inspectSelectedNodeIdByFrame.delete(page.id)
+  inspectSelectedNodeIdByPage.delete(page.id)
 
   if (previousSelectedIndex === idx) {
     clearInspectTargets()

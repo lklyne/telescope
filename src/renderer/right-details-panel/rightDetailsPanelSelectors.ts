@@ -1,7 +1,7 @@
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type {
   Annotation,
-  DevtoolsPanelFrameSummary,
+  DevtoolsPanelPageSummary,
   InspectNodeDetail,
   InspectPanelState,
 } from '../../shared/types'
@@ -9,75 +9,75 @@ import { annotationOrigin } from '../../shared/annotation-utils'
 import { isUnresolved } from './rightDetailsPanelHelpers'
 
 type AnnotationGroup = {
-  frameKey: string
-  frameLabel: string
-  frameUrl?: string
-  frameWidth?: number
-  frameHeight?: number
+  pageKey: string
+  pageLabel: string
+  pageUrl?: string
+  pageWidth?: number
+  pageHeight?: number
   unresolved: Annotation[]
   resolved: Annotation[]
 }
 
-export function resolveFrameDimensions(frame: DevtoolsPanelFrameSummary): {
+export function resolvePageDimensions(page: DevtoolsPanelPageSummary): {
   width?: number
   height?: number
 } {
-  const preset = VIEWPORT_PRESETS.find((candidate) => candidate.label === frame.label)
+  const preset = VIEWPORT_PRESETS.find((candidate) => candidate.label === page.label)
   return {
-    width: frame.width ?? preset?.width,
-    height: frame.height ?? preset?.height,
+    width: page.width ?? preset?.width,
+    height: page.height ?? preset?.height,
   }
 }
 
-export function groupAnnotationsByFrame(
+export function groupAnnotationsByPage(
   annotations: Annotation[],
-  frames: DevtoolsPanelFrameSummary[],
+  pages: DevtoolsPanelPageSummary[],
 ): AnnotationGroup[] {
-  const frameLookup = new Map(frames.map((frame) => [frame.id, frame]))
+  const pageLookup = new Map(pages.map((page) => [page.id, page]))
   const grouped = new Map<string, AnnotationGroup>()
 
-  const ensureGroup = (frameKey: string): AnnotationGroup => {
-    const existing = grouped.get(frameKey)
+  const ensureGroup = (pageKey: string): AnnotationGroup => {
+    const existing = grouped.get(pageKey)
     if (existing) return existing
 
-    const knownFrame = frameLookup.get(frameKey)
-    const dimensions = knownFrame ? resolveFrameDimensions(knownFrame) : {}
+    const knownPage = pageLookup.get(pageKey)
+    const dimensions = knownPage ? resolvePageDimensions(knownPage) : {}
     const nextGroup: AnnotationGroup = {
-      frameKey,
-      frameLabel: frameKey === '__canvas__' ? 'Canvas' : knownFrame?.label ?? frameKey,
-      frameUrl: knownFrame?.url,
-      frameWidth: dimensions.width,
-      frameHeight: dimensions.height,
+      pageKey,
+      pageLabel: pageKey === '__canvas__' ? 'Canvas' : knownPage?.label ?? pageKey,
+      pageUrl: knownPage?.url,
+      pageWidth: dimensions.width,
+      pageHeight: dimensions.height,
       unresolved: [],
       resolved: [],
     }
-    grouped.set(frameKey, nextGroup)
+    grouped.set(pageKey, nextGroup)
     return nextGroup
   }
 
   for (const annotation of annotations) {
-    const regionFrames = annotation.anchor.type === 'region'
+    const regionPages = annotation.anchor.type === 'region'
       ? annotation.metadata?.regionComponents ?? []
       : []
 
-    if (regionFrames.length > 0) {
-      // Show region annotations once under the first associated frame
-      const group = ensureGroup(regionFrames[0].frameId)
+    if (regionPages.length > 0) {
+      // Show region annotations once under the first associated page
+      const group = ensureGroup(regionPages[0].pageId)
       if (isUnresolved(annotation.status)) group.unresolved.push(annotation)
       else group.resolved.push(annotation)
     } else {
-      const frameKey =
-        annotation.anchor.type === 'frame' || annotation.anchor.type === 'element'
-          ? annotation.anchor.frameId
+      const pageKey =
+        annotation.anchor.type === 'page' || annotation.anchor.type === 'element'
+          ? annotation.anchor.pageId
           : '__canvas__'
-      const group = ensureGroup(frameKey)
+      const group = ensureGroup(pageKey)
       if (isUnresolved(annotation.status)) group.unresolved.push(annotation)
       else group.resolved.push(annotation)
     }
   }
 
   const groups = Array.from(grouped.values())
-  groups.sort((a, b) => a.frameLabel.localeCompare(b.frameLabel))
+  groups.sort((a, b) => a.pageLabel.localeCompare(b.pageLabel))
   for (const group of groups) {
     const sortByCreatedAt = (a: Annotation, b: Annotation) =>
       Date.parse(b.createdAt) - Date.parse(a.createdAt)
@@ -110,14 +110,14 @@ export function groupAnnotationsByOrigin(
 
 export function buildUnresolvedCountsByNodeId(
   annotations: Annotation[],
-  activeFrameId: string | null,
+  activePageId: string | null,
 ): Map<string, number> {
   const unresolvedCountsByNodeId = new Map<string, number>()
 
   for (const annotation of annotations) {
     if (!isUnresolved(annotation.status)) continue
     if (annotation.anchor.type !== 'element') continue
-    if (activeFrameId && annotation.anchor.frameId !== activeFrameId) continue
+    if (activePageId && annotation.anchor.pageId !== activePageId) continue
     const nodeId = annotation.metadata?.inspectContext?.nodeId
     if (!nodeId) continue
     const messageCount = 1 + annotation.replies.length

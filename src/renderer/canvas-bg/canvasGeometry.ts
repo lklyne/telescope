@@ -1,7 +1,7 @@
 import type { LayoutUpdateData } from '../../shared/types'
 import { snapToGrid } from '../../shared/gesture-utils'
 
-type DragFrameSnapshot = {
+type DragPageSnapshot = {
   id: string
   screenX: number
   screenY: number
@@ -12,8 +12,8 @@ type DragFrameSnapshot = {
 }
 
 export type ChromeDragSession = {
-  frameId: string
-  frames: DragFrameSnapshot[]
+  pageId: string
+  pages: DragPageSnapshot[]
   totalScreenDx: number
   totalScreenDy: number
   copyMode: boolean
@@ -38,21 +38,21 @@ export function toOverlayRect(
 }
 
 export function unionScreenBounds(
-  frames: LayoutUpdateData['entities'],
+  pages: LayoutUpdateData['entities'],
   selectedEntityIds: string[],
 ) {
-  const selectedFrames = frames.filter((frame) =>
-    selectedEntityIds.includes(frame.id),
+  const selectedPages = pages.filter((page) =>
+    selectedEntityIds.includes(page.id),
   )
-  if (!selectedFrames.length) return null
+  if (!selectedPages.length) return null
 
-  const left = Math.min(...selectedFrames.map((frame) => frame.screenX))
-  const top = Math.min(...selectedFrames.map((frame) => frame.screenY))
+  const left = Math.min(...selectedPages.map((page) => page.screenX))
+  const top = Math.min(...selectedPages.map((page) => page.screenY))
   const right = Math.max(
-    ...selectedFrames.map((frame) => frame.screenX + frame.screenWidth),
+    ...selectedPages.map((page) => page.screenX + page.screenWidth),
   )
   const bottom = Math.max(
-    ...selectedFrames.map((frame) => frame.screenY + frame.screenHeight),
+    ...selectedPages.map((page) => page.screenY + page.screenHeight),
   )
 
   return {
@@ -67,8 +67,8 @@ export function dragCopyAnchorPoint(
   session: ChromeDragSession,
   layout: LayoutUpdateData,
 ) {
-  const minCanvasX = Math.min(...session.frames.map((frame) => frame.canvasX))
-  const minCanvasY = Math.min(...session.frames.map((frame) => frame.canvasY))
+  const minCanvasX = Math.min(...session.pages.map((page) => page.canvasX))
+  const minCanvasY = Math.min(...session.pages.map((page) => page.canvasY))
   return {
     x: snapToGrid(minCanvasX + session.totalScreenDx / layout.zoom),
     y: snapToGrid(minCanvasY + session.totalScreenDy / layout.zoom),
@@ -80,20 +80,20 @@ export function buildDragCopyPreview(
   layout: LayoutUpdateData,
 ): DragCopyPreview[] {
   const anchor = dragCopyAnchorPoint(session, layout)
-  const minCanvasX = Math.min(...session.frames.map((frame) => frame.canvasX))
-  const minCanvasY = Math.min(...session.frames.map((frame) => frame.canvasY))
+  const minCanvasX = Math.min(...session.pages.map((page) => page.canvasX))
+  const minCanvasY = Math.min(...session.pages.map((page) => page.canvasY))
 
-  return session.frames.map((frame) => ({
-    id: frame.id,
+  return session.pages.map((page) => ({
+    id: page.id,
     left:
       layout.canvasOrigin.x +
       layout.pan.x +
-      (anchor.x + (frame.canvasX - minCanvasX)) * layout.zoom,
+      (anchor.x + (page.canvasX - minCanvasX)) * layout.zoom,
     top:
       layout.canvasOrigin.y +
       layout.pan.y +
-      (anchor.y + (frame.canvasY - minCanvasY)) * layout.zoom,
-    width: frame.screenWidth,
-    height: frame.screenHeight,
+      (anchor.y + (page.canvasY - minCanvasY)) * layout.zoom,
+    width: page.screenWidth,
+    height: page.screenHeight,
   }))
 }

@@ -6,7 +6,7 @@ import type {
   PlacementRequest,
   PlacementResult,
   WorkspaceBounds,
-  WorkspaceFrame,
+  WorkspacePage,
 } from '../shared/types'
 import { resolveSpacing } from '../shared/types'
 import {
@@ -28,7 +28,7 @@ import { workspaceGroups } from './runtime/workspace-model'
 import { boundsOverlap } from './runtime/runtime-geometry'
 import { CHROME_HEADER_HEIGHT } from './runtime/runtime-constants'
 import {
-  allWorkspaceFrames,
+  allWorkspacePages,
   entityBoundsById,
   entityDataInsetsById,
   entityKindById,
@@ -53,7 +53,7 @@ function extendUpwardForChrome(bounds: WorkspaceBounds, headerHeight: number): W
 
 export function occupiedRegions(): WorkspaceBounds[] {
   return [
-    // Frames: use outer bounds (includes device shell) and extend up for chrome.
+    // Pages: use outer bounds (includes device shell) and extend up for chrome.
     ...pages.map((page) =>
       extendUpwardForChrome(pageOuterCanvasBounds(page), page.chromeHeight),
     ),
@@ -108,14 +108,14 @@ function scanForPlacement(
   startX: number,
   startY: number,
 ): PlacementResult {
-  const frames = allWorkspaceFrames()
+  const pages = allWorkspacePages()
   const maxRight = Math.max(
     2000,
-    ...frames.map((frame) => frame.canvasX + frame.width + CLUSTER_OUTER_MARGIN),
+    ...pages.map((page) => page.canvasX + page.width + CLUSTER_OUTER_MARGIN),
   )
   const maxBottom = Math.max(
     2000,
-    ...frames.map((frame) => frame.canvasY + frame.height + CLUSTER_OUTER_MARGIN),
+    ...pages.map((page) => page.canvasY + page.height + CLUSTER_OUTER_MARGIN),
   )
   const limitX = maxRight + width + 2000
   const limitY = maxBottom + height + 2000

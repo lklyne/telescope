@@ -11,8 +11,8 @@ import {
   updateTextEntity,
 } from '../runtime/document-commands'
 import { createNoteFile } from '../runtime/note-assets'
-import { createFrames } from '../workspace-frames'
-import { deleteFrames } from '../workspace-entities'
+import { createPages } from '../workspace-pages'
+import { deletePages } from '../workspace-entities'
 import { findPageById } from '../runtime/runtime-context'
 import { imageSizeFromPath, videoSizeFromPath } from '../runtime/image-sizing'
 import {
@@ -292,7 +292,7 @@ export const entityRoutes: Route[] = [
     async handler({ request, response, body }) {
       const payload = body as {
         items: Array<{
-          kind: 'frame' | 'text' | 'file'
+          kind: 'page' | 'text' | 'file'
           canvasX: number
           canvasY: number
           url?: string
@@ -312,18 +312,18 @@ export const entityRoutes: Route[] = [
         return
       }
       const itemsWithIds = payload.items.map((item) => {
-        const prefix = item.kind === 'frame' ? 'frame' : item.kind === 'text' ? 'text' : 'file'
+        const prefix = item.kind === 'page' ? 'page' : item.kind === 'text' ? 'text' : 'file'
         return { ...item, id: `${prefix}_${randomUUID()}` }
       })
       writeJson(response, 200, { items: itemsWithIds.map((item) => ({ kind: item.kind, id: item.id })) })
       staggerOperation(
         request,
         itemsWithIds.map((item) => ({ x: item.canvasX, y: item.canvasY })),
-        'create_frame',
+        'create_page',
         (i) => {
           const item = itemsWithIds[i]
-          if (item.kind === 'frame') {
-            createFrames({ frames: [{ id: item.id, url: item.url!, presetIndex: item.presetIndex ?? 0, canvasX: item.canvasX, canvasY: item.canvasY, linked: item.linked, groupId: item.groupId }] })
+          if (item.kind === 'page') {
+            createPages({ pages: [{ id: item.id, url: item.url!, presetIndex: item.presetIndex ?? 0, canvasX: item.canvasX, canvasY: item.canvasY, linked: item.linked, groupId: item.groupId }] })
           } else if (item.kind === 'text') {
             createTextEntity({ id: item.id, canvasX: item.canvasX, canvasY: item.canvasY, text: item.text, color: item.color, width: item.width, height: item.height })
           } else if (item.kind === 'file') {
@@ -338,7 +338,7 @@ export const entityRoutes: Route[] = [
     pattern: '/entities/delete',
     async handler({ request, response, body }) {
       const payload = body as {
-        items: Array<{ kind: 'frame' | 'text' | 'file'; id: string }>
+        items: Array<{ kind: 'page' | 'text' | 'file'; id: string }>
       }
       if (!Array.isArray(payload.items)) {
         writeJson(response, 400, { error: 'items array is required' })
@@ -347,7 +347,7 @@ export const entityRoutes: Route[] = [
       const itemsToDelete: Array<{ kind: string; id: string; x: number; y: number }> = []
       for (const item of payload.items) {
         let pos: { x: number; y: number } | null = null
-        if (item.kind === 'frame') {
+        if (item.kind === 'page') {
           const page = findPageById(item.id)
           if (page) pos = { x: page.canvasX, y: page.canvasY }
         } else if (item.kind === 'text') {
@@ -362,7 +362,7 @@ export const entityRoutes: Route[] = [
       writeJson(response, 200, { items: payload.items.map((item) => ({ kind: item.kind, id: item.id, deleted: true })) })
       staggerOperation(request, itemsToDelete, null, (i) => {
         const item = itemsToDelete[i]
-        if (item.kind === 'frame') deleteFrames({ frameIds: [item.id] })
+        if (item.kind === 'page') deletePages({ pageIds: [item.id] })
         else if (item.kind === 'text') deleteTextEntity(item.id)
         else if (item.kind === 'file') deleteFileEntity(item.id)
       })

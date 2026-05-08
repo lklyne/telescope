@@ -15,9 +15,9 @@ describe('parseArgs', () => {
   })
 
   it('extracts named flags', () => {
-    const result = parseArgs(['snapshot', '--frame', 'abc123'])
+    const result = parseArgs(['snapshot', '--page', 'abc123'])
     expect(result.verb).toBe('snapshot')
-    expect(result.flags.frame).toBe('abc123')
+    expect(result.flags.page).toBe('abc123')
   })
 
   it('extracts boolean flags', () => {
@@ -27,16 +27,16 @@ describe('parseArgs', () => {
   })
 
   it('handles mixed flags and positionals', () => {
-    const result = parseArgs(['create', 'frame', 'https://example.com', '--preset', '7', '--landscape'])
+    const result = parseArgs(['create', 'page', 'https://example.com', '--preset', '7', '--landscape'])
     expect(result.verb).toBe('create')
-    expect(result.positional).toEqual(['frame', 'https://example.com'])
+    expect(result.positional).toEqual(['page', 'https://example.com'])
     expect(result.flags.preset).toBe('7')
     expect(result.boolFlags.has('landscape')).toBe(true)
   })
 
-  it('handles --frame shorthand -f', () => {
-    const result = parseArgs(['snapshot', '-f', 'frame-123', '-i'])
-    expect(result.flags.f).toBe('frame-123')
+  it('handles --page shorthand -f', () => {
+    const result = parseArgs(['snapshot', '-f', 'page-123', '-i'])
+    expect(result.flags.f).toBe('page-123')
     expect(result.boolFlags.has('i')).toBe(true)
   })
 
@@ -66,9 +66,9 @@ describe('parseArgs', () => {
   })
 
   it('handles update with --at coordinates', () => {
-    const result = parseArgs(['update', 'frame-123', '--at', '800,400', '--preset', '3'])
+    const result = parseArgs(['update', 'page-123', '--at', '800,400', '--preset', '3'])
     expect(result.verb).toBe('update')
-    expect(result.positional).toEqual(['frame-123'])
+    expect(result.positional).toEqual(['page-123'])
     expect(result.flags.at).toBe('800,400')
     expect(result.flags.preset).toBe('3')
   })
@@ -80,9 +80,9 @@ describe('parseArgs', () => {
   })
 
   it('handles record subcommands', () => {
-    const result = parseArgs(['record', 'start', 'frame-123', '--output', '/tmp/video.webm'])
+    const result = parseArgs(['record', 'start', 'page-123', '--output', '/tmp/video.webm'])
     expect(result.verb).toBe('record')
-    expect(result.positional).toEqual(['start', 'frame-123'])
+    expect(result.positional).toEqual(['start', 'page-123'])
     expect(result.flags.output).toBe('/tmp/video.webm')
   })
 

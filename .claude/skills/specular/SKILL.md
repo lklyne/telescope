@@ -1,19 +1,19 @@
 ---
 name: specular
-description: Drive Specular — a spatial canvas for iterating on web UI — from Claude Code. Use this skill whenever you need to pull a live website into a shared canvas, arrange frames at breakpoints, annotate pages, or inspect snapshots.
+description: Drive Specular — a spatial canvas for iterating on web UI — from Claude Code. Use this skill whenever you need to pull a live website into a shared canvas, arrange pages at breakpoints, annotate pages, or inspect snapshots.
 ---
 
 # Specular
 
-Specular is a spatial canvas that lets you pull live web pages (frames) onto a
+Specular is a spatial canvas that lets you pull live web pages onto a
 freeform surface, view them at different breakpoints, and annotate them. All
-canvas and frame operations go through the `specular` command.
+canvas and page operations go through the `specular` command.
 
 ## Core workflow
 
-1. `specular workspace` — list the current canvas: frames, groups, edges, annotations.
-2. `specular create frame <url>` — pull a live site onto the canvas as a frame.
-3. `specular snapshot -i` — get element refs for the selected frame (or `-f <frameId>`).
+1. `specular workspace` — list the current canvas: pages, groups, edges, annotations.
+2. `specular create page <url>` — pull a live site onto the canvas as a page.
+3. `specular snapshot -i` — get element refs for the selected page (or `-f <pageId>`).
 4. `specular click @<ref>` / `specular fill @<ref> "<text>"` — interact.
 5. `specular snapshot -i` — re-snapshot after DOM mutations (refs go stale).
 
@@ -23,16 +23,16 @@ canvas and frame operations go through the `specular` command.
 |---|---|
 | `specular workspace` | Print the current canvas state as JSON |
 | `specular selection` | Print the currently selected entities |
-| `specular create frame <url>` | Add a live page to the canvas |
+| `specular create page <url>` | Add a live page to the canvas |
 | `specular create note <text>` | Add a text note to the canvas |
-| `specular upsert --json < items.json` | Batch create/update entities (frames, notes, files) |
+| `specular upsert --json < items.json` | Batch create/update entities (pages, notes, files) |
 | `specular update <id> …` | Update properties on an existing entity |
 | `specular delete <id>` | Remove an entity |
 | `specular focus <id>` | Scroll the viewport so the entity is centered |
 | `specular find-placement` | Find open canvas space for new entities |
-| `specular link <a> <b>` | Connect two frames with an edge |
+| `specular link <a> <b>` | Connect two pages with an edge |
 | `specular group <id…>` | Group entities together |
-| `specular breakpoints <id>` | Cycle through device breakpoints for a frame |
+| `specular breakpoints <id>` | Cycle through device breakpoints for a page |
 | `specular annotate "<text>"` | Leave an annotation on the canvas |
 | `specular annotations` | List unresolved annotations (pending + acknowledged) |
 | `specular annotations --status <s>` | Filter by specific status (`pending`, `acknowledged`, `resolved`, `dismissed`) |
@@ -42,13 +42,13 @@ canvas and frame operations go through the `specular` command.
 | `specular snapshot -i` | Capture an accessibility snapshot with refs |
 | `specular click @<ref>` | Click an element by ref |
 | `specular fill @<ref> "<text>"` | Fill a form field |
-| `specular screenshot -f <id>` | Screenshot a frame |
+| `specular screenshot -f <id>` | Screenshot a page |
 
 ## Entity types
 
 | Kind | Created via | Description |
 |---|---|---|
-| frame | `specular create frame <url>` | Live web page rendered in a webview |
+| page | `specular create page <url>` | Live web page rendered in a webview |
 | text | `specular create note <text>` | Short text note (sticky-note style) |
 | file | `specular upsert --json` | File entity — markdown (`.md`) or wireframe (`.wireframe.json`) |
 
@@ -65,21 +65,21 @@ creates new items *and* reorganizes existing ones — pass an `id` to re-lay-out
 an entity that's already on the canvas.
 
 ```bash
-# Create three frames in a row at breakpoints
+# Create three pages in a row at breakpoints
 cat << 'EOF' | specular upsert --json
 {
   "layout": { "kind": "row", "gap": "m", "originX": 200, "originY": 200 },
   "items": [
-    {"kind":"frame","url":"https://example.com","presetIndex":0},
-    {"kind":"frame","url":"https://example.com","presetIndex":3},
-    {"kind":"frame","url":"https://example.com","presetIndex":6}
+    {"kind":"page","url":"https://example.com","presetIndex":0},
+    {"kind":"page","url":"https://example.com","presetIndex":3},
+    {"kind":"page","url":"https://example.com","presetIndex":6}
   ]
 }
 EOF
 ```
 
 ```bash
-# Reorganize 6 existing frames into a 3x2 grid
+# Reorganize 6 existing pages into a 3x2 grid
 cat << 'EOF' | specular upsert --json
 {
   "layout": { "kind": "grid", "cols": 3, "gap": "m", "near": "frame_a" },
@@ -136,7 +136,7 @@ custom tone.
 ### Note sizes
 
 Default to the built-in 200×200 sticky-note size — it's tuned to sit well
-next to frames on the canvas. Only pass `width`/`height` when there's an
+next to pages on the canvas. Only pass `width`/`height` when there's an
 explicit reason (e.g. a long-form card that really needs more room). Custom
 sizes tend to look off against the rest of the workspace.
 
@@ -144,7 +144,7 @@ sizes tend to look off against the rest of the workspace.
 
 Files ending in `.wireframe.json` render as interactive wireframe editors on the
 canvas. Use them to sketch UI layouts, explore design variants, and iterate
-spatially alongside live frames. Write the JSON file to disk, then upsert it:
+spatially alongside live pages. Write the JSON file to disk, then upsert it:
 
 ```bash
 cat << 'EOF' | specular upsert --json
@@ -156,8 +156,8 @@ See [references/wireframes.md](references/wireframes.md) for the full node schem
 
 ## Passing URLs
 
-Always pass full URLs (including scheme and host) to `specular create frame`.
-The canvas can contain frames from different origins, so bare paths like
+Always pass full URLs (including scheme and host) to `specular create page`.
+The canvas can contain pages from different origins, so bare paths like
 `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
 
 ## Chaining
@@ -165,22 +165,22 @@ The canvas can contain frames from different origins, so bare paths like
 Commands can be chained with `&&` for atomic sequences:
 
 ```
-specular create frame http://localhost:3000 && specular snapshot -i
+specular create page http://localhost:3000 && specular snapshot -i
 ```
 
-## Switching the active frame
+## Switching the active page
 
 Browse verbs (`snapshot`, `click`, `fill`, `scroll`, `screenshot`) need a target
-frame. There is no persistent "active frame" binding — pass `-f <frameId>` on
+page. There is no persistent "active page" binding — pass `-f <pageId>` on
 every browse call:
 
 ```
-specular snapshot -i -f <frameId>
-specular click @e3 -f <frameId>
+specular snapshot -i -f <pageId>
+specular click @e3 -f <pageId>
 ```
 
 `specular focus <id>` only scrolls the canvas viewport — it does not set the
-active frame.
+active page.
 
 ## Useful verbs
 
@@ -189,7 +189,7 @@ active frame.
 > have not been directly tested.
 
 - `specular back` / `specular forward` / `specular reload` — browser history
-  navigation inside the active frame. Handy after `click` navigates you away
+  navigation inside the active page. Handy after `click` navigates you away
   and you want to return.
 
 ## Known CLI limitations
@@ -203,8 +203,8 @@ active frame.
 
 When you encounter new gaps, append them to the tracking issue (see below).
 
-- **`specular breakpoints <id>` creates sibling frames with malformed URLs** — the new frames get `https://<sourceFrameId>/` instead of the source frame's real URL, so they load an invalid host instead of mirroring the page. Unusable as a multi-breakpoint primitive until fixed.
-- **`specular update <id> --url` is a silent no-op** — the command returns `updated: [id]` but neither the webview nor the workspace URL field changes. Use `specular click` on a link, or delete + recreate the frame, to navigate.
+- **`specular breakpoints <id>` creates sibling pages with malformed URLs** — the new pages get `https://<sourceFrameId>/` instead of the source page's real URL, so they load an invalid host instead of mirroring the page. Unusable as a multi-breakpoint primitive until fixed.
+- **`specular update <id> --url` is a silent no-op** — the command returns `updated: [id]` but neither the webview nor the workspace URL field changes. Use `specular click` on a link, or delete + recreate the page, to navigate.
 - **`specular update` silently ignores unsupported flags** — `--width`, `--label`, `--url` all return `updated: [id]` while applying nothing. Only `--preset / --at / --text / --color / --landscape / --portrait` actually take effect. Re-read workspace to verify.
 - **`specular link` does not validate entity ids** — self-edges and edges to nonexistent ids are accepted and stored. Confirm both endpoints exist before calling `link`.
 - **`specular delete <annotation_id>` silently lies** — the generic `delete` verb accepts annotation ids and returns `{"items":[{"kind":"file","id":"ann_...","deleted":true}]}` but does NOT call the annotation DELETE route. The annotation stays. Call `DELETE /annotations/:id` via raw HTTP, or wait for a dedicated verb.

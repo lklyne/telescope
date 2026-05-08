@@ -28,10 +28,10 @@ export type FocusState = {
   commentOverlayActive: boolean
   /** Explicit intent set by a subsystem (overrides derivation). Cleared after reconcile. */
   pendingFocus: FocusTarget | null
-  /** Predicate-derived: the frame id that should hold keyboard + receive
-   *  forwarded input, or null. Filled from `currentKeyboardTargetFrameId`
+  /** Predicate-derived: the page id that should hold keyboard + receive
+   *  forwarded input, or null. Filled from `currentKeyboardTargetPageId`
    *  at the runtime binding layer. */
-  focusedFrameId: string | null
+  focusedPageId: string | null
 }
 
 export function expectedFocus(state: FocusState): FocusTarget {
@@ -41,11 +41,11 @@ export function expectedFocus(state: FocusState): FocusTarget {
   // interaction + commentOverlayActive). Gesture modes still win below
   // — a drag started on canvas chrome should not be hijacked.
   if (
-    state.focusedFrameId &&
+    state.focusedPageId &&
     state.interactionMode === 'idle' &&
     !state.commentOverlayActive
   ) {
-    return { kind: 'page', id: state.focusedFrameId }
+    return { kind: 'page', id: state.focusedPageId }
   }
 
   // Gesture-active: input gate (aboveView) owns focus.

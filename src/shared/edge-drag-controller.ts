@@ -1,6 +1,6 @@
 /**
  * Edge-drag controller — pure state machine + geometry for anchor-to-anchor
- * edge gestures (the "drag from a frame's anchor to another frame" gesture
+ * edge gestures (the "drag from a page's anchor to another page" gesture
  * that creates or re-routes an edge in the workspace).
  *
  * Lives in src/shared so the canvas-pointer-router (renderer) and tests can

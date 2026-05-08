@@ -6,16 +6,16 @@ import { toolbarApi } from './toolbarApi'
 export const ZOOM_PRESETS = [10, 25, 50, 75, 100, 150, 200] as const
 
 const EMPTY_SELECTION: ToolbarSelectionData = {
-  activeFrameId: null,
+  activePageId: null,
   selectedEntityIds: [],
   selectionCount: 0,
-  availableFrameCount: 0,
+  availablePageCount: 0,
   displayUrl: '',
   placeholder: '',
   canGoBack: false,
   canGoForward: false,
-  isLoadingActiveFrame: false,
-  loadingFrameCount: 0,
+  isLoadingActivePage: false,
+  loadingPageCount: 0,
   isLoadingAnySelected: false,
   loadingPhase: 'idle',
   activeTabId: null,
@@ -38,7 +38,7 @@ export interface ToolbarState {
   addressBarRef: RefObject<HTMLInputElement | null>
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
   hasSelection: boolean
-  hasFrames: boolean
+  hasPages: boolean
   isBrowserMode: boolean
   defaultToolActive: boolean
   agentCursors: AgentPresenceCursor[]
@@ -104,7 +104,7 @@ export function useToolbarState(): ToolbarState {
     ? (zoomPercent as (typeof ZOOM_PRESETS)[number])
     : null
   const hasSelection = selection.selectionCount > 0
-  const hasFrames = selection.availableFrameCount > 0
+  const hasPages = selection.availablePageCount > 0
   const isBrowserMode = selection.viewMode === 'browser'
   const defaultToolActive = !inspectEnabled && annotationMode === 'off'
 
@@ -122,7 +122,7 @@ export function useToolbarState(): ToolbarState {
     addressBarRef,
     currentPresetValue,
     hasSelection,
-    hasFrames,
+    hasPages,
     isBrowserMode,
     defaultToolActive,
     agentCursors,

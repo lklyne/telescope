@@ -2,7 +2,7 @@ import type { WebContentsView } from 'electron'
 import type {
   ComponentTreeNode,
   InspectNodeDetail,
-  WorkspaceFrameSource,
+  WorkspacePageSource,
 } from '../../shared/types'
 import type { DeviceOrientation } from '../../shared/device-catalog'
 
@@ -21,7 +21,7 @@ export interface Page {
   canvasY: number
   chromeHeight: number
   linked: boolean
-  source: WorkspaceFrameSource
+  source: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
@@ -48,13 +48,13 @@ export interface Page {
 // Custom size metadata (canvas sizing — renamed from "responsive")
 // ---------------------------------------------------------------------------
 
-type FrameCustomSizeMetadata = {
-  frameSizeMode?: 'custom' | 'responsive' // accept legacy 'responsive' on read
+type PageCustomSizeMetadata = {
+  pageSizeMode?: 'custom' | 'responsive' // accept legacy 'responsive' on read
   customSize?: { width?: unknown; height?: unknown }
   responsiveSize?: { width?: unknown; height?: unknown } // legacy field
 }
 
-export function frameOverridesFromMetadata(
+export function pageOverridesFromMetadata(
   metadata: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
   if (!metadata) return undefined
@@ -65,13 +65,13 @@ export function frameOverridesFromMetadata(
   return candidate as Record<string, unknown>
 }
 
-export function frameCustomSizeFromMetadata(
+export function pageCustomSizeFromMetadata(
   metadata: Record<string, unknown> | undefined,
 ): { width: number; height: number } | null {
   if (!metadata) return null
-  const candidate = metadata as FrameCustomSizeMetadata
+  const candidate = metadata as PageCustomSizeMetadata
   // Accept both new 'custom' and legacy 'responsive'
-  if (candidate.frameSizeMode !== 'custom' && candidate.frameSizeMode !== 'responsive') return null
+  if (candidate.pageSizeMode !== 'custom' && candidate.pageSizeMode !== 'responsive') return null
   // Try new field first, fall back to legacy
   const sizeObj = candidate.customSize ?? candidate.responsiveSize
   const width = sizeObj?.width
@@ -81,42 +81,42 @@ export function frameCustomSizeFromMetadata(
   return { width, height }
 }
 
-export function frameUsesCustomSize(
+export function pageUsesCustomSize(
   metadata: Record<string, unknown> | undefined,
 ): boolean {
-  return frameCustomSizeFromMetadata(metadata) !== null
+  return pageCustomSizeFromMetadata(metadata) !== null
 }
 
-export function setCustomFrameSizeMetadata(
+export function setCustomPageSizeMetadata(
   metadata: Record<string, unknown> | undefined,
   size: { width: number; height: number },
 ): Record<string, unknown> {
   const next = { ...(metadata ?? {}) }
-  next.frameSizeMode = 'custom'
+  next.pageSizeMode = 'custom'
   next.customSize = { width: size.width, height: size.height }
   // Clean up legacy fields
   delete next.responsiveSize
   return next
 }
 
-export function clearCustomFrameSizeMetadata(
+export function clearCustomPageSizeMetadata(
   metadata: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
   if (!metadata) return undefined
   const next = { ...metadata }
-  delete next.frameSizeMode
+  delete next.pageSizeMode
   delete next.customSize
   delete next.responsiveSize
   return Object.keys(next).length ? next : undefined
 }
 
 // ---------------------------------------------------------------------------
-// Browser size mode metadata (per-frame fill vs device in browser mode)
+// Browser size mode metadata (per-page fill vs device in browser mode)
 // ---------------------------------------------------------------------------
 
 export type BrowserSizeMode = 'fill' | 'device'
 
-export function frameBrowserSizeModeFromMetadata(
+export function pageBrowserSizeModeFromMetadata(
   metadata: Record<string, unknown> | undefined,
 ): BrowserSizeMode {
   if (!metadata) return 'device'
@@ -124,7 +124,7 @@ export function frameBrowserSizeModeFromMetadata(
   return mode === 'fill' ? 'fill' : 'device'
 }
 
-export function setFrameBrowserSizeMode(
+export function setPageBrowserSizeMode(
   metadata: Record<string, unknown> | undefined,
   mode: BrowserSizeMode,
 ): Record<string, unknown> {
@@ -135,7 +135,7 @@ export function setFrameBrowserSizeMode(
 }
 
 // ---------------------------------------------------------------------------
-// Device frame metadata (device shell presentation)
+// Device page metadata (device shell presentation)
 // ---------------------------------------------------------------------------
 
 export function deviceIdFromMetadata(

@@ -12,7 +12,7 @@ import type {
   PersistedCanvasEntity,
   PersistedDrawingEntity,
   PersistedFileEntity,
-  PersistedFrameEntity,
+  PersistedPageEntity,
   PersistedGroupEntity,
   PersistedShapeEntity,
   PersistedTextEntity,
@@ -34,7 +34,7 @@ import type {
 } from '../../shared/json-canvas-types'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
-import { frameCustomSizeFromMetadata } from './runtime-entities'
+import { pageCustomSizeFromMetadata } from './runtime-entities'
 
 // --- Serialize ---
 
@@ -49,11 +49,11 @@ export function serializeToJsonCanvas(
   const entityIds = snapshot.entityOrder ?? Object.keys(snapshot.entities ?? {})
   const entities = snapshot.entities ?? {}
 
-  // Also include frame entities from legacy pages array
+  // Also include page entities from legacy pages array
   for (const page of snapshot.pages) {
     if (page.id && !entities[page.id]) {
-      const entity: PersistedFrameEntity = {
-        kind: 'frame',
+      const entity: PersistedPageEntity = {
+        kind: 'page',
         id: page.id,
         name: page.name,
         url: page.url,
@@ -76,8 +76,8 @@ export function serializeToJsonCanvas(
     const entity = entities[id]
     if (!entity) continue
 
-    if (entity.kind === 'frame') {
-      nodes.push(serializeFrameToLinkNode(entity))
+    if (entity.kind === 'page') {
+      nodes.push(serializePageToLinkNode(entity))
     } else if (entity.kind === 'text') {
       nodes.push(serializeTextToTextNode(entity))
     } else if (entity.kind === 'file') {
@@ -111,9 +111,9 @@ export function serializeToJsonCanvas(
   return doc
 }
 
-function serializeFrameToLinkNode(entity: PersistedFrameEntity): JsonCanvasLinkNode {
+function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvasLinkNode {
   const preset = VIEWPORT_PRESETS[entity.presetIndex] ?? VIEWPORT_PRESETS[0]
-  const customSize = frameCustomSizeFromMetadata(entity.metadata)
+  const customSize = pageCustomSizeFromMetadata(entity.metadata)
   return {
     id: entity.id,
     type: 'link',
@@ -239,7 +239,7 @@ function serializeAppState(snapshot: WorkspaceSnapshot): JsonCanvasAppState {
   return {
     zoom: snapshot.zoom,
     pan: { ...snapshot.pan },
-    selectedEntityIds: snapshot.selectedFrameIds ?? [],
+    selectedEntityIds: snapshot.selectedPageIds ?? [],
     leftSidebarOpen: snapshot.leftSidebarOpen,
     devtoolsOpen: snapshot.devtoolsOpen,
     devtoolsPanelTab: snapshot.devtoolsPanelTab,
@@ -258,7 +258,7 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
   const entityOrder: string[] = []
   for (const node of doc.nodes) {
     if (node.type === 'link') {
-      const entity = deserializeLinkNodeToFrame(node)
+      const entity = deserializeLinkNodeToPage(node)
       entities[entity.id] = entity
       entityOrder.push(entity.id)
     } else if (node.type === 'text') {
@@ -295,13 +295,13 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
     entities,
     entityOrder,
     selectedPageIndex: null,
-    selectedFrameId: null,
-    selectedFrameIds: appState.selectedEntityIds ?? [],
+    selectedPageId: null,
+    selectedPageIds: appState.selectedEntityIds ?? [],
     leftSidebarOpen: appState.leftSidebarOpen ?? true,
     devtoolsOpen: appState.devtoolsOpen ?? false,
     devtoolsPanelTab: (appState.devtoolsPanelTab as DevtoolsPanelTab) ?? 'elements',
     devtoolsWidth: appState.devtoolsWidth ?? 400,
-    browserTabMode: (appState.browserTabMode as BrowserTabMode) ?? 'frame',
+    browserTabMode: (appState.browserTabMode as BrowserTabMode) ?? 'page',
     edges,
   }
 
@@ -310,9 +310,9 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
   return { snapshot, annotations }
 }
 
-function deserializeLinkNodeToFrame(node: JsonCanvasLinkNode): PersistedFrameEntity {
+function deserializeLinkNodeToPage(node: JsonCanvasLinkNode): PersistedPageEntity {
   return {
-    kind: 'frame',
+    kind: 'page',
     id: node.id,
     name: node.label,
     url: node.url,
@@ -320,7 +320,7 @@ function deserializeLinkNodeToFrame(node: JsonCanvasLinkNode): PersistedFrameEnt
     canvasX: node.x,
     canvasY: node.y,
     linked: node.linked ?? false,
-    source: node.source as PersistedFrameEntity['source'],
+    source: node.source as PersistedPageEntity['source'],
     groupId: node.groupId,
     metadata: node.metadata,
   }

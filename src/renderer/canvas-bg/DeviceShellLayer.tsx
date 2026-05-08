@@ -1,4 +1,4 @@
-import type { CanvasSceneFrameEntity, CanvasSceneFileEntity } from '../../shared/types'
+import type { CanvasScenePageEntity, CanvasSceneFileEntity } from '../../shared/types'
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
   CUSTOM_SHELL_SCREEN_CORNER_RADIUS,
@@ -24,34 +24,34 @@ interface DeviceShellItem {
 }
 
 export function DeviceShellLayer({
-  frames,
+  pages,
   fileEntities,
   isDark,
 }: {
-  frames: CanvasSceneFrameEntity[]
+  pages: CanvasScenePageEntity[]
   fileEntities?: CanvasSceneFileEntity[]
   isDark: boolean
 }) {
-  const framedFrames: DeviceShellItem[] = frames.filter((f) => f.showDeviceFrame && f.browserSizeMode !== 'fill')
+  const framedPages: DeviceShellItem[] = pages.filter((f) => f.showDeviceFrame && f.browserSizeMode !== 'fill')
   const framedFiles: DeviceShellItem[] = (fileEntities ?? []).filter((f) => f.showDeviceFrame)
 
-  if (!framedFrames.length && !framedFiles.length) return null
+  if (!framedPages.length && !framedFiles.length) return null
 
-  const renderItem = (frame: DeviceShellItem) => {
-        const dev = frame.deviceId ? DEVICE_CATALOG.get(frame.deviceId) : null
+  const renderItem = (page: DeviceShellItem) => {
+        const dev = page.deviceId ? DEVICE_CATALOG.get(page.deviceId) : null
 
-        const orientation = frame.deviceOrientation ?? 'portrait'
+        const orientation = page.deviceOrientation ?? 'portrait'
 
-        const contentX = frame.contentScreenX ?? frame.screenX
-        const contentY = frame.contentScreenY ?? frame.screenY
-        const contentW = frame.contentScreenWidth ?? frame.screenWidth
-        const contentH = frame.contentScreenHeight ?? frame.screenHeight
+        const contentX = page.contentScreenX ?? page.screenX
+        const contentY = page.contentScreenY ?? page.screenY
+        const contentW = page.contentScreenWidth ?? page.screenWidth
+        const contentH = page.contentScreenHeight ?? page.screenHeight
 
         // Shell outer rect is screenX/Y/Width/Height (already outer bounds)
-        const shellX = frame.screenX
-        const shellY = frame.screenY
-        const shellW = frame.screenWidth
-        const shellH = frame.screenHeight
+        const shellX = page.screenX
+        const shellY = page.screenY
+        const shellW = page.screenWidth
+        const shellH = page.screenHeight
 
         // Insets in screen space
         const insetTop = contentY - shellY
@@ -60,10 +60,10 @@ export function DeviceShellLayer({
         const insetRight = shellX + shellW - (contentX + contentW)
 
         // Derive zoom from screen vs logical content width
-        const displayZoom = frame.width > 0 ? contentW / frame.width : 1
+        const displayZoom = page.width > 0 ? contentW / page.width : 1
         const outerRadius = (dev?.cornerRadius ?? CUSTOM_SHELL_CORNER_RADIUS) * displayZoom
         const innerRadius = dev
-          ? contentCornerRadiusForDevice(frame.deviceId!, orientation) * displayZoom
+          ? contentCornerRadiusForDevice(page.deviceId!, orientation) * displayZoom
           : CUSTOM_SHELL_SCREEN_CORNER_RADIUS * displayZoom
 
         const isPhone = dev?.category === 'iphone'
@@ -76,7 +76,7 @@ export function DeviceShellLayer({
 
         return (
           <div
-            key={frame.id}
+            key={page.id}
             className="pointer-events-none absolute"
             style={{
               left: shellX,
@@ -194,7 +194,7 @@ export function DeviceShellLayer({
 
   return (
     <>
-      {framedFrames.map(renderItem)}
+      {framedPages.map(renderItem)}
       {framedFiles.map(renderItem)}
     </>
   )

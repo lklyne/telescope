@@ -33,7 +33,7 @@ describe('validateLayoutDirective', () => {
   it('accepts the full surface', () => {
     expect(validateLayoutDirective({
       kind: 'grid', gap: 'm', rowGap: 24, colGap: 'l', cols: 3,
-      originX: 100, originY: 200, near: 'frame_x',
+      originX: 100, originY: 200, near: 'page_x',
     })).toBeNull()
   })
   it('rejects bad kind', () => {

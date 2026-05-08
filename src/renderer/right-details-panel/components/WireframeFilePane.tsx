@@ -12,7 +12,7 @@ const THEME_OPTIONS = [
 ] as const
 
 const NODE_TYPE_ICONS: Record<string, string> = {
-  frame: '□',
+  page: '□',
   text: 'T',
   button: '⊞',
   input: '▭',
@@ -41,9 +41,9 @@ function nodeLabel(node: WireframeNode): string {
   if (node.type === 'input') return node.label ?? node.placeholder ?? 'Input'
   if (node.type === 'dropdown') return node.label ?? node.placeholder ?? 'Dropdown'
   if (node.type === 'checkbox' || node.type === 'toggle') return node.label ?? node.type
-  if (node.type === 'frame') {
+  if (node.type === 'page') {
     const dir = node.direction === 'horizontal' ? '→' : '↓'
-    return `Frame ${dir}`
+    return `Page ${dir}`
   }
   return node.type
 }
@@ -82,7 +82,7 @@ function NodeTreeItem({
 }
 
 const PALETTE_ITEMS = [
-  { type: 'frame', label: 'Frame' },
+  { type: 'page', label: 'Page' },
   { type: 'text', label: 'Text' },
   { type: 'button', label: 'Button' },
   { type: 'input', label: 'Input' },

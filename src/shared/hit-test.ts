@@ -2,7 +2,7 @@
  * Hit-tester for canvas pointer events arriving from aboveView.
  *
  * Replaces the per-layer onMouseDown / DOM-stacking arbitration in bgView.
- * See docs/adr/0001-click-to-enter-frame-focus.md.
+ * See docs/adr/0001-click-to-enter-page-focus.md.
  *
  * Pure: no Electron, no DOM. Selectors derive screen-space HitTargets from
  * the canvas scene; hitTest walks them by priority and returns the winner.
@@ -17,7 +17,7 @@ import {
   EDGE_ANCHOR_HIT_ALONG_PX,
   EDGE_ANCHOR_HIT_GAP_PX,
   EDGE_SIDES,
-  FRAME_CHROME_HEIGHT_PX,
+  PAGE_CHROME_HEIGHT_PX,
   MULTI_SELECTION_OUTLINE_PADDING_PX,
   RESIZE_HANDLE_HIT_PX,
   scaleEdgeAnchorHitSize,
@@ -40,7 +40,7 @@ export type HitPayload =
   | { kind: 'multi-resize-handle'; handle: ResizeHandle }
   | { kind: 'chrome'; entityId: string; entityKind: CanvasEntityKind }
   | { kind: 'anchor'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
-  | { kind: 'frame-body'; entityId: string }
+  | { kind: 'page-body'; entityId: string }
   | { kind: 'entity-body'; entityId: string; entityKind: CanvasEntityKind }
   | { kind: 'background' }
 
@@ -259,7 +259,7 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
   // order and `entityOrder`). For hit-testing we want the front-most entity
   // to win, so non-group bodies iterate in reverse. Groups stay last in the
   // hit list because they're containers — members painted above them must
-  // hit first ("click inside group selects inner"). Frame and non-group
+  // hit first ("click inside group selects inner"). Page and non-group
   // entity bodies sort together; the front-most wins regardless of kind.
   const groups: HitTarget[] = []
   const others: HitTarget[] = []
@@ -269,8 +269,8 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
       layer: 'body',
       region: { kind: 'rect', rect: bodyRect(entity) },
       payload:
-        entity.kind === 'frame'
-          ? { kind: 'frame-body', entityId: entity.id }
+        entity.kind === 'page'
+          ? { kind: 'page-body', entityId: entity.id }
           : { kind: 'entity-body', entityId: entity.id, entityKind: entity.kind },
     }
     if (entity.kind === 'group') groups.push(target)
@@ -293,7 +293,7 @@ const HANDLES: readonly ResizeHandle[] = ['nw', 'ne', 'se', 'sw', 'n', 'e', 's',
 // pixels users actually see.
 function outlinePaddingFor(kind: CanvasEntityKind): number {
   switch (kind) {
-    case 'frame': return 6
+    case 'page': return 6
     case 'group': return 0
     default: return 2
   }
@@ -329,9 +329,9 @@ function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
 function chromeRect(entity: CanvasSceneEntity): Rect {
   return {
     x: entity.screenX,
-    y: entity.screenY - FRAME_CHROME_HEIGHT_PX,
+    y: entity.screenY - PAGE_CHROME_HEIGHT_PX,
     width: entity.screenWidth,
-    height: FRAME_CHROME_HEIGHT_PX,
+    height: PAGE_CHROME_HEIGHT_PX,
   }
 }
 
@@ -365,9 +365,9 @@ function anchorRect(entity: CanvasSceneEntity, side: EdgeSide, zoom: number): Re
 }
 
 function entityHasChrome(kind: CanvasEntityKind): boolean {
-  // Frames and files have chrome strips above them; text/shape/drawing/group
+  // Pages and files have chrome strips above them; text/shape/drawing/group
   // do not (text/shape have inline editors when selected, not chrome).
-  return kind === 'frame' || kind === 'file'
+  return kind === 'page' || kind === 'file'
 }
 
 function entityHasAnchors(kind: CanvasEntityKind): boolean {

@@ -5,7 +5,7 @@ import type {
 import { snapToGrid, screenPointToCanvasPoint } from '../../shared/gesture-utils'
 import { unionScreenBounds } from './canvasGeometry'
 
-export function buildSelectedFrameIdSet(selectedEntityIds: string[]): Set<string> {
+export function buildSelectedPageIdSet(selectedEntityIds: string[]): Set<string> {
   return new Set(selectedEntityIds)
 }
 

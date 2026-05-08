@@ -1,7 +1,7 @@
 # ADR 0003 — `Page` as the canonical name for live web items
 
 **Status:** Accepted
-**Implementation:** Not started — see Migration plan section. CONTEXT.md uses the new vocabulary; runtime / IPC / components still use `frame`.
+**Implementation:** Landed 2026-05-08 — sweeping rename across `src/shared/types.ts`, `src/main/runtime/`, IPC channels (`canvas-frame-*` → `canvas-page-*`), preload bridges, components (`FrameChrome` → `PageChrome`, etc.), serializer (`serializeFrameToLinkNode` → `serializePageToLinkNode`), toolbar copy ("Add page"), tests, and docs. Files renamed accordingly (e.g. `frame-ipc.ts` → `page-ipc.ts`, `workspace-frames.ts` → `workspace-pages.ts`). The runtime `Page` wrapper in `page-factory.ts` keeps its name and now shares vocabulary with the entity. Device-shell internals (`frameView`, `lastFrameBoundsKey`, `frameColor`, the `frame:` key on `boundScreenBoundsForPage` results, the `frame: false` BrowserWindow option) intentionally retain "frame" — they're the device chassis around a page, not the entity. ADRs 0001 and 0002 are unchanged per their original wording.
 **Date:** 2026-05-08
 **Supersedes premise of:** the `frame` entity-kind name and the parallel runtime/entity vocabulary that came with it (e.g. `PersistedFrameEntity` ↔ runtime `Page` WCV wrapper).
 **Related:** [ADR 0001 — click-to-enter frame focus](./0001-click-to-enter-frame-focus.md), [ADR 0002 — canvas-anchored overlay UI](./0002-canvas-anchored-overlay-ui.md). Both ADRs were authored under the old name and are not being rewritten; their behavior is unchanged.

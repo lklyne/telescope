@@ -61,26 +61,26 @@ export function registerTools(mcpServer: Server): void {
       const results = await upsertEntities(args.items as Array<Record<string, unknown>>)
       return { content: [{ type: 'text', text: JSON.stringify(results) }] }
     }
-    case 'link_frames':
+    case 'link_pages':
       return asText(
         await callApp('/edges/create', {
           method: 'POST',
           body: JSON.stringify({ edges: args.edges }),
         }),
       )
-    case 'unlink_frames':
+    case 'unlink_pages':
       return asText(
         await callApp('/edges/delete', {
           method: 'POST',
           body: JSON.stringify({ edgeIds: args.edgeIds }),
         }),
       )
-    case 'focus_frames':
+    case 'focus_pages':
       return asText(
         await callApp('/camera/focus', {
           method: 'POST',
           body: JSON.stringify({
-            frameIds: args.frameIds,
+            pageIds: args.pageIds,
             groupIds: args.groupIds,
             bounds: args.bounds,
           }),
@@ -111,7 +111,7 @@ export function registerTools(mcpServer: Server): void {
           method: 'POST',
           body: JSON.stringify({
             groupIds: args.group_ids,
-            deleteMemberFrames: args.delete_member_frames ?? true,
+            deleteMemberPages: args.delete_member_pages ?? true,
             focusAfter: args.focus_after ?? false,
           }),
         }),
@@ -162,7 +162,7 @@ export function registerTools(mcpServer: Server): void {
       const result = await getAnnotationsSlim({
         status: args.status as string | undefined,
         url: args.url as string | undefined,
-        frame_id: args.frame_id as string | undefined,
+        page_id: args.page_id as string | undefined,
       })
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
@@ -217,7 +217,7 @@ export function registerTools(mcpServer: Server): void {
         await callApp('/recording/start', {
           method: 'POST',
           body: JSON.stringify({
-            frameId: args.frame_id,
+            pageId: args.page_id,
             outputPath: args.output_path,
             fps: args.fps,
             quality: args.quality,

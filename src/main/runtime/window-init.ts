@@ -49,7 +49,7 @@ import { onTrackerChange } from '../agent-fix/fix-tracker'
 import { getFixProgress, onProgressChange } from '../agent-fix/fix-progress'
 import { safeSend } from './safe-send'
 import {
-  backgroundFrameOverlays,
+  backgroundPageOverlays,
   activeCanvasSelection,
   buildCanvasLayoutData,
   sendAnnotationLayoutUpdate,
@@ -91,9 +91,9 @@ function mcpEmptyState() {
     'apply_task_layout',
     'upsert_entities',
     'delete_entities',
-    'link_frames',
-    'unlink_frames',
-    'focus_frames',
+    'link_pages',
+    'unlink_pages',
+    'focus_pages',
     'create_group',
     'ungroup_group',
     'delete_groups',
@@ -217,11 +217,11 @@ export function initWindow(): void {
 
   currentBgView.webContents.once('did-finish-load', () => {
     currentBgView.webContents.send('theme-changed', { isDark: isDark() })
-    const frameOverlays = backgroundFrameOverlays()
+    const pageOverlays = backgroundPageOverlays()
     const nextActiveSelection = activeCanvasSelection()
-    currentBgView.webContents.send('layout-update', buildCanvasLayoutData(frameOverlays, nextActiveSelection))
+    currentBgView.webContents.send('layout-update', buildCanvasLayoutData(pageOverlays, nextActiveSelection))
     sendAnnotationLayoutUpdate({
-      frames: frameOverlays,
+      pages: pageOverlays,
       activeSelection: nextActiveSelection,
     })
     currentBgView.webContents.send('component-tree-data', selectedComponentTreePayload())
@@ -268,10 +268,10 @@ export function initWindow(): void {
   currentAboveView.webContents.once('did-finish-load', () => {
     if (currentAboveView.webContents.isDestroyed()) return
     currentAboveView.webContents.send('theme-changed', { isDark: isDark() })
-    const frameOverlays = backgroundFrameOverlays()
+    const pageOverlays = backgroundPageOverlays()
     const nextActiveSelection = activeCanvasSelection()
     sendAnnotationLayoutUpdate({
-      frames: frameOverlays,
+      pages: pageOverlays,
       activeSelection: nextActiveSelection,
     })
     layoutCache.lastCommentOverlayBoundsKey = null

@@ -13,7 +13,7 @@ const TREE_DEPTH_STEP = 12
 
 function InspectTreeNode({
   node,
-  frameId,
+  pageId,
   nodesById,
   unresolvedCountsByNodeId,
   expanded,
@@ -24,7 +24,7 @@ function InspectTreeNode({
   registerNodeElement,
 }: {
   node: InspectNodeSummary
-  frameId: string
+  pageId: string
   nodesById: Record<string, InspectNodeSummary>
   unresolvedCountsByNodeId: Map<string, number>
   expanded: Set<string>
@@ -55,10 +55,10 @@ function InspectTreeNode({
   const handleSelect = () => {
     if (isSelected) {
       rightDetailsPanelApi.clearInspectSelection()
-      rightDetailsPanelApi.setInspectHoverNode(frameId, node.id)
+      rightDetailsPanelApi.setInspectHoverNode(pageId, node.id)
       return
     }
-    rightDetailsPanelApi.setInspectSelectedNode(frameId, node.id)
+    rightDetailsPanelApi.setInspectSelectedNode(pageId, node.id)
   }
 
   const rowButton = (
@@ -102,8 +102,8 @@ function InspectTreeNode({
     return (
       <div
         className={rowClassName}
-        onMouseEnter={() => rightDetailsPanelApi.setInspectHoverNode(frameId, node.id)}
-        onMouseLeave={() => rightDetailsPanelApi.setInspectHoverNode(frameId, null)}
+        onMouseEnter={() => rightDetailsPanelApi.setInspectHoverNode(pageId, node.id)}
+        onMouseLeave={() => rightDetailsPanelApi.setInspectHoverNode(pageId, null)}
       >
         {rowButton}
       </div>
@@ -124,8 +124,8 @@ function InspectTreeNode({
     >
       <div
         className={rowClassName}
-        onMouseEnter={() => rightDetailsPanelApi.setInspectHoverNode(frameId, node.id)}
-        onMouseLeave={() => rightDetailsPanelApi.setInspectHoverNode(frameId, null)}
+        onMouseEnter={() => rightDetailsPanelApi.setInspectHoverNode(pageId, node.id)}
+        onMouseLeave={() => rightDetailsPanelApi.setInspectHoverNode(pageId, null)}
       >
         <Collapsible.Trigger
           className="absolute top-1/2 inline-flex size-4 -translate-y-1/2 items-center justify-center text-zinc-500 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:text-zinc-300 dark:hover:bg-[var(--surface-interactive-hover)] dark:hover:text-zinc-100"
@@ -144,7 +144,7 @@ function InspectTreeNode({
             <InspectTreeNode
               key={child.id}
               node={child}
-              frameId={frameId}
+              pageId={pageId}
               nodesById={nodesById}
               unresolvedCountsByNodeId={unresolvedCountsByNodeId}
               expanded={expanded}
@@ -163,7 +163,7 @@ function InspectTreeNode({
 
 export function InspectTree(props: {
   treeRootIds: string[]
-  activeFrameId: string
+  activePageId: string
   nodesById: Record<string, InspectNodeSummary>
   unresolvedCountsByNodeId: Map<string, number>
   expanded: Set<string>
@@ -174,7 +174,7 @@ export function InspectTree(props: {
 }) {
   const {
     treeRootIds,
-    activeFrameId,
+    activePageId,
     nodesById,
     unresolvedCountsByNodeId,
     expanded,
@@ -193,7 +193,7 @@ export function InspectTree(props: {
           <InspectTreeNode
             key={rootId}
             node={node}
-            frameId={activeFrameId}
+            pageId={activePageId}
             nodesById={nodesById}
             unresolvedCountsByNodeId={unresolvedCountsByNodeId}
             expanded={expanded}

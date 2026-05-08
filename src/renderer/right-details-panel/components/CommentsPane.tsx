@@ -3,7 +3,7 @@ import { Popover } from '@base-ui/react/popover'
 import { Info, Loader2, MessageCircle, RotateCw } from 'lucide-react'
 import type {
   Annotation,
-  DevtoolsPanelFrameSummary,
+  DevtoolsPanelPageSummary,
   FixProgressEntry,
 } from '../../../shared/types'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
@@ -12,7 +12,7 @@ import {
   formatCommentTime,
 } from '../rightDetailsPanelHelpers'
 import {
-  groupAnnotationsByFrame,
+  groupAnnotationsByPage,
 } from '../rightDetailsPanelSelectors'
 import { useFocusedAnnotationScroll } from '../useFocusedAnnotationScroll'
 import {
@@ -249,7 +249,7 @@ function FixProgressButton({
 export function CommentsPane({
   isDark,
   annotations,
-  frames,
+  pages,
   focusedAnnotationId,
   annotateEnabled,
   annotateAvailable,
@@ -257,7 +257,7 @@ export function CommentsPane({
 }: {
   isDark: boolean
   annotations: Annotation[]
-  frames: DevtoolsPanelFrameSummary[]
+  pages: DevtoolsPanelPageSummary[]
   focusedAnnotationId?: string | null
   annotateEnabled: boolean
   annotateAvailable: boolean
@@ -267,7 +267,7 @@ export function CommentsPane({
   const dividerClass = isDark ? 'border-zinc-700/50' : 'border-zinc-200/80'
   const rowHoverClass = isDark ? 'hover:bg-zinc-700/55' : 'hover:border-zinc-300'
   const focusRowClass = isDark ? 'bg-blue-500/20' : 'bg-blue-500/10'
-  const groups = useMemo(() => groupAnnotationsByFrame(annotations, frames), [annotations, frames])
+  const groups = useMemo(() => groupAnnotationsByPage(annotations, pages), [annotations, pages])
   const { registerAnnotationElement } = useFocusedAnnotationScroll(
     focusedAnnotationId,
     annotations,
@@ -304,7 +304,7 @@ export function CommentsPane({
         <div className="space-y-2">
           {groups.filter((g) => g.unresolved.length > 0).map((group, index) => (
               <section
-                key={group.frameKey}
+                key={group.pageKey}
                 className={index === 0 ? '' : `border-t pt-2 ${dividerClass}`}
               >
                 <div className="space-y-2">

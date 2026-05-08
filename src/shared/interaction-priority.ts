@@ -1,7 +1,7 @@
 /**
  * Hit-test layer priority. Top wins.
  *
- * See docs/adr/0001-click-to-enter-frame-focus.md for the load-bearing
+ * See docs/adr/0001-click-to-enter-page-focus.md for the load-bearing
  * constraints encoded here:
  *   - Resize handles above chrome: once selected, the next gesture is shaping.
  *   - Chrome above anchors: fixes #41 (anchor ring shadowing chrome).

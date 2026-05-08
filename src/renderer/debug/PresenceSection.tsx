@@ -364,9 +364,9 @@ function TrailControls({
       </Field>
 
       <Field
-        label="Emits per frame"
+        label="Emits per page"
         value={`${trail.emitsPerFrame}`}
-        help="Upper bound on particles spawned per cursor per frame. Raise for denser trails; pair with a larger particle count so the ring buffer doesn't recycle too fast."
+        help="Upper bound on particles spawned per cursor per page. Raise for denser trails; pair with a larger particle count so the ring buffer doesn't recycle too fast."
       >
         <input
           type="range"

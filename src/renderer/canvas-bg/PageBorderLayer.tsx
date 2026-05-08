@@ -1,5 +1,5 @@
 import React from 'react'
-import type { CanvasSceneFrameEntity, CanvasSceneFileEntity } from '../../shared/types'
+import type { CanvasScenePageEntity, CanvasSceneFileEntity } from '../../shared/types'
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
   CUSTOM_SHELL_SCREEN_CORNER_RADIUS,
@@ -25,40 +25,40 @@ type BorderItem = {
   width: number
 }
 
-export function FrameBorderLayer({
-  frames,
+export function PageBorderLayer({
+  pages,
   fileEntities,
   offsetY = 0,
 }: {
-  frames: CanvasSceneFrameEntity[]
+  pages: CanvasScenePageEntity[]
   fileEntities?: CanvasSceneFileEntity[]
   offsetY?: number
 }) {
-  const items: BorderItem[] = [...frames, ...(fileEntities ?? []).filter((f) => f.showDeviceFrame)]
+  const items: BorderItem[] = [...pages, ...(fileEntities ?? []).filter((f) => f.showDeviceFrame)]
   return (
     <>
-      {items.map((frame) => {
+      {items.map((page) => {
         // Inner content border
-        const cx = frame.contentScreenX ?? frame.screenX
-        const cy = (frame.contentScreenY ?? frame.screenY) - offsetY
-        const cw = frame.contentScreenWidth ?? frame.screenWidth
-        const ch = frame.contentScreenHeight ?? frame.screenHeight
+        const cx = page.contentScreenX ?? page.screenX
+        const cy = (page.contentScreenY ?? page.screenY) - offsetY
+        const cw = page.contentScreenWidth ?? page.screenWidth
+        const ch = page.contentScreenHeight ?? page.screenHeight
 
-        // Outer frame border
-        const fx = frame.screenX
-        const fy = frame.screenY - offsetY
-        const fw = frame.screenWidth
-        const fh = frame.screenHeight
+        // Outer page border
+        const fx = page.screenX
+        const fy = page.screenY - offsetY
+        const fw = page.screenWidth
+        const fh = page.screenHeight
 
-        const hasShell = frame.showDeviceFrame && frame.browserSizeMode !== 'fill'
+        const hasShell = page.showDeviceFrame && page.browserSizeMode !== 'fill'
 
         // SVG device shell handles its own borders
-        if (hasShell && frame.useSvgDeviceShell) return null
-        const dev = hasShell && frame.deviceId ? DEVICE_CATALOG.get(frame.deviceId) : null
-        const displayZoom = frame.width > 0 ? cw / frame.width : 1
+        if (hasShell && page.useSvgDeviceShell) return null
+        const dev = hasShell && page.deviceId ? DEVICE_CATALOG.get(page.deviceId) : null
+        const displayZoom = page.width > 0 ? cw / page.width : 1
         const innerRadius = hasShell
           ? (dev
-              ? contentCornerRadiusForDevice(frame.deviceId!, frame.deviceOrientation ?? 'portrait')
+              ? contentCornerRadiusForDevice(page.deviceId!, page.deviceOrientation ?? 'portrait')
               : CUSTOM_SHELL_SCREEN_CORNER_RADIUS) * displayZoom
           : 0
         const outerRadius = hasShell
@@ -67,14 +67,14 @@ export function FrameBorderLayer({
 
         const borderStyle = '1px solid var(--surface-device-border)'
 
-        // Both borders render for every frame. For non-device frames the outer
+        // Both borders render for every page. For non-device pages the outer
         // and inner rects coincide (contentScreen* falls back to screen*), so
         // the two 1px borders simply overlap — visually identical to one border.
         // When a device shell is active the outer border traces the bezel edge
         // and the inner border traces the content viewport cutout.
         return (
-          <React.Fragment key={frame.id}>
-            {/* Outer frame border */}
+          <React.Fragment key={page.id}>
+            {/* Outer page border */}
             <div
               className="pointer-events-none absolute"
               style={{

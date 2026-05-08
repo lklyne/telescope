@@ -101,10 +101,10 @@ export function propagateNavigationFromPage(
 
 /**
  * Navigate a page (source) and propagate the action to linked peers.
- * This is the single entry point for all frame navigation triggered by
+ * This is the single entry point for all page navigation triggered by
  * user interactions (canvas chrome, right panel, context menu).
  */
-export function navigateFramePage(
+export function navigatePagePage(
   page: Page,
   action: NavigationSyncAction,
 ): void {
@@ -117,8 +117,8 @@ export function applyNavigationToSelectedPages(
   action: NavigationSyncAction,
 ): void {
   const targets = new Map<string, Page>()
-  for (const frameId of getSelectedEntityIds()) {
-    const page = findPageById(frameId)
+  for (const pageId of getSelectedEntityIds()) {
+    const page = findPageById(pageId)
     if (!page) continue
     targets.set(page.id, page)
     for (const peer of linkedPeersOf(page)) {

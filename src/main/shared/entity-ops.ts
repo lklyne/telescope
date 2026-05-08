@@ -62,7 +62,7 @@ interface ItemFootprint {
 }
 
 function sizeForItem(item: Record<string, unknown>): ItemFootprint {
-  if (item.kind === 'frame') {
+  if (item.kind === 'page') {
     const presetIndex = (item.presetIndex as number | undefined) ?? LAPTOP_PRESET_INDEX
     const preset = VIEWPORT_PRESETS[presetIndex]
     const w = preset?.width ?? 1280
@@ -72,8 +72,8 @@ function sizeForItem(item: Record<string, unknown>): ItemFootprint {
       (item.orientation as 'portrait' | 'landscape' | undefined) ??
       defaultOrientationForDevice(device)
     const inner = sizeForOrientation(w, h, orientation)
-    const showFrame = item.showDeviceFrame !== false
-    const insets = showFrame
+    const showPage = item.showDeviceFrame !== false
+    const insets = showPage
       ? (device ? shellInsetsForDevice(device.id, orientation) : CUSTOM_SHELL_INSETS)
       : { top: 0, right: 0, bottom: 0, left: 0 }
     // Footprint includes device-shell bezels only. The hover-only chrome
@@ -143,8 +143,8 @@ export async function upsertEntities(
   }
 
   // Single-pass grouping
-  const frameCreates: Array<Record<string, unknown>> = []
-  const frameUpdates: Array<Record<string, unknown>> = []
+  const pageCreates: Array<Record<string, unknown>> = []
+  const pageUpdates: Array<Record<string, unknown>> = []
   const textCreates: Array<Record<string, unknown>> = []
   const textUpdates: Array<Record<string, unknown>> = []
   const fileCreates: Array<Record<string, unknown>> = []
@@ -162,8 +162,8 @@ export async function upsertEntities(
       noteCreates.push(item)
       continue
     }
-    const bucket = item.kind === 'frame'
-      ? (item.id ? frameUpdates : frameCreates)
+    const bucket = item.kind === 'page'
+      ? (item.id ? pageUpdates : pageCreates)
       : item.kind === 'text'
         ? (item.id ? textUpdates : textCreates)
         : (item.id ? fileUpdates : fileCreates)
@@ -171,7 +171,7 @@ export async function upsertEntities(
   }
 
   // Batch-place items that lack explicit positions
-  const allCreates = [...frameCreates, ...textCreates, ...fileCreates, ...noteCreates]
+  const allCreates = [...pageCreates, ...textCreates, ...fileCreates, ...noteCreates]
   const needsPlacement = allCreates.filter(
     (item) => item.canvasX === undefined || item.canvasY === undefined,
   )
@@ -195,8 +195,8 @@ export async function upsertEntities(
     }
   }
 
-  // Prepare new frames with device metadata
-  const preparedFrameCreates = frameCreates.map((item) => {
+  // Prepare new pages with device metadata
+  const preparedPageCreates = pageCreates.map((item) => {
     if (typeof item.url === 'string') {
       item.url = normalizeUserUrl(item.url)
     }
@@ -224,16 +224,16 @@ export async function upsertEntities(
   // Fire all independent API calls concurrently
   const ops: Array<Promise<void>> = []
 
-  if (preparedFrameCreates.length) {
-    ops.push(callApp<{ frameIds?: string[] }>('/frames/create', {
+  if (preparedPageCreates.length) {
+    ops.push(callApp<{ pageIds?: string[] }>('/pages/create', {
       method: 'POST',
-      body: JSON.stringify({ frames: preparedFrameCreates }),
-    }).then((r) => { results.created.push(...(r.frameIds ?? [])) }))
+      body: JSON.stringify({ pages: preparedPageCreates }),
+    }).then((r) => { results.created.push(...(r.pageIds ?? [])) }))
   }
-  if (frameUpdates.length) {
-    ops.push(callApp<{ updated?: string[] }>('/frames/update', {
+  if (pageUpdates.length) {
+    ops.push(callApp<{ updated?: string[] }>('/pages/update', {
       method: 'POST',
-      body: JSON.stringify({ frames: frameUpdates }),
+      body: JSON.stringify({ pages: pageUpdates }),
     }).then((r) => { results.updated.push(...(r.updated ?? [])) }))
   }
   if (textCreates.length) {
@@ -295,7 +295,7 @@ export async function upsertEntities(
 export async function getAnnotationsSlim(args: {
   status?: string
   url?: string
-  frame_id?: string
+  page_id?: string
 }): Promise<{ annotations: Record<string, unknown>[] }> {
   const params = new URLSearchParams()
   if (typeof args.status === 'string' && args.status) {
@@ -304,8 +304,8 @@ export async function getAnnotationsSlim(args: {
   if (typeof args.url === 'string' && args.url.trim().length > 0) {
     params.set('url', args.url.trim())
   }
-  if (typeof args.frame_id === 'string' && args.frame_id.trim().length > 0) {
-    params.set('frame_id', args.frame_id.trim())
+  if (typeof args.page_id === 'string' && args.page_id.trim().length > 0) {
+    params.set('page_id', args.page_id.trim())
   }
   const query = params.toString()
   const result = await callApp<{ annotations: Record<string, unknown>[] }>(
@@ -315,16 +315,16 @@ export async function getAnnotationsSlim(args: {
   const stubs = result.annotations.map((ann) => {
     const metadata = ann.metadata as Record<string, unknown> | undefined
     const regionElements = metadata?.regionElements as
-      | Array<{ frameId: string; frameName: string; elements: Array<Record<string, unknown>> }>
+      | Array<{ pageId: string; pageName: string; elements: Array<Record<string, unknown>> }>
       | undefined
     const regionComponents = metadata?.regionComponents as
-      | Array<{ frameId: string; components: Array<Record<string, unknown>> }>
+      | Array<{ pageId: string; components: Array<Record<string, unknown>> }>
       | undefined
     const inspectContext = metadata?.inspectContext as Record<string, unknown> | undefined
 
-    // Build slim metadata — keep only frameName and pageUrl.
+    // Build slim metadata — keep only pageName and pageUrl.
     const slimMeta: Record<string, unknown> = {}
-    if (metadata?.frameName) slimMeta.frameName = metadata.frameName
+    if (metadata?.pageName) slimMeta.pageName = metadata.pageName
     if (metadata?.pageUrl) slimMeta.pageUrl = metadata.pageUrl
 
     // Add unified summary with type discriminator.
@@ -336,7 +336,7 @@ export async function getAnnotationsSlim(args: {
       ) ?? 0
       slimMeta.summary = {
         type: 'region',
-        frameCount: regionElements?.length ?? 0,
+        pageCount: regionElements?.length ?? 0,
         elementCount,
         hasScreenshot: !!metadata?.regionScreenshot,
         componentCount,
@@ -386,10 +386,10 @@ export async function getAnnotationDetail(args: {
   const metadata = ann.metadata as Record<string, unknown> | undefined
   const screenshot = metadata?.regionScreenshot as string | undefined
   const regionElements = metadata?.regionElements as
-    | Array<{ frameId: string; frameName: string; elements: Array<Record<string, unknown>> }>
+    | Array<{ pageId: string; pageName: string; elements: Array<Record<string, unknown>> }>
     | undefined
   const regionComponents = metadata?.regionComponents as
-    | Array<{ frameId: string; components: Array<Record<string, unknown>> }>
+    | Array<{ pageId: string; components: Array<Record<string, unknown>> }>
     | undefined
   const inspectContext = metadata?.inspectContext as Record<string, unknown> | undefined
   const includeScreenshot = args.include_screenshot !== false
@@ -434,7 +434,7 @@ export async function getAnnotationDetail(args: {
   if (regionElements?.length) {
     let summary = 'Elements in region:'
     for (const group of regionElements) {
-      summary += `\n  Frame "${group.frameName}":`
+      summary += `\n  Page "${group.pageName}":`
       for (const el of group.elements) {
         const tag = el.tagName ?? '?'
         const classes = Array.isArray(el.cssClasses)

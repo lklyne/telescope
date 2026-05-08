@@ -88,15 +88,15 @@ export function startPendingPlacement(input: {
   entityKind?: import('../../shared/types').CanvasEntityKind
   presetIndex?: number
   customSize?: boolean
-  sourceFrameId?: string
+  sourcePageId?: string
   shapeKind?: import('../../shared/types').ShapeKind
   textStyle?: import('../../shared/types').TextEntityStyle
 }): void {
   setUiPendingPlacement({
-    entityKind: input.entityKind ?? 'frame',
+    entityKind: input.entityKind ?? 'page',
     presetIndex: input.presetIndex,
     customSize: input.customSize ?? false,
-    sourceFrameId: input.sourceFrameId,
+    sourcePageId: input.sourcePageId,
     shapeKind: input.shapeKind,
     textStyle: input.textStyle,
   })

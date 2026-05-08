@@ -1,6 +1,6 @@
 /**
  * ShapeBodyLayer — shape (rectangle / ellipse / diamond) bodies. Mounted
- * in aboveView so a shape placed over a frame is actually drawn above it.
+ * in aboveView so a shape placed over a page is actually drawn above it.
  *
  * Hit-tests run in `useCanvasPointerRouter` against the layout snapshot
  * (front-to-back), so this layer is purely visual for selection/drag/resize.
@@ -71,7 +71,7 @@ function ShapeText({
 
   // Keep DOM textContent in sync with prop while not editing. Avoids
   // overwriting the user's in-flight typing. useLayoutEffect runs before
-  // paint so the initial mount never shows an empty frame.
+  // paint so the initial mount never shows an empty page.
   useLayoutEffect(() => {
     if (!editing && ref.current && ref.current.textContent !== text) {
       ref.current.textContent = text

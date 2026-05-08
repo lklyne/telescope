@@ -3,7 +3,7 @@
  *
  * This module provides the canonical entry points for all mutations that change
  * persisted workspace data. Every function here modifies the workspace document
- * (frames, groups, edges, annotations) and triggers autosave.
+ * (pages, groups, edges, annotations) and triggers autosave.
  *
  * This is the seam where undo/redo will hook in: when undo is added, these
  * functions will be wrapped to capture before/after state. UI-only mutations
@@ -13,7 +13,7 @@
  * Rules:
  * - Every document command triggers scheduleWorkspaceAutosave()
  * - Every document command triggers layoutAllViews() or requestLayout()
- * - Document commands may also change UI state (e.g., selecting a newly created frame)
+ * - Document commands may also change UI state (e.g., selecting a newly created page)
  * - UI commands (in ui-actions.ts) never change persisted document data
  */
 
@@ -51,11 +51,11 @@ import {
 import { markDirty } from './layout-dirty'
 import { pages } from './page-runtime'
 import {
-  clearCustomFrameSizeMetadata,
+  clearCustomPageSizeMetadata,
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
-  frameUsesCustomSize,
-  setCustomFrameSizeMetadata,
+  pageUsesCustomSize,
+  setCustomPageSizeMetadata,
   setDeviceIdMetadata,
   setDeviceOrientationMetadata,
   setShowDeviceFrameMetadata,
@@ -84,22 +84,22 @@ import { beginBatch, endBatch } from './workspace-observers'
 import { scheduleWorkspaceAutosave } from './workspace-session'
 import { markUndoBoundary } from './workspace-undo'
 
-// --- Frame Commands ---
+// --- Page Commands ---
 
 export {
-  addFrameFromSource,
-  createFrameAtPosition,
-  createFrames,
-  duplicateFrameFromSource,
-  tidySelectedFrames,
-} from '../workspace-frames'
-export { deleteFrames } from '../workspace-entities'
-export { pasteFramesFromClipboard } from '../workspace-clipboard'
+  addPageFromSource,
+  createPageAtPosition,
+  createPages,
+  duplicatePageFromSource,
+  tidySelectedPages,
+} from '../workspace-pages'
+export { deletePages } from '../workspace-entities'
+export { pastePagesFromClipboard } from '../workspace-clipboard'
 
 // --- Entity Movement ---
 
 /**
- * Find any movable canvas entity by ID (frame or text entity).
+ * Find any movable canvas entity by ID (page or text entity).
  * Returns an object with mutable canvasX/canvasY.
  */
 export function findMovableEntity(id: string): { canvasX: number; canvasY: number } | null {
@@ -120,7 +120,7 @@ export function findMovableEntity(id: string): { canvasX: number; canvasY: numbe
 
 /**
  * Accumulates sub-pixel drag deltas and applies grid-snapped positions.
- * Works with any entity type (frames, text entities).
+ * Works with any entity type (pages, text entities).
  * When undo/redo is added, the drag-start snapshot and drag-end snapshot
  * form a single undoable operation.
  */
@@ -457,7 +457,7 @@ export function updateGroupEntity(
 
 export interface MultiResizeEntry {
   id: string
-  kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'
+  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'
   width: number
   height: number
   canvasX: number
@@ -467,15 +467,15 @@ export interface MultiResizeEntry {
 export function resizeMultiSelection(entries: MultiResizeEntry[]): void {
   let changed = false
   for (const entry of entries) {
-    if (entry.kind === 'frame') {
+    if (entry.kind === 'page') {
       const page = pages.find((p) => p.id === entry.id)
       if (!page) continue
       const currentSize = pageContentSize(page)
       const nextSize = { width: entry.width, height: entry.height }
       const sizeChanged =
         nextSize.width !== currentSize.width || nextSize.height !== currentSize.height
-      if (frameUsesCustomSize(page.metadata) || sizeChanged) {
-        let meta = setCustomFrameSizeMetadata(page.metadata, nextSize)
+      if (pageUsesCustomSize(page.metadata) || sizeChanged) {
+        let meta = setCustomPageSizeMetadata(page.metadata, nextSize)
         if (sizeChanged && deviceIdFromMetadata(meta)) {
           meta = setDeviceIdMetadata(meta, null)
         }
@@ -524,14 +524,14 @@ export function resizeMultiSelection(entries: MultiResizeEntry[]): void {
   }
 }
 
-// --- Device Frame Commands ---
+// --- Device Page Commands ---
 
-export function setFramePreset(frameId: string, presetIndex: number): void {
+export function setPagePreset(pageId: string, presetIndex: number): void {
   if (presetIndex < 0 || presetIndex >= VIEWPORT_PRESETS.length) return
-  const page = pages.find((p) => p.id === frameId)
+  const page = pages.find((p) => p.id === pageId)
   if (!page) return
   page.presetIndex = presetIndex
-  let meta = clearCustomFrameSizeMetadata(page.metadata) ?? {}
+  let meta = clearCustomPageSizeMetadata(page.metadata) ?? {}
   // Auto-assign device based on the new preset
   const matchedDevice = deviceForPresetIndex(presetIndex)
   meta = setDeviceIdMetadata(meta, matchedDevice?.id ?? null)
@@ -542,11 +542,11 @@ export function setFramePreset(frameId: string, presetIndex: number): void {
   markUndoBoundary()
 }
 
-export function setFrameCustom(frameId: string): void {
-  const page = pages.find((p) => p.id === frameId)
+export function setPageCustom(pageId: string): void {
+  const page = pages.find((p) => p.id === pageId)
   if (!page) return
   const size = pageContentSize(page)
-  let meta = setCustomFrameSizeMetadata(page.metadata, size)
+  let meta = setCustomPageSizeMetadata(page.metadata, size)
   meta = setDeviceIdMetadata(meta, null)
   page.metadata = meta
   scheduleWorkspaceAutosave()
@@ -555,8 +555,8 @@ export function setFrameCustom(frameId: string): void {
   markUndoBoundary()
 }
 
-export function setDeviceOrientation(frameId: string, orientation: DeviceOrientation): void {
-  const page = pages.find((p) => p.id === frameId)
+export function setDeviceOrientation(pageId: string, orientation: DeviceOrientation): void {
+  const page = pages.find((p) => p.id === pageId)
   if (!page) return
   let meta = page.metadata ?? {}
   meta = setDeviceOrientationMetadata(meta, orientation)
@@ -567,8 +567,8 @@ export function setDeviceOrientation(frameId: string, orientation: DeviceOrienta
   markUndoBoundary()
 }
 
-export function toggleDeviceShell(frameId: string): void {
-  const page = pages.find((p) => p.id === frameId)
+export function toggleDeviceShell(pageId: string): void {
+  const page = pages.find((p) => p.id === pageId)
   if (!page) return
   let meta = page.metadata ?? {}
   const current = showDeviceFrameFromMetadata(meta)
@@ -580,8 +580,8 @@ export function toggleDeviceShell(frameId: string): void {
   markUndoBoundary()
 }
 
-export function toggleSvgDeviceShell(frameId: string): void {
-  const page = pages.find((p) => p.id === frameId)
+export function toggleSvgDeviceShell(pageId: string): void {
+  const page = pages.find((p) => p.id === pageId)
   if (!page) return
   let meta = page.metadata ?? {}
   const current = useSvgDeviceShellFromMetadata(meta)
@@ -603,7 +603,7 @@ export function setFilePreset(fileId: string, presetIndex: number): void {
   entity.presetIndex = presetIndex
   entity.width = preset.width
   entity.height = preset.height
-  let meta = clearCustomFrameSizeMetadata(entity.metadata) ?? {}
+  let meta = clearCustomPageSizeMetadata(entity.metadata) ?? {}
   const matchedDevice = deviceForPresetIndex(presetIndex)
   meta = setDeviceIdMetadata(meta, matchedDevice?.id ?? null)
   entity.metadata = meta
@@ -616,7 +616,7 @@ export function setFilePreset(fileId: string, presetIndex: number): void {
 export function setFileCustom(fileId: string): void {
   const entity = fileEntities.find((e) => e.id === fileId)
   if (!entity) return
-  let meta = setCustomFrameSizeMetadata(entity.metadata, { width: entity.width, height: entity.height })
+  let meta = setCustomPageSizeMetadata(entity.metadata, { width: entity.width, height: entity.height })
   meta = setDeviceIdMetadata(meta, null)
   entity.metadata = meta
   entity.presetIndex = undefined

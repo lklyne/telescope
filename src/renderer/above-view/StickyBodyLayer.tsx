@@ -1,6 +1,6 @@
 /**
  * StickyBodyLayer — sticky-note (text entity) bodies. Mounted in aboveView
- * so a sticky placed over a frame is actually drawn above it.
+ * so a sticky placed over a page is actually drawn above it.
  *
  * Hit-tests run in `useCanvasPointerRouter` against the layout snapshot
  * (front-to-back), so this layer is purely visual for selection/drag/resize.

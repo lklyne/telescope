@@ -29,7 +29,7 @@ import { applyStack } from './layer-stack'
 import { reconcileFocus } from './focus-reconciler-runtime'
 import { reconcilePageCursorBridge } from './page-cursor-bridge'
 import {
-  automationInteractiveFrameCounts,
+  automationInteractivePageCounts,
   hoverTarget,
   hoveringCanvasChrome,
   pages,
@@ -58,7 +58,7 @@ import {
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
-  backgroundFrameOverlays,
+  backgroundPageOverlays,
   activeCanvasSelection,
   buildCanvasLayoutData,
   buildFloatingUiUpdatePayload,
@@ -69,7 +69,7 @@ import {
   annotationsForPage,
   pageAnnotationsKey,
 } from './canvas-layout-data'
-import { textEntityMenuViewBounds } from '../../shared/selectedFrameMenu'
+import { textEntityMenuViewBounds } from '../../shared/selectedPageMenu'
 import { textEntities, buildTextEntitySceneEntity } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { listComponentViews, syncComponentViews } from './component-page-factory'
@@ -215,10 +215,10 @@ export function layoutAllViews(): void {
   const devtoolsOpen = uiDevtoolsOpen()
   const devtoolsWidth = uiDevtoolsWidth()
   const devtoolsPanelTab = uiDevtoolsPanelTab()
-  const selectedFrameIds = uiSelectedEntityIds()
+  const selectedPageIds = uiSelectedEntityIds()
   const contentTopInset = layoutCache.toolbarHeight + (viewMode === 'browser' ? BROWSER_HEADER_HEIGHT : 0)
 
-  const frameOverlays = backgroundFrameOverlays()
+  const pageOverlays = backgroundPageOverlays()
   const nextActiveSelection = activeCanvasSelection()
 
   // --- Canvas background + annotation overlay ---
@@ -229,10 +229,10 @@ export function layoutAllViews(): void {
     if (consumeDirty('canvas')) {
       bgView.webContents.send(
         'layout-update',
-        buildCanvasLayoutData(frameOverlays, nextActiveSelection),
+        buildCanvasLayoutData(pageOverlays, nextActiveSelection),
       )
       sendAnnotationLayoutUpdate({
-        frames: frameOverlays,
+        pages: pageOverlays,
         activeSelection: nextActiveSelection,
       })
       bgView.webContents.send('component-tree-data', selectedComponentTreePayload())
@@ -269,15 +269,15 @@ export function layoutAllViews(): void {
   if (aboveView && win) {
     const { width, height } = win.getBounds()
     const selectedTargets = selectedCanvasTargets()
-    let selectedGroupOwnsFrameContent = false
+    let selectedGroupOwnsPageContent = false
     if (selectedTargets.length === 1 && selectedTargets[0]?.kind === 'group') {
       const groupDescendantIds = new Set(descendantEntityIdsForGroup(selectedTargets[0].id))
-      selectedGroupOwnsFrameContent = pages.some((page) => groupDescendantIds.has(page.id))
+      selectedGroupOwnsPageContent = pages.some((page) => groupDescendantIds.has(page.id))
     }
-    const selectionOwnsFrameContent =
+    const selectionOwnsPageContent =
       (selectedTargets.length > 1 &&
-        selectedTargets.some((target) => target.kind === 'frame')) ||
-      selectedGroupOwnsFrameContent
+        selectedTargets.some((target) => target.kind === 'page')) ||
+      selectedGroupOwnsPageContent
     const shouldCover = shouldGateBeOpen({
       interactionKind: interactionState.kind === 'idle' ? 'idle'
         : interactionState.kind === 'panning-canvas' ? 'panning'
@@ -293,7 +293,7 @@ export function layoutAllViews(): void {
       hoveringCanvasChrome,
       selectedEntityIds: selectedTargets.map((t) => t.id),
       selectedEntityKinds: selectedTargets.map((t) => t.kind),
-      selectionOwnsFrameContent,
+      selectionOwnsPageContent,
       hasSavedDrawings: drawingEntities.length > 0,
     })
     const bounds = shouldCover
@@ -357,11 +357,11 @@ export function layoutAllViews(): void {
     }
     const bounds = boundScreenBoundsForPage(page)
 
-    // Viewport culling — off-screen frames get hidden bounds.
-    // Skip culling during drag and for frames in automation-interactive mode
-    // (agents need non-zero bounds to interact with off-screen frames).
+    // Viewport culling — off-screen pages get hidden bounds.
+    // Skip culling during drag and for pages in automation-interactive mode
+    // (agents need non-zero bounds to interact with off-screen pages).
     const isOnScreen = boundsOverlap(bounds.page, windowRect)
-    const isAutomationActive = automationInteractiveFrameCounts.has(page.id)
+    const isAutomationActive = automationInteractivePageCounts.has(page.id)
     if (!isOnScreen && interactionState.kind !== 'dragging-entities' && !isAutomationActive) {
       page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
@@ -370,7 +370,7 @@ export function layoutAllViews(): void {
         durationMs: Date.now() - pageStart,
         visible: false,
         culled: true,
-        isSelected: selectedFrameIds.includes(page.id),
+        isSelected: selectedPageIds.includes(page.id),
         devtoolsOpen,
       })
       continue
@@ -445,7 +445,7 @@ export function layoutAllViews(): void {
       pageId: page.id,
       durationMs: Date.now() - pageStart,
       visible: true,
-      isSelected: selectedFrameIds.includes(page.id),
+      isSelected: selectedPageIds.includes(page.id),
       devtoolsOpen,
     })
   }
@@ -528,7 +528,7 @@ export function layoutAllViews(): void {
 
   // Post-layout: reconcile focus + page-cursor bridge against the
   // post-mutation world. Both observe the same predicate
-  // (`currentKeyboardTargetFrameId`).
+  // (`currentKeyboardTargetPageId`).
   reconcileFocus()
   reconcilePageCursorBridge()
 
@@ -536,7 +536,7 @@ export function layoutAllViews(): void {
     durationMs: Date.now() - layoutStart,
     pageCount: pages.length,
     devtoolsOpen,
-    selectedFrameIds,
+    selectedPageIds,
     activeTab: devtoolsPanelTab,
   })
 }

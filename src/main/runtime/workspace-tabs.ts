@@ -61,7 +61,7 @@ import { persistGroupEntity } from './group-entity-state'
 export function workspaceSnapshot(): WorkspaceSnapshot {
   const pageIds = pages.map((p) => p.id)
   const selectedIndex = uiSelectedPageIndex(pageIds)
-  const selectedFrameId =
+  const selectedPageId =
     selectedIndex !== null && selectedIndex >= 0 && selectedIndex < pages.length
       ? pages[selectedIndex].id
       : null
@@ -85,14 +85,14 @@ export function workspaceSnapshot(): WorkspaceSnapshot {
       }),
     ),
     selectedPageIndex: uiSelectedPageIndex(pageIds),
-    selectedFrameId,
-    selectedFrameIds: uiSelectedEntityIds(),
+    selectedPageId,
+    selectedPageIds: uiSelectedEntityIds(),
     selectedGroupId: uiSelectedGroupId(),
     leftSidebarOpen: uiLeftSidebarOpen(),
     devtoolsOpen: uiDevtoolsOpen(),
     devtoolsPanelTab: uiDevtoolsPanelTab(),
     devtoolsWidth: uiDevtoolsWidth(),
-    browserTabMode: 'frame',
+    browserTabMode: 'page',
     groups: workspaceGroups,
     edges: workspaceEdges,
   })

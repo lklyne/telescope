@@ -1,8 +1,8 @@
 import type { PresenceTargetRect } from './types'
 
-export function resolvePresenceFramePoint(input: {
-  frameX?: number | null
-  frameY?: number | null
+export function resolvePresencePagePoint(input: {
+  pageX?: number | null
+  pageY?: number | null
   targetRect?: PresenceTargetRect | null
   fallbackX: number
   fallbackY: number
@@ -16,27 +16,27 @@ export function resolvePresenceFramePoint(input: {
 
   return {
     x:
-      typeof input.frameX === 'number'
-        ? input.frameX
+      typeof input.pageX === 'number'
+        ? input.pageX
         : targetCenter?.x ?? input.fallbackX,
     y:
-      typeof input.frameY === 'number'
-        ? input.frameY
+      typeof input.pageY === 'number'
+        ? input.pageY
         : targetCenter?.y ?? input.fallbackY,
   }
 }
 
-export function framePointMatchesTargetRect(
-  frameX: number | null | undefined,
-  frameY: number | null | undefined,
+export function pagePointMatchesTargetRect(
+  pageX: number | null | undefined,
+  pageY: number | null | undefined,
   targetRect: PresenceTargetRect | null | undefined,
   tolerance = 2,
 ): boolean {
-  if (!targetRect || typeof frameX !== 'number' || typeof frameY !== 'number') return true
+  if (!targetRect || typeof pageX !== 'number' || typeof pageY !== 'number') return true
   return (
-    frameX >= targetRect.x - tolerance &&
-    frameX <= targetRect.x + targetRect.width + tolerance &&
-    frameY >= targetRect.y - tolerance &&
-    frameY <= targetRect.y + targetRect.height + tolerance
+    pageX >= targetRect.x - tolerance &&
+    pageX <= targetRect.x + targetRect.width + tolerance &&
+    pageY >= targetRect.y - tolerance &&
+    pageY <= targetRect.y + targetRect.height + tolerance
   )
 }

@@ -1,10 +1,10 @@
 import type {
   CanvasEntityKind,
-  DeleteFramesRequest,
-  DeleteFramesResponse,
+  DeletePagesRequest,
+  DeletePagesResponse,
   EdgeSide,
   WorkspaceBounds,
-  WorkspaceFrame,
+  WorkspacePage,
   WorkspaceGraph,
   WorkspaceSelection,
 } from '../shared/types'
@@ -23,7 +23,7 @@ import {
   selectedPageId,
   selectPageById,
   setSelectedEntities,
-  setSelectedFrames,
+  setSelectedPages,
   setSelectedGroupId,
 } from './runtime/ui-actions'
 import { textEntities } from './runtime/text-entity-state'
@@ -47,12 +47,12 @@ import { occupiedRegions } from './workspace-placement'
 
 // --- Bounds helpers ---
 
-export function frameBoundsById(frameId: string): WorkspaceBounds | null {
-  const page = findPageById(frameId)
+export function pageBoundsById(pageId: string): WorkspaceBounds | null {
+  const page = findPageById(pageId)
   return page ? pageOuterCanvasBounds(page) : null
 }
 
-export function frameSelectableBounds(
+export function pageSelectableBounds(
   page: Exclude<ReturnType<typeof findPageById>, undefined>,
 ): WorkspaceBounds {
   const outer = pageOuterCanvasBounds(page)
@@ -89,11 +89,11 @@ export function entityBoundsById(entityId: string): WorkspaceBounds | null {
  * to its data origin (`canvasX`/`canvasY`). For framed pages this is the
  * device-shell top/left insets; otherwise zero.
  *
- * Asymmetry to keep in mind: `entityBoundsById` for a frame returns
- * `frameSelectableBounds` whose `height` includes `page.chromeHeight` (the
+ * Asymmetry to keep in mind: `entityBoundsById` for a page returns
+ * `pageSelectableBounds` whose `height` includes `page.chromeHeight` (the
  * hover-only action band). This function does NOT include `chromeHeight` in
  * `insetY`, because the bounds' `y` is `outer.y` (no chrome band above the
- * top edge). The consequence is that re-layout against an existing frame in
+ * top edge). The consequence is that re-layout against an existing page in
  * a column or below-`near` arrangement reserves an extra `chromeHeight` of
  * vertical space — by design, since the action band needs somewhere to live.
  */
@@ -116,16 +116,16 @@ type AnyEntity =
  * Single dispatch point for "find an entity by id and tell me what kind it is."
  * `entityKindById` and `entityBoundsByIdWithVisited` both delegate here so the
  * id-keyed lookup chain runs only once per call. Pages are returned as-is so
- * the bounds path can use `frameSelectableBounds` (selectable bounds differ
- * from raw `{canvasX, canvasY, width, height}` for frames).
+ * the bounds path can use `pageSelectableBounds` (selectable bounds differ
+ * from raw `{canvasX, canvasY, width, height}` for pages).
  */
 function findEntityById(
   entityId: string,
-): { kind: 'frame'; page: ReturnType<typeof findPageById> }
+): { kind: 'page'; page: ReturnType<typeof findPageById> }
   | { kind: 'text' | 'file' | 'drawing' | 'shape' | 'group'; entity: AnyEntity }
   | null {
   const page = findPageById(entityId)
-  if (page) return { kind: 'frame', page }
+  if (page) return { kind: 'page', page }
   const te = textEntities.find((t) => t.id === entityId)
   if (te) return { kind: 'text', entity: te }
   const fe = fileEntities.find((f) => f.id === entityId)
@@ -150,10 +150,10 @@ function entityBoundsByIdWithVisited(
   if (visited.has(entityId)) return null
   const found = findEntityById(entityId)
   if (!found) return null
-  if (found.kind === 'frame' && found.page) {
-    return frameSelectableBounds(found.page)
+  if (found.kind === 'page' && found.page) {
+    return pageSelectableBounds(found.page)
   }
-  if (found.kind !== 'frame') {
+  if (found.kind !== 'page') {
     const e = found.entity
     return { x: e.canvasX, y: e.canvasY, width: e.width, height: e.height }
   }
@@ -217,7 +217,7 @@ export function selectionBounds(): WorkspaceBounds | null {
   if (selectedIds.length) {
     return unionBounds(
       selectedIds
-        .map(frameBoundsById)
+        .map(pageBoundsById)
         .filter((item): item is WorkspaceBounds => item !== null),
     )
   }
@@ -237,9 +237,9 @@ export function currentSelection(): WorkspaceSelection {
   }
 
   const selectedEntityIds = getSelectedEntityIds()
-  const selectedFrame = selectedPageId() ?? selectedEntityIds[0]
+  const selectedPage = selectedPageId() ?? selectedEntityIds[0]
   return {
-    selectedEntityId: selectedFrame,
+    selectedEntityId: selectedPage,
     selectedEntityIds: selectedEntityIds.length ? selectedEntityIds : undefined,
   }
 }
@@ -262,22 +262,22 @@ export function removeEmptyGroups(): string[] {
   return deletedGroupIds
 }
 
-// --- Delete frames ---
+// --- Delete pages ---
 
-export function deleteFrames(input: DeleteFramesRequest): DeleteFramesResponse {
-  const deletedFrameIds: string[] = []
-  const missingFrameIds: string[] = []
+export function deletePages(input: DeletePagesRequest): DeletePagesResponse {
+  const deletedPageIds: string[] = []
+  const missingPageIds: string[] = []
 
-  for (const frameId of input.frameIds) {
-    const removed = removePageById(frameId)
+  for (const pageId of input.pageIds) {
+    const removed = removePageById(pageId)
     if (!removed) {
-      missingFrameIds.push(frameId)
+      missingPageIds.push(pageId)
       continue
     }
-    deletedFrameIds.push(frameId)
+    deletedPageIds.push(pageId)
   }
 
-  const deletedEdgeIds = removeEdgesTouchingEntities(new Set(deletedFrameIds))
+  const deletedEdgeIds = removeEdgesTouchingEntities(new Set(deletedPageIds))
   const deletedGroupIds = removeEmptyGroups()
 
   if (!selectedPageId() && !getSelectedGroupId()) {
@@ -291,17 +291,17 @@ export function deleteFrames(input: DeleteFramesRequest): DeleteFramesResponse {
     requestLayout()
   }
 
-  if (deletedFrameIds.length || deletedEdgeIds.length || deletedGroupIds.length) {
+  if (deletedPageIds.length || deletedEdgeIds.length || deletedGroupIds.length) {
     scheduleWorkspaceAutosave()
   }
 
   return {
-    deletedFrameIds,
+    deletedPageIds,
     deletedEdgeIds,
     deletedGroupIds,
-    missingFrameIds,
-    warnings: missingFrameIds.length
-      ? [`Missing frame IDs: ${missingFrameIds.join(', ')}`]
+    missingPageIds,
+    warnings: missingPageIds.length
+      ? [`Missing page IDs: ${missingPageIds.join(', ')}`]
       : [],
   }
 }
@@ -317,8 +317,8 @@ export function selectEntitiesInRect(
 ): { entityIds: string[] } {
   const includeDrawings = options.includeDrawings ?? true
   const mode = options.mode ?? 'replace'
-  const frameIds = pages
-    .filter((page) => boundsOverlap(frameSelectableBounds(page), bounds))
+  const pageIds = pages
+    .filter((page) => boundsOverlap(pageSelectableBounds(page), bounds))
     .map((page) => page.id)
   const textIds = textEntities
     .filter((note) =>
@@ -383,7 +383,7 @@ export function selectEntitiesInRect(
     })
     .map((edge) => edge.id)
 
-  const entityIds = [...frameIds, ...textIds, ...fileIds, ...drawingIds, ...shapeIds, ...edgeIds]
+  const entityIds = [...pageIds, ...textIds, ...fileIds, ...drawingIds, ...shapeIds, ...edgeIds]
 
   if (mode !== 'replace') {
     // Additive / toggle / remove modes: preserve existing selection outside the rect
@@ -405,12 +405,12 @@ export function selectEntitiesInRect(
     !shapeIds.length &&
     !edgeIds.length
   ) {
-    if (frameIds.length === 1) {
-      selectPageById(frameIds[0])
+    if (pageIds.length === 1) {
+      selectPageById(pageIds[0])
     } else {
-      setSelectedFrames(frameIds)
+      setSelectedPages(pageIds)
     }
-    return { entityIds: frameIds }
+    return { entityIds: pageIds }
   }
 
   setSelectedEntities(entityIds)
@@ -471,13 +471,13 @@ function segmentIntersectsRect(
 
 // --- Workspace graph ---
 
-export function toWorkspaceFrame(frameId: string): WorkspaceFrame | null {
-  const page = findPageById(frameId)
+export function toWorkspacePage(pageId: string): WorkspacePage | null {
+  const page = findPageById(pageId)
   if (!page) return null
   const size = pageContentSize(page)
   return {
     id: page.id,
-    kind: 'frame',
+    kind: 'page',
     name: page.name?.trim() || undefined,
     url: page.pageView.webContents.getURL() || 'about:blank',
     presetIndex: page.presetIndex,
@@ -493,16 +493,16 @@ export function toWorkspaceFrame(frameId: string): WorkspaceFrame | null {
   }
 }
 
-export function allWorkspaceFrames(): WorkspaceFrame[] {
+export function allWorkspacePages(): WorkspacePage[] {
   return pages
-    .map((page) => toWorkspaceFrame(page.id))
-    .filter((frame): frame is WorkspaceFrame => frame !== null)
+    .map((page) => toWorkspacePage(page.id))
+    .filter((page): page is WorkspacePage => page !== null)
 }
 
 export function getWorkspaceGraph(): WorkspaceGraph {
   return {
     entities: [
-      ...allWorkspaceFrames(),
+      ...allWorkspacePages(),
       ...textEntities.map((entity) => ({
         id: entity.id,
         kind: 'text' as const,

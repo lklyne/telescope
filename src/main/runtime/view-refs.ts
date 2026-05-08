@@ -14,7 +14,7 @@ export let devtoolsResizeHandleView: WebContentsView | null = null
 /** Consolidated above-pages WCV: input gate + marquee + comments + annotations + drawing + floating-ui.
  *  Agent-presence cursors render in cursorOverlayWindow (below), not here. */
 export let aboveView: WebContentsView | null = null
-/** Child BrowserWindow sibling of `win` — transparent, frameless, mouse-inert.
+/** Child BrowserWindow sibling of `win` — transparent, pageless, mouse-inert.
  *  Hosts agent-presence cursors only. Lives outside the WCV stack because
  *  Electron 40's WebContentsView has no setIgnoreMouseEvents (electron#23863),
  *  so a WCV can't be click-through. Bounds track win.getContentBounds() +

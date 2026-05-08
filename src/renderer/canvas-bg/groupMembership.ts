@@ -34,12 +34,12 @@ export function selectedGroupDragTargetId(
     : null
 }
 
-export function selectedGroupHasDescendantFrame(
+export function selectedGroupHasDescendantPage(
   layout: Pick<LayoutUpdateData, 'entities' | 'groups' | 'selectedGroupId'>,
 ): boolean {
   const selectedGroupId = layout.selectedGroupId ?? null
   if (!selectedGroupId) return false
 
   const descendantIds = descendantIdsForGroup(layout.groups ?? [], selectedGroupId)
-  return layout.entities.some((entity) => entity.kind === 'frame' && descendantIds.has(entity.id))
+  return layout.entities.some((entity) => entity.kind === 'page' && descendantIds.has(entity.id))
 }

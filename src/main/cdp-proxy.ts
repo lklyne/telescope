@@ -35,8 +35,8 @@ interface CdpVersionInfo {
   webSocketDebuggerUrl?: string
 }
 
-export interface FrameCdpConnectionInfo {
-  frameId: string
+export interface PageCdpConnectionInfo {
+  pageId: string
   targetId: string
   url: string
   title: string
@@ -46,7 +46,7 @@ export interface FrameCdpConnectionInfo {
 export interface CdpProxyRegistration {
   token: string
   key: string
-  frameId: string
+  pageId: string
   targetId: string
   url: string
   title: string
@@ -103,8 +103,8 @@ export function cdpProxyLog(
 
 // --- Utilities ---
 
-export function cdpProxyKey(sessionId: string | null, frameId: string): string {
-  return `${sessionId ?? 'anonymous'}::${frameId}`
+export function cdpProxyKey(sessionId: string | null, pageId: string): string {
+  return `${sessionId ?? 'anonymous'}::${pageId}`
 }
 
 export function closeSocketQuietly(socket: WebSocket | null | undefined): void {
@@ -118,7 +118,7 @@ export function summarizeCdpProxyRegistration(registration: CdpProxyRegistration
   return {
     token: registration.token,
     key: registration.key,
-    frameId: registration.frameId,
+    pageId: registration.pageId,
     targetId: registration.targetId,
     url: registration.url,
     title: registration.title,
@@ -154,7 +154,7 @@ function restoreSelectionSnapshot(snapshot: UiSelection): void {
     return
   }
   if (snapshot.kind === 'single-entity') {
-    if (snapshot.entityKind === 'frame') {
+    if (snapshot.entityKind === 'page') {
       selectSelectionPageById(snapshot.entityId)
       return
     }
@@ -172,8 +172,8 @@ export function restoreAutomationSelectionIfNeeded(registration: CdpProxyRegistr
   const current = getUiState().selection
   const currentIsAutomationFrame =
     current.kind === 'single-entity' &&
-    current.entityKind === 'frame' &&
-    current.entityId === registration.frameId
+    current.entityKind === 'page' &&
+    current.entityId === registration.pageId
 
   if (!currentIsAutomationFrame && current.kind !== 'none') {
     return
@@ -200,21 +200,21 @@ async function fetchBrowserCdpVersion(): Promise<CdpVersionInfo> {
   return await response.json() as CdpVersionInfo
 }
 
-export async function resolveFrameCdpConnection(frameId: string): Promise<FrameCdpConnectionInfo> {
-  const page = findPageById(frameId)
+export async function resolvePageCdpConnection(pageId: string): Promise<PageCdpConnectionInfo> {
+  const page = findPageById(pageId)
   if (!page) {
-    throw new Error('Frame not found')
+    throw new Error('Page not found')
   }
 
-  const frameWebContentsId = page.pageView.webContents.id
+  const pageWebContentsId = page.pageView.webContents.id
   const targets = await fetchCdpTargets()
   const target = targets.find((candidate) => {
     if (!candidate.id || !candidate.webSocketDebuggerUrl) return false
-    return webContents.fromDevToolsTargetId(candidate.id)?.id === frameWebContentsId
+    return webContents.fromDevToolsTargetId(candidate.id)?.id === pageWebContentsId
   })
 
   if (!target?.webSocketDebuggerUrl) {
-    throw new Error('CDP target not found for frame')
+    throw new Error('CDP target not found for page')
   }
 
   const browserVersion = await fetchBrowserCdpVersion()
@@ -223,7 +223,7 @@ export async function resolveFrameCdpConnection(frameId: string): Promise<FrameC
   }
 
   return {
-    frameId,
+    pageId,
     targetId: target.id,
     url: target.url ?? page.pageView.webContents.getURL() ?? 'about:blank',
     title: target.title ?? page.pageView.webContents.getTitle() ?? '',
@@ -236,7 +236,7 @@ export async function resolveFrameCdpConnection(frameId: string): Promise<FrameC
 export async function refreshCdpProxyRegistration(
   registration: CdpProxyRegistration,
 ): Promise<CdpProxyRegistration> {
-  const next = await resolveFrameCdpConnection(registration.frameId)
+  const next = await resolvePageCdpConnection(registration.pageId)
   const browserTargetChanged =
     registration.browserWebSocketDebuggerUrl !== next.browserWebSocketDebuggerUrl
   registration.targetId = next.targetId
@@ -249,7 +249,7 @@ export async function refreshCdpProxyRegistration(
   if (browserTargetChanged) {
     cdpProxyLog('lifecycle', 'browser-target-changed', {
       token: registration.token,
-      frameId: registration.frameId,
+      pageId: registration.pageId,
     })
     closeSocketQuietly(registration.upstreamSocket)
     registration.upstreamSocket = null
@@ -298,7 +298,7 @@ export async function ensureCdpProxyUpstream(
       flushCdpProxyQueue(registration)
       cdpProxyLog('timing', 'upstream-open', {
         token: registration.token,
-        frameId: registration.frameId,
+        pageId: registration.pageId,
         durationMs: Date.now() - startedAt,
       })
       resolve(upstreamSocket)
@@ -368,7 +368,7 @@ export async function ensureCdpProxyUpstream(
       }
       cdpProxyLog('lifecycle', 'upstream-closed', {
         token: registration.token,
-        frameId: registration.frameId,
+        pageId: registration.pageId,
         hasActiveClient: registration.activeBridge !== null,
       })
     })
@@ -379,7 +379,7 @@ export async function ensureCdpProxyUpstream(
       registration.status = 'recovering'
       cdpProxyLog('lifecycle', 'upstream-error', {
         token: registration.token,
-        frameId: registration.frameId,
+        pageId: registration.pageId,
         message: error.message,
       })
       reject(error)
@@ -396,24 +396,24 @@ export function pruneExpiredCdpProxyRegistrations(now = Date.now()): void {
   for (const registration of cdpProxyRegistrations.values()) {
     const expired = now - registration.updatedAt > CDP_PROXY_TTL_MS
     const sessionExpired = registration.sessionId !== null && !activeSessionIds.has(registration.sessionId)
-    const frameMissing = !findPageById(registration.frameId)
-    if (expired || sessionExpired || frameMissing) {
+    const pageMissing = !findPageById(registration.pageId)
+    if (expired || sessionExpired || pageMissing) {
       cdpProxyLog('lifecycle', 'dispose-registration', {
         token: registration.token,
-        frameId: registration.frameId,
-        reason: expired ? 'ttl' : sessionExpired ? 'session-expired' : 'frame-missing',
+        pageId: registration.pageId,
+        reason: expired ? 'ttl' : sessionExpired ? 'session-expired' : 'page-missing',
       })
       disposeCdpProxyRegistration(registration)
     }
   }
 }
 
-export function registerFrameCdpProxy(
-  connection: FrameCdpConnectionInfo,
+export function registerPageCdpProxy(
+  connection: PageCdpConnectionInfo,
   port: number,
   session: { sessionId: string | null; clientName: string | null },
 ): {
-  frameId: string
+  pageId: string
   targetId: string
   webSocketDebuggerUrl: string
   url: string
@@ -421,7 +421,7 @@ export function registerFrameCdpProxy(
 } {
   pruneExpiredCdpProxyRegistrations()
   const now = Date.now()
-  const key = cdpProxyKey(session.sessionId, connection.frameId)
+  const key = cdpProxyKey(session.sessionId, connection.pageId)
   const existingToken = cdpProxyRegistrationsByKey.get(key)
   const existing = existingToken ? cdpProxyRegistrations.get(existingToken) : null
   if (existing) {
@@ -436,13 +436,13 @@ export function registerFrameCdpProxy(
     cdpProxyMetrics.registrationsReused += 1
     cdpProxyLog('lifecycle', 'reuse-registration', {
       token: existing.token,
-      frameId: existing.frameId,
+      pageId: existing.pageId,
       sessionId: existing.sessionId,
     })
     return {
-      frameId: existing.frameId,
+      pageId: existing.pageId,
       targetId: existing.targetId,
-      webSocketDebuggerUrl: `ws://${APP_CONTROL_HOST}:${port}/cdp/frame/${existing.token}`,
+      webSocketDebuggerUrl: `ws://${APP_CONTROL_HOST}:${port}/cdp/page/${existing.token}`,
       url: existing.url,
       title: existing.title,
     }
@@ -471,13 +471,13 @@ export function registerFrameCdpProxy(
   cdpProxyMetrics.registrationsCreated += 1
   cdpProxyLog('lifecycle', 'create-registration', {
     token,
-    frameId: connection.frameId,
+    pageId: connection.pageId,
     sessionId: session.sessionId,
   })
   return {
-    frameId: connection.frameId,
+    pageId: connection.pageId,
     targetId: connection.targetId,
-    webSocketDebuggerUrl: `ws://${APP_CONTROL_HOST}:${port}/cdp/frame/${token}`,
+    webSocketDebuggerUrl: `ws://${APP_CONTROL_HOST}:${port}/cdp/page/${token}`,
     url: connection.url,
     title: connection.title,
   }

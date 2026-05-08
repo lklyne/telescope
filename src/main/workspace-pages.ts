@@ -1,6 +1,6 @@
 import type {
-  CreateFramesRequest,
-  CreateFramesResponse,
+  CreatePagesRequest,
+  CreatePagesResponse,
   PageConfig,
   WorkspaceGroup,
 } from '../shared/types'
@@ -20,7 +20,7 @@ import {
   getSelectedEntityIds,
   selectPageById,
   setSelectedEntities,
-  setSelectedFrames,
+  setSelectedPages,
   setSelectedGroupId,
 } from './runtime/ui-actions'
 import { textEntities, createTextEntity as createTextEntityInState } from './runtime/text-entity-state'
@@ -32,11 +32,11 @@ import {
   snapToGrid,
 } from './runtime/surface-layout'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
-import { setCustomFrameSizeMetadata, setDeviceIdMetadata } from './runtime/runtime-entities'
+import { setCustomPageSizeMetadata, setDeviceIdMetadata } from './runtime/runtime-entities'
 import { makeId, cloneMetadata, pageCurrentUrl, createGroup } from './workspace-utils'
 import {
   entityBoundsById,
-  frameSelectableBounds,
+  pageSelectableBounds,
   groupById,
   groupChildIds,
   unionBounds,
@@ -63,20 +63,20 @@ function manualGroupLabel(url: string): string {
   try {
     const parsed = new URL(url)
     const path = parsed.pathname === '/' ? '' : parsed.pathname
-    return `Frames: ${parsed.hostname}${path}`
+    return `Pages: ${parsed.hostname}${path}`
   } catch {
-    return 'Frames'
+    return 'Pages'
   }
 }
 
-function ensureManualRowGroup(sourceFrameId: string, url: string): WorkspaceGroup {
-  const existingPage = findPageById(sourceFrameId)
+function ensureManualRowGroup(sourcePageId: string, url: string): WorkspaceGroup {
+  const existingPage = findPageById(sourcePageId)
   if (existingPage?.parentGroupId) {
     const existingGroup = groupById(existingPage.parentGroupId)
     if (existingGroup) return existingGroup
   }
 
-  const sourceBounds = entityBoundsById(sourceFrameId) ?? { x: 0, y: 0, width: 0, height: 0 }
+  const sourceBounds = entityBoundsById(sourcePageId) ?? { x: 0, y: 0, width: 0, height: 0 }
 
   const group = createGroup({
     id: makeId('group'),
@@ -121,7 +121,7 @@ function reflowGroupRow(group: WorkspaceGroup): void {
     page.parentGroupId = group.id
     cursorX = snapToGrid(cursorX + size.width + CLUSTER_HORIZONTAL_GUTTER)
   }
-  const bounds = unionBounds(rowPages.map((page) => frameSelectableBounds(page)))
+  const bounds = unionBounds(rowPages.map((page) => pageSelectableBounds(page)))
   if (bounds) {
     group.canvasX = bounds.x - USER_GROUP_PADDING
     group.canvasY = bounds.y - USER_GROUP_PADDING
@@ -130,21 +130,21 @@ function reflowGroupRow(group: WorkspaceGroup): void {
   }
 }
 
-// --- Exported frame operations ---
+// --- Exported page operations ---
 
-export function addFrameFromSource(input: {
-  sourceFrameId?: string
+export function addPageFromSource(input: {
+  sourcePageId?: string
   presetIndex: number
   customSize?: boolean
   mode: 'add_from_toolbar' | 'duplicate'
   focus?: boolean
-}): { frameId: string; groupId?: string } {
+}): { pageId: string; groupId?: string } {
   const preset = VIEWPORT_PRESETS[input.presetIndex]
   if (!preset) {
     throw new Error(`Unknown preset index: ${input.presetIndex}`)
   }
 
-  const sourcePage = input.sourceFrameId ? findPageById(input.sourceFrameId) : undefined
+  const sourcePage = input.sourcePageId ? findPageById(input.sourcePageId) : undefined
   const url = pageCurrentUrl(sourcePage?.id) ?? 'about:blank'
 
   if (!sourcePage) {
@@ -160,14 +160,14 @@ export function addFrameFromSource(input: {
       metadata: setDeviceIdMetadata({ createdFrom: input.mode, deviceOrientation: defaultOrientationForDevice(device) }, device?.id ?? null),
     })
     if (input.customSize) {
-      page.metadata = setCustomFrameSizeMetadata(page.metadata, pageContentSize(page))
+      page.metadata = setCustomPageSizeMetadata(page.metadata, pageContentSize(page))
     }
     if (input.focus ?? true) {
       selectPageById(page.id)
     }
     layoutAllViews()
     scheduleWorkspaceAutosave()
-    return { frameId: page.id }
+    return { pageId: page.id }
   }
 
   const group = sourcePage.parentGroupId
@@ -190,7 +190,7 @@ export function addFrameFromSource(input: {
     metadata: duplicateMetadata,
   })
   if (input.customSize) {
-    newPage.metadata = setCustomFrameSizeMetadata(newPage.metadata, pageContentSize(newPage))
+    newPage.metadata = setCustomPageSizeMetadata(newPage.metadata, pageContentSize(newPage))
   }
   newPage.parentGroupId = group.id
   reflowGroupRow(group)
@@ -201,24 +201,24 @@ export function addFrameFromSource(input: {
   }
   layoutAllViews()
   scheduleWorkspaceAutosave()
-  return { frameId: newPage.id, groupId: group.id }
+  return { pageId: newPage.id, groupId: group.id }
 }
 
-export function createFrameAtPosition(input: {
-  sourceFrameId?: string
+export function createPageAtPosition(input: {
+  sourcePageId?: string
   presetIndex: number
   customSize?: boolean
   canvasX: number
   canvasY: number
   mode: 'add_from_toolbar' | 'duplicate'
   focus?: boolean
-}): { frameId: string } {
+}): { pageId: string } {
   const preset = VIEWPORT_PRESETS[input.presetIndex]
   if (!preset) {
     throw new Error(`Unknown preset index: ${input.presetIndex}`)
   }
 
-  const url = pageCurrentUrl(input.sourceFrameId) ?? 'about:blank'
+  const url = pageCurrentUrl(input.sourcePageId) ?? 'about:blank'
   // Auto-assign device based on the preset so orientation tabs appear immediately
   const matchedDevice = deviceForPresetIndex(input.presetIndex)
   const metadata = setDeviceIdMetadata(
@@ -236,7 +236,7 @@ export function createFrameAtPosition(input: {
     metadata,
   })
   if (input.customSize) {
-    page.metadata = setCustomFrameSizeMetadata(page.metadata, pageContentSize(page))
+    page.metadata = setCustomPageSizeMetadata(page.metadata, pageContentSize(page))
   }
 
   if (input.focus ?? true) {
@@ -244,18 +244,18 @@ export function createFrameAtPosition(input: {
   }
   layoutAllViews()
   scheduleWorkspaceAutosave()
-  return { frameId: page.id }
+  return { pageId: page.id }
 }
 
-export function duplicateFrameFromSource(input: {
-  sourceFrameId: string
+export function duplicatePageFromSource(input: {
+  sourcePageId: string
   focus?: boolean
   /** When true, skip automatic row-group creation (context menu duplicate). */
   skipGrouping?: boolean
-}): { frameId: string; groupId?: string } {
-  const sourcePage = findPageById(input.sourceFrameId)
+}): { pageId: string; groupId?: string } {
+  const sourcePage = findPageById(input.sourcePageId)
   if (!sourcePage) {
-    throw new Error(`Unknown frame: ${input.sourceFrameId}`)
+    throw new Error(`Unknown page: ${input.sourcePageId}`)
   }
 
   if (input.skipGrouping) {
@@ -284,34 +284,34 @@ export function duplicateFrameFromSource(input: {
     }
     layoutAllViews()
     scheduleWorkspaceAutosave()
-    return { frameId: newPage.id }
+    return { pageId: newPage.id }
   }
 
-  return addFrameFromSource({
-    sourceFrameId: sourcePage.id,
+  return addPageFromSource({
+    sourcePageId: sourcePage.id,
     presetIndex: sourcePage.presetIndex,
     mode: 'duplicate',
     focus: input.focus,
   })
 }
 
-export function createFrames(input: CreateFramesRequest): CreateFramesResponse {
-  const frameIds: string[] = []
-  for (const frame of input.frames) {
-    const page = createPage(frame)
-    frameIds.push(page.id)
+export function createPages(input: CreatePagesRequest): CreatePagesResponse {
+  const pageIds: string[] = []
+  for (const config of input.pages) {
+    const page = createPage(config)
+    pageIds.push(page.id)
   }
   layoutAllViews()
-  if (frameIds.length) scheduleWorkspaceAutosave()
-  return { frameIds }
+  if (pageIds.length) scheduleWorkspaceAutosave()
+  return { pageIds }
 }
 
-export function tidySelectedFrames(): { frameIds: string[] } {
-  const selectedFrameIds = getSelectedEntityIds()
-  if (!selectedFrameIds.length) return { frameIds: [] }
+export function tidySelectedPages(): { pageIds: string[] } {
+  const selectedPageIds = getSelectedEntityIds()
+  if (!selectedPageIds.length) return { pageIds: [] }
 
-  const pagesToTidy = selectedFrameIds
-    .map((frameId) => findPageById(frameId))
+  const pagesToTidy = selectedPageIds
+    .map((pageId) => findPageById(pageId))
     .filter(
       (
         page,
@@ -319,7 +319,7 @@ export function tidySelectedFrames(): { frameIds: string[] } {
         page !== undefined,
     )
 
-  if (!pagesToTidy.length) return { frameIds: [] }
+  if (!pagesToTidy.length) return { pageIds: [] }
 
   pagesToTidy.sort((a, b) => {
     const aSize = pageContentSize(a)
@@ -356,7 +356,7 @@ export function tidySelectedFrames(): { frameIds: string[] } {
 
   layoutAllViews()
   scheduleWorkspaceAutosave()
-  return { frameIds: pagesToTidy.map((page) => page.id) }
+  return { pageIds: pagesToTidy.map((page) => page.id) }
 }
 
 export function duplicateEntity(input: {
@@ -365,11 +365,11 @@ export function duplicateEntity(input: {
 }): { entityId: string } {
   const page = findPageById(input.entityId)
   if (page) {
-    const result = duplicateFrameFromSource({
-      sourceFrameId: page.id,
+    const result = duplicatePageFromSource({
+      sourcePageId: page.id,
       focus: input.focus,
     })
-    return { entityId: result.frameId }
+    return { entityId: result.pageId }
   }
 
   const note = textEntities.find((n) => n.id === input.entityId)

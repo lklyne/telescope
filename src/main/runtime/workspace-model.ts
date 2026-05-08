@@ -2,7 +2,7 @@
  * Workspace Model
  *
  * Owns the workspace data collections: groups, edges, annotations, and tabs.
- * These are the persisted, undoable workspace state. Pages (frames) remain
+ * These are the persisted, undoable workspace state. Pages (pages) remain
  * in runtime-context.ts because they hold non-serializable WebContentsView refs.
  *
  * The Y.Doc in workspace-doc.ts mirrors this data for undo/redo.

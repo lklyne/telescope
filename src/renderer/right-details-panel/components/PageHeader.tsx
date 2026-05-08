@@ -1,32 +1,32 @@
-export function FrameHeader({
-  frameLabel,
-  frameWidth,
-  frameHeight,
-  frameUrl,
+export function PageHeader({
+  pageLabel,
+  pageWidth,
+  pageHeight,
+  pageUrl,
   mutedClass,
 }: {
-  frameLabel: string
-  frameWidth?: number
-  frameHeight?: number
-  frameUrl?: string
+  pageLabel: string
+  pageWidth?: number
+  pageHeight?: number
+  pageUrl?: string
   mutedClass: string
 }) {
   return (
     <div className="px-1">
       <div className="min-w-0 text-[13px] font-semibold leading-5">
-        <span>{frameLabel}</span>
-        {typeof frameWidth === 'number' && typeof frameHeight === 'number' ? (
+        <span>{pageLabel}</span>
+        {typeof pageWidth === 'number' && typeof pageHeight === 'number' ? (
           <span className={`ml-1 font-normal ${mutedClass}`}>
-            {frameWidth}x{frameHeight}
+            {pageWidth}x{pageHeight}
           </span>
         ) : null}
       </div>
-      {frameUrl ? (
+      {pageUrl ? (
         <div
           className={`min-w-0 break-all text-[11px] leading-4 ${mutedClass}`}
-          title={frameUrl}
+          title={pageUrl}
         >
-          {frameUrl}
+          {pageUrl}
         </div>
       ) : null}
     </div>

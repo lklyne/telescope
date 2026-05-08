@@ -505,7 +505,7 @@ function forcePseudoState(
   }
 }
 
-function applyFrameOverrides(payload: unknown): void {
+function applyPageOverrides(payload: unknown): void {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return
   const overrides = payload as {
     localStorage?: Record<string, string>
@@ -576,7 +576,7 @@ function installCommitHook(): boolean {
 /**
  * Start a MutationObserver as a fallback for pages without React or where
  * the commit hook couldn't be installed. Fires at most once per animation
- * frame to avoid overwhelming the publisher.
+ * page to avoid overwhelming the publisher.
  */
 function installMutationObserver(): MutationObserver {
   let pending = false
@@ -611,8 +611,8 @@ export function initComponentInspector(): void {
     overrideProps(payload ?? {})
   })
 
-  ipcRenderer.on('apply-frame-overrides', (_event, payload) => {
-    applyFrameOverrides(payload)
+  ipcRenderer.on('apply-page-overrides', (_event, payload) => {
+    applyPageOverrides(payload)
   })
 
   // Tier 2: Resolve full detail on demand from main process

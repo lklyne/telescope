@@ -10,7 +10,7 @@ export function useInspectTreeState(inspect: InspectPanelState) {
     const next = new Set<string>()
     for (const id of inspect.treeRootIds.slice(0, 8)) next.add(id)
     setExpanded(next)
-  }, [inspect.activeFrameId, treeRootsKey])
+  }, [inspect.activePageId, treeRootsKey])
 
   useEffect(() => {
     const selectedNodeId = inspect.selectedNodeId

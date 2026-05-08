@@ -8,16 +8,16 @@
  * Advantages over the CSS div-based DeviceShellLayer:
  * - No clip-path polygon hack — corners are true cubic Bezier squircles
  * - Single draw call for the bezel fill instead of three composited divs
- * - Fewer DOM nodes per device frame
+ * - Fewer DOM nodes per device page
  *
  * Known issue: the top border stroke is clipped in some configurations.
  * The CSS approach (DeviceShellLayer) is currently the default.
  *
- * Toggle via the per-frame `useSvgDeviceShell` metadata flag (checkbox in
+ * Toggle via the per-page `useSvgDeviceShell` metadata flag (checkbox in
  * the right details panel, currently commented out).
  */
 
-import type { CanvasSceneFrameEntity } from '../../shared/types'
+import type { CanvasScenePageEntity } from '../../shared/types'
 import {
   DEVICE_CATALOG,
   contentCornerRadiusForDevice,
@@ -25,35 +25,35 @@ import {
 import { squirclePath } from './squirclePath'
 
 export function SvgDeviceShellLayer({
-  frames,
+  pages,
   isDark,
 }: {
-  frames: CanvasSceneFrameEntity[]
+  pages: CanvasScenePageEntity[]
   isDark: boolean
 }) {
-  const framedFrames = frames.filter((f) => f.showDeviceFrame && f.browserSizeMode !== 'fill')
+  const framedPages = pages.filter((f) => f.showDeviceFrame && f.browserSizeMode !== 'fill')
 
-  if (!framedFrames.length) return null
+  if (!framedPages.length) return null
 
   return (
     <>
-      {framedFrames.map((frame) => {
-        const dev = frame.deviceId ? DEVICE_CATALOG.get(frame.deviceId) : null
+      {framedPages.map((page) => {
+        const dev = page.deviceId ? DEVICE_CATALOG.get(page.deviceId) : null
         if (!dev) return null // SVG shell only supports catalog devices for now
 
-        const orientation = frame.deviceOrientation ?? 'portrait'
+        const orientation = page.deviceOrientation ?? 'portrait'
 
         // Inner content bounds (the web viewport area)
-        const contentX = frame.contentScreenX ?? frame.screenX
-        const contentY = frame.contentScreenY ?? frame.screenY
-        const contentW = frame.contentScreenWidth ?? frame.screenWidth
-        const contentH = frame.contentScreenHeight ?? frame.screenHeight
+        const contentX = page.contentScreenX ?? page.screenX
+        const contentY = page.contentScreenY ?? page.screenY
+        const contentW = page.contentScreenWidth ?? page.screenWidth
+        const contentH = page.contentScreenHeight ?? page.screenHeight
 
         // Outer shell bounds (device bezel outer edge)
-        const shellX = frame.screenX
-        const shellY = frame.screenY
-        const shellW = frame.screenWidth
-        const shellH = frame.screenHeight
+        const shellX = page.screenX
+        const shellY = page.screenY
+        const shellW = page.screenWidth
+        const shellH = page.screenHeight
 
         // Bezel insets (space between shell and content)
         const insetTop = contentY - shellY
@@ -61,10 +61,10 @@ export function SvgDeviceShellLayer({
         const insetBottom = shellY + shellH - (contentY + contentH)
 
         // Scale device catalog radii to screen space
-        const displayZoom = frame.width > 0 ? contentW / frame.width : 1
+        const displayZoom = page.width > 0 ? contentW / page.width : 1
         const outerRadius = dev.cornerRadius * displayZoom
         const innerRadius =
-          contentCornerRadiusForDevice(frame.deviceId!, orientation) * displayZoom
+          contentCornerRadiusForDevice(page.deviceId!, orientation) * displayZoom
 
         const isPhone = dev.category === 'iphone'
         const isTablet = dev.category === 'ipad'
@@ -94,7 +94,7 @@ export function SvgDeviceShellLayer({
 
         return (
           <svg
-            key={frame.id}
+            key={page.id}
             className="pointer-events-none absolute"
             style={{
               left: shellX - pad,

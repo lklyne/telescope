@@ -1,26 +1,26 @@
 import { Plus } from 'lucide-react'
-import type { WorkspaceTabFrameSummary } from '../../shared/types'
+import type { WorkspaceTabPageSummary } from '../../shared/types'
 import { LAPTOP_PRESET_INDEX } from '../../shared/constants'
-import { FrameListItem } from '../shared/frameListItem'
+import { PageListItem } from '../shared/pageListItem'
 
 export function BrowserTabBar({
   activeBrowserTabId,
   leftInset,
   browserTabs,
   isDark,
-  onAddBrowserFrame,
-  onDeleteFrame,
-  onRenameFrame,
+  onAddBrowserPage,
+  onDeletePage,
+  onRenamePage,
   onSelectBrowserTab,
 }: {
   activeBrowserTabId: string | null
   leftInset: number
-  browserTabs: WorkspaceTabFrameSummary[]
+  browserTabs: WorkspaceTabPageSummary[]
   isDark: boolean
-  onAddBrowserFrame: (presetIndex: number | 'custom') => void
-  onDeleteFrame: (frameId: string) => void
-  onRenameFrame: (frameId: string, name: string) => void
-  onSelectBrowserTab: (frameId: string) => void
+  onAddBrowserPage: (presetIndex: number | 'custom') => void
+  onDeletePage: (pageId: string) => void
+  onRenamePage: (pageId: string, name: string) => void
+  onSelectBrowserTab: (pageId: string) => void
 }) {
   return (
     <div
@@ -38,21 +38,21 @@ export function BrowserTabBar({
       <div className="min-w-0 flex flex-1 items-center gap-1.5">
         <div className="browser-tab-strip-scroll min-w-0 max-w-full flex-[0_1_auto] overflow-x-auto">
           <div className="flex h-9 min-w-0 items-stretch">
-            {browserTabs.map((frame) => (
+            {browserTabs.map((page) => (
               <div
-                key={frame.id}
+                key={page.id}
                 className="flex h-full w-[240px] min-w-[88px] max-w-[240px] shrink"
               >
-                <FrameListItem
-                  frame={frame}
-                  active={activeBrowserTabId === frame.id}
+                <PageListItem
+                  page={page}
+                  active={activeBrowserTabId === page.id}
                   compact
                   fullBleedCompact
                   showDimensions={false}
                   isDark={isDark}
-                  onClick={() => onSelectBrowserTab(frame.id)}
-                  onRename={(name) => onRenameFrame(frame.id, name)}
-                  onDelete={() => onDeleteFrame(frame.id)}
+                  onClick={() => onSelectBrowserTab(page.id)}
+                  onRename={(name) => onRenamePage(page.id, name)}
+                  onDelete={() => onDeletePage(page.id)}
                 />
               </div>
             ))}
@@ -64,7 +64,7 @@ export function BrowserTabBar({
               ? 'bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100'
               : 'bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
           }`}
-          onClick={() => onAddBrowserFrame(LAPTOP_PRESET_INDEX)}
+          onClick={() => onAddBrowserPage(LAPTOP_PRESET_INDEX)}
           title="New Tab"
           type="button"
         >

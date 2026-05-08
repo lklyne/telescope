@@ -32,8 +32,8 @@ function canonicalAnnotationUrl(value: string | undefined | null): string | unde
   }
 }
 
-function resolveFrameName(frameId: string): string | undefined {
-  const page = findPageById(frameId)
+function resolvePageName(pageId: string): string | undefined {
+  const page = findPageById(pageId)
   if (!page) return undefined
   const preset = VIEWPORT_PRESETS[page.presetIndex]
   if (!preset) return undefined
@@ -41,18 +41,18 @@ function resolveFrameName(frameId: string): string | undefined {
   return `${label} ${preset.width}×${preset.height}`
 }
 
-function resolveFramePageUrl(frameId: string): string | undefined {
-  const page = findPageById(frameId)
+function resolvePagePageUrl(pageId: string): string | undefined {
+  const page = findPageById(pageId)
   if (!page) return undefined
   return canonicalAnnotationUrl(page.pageView.webContents.getURL())
 }
 
-function regionPrimaryFrameId(
+function regionPrimaryPageId(
   metadata: AnnotationMetadata | undefined,
 ): string | undefined {
   return (
-    metadata?.regionComponents?.[0]?.frameId ??
-    metadata?.regionElements?.[0]?.frameId
+    metadata?.regionComponents?.[0]?.pageId ??
+    metadata?.regionElements?.[0]?.pageId
   )
 }
 
@@ -60,23 +60,23 @@ function enrichedAnnotationMetadata(
   request: AnnotationCreateRequest,
 ): AnnotationMetadata | undefined {
   const anchor = request.anchor
-  const contextFrameId =
-    anchor.type === 'frame' || anchor.type === 'element'
-      ? anchor.frameId
+  const contextPageId =
+    anchor.type === 'page' || anchor.type === 'element'
+      ? anchor.pageId
       : anchor.type === 'region'
-        ? regionPrimaryFrameId(request.metadata)
+        ? regionPrimaryPageId(request.metadata)
         : undefined
-  const frameName = contextFrameId ? resolveFrameName(contextFrameId) : undefined
-  const pageUrl = contextFrameId ? resolveFramePageUrl(contextFrameId) : undefined
+  const pageName = contextPageId ? resolvePageName(contextPageId) : undefined
+  const pageUrl = contextPageId ? resolvePagePageUrl(contextPageId) : undefined
 
   const metadata = request.metadata ? { ...request.metadata } : undefined
   const metadataWithContext: AnnotationMetadata = {
     ...(metadata ?? {}),
-    ...(frameName ? { frameName } : {}),
+    ...(pageName ? { pageName } : {}),
     ...(pageUrl ? { pageUrl } : {}),
   }
 
-  // For non-element anchors, just attach frameName if available
+  // For non-element anchors, just attach pageName if available
   if (anchor.type !== 'element') {
     return Object.keys(metadataWithContext).length ? metadataWithContext : undefined
   }
@@ -87,11 +87,11 @@ function enrichedAnnotationMetadata(
   }
 
   const reactComponents = getComponentAncestryByNodeId(
-    anchor.frameId,
+    anchor.pageId,
     inspectContext.nodeId,
   )
   const sourceLocation = getComponentSourceLocationByNodeId(
-    anchor.frameId,
+    anchor.pageId,
     inspectContext.nodeId,
   )
 
@@ -112,7 +112,7 @@ function enrichedAnnotationMetadata(
 export function getAnnotations(filters?: {
   status?: AnnotationStatusFilter
   url?: string
-  frameId?: string
+  pageId?: string
 }): Annotation[] {
   const targetUrl = canonicalAnnotationUrl(filters?.url)
   return workspaceAnnotations.filter((annotation) => {
@@ -123,14 +123,14 @@ export function getAnnotations(filters?: {
         return false
       }
     }
-    if (filters?.frameId) {
+    if (filters?.pageId) {
       if (annotation.anchor.type === 'canvas') return false
       if (annotation.anchor.type === 'region') {
         const match = annotation.metadata?.regionComponents?.some(
-          (g) => g.frameId === filters.frameId,
+          (g) => g.pageId === filters.pageId,
         ) ?? false
         if (!match) return false
-      } else if (annotation.anchor.frameId !== filters.frameId) {
+      } else if (annotation.anchor.pageId !== filters.pageId) {
         return false
       }
     }

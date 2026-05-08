@@ -1,8 +1,8 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import {
-  createFrames,
-  deleteFrames,
-  findFrameTarget,
+  createPages,
+  deletePages,
+  findPageTarget,
   getPresence,
   getWorkspace,
   postPresence,
@@ -11,17 +11,17 @@ import {
   takeSnapshot,
 } from './app-client'
 
-const createdFrameIds: string[] = []
+const createdPageIds: string[] = []
 
 afterAll(async () => {
-  if (createdFrameIds.length) {
-    await deleteFrames(createdFrameIds)
+  if (createdPageIds.length) {
+    await deletePages(createdPageIds)
   }
 })
 
-describe('frames', () => {
-  it('creates a frame and it appears in the workspace', async () => {
-    const result = await createFrames([
+describe('pages', () => {
+  it('creates a page and it appears in the workspace', async () => {
+    const result = await createPages([
       {
         url: 'data:text/html,<main><h1>Smoke</h1><button aria-label="Primary action">Click me</button></main>',
         canvasX: 100,
@@ -29,25 +29,25 @@ describe('frames', () => {
         presetIndex: 9,
       },
     ])
-    expect(result.frameIds).toHaveLength(1)
-    createdFrameIds.push(...result.frameIds)
+    expect(result.pageIds).toHaveLength(1)
+    createdPageIds.push(...result.pageIds)
 
     const workspace = await getWorkspace()
-    const frameIds = workspace.entities.filter((e) => e.kind === 'frame').map((e) => e.id)
-    expect(frameIds).toContain(result.frameIds[0])
+    const pageIds = workspace.entities.filter((e) => e.kind === 'page').map((e) => e.id)
+    expect(pageIds).toContain(result.pageIds[0])
   })
 
-  it('takes a snapshot of a frame', async () => {
+  it('takes a snapshot of a page', async () => {
     // Wait briefly for the data URL to load
     await new Promise((r) => setTimeout(r, 2_000))
-    const snapshot = await takeSnapshot(createdFrameIds[0])
+    const snapshot = await takeSnapshot(createdPageIds[0])
     expect(typeof snapshot.snapshot).toBe('string')
     expect(snapshot.snapshot.length).toBeGreaterThan(0)
   })
 
   it('takes a structured agent snapshot with @refs and bounds', async () => {
-    const snapshot = await takeAgentSnapshot(createdFrameIds[0])
-    expect(snapshot.snapshot.frameId).toBe(createdFrameIds[0])
+    const snapshot = await takeAgentSnapshot(createdPageIds[0])
+    expect(snapshot.snapshot.pageId).toBe(createdPageIds[0])
     expect(snapshot.snapshot.nodes.length).toBeGreaterThan(0)
     expect(snapshot.snapshot.nodes[0].ref).toMatch(/^@e\d+$/)
     expect(snapshot.snapshot.nodes.some((node) => node.interactive)).toBe(true)
@@ -57,16 +57,16 @@ describe('frames', () => {
   })
 
   it('resolves targetRef presence through the structured snapshot cache', async () => {
-    const snapshot = await takeAgentSnapshot(createdFrameIds[0])
+    const snapshot = await takeAgentSnapshot(createdPageIds[0])
     const targetNode = snapshot.snapshot.nodes.find((node) => node.interactive)
     expect(targetNode).toBeTruthy()
 
     await postPresence({
       sessionId: 'smoke-agent',
       clientName: 'smoke-agent',
-      surface: 'frame',
+      surface: 'page',
       phase: 'acting',
-      frameId: createdFrameIds[0],
+      pageId: createdPageIds[0],
       labelKey: 'find_target',
       targetRef: targetNode.ref,
       targetRefSource: 'specular',
@@ -81,28 +81,28 @@ describe('frames', () => {
   })
 
   it('finds a target by semantic name and returns explicit rect coordinates', async () => {
-    const result = await findFrameTarget({
-      frameId: createdFrameIds[0],
+    const result = await findPageTarget({
+      pageId: createdPageIds[0],
       name: 'Click me',
     })
     expect(result.target.targetRefSource).toBe('specular')
     expect(result.target.targetName).toContain('Click me')
     expect(result.target.targetRect.width).toBeGreaterThan(0)
-    expect(result.target.frameX).toBeGreaterThan(0)
-    expect(result.target.frameY).toBeGreaterThan(0)
+    expect(result.target.pageX).toBeGreaterThan(0)
+    expect(result.target.pageY).toBeGreaterThan(0)
   })
 
-  it('prefers explicit frame coordinates over stale target rect state', async () => {
-    const snapshot = await takeAgentSnapshot(createdFrameIds[0])
+  it('prefers explicit page coordinates over stale target rect state', async () => {
+    const snapshot = await takeAgentSnapshot(createdPageIds[0])
     const targetNode = snapshot.snapshot.nodes.find((node) => node.interactive)
     expect(targetNode).toBeTruthy()
 
     await postPresence({
       sessionId: 'smoke-agent-coordinates',
       clientName: 'smoke-agent-coordinates',
-      surface: 'frame',
+      surface: 'page',
       phase: 'acting',
-      frameId: createdFrameIds[0],
+      pageId: createdPageIds[0],
       labelKey: 'find_target',
       targetRef: targetNode.ref,
       targetRefSource: 'specular',
@@ -112,11 +112,11 @@ describe('frames', () => {
     await postPresence({
       sessionId: 'smoke-agent-coordinates',
       clientName: 'smoke-agent-coordinates',
-      surface: 'frame',
+      surface: 'page',
       phase: 'acting',
-      frameId: createdFrameIds[0],
+      pageId: createdPageIds[0],
       labelKey: 'click_target',
-      coordinates: { frameX: 12, frameY: 18 },
+      coordinates: { pageX: 12, pageY: 18 },
       targetRef: null,
       targetRefSource: 'agent-browser',
       targetName: null,
@@ -124,27 +124,27 @@ describe('frames', () => {
 
     const presence = await getPresence()
     const cursor = presence.cursors.find((item) => item.sessionId === 'smoke-agent-coordinates')
-    expect(cursor?.frameX).toBe(12)
-    expect(cursor?.frameY).toBe(18)
+    expect(cursor?.pageX).toBe(12)
+    expect(cursor?.pageY).toBe(18)
     expect(cursor?.targetRef).toBeNull()
     expect(cursor?.targetRefSource).toBe('agent-browser')
     expect(cursor?.targetName).toBeNull()
     expect(cursor?.targetRect).toBeNull()
   })
 
-  it('takes a screenshot of a frame', async () => {
-    const screenshot = await takeScreenshot(createdFrameIds[0])
+  it('takes a screenshot of a page', async () => {
+    const screenshot = await takeScreenshot(createdPageIds[0])
     expect(screenshot.mimeType).toBe('image/png')
     expect(screenshot.base64.length).toBeGreaterThan(100)
   })
 
-  it('deletes a frame and it disappears from the workspace', async () => {
-    const [frameId] = createdFrameIds.splice(0, 1)
-    const result = await deleteFrames([frameId])
-    expect(result.deletedFrameIds).toContain(frameId)
+  it('deletes a page and it disappears from the workspace', async () => {
+    const [pageId] = createdPageIds.splice(0, 1)
+    const result = await deletePages([pageId])
+    expect(result.deletedPageIds).toContain(pageId)
 
     const workspace = await getWorkspace()
-    const frameIds = workspace.entities.filter((e) => e.kind === 'frame').map((e) => e.id)
-    expect(frameIds).not.toContain(frameId)
+    const pageIds = workspace.entities.filter((e) => e.kind === 'page').map((e) => e.id)
+    expect(pageIds).not.toContain(pageId)
   })
 })

@@ -1,15 +1,15 @@
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   applyLayoutDirective,
-  createFrames,
-  deleteFrames,
+  createPages,
+  deletePages,
   getWorkspace,
 } from './app-client'
 
 const trash: string[] = []
 
 afterAll(async () => {
-  if (trash.length) await deleteFrames(trash)
+  if (trash.length) await deletePages(trash)
 })
 
 describe('layout directive — pure-create row', () => {
@@ -78,28 +78,28 @@ describe('layout directive — pure-create row', () => {
 })
 
 describe('layout directive — re-layout existing entities', () => {
-  it('reorganizes existing frames into a 2-col grid and fills in kinds', async () => {
+  it('reorganizes existing pages into a 2-col grid and fills in kinds', async () => {
     const ids: string[] = []
     for (let i = 0; i < 4; i++) {
-      const r = await createFrames([
+      const r = await createPages([
         { url: `data:text/html,<div>${i}</div>`, canvasX: i * 500, canvasY: i * 300, presetIndex: 9 },
       ])
-      ids.push(...r.frameIds)
+      ids.push(...r.pageIds)
     }
     trash.push(...ids)
-    const created = { frameIds: ids }
+    const created = { pageIds: ids }
 
     const ws = await getWorkspace()
-    const frameIds = ws.entities.filter((e) => e.kind === 'frame').map((e) => e.id)
-    expect(frameIds).toEqual(expect.arrayContaining(created.frameIds))
+    const pageIds = ws.entities.filter((e) => e.kind === 'page').map((e) => e.id)
+    expect(pageIds).toEqual(expect.arrayContaining(created.pageIds))
 
     const result = await applyLayoutDirective({
       layout: { kind: 'grid', cols: 2, gap: 24, originX: 0, originY: 0 },
-      items: created.frameIds.map((id) => ({ id })),
+      items: created.pageIds.map((id) => ({ id })),
     })
 
-    expect(result.kinds).toEqual(['frame', 'frame', 'frame', 'frame'])
-    // 2-col grid with uniform tracks. Same-size frames → predictable cells.
+    expect(result.kinds).toEqual(['page', 'page', 'page', 'page'])
+    // 2-col grid with uniform tracks. Same-size pages → predictable cells.
     const rowDelta = result.positions[2].canvasY - result.positions[0].canvasY
     const colDelta = result.positions[1].canvasX - result.positions[0].canvasX
     expect(colDelta).toBeGreaterThan(0)
@@ -112,7 +112,7 @@ describe('layout directive — re-layout existing entities', () => {
     await expect(
       applyLayoutDirective({
         layout: { kind: 'row', gap: 16, originX: 0, originY: 0 },
-        items: [{ id: 'frame_does_not_exist_xyz' }],
+        items: [{ id: 'page_does_not_exist_xyz' }],
       }),
     ).rejects.toThrow()
   })
@@ -120,17 +120,17 @@ describe('layout directive — re-layout existing entities', () => {
   it('uses bbox of existing items as implicit origin when no anchor given', async () => {
     const ids: string[] = []
     for (let i = 0; i < 2; i++) {
-      const r = await createFrames([
+      const r = await createPages([
         { url: `data:text/html,<div>${i}</div>`, canvasX: 500 + i * 1000, canvasY: 400 + i * 400, presetIndex: 9 },
       ])
-      ids.push(...r.frameIds)
+      ids.push(...r.pageIds)
     }
     trash.push(...ids)
-    const created = { frameIds: ids }
+    const created = { pageIds: ids }
 
     const result = await applyLayoutDirective({
       layout: { kind: 'row', gap: 'xs' },
-      items: created.frameIds.map((id) => ({ id })),
+      items: created.pageIds.map((id) => ({ id })),
     })
 
     // Implicit origin = (min x, min y) of bbox = (500, 400). No snap.

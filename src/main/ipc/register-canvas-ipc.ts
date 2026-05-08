@@ -6,7 +6,7 @@ import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
 import { aboveView, bgView } from '../runtime/view-refs'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
-import { setHoverEntity, setHoveredFrame } from '../runtime/runtime-core'
+import { setHoverEntity, setHoveredPage } from '../runtime/runtime-core'
 import { annotationMode as uiAnnotationMode, selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
 import {
   canvasOrigin,
@@ -37,8 +37,8 @@ import {
 import { tryEnter, commitActive } from '../runtime/interaction-controller'
 import { setTextEditingActive } from '../runtime/keyboard-shortcuts'
 import {
-  forwardPointerToFrame,
-  forwardWheelToFrame,
+  forwardPointerToPage,
+  forwardWheelToPage,
   type ForwardPointerPayload,
   type ForwardWheelPayload,
 } from '../runtime/page-input-forwarding'
@@ -49,7 +49,7 @@ import {
   duplicateWorkspaceTab,
   renameWorkspaceDrawingEntity,
   renameWorkspaceFileEntity,
-  renameWorkspaceFrame,
+  renameWorkspacePage,
   renameWorkspaceGroup,
   renameWorkspaceTab,
   renameWorkspaceTextEntity,
@@ -59,7 +59,7 @@ import {
   setWorkspaceTabExpanded,
 } from '../runtime/workspace-session'
 import {
-  setFrameBrowserSizeMode,
+  setPageBrowserSizeMode,
   type BrowserSizeMode,
 } from '../runtime/runtime-entities'
 import { createEdges, deleteEdges } from '../workspace-edges'
@@ -106,20 +106,20 @@ export function registerCanvasIpc(): void {
   })
 
   ipcMain.on(
-    'canvas-select-frame',
+    'canvas-select-page',
     (
       _event,
-      { frameId, modifiers }: { frameId: string; modifiers?: SelectionModifiers },
+      { pageId, modifiers }: { pageId: string; modifiers?: SelectionModifiers },
     ) => {
       if (interactionBlocksPageSelection()) return
-      if (!pages.some((candidate) => candidate.id === frameId)) return
+      if (!pages.some((candidate) => candidate.id === pageId)) return
       const mode = selectionMutationMode(modifiers)
       if (mode === 'replace') {
-        const idx = pages.findIndex((candidate) => candidate.id === frameId)
+        const idx = pages.findIndex((candidate) => candidate.id === pageId)
         if (idx !== -1) selectPage(idx)
         return
       }
-      applyEntitySelectionMutation([frameId], mode)
+      applyEntitySelectionMutation([pageId], mode)
     },
   )
 
@@ -176,11 +176,11 @@ export function registerCanvasIpc(): void {
 
   const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>(
     DRAWING_FEATURE_ENABLED
-      ? ['frame', 'text', 'file', 'drawing', 'shape', 'edge']
-      : ['frame', 'text', 'file', 'shape', 'edge'],
+      ? ['page', 'text', 'file', 'drawing', 'shape', 'edge']
+      : ['page', 'text', 'file', 'shape', 'edge'],
   )
   const INLINE_TEXT_EDIT_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>([
-    'frame',
+    'page',
     'text',
     'file',
     'shape',
@@ -201,7 +201,7 @@ export function registerCanvasIpc(): void {
       }: { entityId: string; entityKind: string; modifiers?: SelectionModifiers },
     ) => {
       if (!VALID_ENTITY_KINDS.has(entityKind as CanvasEntityKind)) return
-      if (entityKind === 'frame' && interactionBlocksPageSelection()) return
+      if (entityKind === 'page' && interactionBlocksPageSelection()) return
       const mode = selectionMutationMode(modifiers)
       if (mode === 'replace') {
         selectEntity(entityId, entityKind)
@@ -244,25 +244,25 @@ export function registerCanvasIpc(): void {
     }
   })
 
-  ipcMain.on('canvas-hover-frame', (_event, { frameId }: { frameId: string | null }) => {
+  ipcMain.on('canvas-hover-page', (_event, { pageId }: { pageId: string | null }) => {
     if (interactionBlocksPageHover()) return
     if (uiAnnotationMode() === 'region_select') return
-    setHoveredFrame(frameId)
+    setHoveredPage(pageId)
   })
 
   // PoC: aboveView forwards wheel/pointer events that hit the body of the
-  // single-selected frame so the page reacts as if clicked/scrolled directly.
+  // single-selected page so the page reacts as if clicked/scrolled directly.
   // See docs/plans/aboveview-interactive-layer-poc.md.
   ipcMain.on(
     'canvas-forward-wheel',
-    (_event, { frameId, payload }: { frameId: string; payload: ForwardWheelPayload }) => {
-      forwardWheelToFrame(frameId, payload)
+    (_event, { pageId, payload }: { pageId: string; payload: ForwardWheelPayload }) => {
+      forwardWheelToPage(pageId, payload)
     },
   )
   ipcMain.on(
     'canvas-forward-pointer',
-    (_event, { frameId, payload }: { frameId: string; payload: ForwardPointerPayload }) => {
-      forwardPointerToFrame(frameId, payload)
+    (_event, { pageId, payload }: { pageId: string; payload: ForwardPointerPayload }) => {
+      forwardPointerToPage(pageId, payload)
     },
   )
 
@@ -279,16 +279,16 @@ export function registerCanvasIpc(): void {
 
   // --- Browser mode ---
 
-  ipcMain.on('canvas-select-browser-tab', (_event, { frameId }: { frameId: string }) => {
-    selectBrowserTab(frameId)
+  ipcMain.on('canvas-select-browser-tab', (_event, { pageId }: { pageId: string }) => {
+    selectBrowserTab(pageId)
   })
 
   ipcMain.on(
     'canvas-set-browser-size-mode',
-    (_event, { frameId, mode }: { frameId: string; mode: BrowserSizeMode }) => {
-      const page = pages.find((candidate) => candidate.id === frameId)
+    (_event, { pageId, mode }: { pageId: string; mode: BrowserSizeMode }) => {
+      const page = pages.find((candidate) => candidate.id === pageId)
       if (!page) return
-      page.metadata = setFrameBrowserSizeMode(page.metadata, mode)
+      page.metadata = setPageBrowserSizeMode(page.metadata, mode)
       scheduleWorkspaceAutosave()
       layoutAllViews()
     },
@@ -323,9 +323,9 @@ export function registerCanvasIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-rename-frame',
-    (_event, { frameId, name }: { frameId: string; name: string }) => {
-      renameWorkspaceFrame(frameId, name)
+    'canvas-rename-page',
+    (_event, { pageId, name }: { pageId: string; name: string }) => {
+      renameWorkspacePage(pageId, name)
     },
   )
 

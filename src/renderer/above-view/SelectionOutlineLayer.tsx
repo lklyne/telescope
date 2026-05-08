@@ -14,7 +14,7 @@ import { useMemo } from 'react'
 import type {
   CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
-  CanvasSceneFrameEntity,
+  CanvasScenePageEntity,
   CanvasSceneGroupEntity,
   CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
@@ -37,23 +37,23 @@ import { entityResizesAutomatically } from '../../shared/hit-test'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 
-interface FrameOutlineProps {
-  frame: CanvasSceneFrameEntity
+interface PageOutlineProps {
+  page: CanvasScenePageEntity
   originY: number
   isDark: boolean
   showResizeHandles: boolean
 }
 
-function FrameSelectionOverlay({ frame, originY, isDark, showResizeHandles }: FrameOutlineProps) {
-  const zoom = frame.width > 0 ? frame.screenWidth / frame.width : 1
+function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: PageOutlineProps) {
+  const zoom = page.width > 0 ? page.screenWidth / page.width : 1
   return (
     <div
       className="absolute border-2"
       style={{
-        left: frame.screenX - 6,
-        top: frame.screenY - 6 - originY,
-        width: frame.screenWidth + 12,
-        height: frame.screenHeight + 12,
+        left: page.screenX - 6,
+        top: page.screenY - 6 - originY,
+        width: page.screenWidth + 12,
+        height: page.screenHeight + 12,
         borderColor: selectionColor(isDark),
         pointerEvents: 'none',
       }}
@@ -61,11 +61,11 @@ function FrameSelectionOverlay({ frame, originY, isDark, showResizeHandles }: Fr
     >
       {showResizeHandles ? (
         <SelectionResizeGrid
-          id={frame.id}
-          width={frame.width}
-          height={frame.height}
-          canvasX={frame.canvasX}
-          canvasY={frame.canvasY}
+          id={page.id}
+          width={page.width}
+          height={page.height}
+          canvasX={page.canvasX}
+          canvasY={page.canvasY}
           zoom={zoom}
           minWidth={320}
           minHeight={200}
@@ -79,12 +79,12 @@ function FrameSelectionOverlay({ frame, originY, isDark, showResizeHandles }: Fr
   )
 }
 
-function FrameHoverOutline({
-  frame,
+function PageHoverOutline({
+  page,
   originY,
   isDark,
 }: {
-  frame: CanvasSceneFrameEntity
+  page: CanvasScenePageEntity
   originY: number
   isDark: boolean
 }) {
@@ -92,10 +92,10 @@ function FrameHoverOutline({
     <div
       className="absolute border-2"
       style={{
-        left: frame.screenX - 6,
-        top: frame.screenY - 6 - originY,
-        width: frame.screenWidth + 12,
-        height: frame.screenHeight + 12,
+        left: page.screenX - 6,
+        top: page.screenY - 6 - originY,
+        width: page.screenWidth + 12,
+        height: page.screenHeight + 12,
         borderColor: selectionColor(isDark),
         pointerEvents: 'none',
       }}
@@ -183,7 +183,7 @@ function EntitySelectionOverlay({
 
 interface SelectedEntitySpan {
   id: string
-  kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'
+  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'
   canvasX: number
   canvasY: number
   width: number
@@ -304,10 +304,10 @@ export function SelectionOutlineLayer({
   const isMultiSelect = selectedIdSet.size > 1
   const hoveredEntityId = layoutData.hover?.id ?? null
 
-  const frames = useMemo(
+  const pages = useMemo(
     () =>
       layoutData.entities.filter(
-        (e): e is CanvasSceneFrameEntity => e.kind === 'frame',
+        (e): e is CanvasScenePageEntity => e.kind === 'page',
       ),
     [layoutData.entities],
   )
@@ -340,19 +340,19 @@ export function SelectionOutlineLayer({
     [layoutData.entities],
   )
 
-  // Frames render outline if selected, hovered, or in marquee preview.
-  const visibleFrames = useMemo(
+  // Pages render outline if selected, hovered, or in marquee preview.
+  const visiblePages = useMemo(
     () =>
-      frames.filter(
+      pages.filter(
         (f) =>
           selectedIdSet.has(f.id) ||
           f.id === hoveredEntityId ||
           marqueePreviewIds?.has(f.id),
       ),
-    [frames, selectedIdSet, hoveredEntityId, marqueePreviewIds],
+    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds],
   )
 
-  // Non-frame entities render outline if selected, hovered, or in marquee preview.
+  // Non-page entities render outline if selected, hovered, or in marquee preview.
   const visibleEntities = useMemo(
     () =>
       [...textEntities, ...fileEntities, ...drawingEntities, ...shapeEntities].filter(
@@ -368,17 +368,17 @@ export function SelectionOutlineLayer({
   const allSelectedEntities: SelectedEntitySpan[] = useMemo(() => {
     if (!isMultiSelect) return []
     const out: SelectedEntitySpan[] = []
-    for (const f of frames) if (selectedIdSet.has(f.id)) out.push(f)
+    for (const f of pages) if (selectedIdSet.has(f.id)) out.push(f)
     for (const e of textEntities) if (selectedIdSet.has(e.id)) out.push(e)
     for (const e of fileEntities) if (selectedIdSet.has(e.id)) out.push(e)
     for (const e of drawingEntities) if (selectedIdSet.has(e.id)) out.push(e)
     for (const e of shapeEntities) if (selectedIdSet.has(e.id)) out.push(e)
     return out
-  }, [isMultiSelect, frames, textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet])
+  }, [isMultiSelect, pages, textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet])
 
   // Group selection overlay — render whenever a group is selected. The
   // canvas-bg `GroupSelectionOverlayLayer` used to suppress this when the
-  // group had a descendant frame (handing off to the legacy aboveView path);
+  // group had a descendant page (handing off to the legacy aboveView path);
   // now aboveView owns it unconditionally, so we render in both cases.
   const selectedGroupId = layoutData.selectedGroupId ?? null
   const selectedGroup = useMemo(() => {
@@ -395,13 +395,13 @@ export function SelectionOutlineLayer({
           isDark={isDark}
         />
       ) : null}
-      {visibleFrames.map((frame) => {
-        const isSelected = selectedIdSet.has(frame.id)
+      {visiblePages.map((page) => {
+        const isSelected = selectedIdSet.has(page.id)
         if (isSelected) {
           return (
-            <FrameSelectionOverlay
-              key={`selection-outline-${frame.id}`}
-              frame={frame}
+            <PageSelectionOverlay
+              key={`selection-outline-${page.id}`}
+              page={page}
               originY={originY}
               isDark={isDark}
               showResizeHandles={!isMultiSelect}
@@ -409,9 +409,9 @@ export function SelectionOutlineLayer({
           )
         }
         return (
-          <FrameHoverOutline
-            key={`selection-outline-${frame.id}`}
-            frame={frame}
+          <PageHoverOutline
+            key={`selection-outline-${page.id}`}
+            page={page}
             originY={originY}
             isDark={isDark}
           />

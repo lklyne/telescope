@@ -39,7 +39,7 @@ export function useElementCommentDraft({
     rightDetailsPanelApi.createAnnotation({
       anchor: {
         type: 'element',
-        frameId: activeDetail.frameId,
+        pageId: activeDetail.pageId,
         selector: activeDetail.fullPath || activeDetail.elementPath,
         elementPath: activeDetail.elementPath,
         boundingBox: activeDetail.boundingBox,
@@ -47,10 +47,10 @@ export function useElementCommentDraft({
       author: 'user',
       text,
       metadata: {
-        frameName: selection?.viewportLabel,
+        pageName: selection?.viewportLabel,
         pageUrl: selection?.url,
         inspectContext: {
-          frameId: activeDetail.frameId,
+          pageId: activeDetail.pageId,
           nodeId: activeDetail.nodeId,
           id: activeDetail.id,
           timestamp: activeDetail.timestamp,

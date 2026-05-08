@@ -10,8 +10,8 @@ import {
   devtoolsPanelDebug,
 } from './runtime-constants'
 import {
-  frameCustomSizeFromMetadata,
-  frameBrowserSizeModeFromMetadata,
+  pageCustomSizeFromMetadata,
+  pageBrowserSizeModeFromMetadata,
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
@@ -58,7 +58,7 @@ export function pageContentSize(page: Pick<Page, 'presetIndex' | 'peekWidth' | '
   height: number
 } {
   const vp = viewportPresetForIndex(page.presetIndex)
-  const customSize = frameCustomSizeFromMetadata(page.metadata)
+  const customSize = pageCustomSizeFromMetadata(page.metadata)
   const baseW = page.peekWidth ?? customSize?.width ?? vp.width
   const baseH = page.peekHeight ?? customSize?.height ?? vp.height
   if (customSize || page.peekWidth) return { width: baseW, height: baseH }
@@ -173,7 +173,7 @@ export function computeIsFillBrowserPage(input: {
   return (
     input.currentViewMode() === 'browser' &&
     input.selectedPageId() === input.page.id &&
-    frameBrowserSizeModeFromMetadata(input.page.metadata) === 'fill'
+    pageBrowserSizeModeFromMetadata(input.page.metadata) === 'fill'
   )
 }
 
@@ -243,7 +243,7 @@ export function computeScreenBoundsForPage(input: {
   const chromeY = isBrowserActive
     ? browserViewportTop
     : Math.round(input.page.canvasY * input.zoom + input.pan.y) + input.toolbarHeight
-  // Compute shell rect (device frame bezel) — skip in fill-browser mode
+  // Compute shell rect (device page bezel) — skip in fill-browser mode
   const insets = pageShellInsets(input.page)
   const shellRect = insets && !isFillBrowserActive
     ? {

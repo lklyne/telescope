@@ -35,9 +35,9 @@ describe('routePointerDoubleClick', () => {
     ).toEqual({ kind: 'enter-group-rename', groupId: 'g1' })
   })
 
-  it('frame chrome → noop (chrome owns its own dbl-click)', () => {
+  it('page chrome → noop (chrome owns its own dbl-click)', () => {
     expect(
-      routePointerDoubleClick(target({ kind: 'chrome', entityId: 'f1', entityKind: 'frame' })),
+      routePointerDoubleClick(target({ kind: 'chrome', entityId: 'f1', entityKind: 'page' })),
     ).toEqual({ kind: 'noop' })
   })
 
@@ -51,9 +51,9 @@ describe('routePointerDoubleClick', () => {
     expect(routePointerDoubleClick(target({ kind: 'background' }))).toEqual({ kind: 'noop' })
   })
 
-  it('frame body → noop (single-click already enters focus)', () => {
+  it('page body → noop (single-click already enters focus)', () => {
     expect(
-      routePointerDoubleClick(target({ kind: 'frame-body', entityId: 'f1' })),
+      routePointerDoubleClick(target({ kind: 'page-body', entityId: 'f1' })),
     ).toEqual({ kind: 'noop' })
   })
 })

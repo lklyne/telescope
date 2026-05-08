@@ -93,15 +93,15 @@ describe('getAnnotations', () => {
     expect(getAnnotations({ status: 'all' })).toHaveLength(4)
   })
 
-  it('filters by frameId for frame-anchored annotations', () => {
+  it('filters by pageId for page-anchored annotations', () => {
     mockAnnotations.push(
       makeAnnotation({
-        anchor: { type: 'frame', frameId: 'f1', pageX: 0, pageY: 0 },
+        anchor: { type: 'page', pageId: 'f1', pageX: 0, pageY: 0 },
       }),
     )
     mockAnnotations.push(
       makeAnnotation({
-        anchor: { type: 'frame', frameId: 'f2', pageX: 0, pageY: 0 },
+        anchor: { type: 'page', pageId: 'f2', pageX: 0, pageY: 0 },
       }),
     )
     mockAnnotations.push(
@@ -110,34 +110,34 @@ describe('getAnnotations', () => {
       }),
     )
 
-    const result = getAnnotations({ frameId: 'f1' })
+    const result = getAnnotations({ pageId: 'f1' })
     expect(result).toHaveLength(1)
-    expect(result[0].anchor.type === 'frame' && result[0].anchor.frameId).toBe('f1')
+    expect(result[0].anchor.type === 'page' && result[0].anchor.pageId).toBe('f1')
   })
 
-  it('excludes canvas-anchored annotations when filtering by frameId', () => {
+  it('excludes canvas-anchored annotations when filtering by pageId', () => {
     mockAnnotations.push(
       makeAnnotation({
         anchor: { type: 'canvas', canvasX: 0, canvasY: 0 },
       }),
     )
-    expect(getAnnotations({ frameId: 'f1' })).toHaveLength(0)
+    expect(getAnnotations({ pageId: 'f1' })).toHaveLength(0)
   })
 
-  it('combines status and frameId filters', () => {
+  it('combines status and pageId filters', () => {
     mockAnnotations.push(
       makeAnnotation({
         status: 'pending',
-        anchor: { type: 'frame', frameId: 'f1', pageX: 0, pageY: 0 },
+        anchor: { type: 'page', pageId: 'f1', pageX: 0, pageY: 0 },
       }),
     )
     mockAnnotations.push(
       makeAnnotation({
         status: 'resolved',
-        anchor: { type: 'frame', frameId: 'f1', pageX: 0, pageY: 0 },
+        anchor: { type: 'page', pageId: 'f1', pageX: 0, pageY: 0 },
       }),
     )
 
-    expect(getAnnotations({ status: 'unresolved', frameId: 'f1' })).toHaveLength(1)
+    expect(getAnnotations({ status: 'unresolved', pageId: 'f1' })).toHaveLength(1)
   })
 })

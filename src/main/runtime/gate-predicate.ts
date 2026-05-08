@@ -3,7 +3,7 @@
  *
  * In canvas mode the gate is unconditionally open: aboveView is the
  * interactive layer. Pointer/wheel events that hit the single-selected
- * frame's body are forwarded into the page from inside aboveView; chrome,
+ * page's body are forwarded into the page from inside aboveView; chrome,
  * selection outlines, marquee, drawings, and overlays keep painting and
  * intercepting input there. Browser mode falls through to a narrower
  * OR-chain so the gate stays closed unless a gesture or tool mode needs it.
@@ -24,7 +24,7 @@ export type GateInputs = {
   hoveringCanvasChrome: boolean
   selectedEntityIds: readonly string[]
   selectedEntityKinds: readonly CanvasEntityKind[]
-  selectionOwnsFrameContent: boolean
+  selectionOwnsPageContent: boolean
   hasSavedDrawings: boolean
 }
 
@@ -46,7 +46,7 @@ function browserModeNeedsGate(inputs: GateInputs): boolean {
   if (inputs.spaceHeld) return true
   if (inputs.hoveringCanvasChrome) return true
   if (inputs.selectionMarqueeVisible) return true
-  if (inputs.selectionOwnsFrameContent) return true
+  if (inputs.selectionOwnsPageContent) return true
   if (hasVisibleSavedDrawings(inputs)) return true
   return false
 }
@@ -60,8 +60,8 @@ function interactionOpensGate(interactionKind: GateInputs['interactionKind']): b
 
 /**
  * Tool modes that need the gate pre-armed to paint canvas-level UI above
- * frames (draw strokes, region-select marquee). `annotate-comment` and
- * `inspect` are excluded: they rely on the frame's own webContents receiving
+ * pages (draw strokes, region-select marquee). `annotate-comment` and
+ * `inspect` are excluded: they rely on the page's own webContents receiving
  * mousemove to drive the DOM inspection eyedropper. The gate reopens via
  * `commentOverlayActive` once the user picks an element and the composer
  * opens.
@@ -71,13 +71,13 @@ function toolModeOpensGate(toolMode: GateInputs['toolMode']): boolean {
 }
 
 /**
- * Saved drawings render above frames. We only yield the gate when a SINGLE
- * frame is selected — that's the case where the user wants to interact with
- * the frame's webContents natively (scroll, click links, etc.). Multi-select
- * with a frame is a canvas-level gesture (drag, resize a group), not a frame
+ * Saved drawings render above pages. We only yield the gate when a SINGLE
+ * page is selected — that's the case where the user wants to interact with
+ * the page's webContents natively (scroll, click links, etc.). Multi-select
+ * with a page is a canvas-level gesture (drag, resize a group), not a page
  * interaction, so drawings should stay visible.
  *
- * We also yield when the user is in a tool mode that needs the frame's
+ * We also yield when the user is in a tool mode that needs the page's
  * webContents to receive events (comment hover, inspect eyedropper).
  * Pending-placement keeps the gate open so drawings stay visible while
  * placing — above-view handles the placement preview and commit itself.
@@ -85,8 +85,8 @@ function toolModeOpensGate(toolMode: GateInputs['toolMode']): boolean {
 function hasVisibleSavedDrawings(inputs: GateInputs): boolean {
   if (!inputs.hasSavedDrawings) return false
   if (inputs.toolMode !== 'select') return false
-  const singleFrameSelected =
+  const singlePageSelected =
     inputs.selectedEntityIds.length === 1 &&
-    inputs.selectedEntityKinds[0] === 'frame'
-  return !singleFrameSelected
+    inputs.selectedEntityKinds[0] === 'page'
+  return !singlePageSelected
 }

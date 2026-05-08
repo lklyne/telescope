@@ -34,13 +34,13 @@ export type CanvasPointerContext = {
 export type CanvasPointerAction =
   /** No-op (e.g. middle-button click on background — handled by viewport pan). */
   | { kind: 'noop' }
-  /** Frame body click/drag candidate: click selects, drag moves frame. */
-  | { kind: 'frame-body-press'; entityId: string; preserveSelection: boolean }
-  /** Frame body hit on the **single-selected** frame: forward the pointerdown
+  /** Page body click/drag candidate: click selects, drag moves page. */
+  | { kind: 'page-body-press'; entityId: string; preserveSelection: boolean }
+  /** Page body hit on the **single-selected** page: forward the pointerdown
    *  (and the subsequent move/up) into the page's webContents. PoC for the
    *  always-on aboveView interactive layer. */
   | { kind: 'forward-pointer-down'; entityId: string; button: 'left' | 'middle' | 'right' }
-  /** Begin selecting + dragging an entity (frame, file, text, shape). */
+  /** Begin selecting + dragging an entity (page, file, text, shape). */
   | { kind: 'begin-entity-drag'; entityId: string; entityKind: CanvasEntityKind; preserveSelection: boolean }
   /** Begin selecting + dragging a group as a unit. */
   | { kind: 'begin-group-drag'; groupId: string; preserveSelection: boolean }
@@ -73,11 +73,11 @@ export function routePointerDown(
 ): CanvasPointerAction {
   // Non-primary buttons on background → pan; otherwise no-op (the viewport
   // hook handles middle-drag pan independently). Right-click on the body of
-  // the single-selected frame still forwards so the page's context menu
+  // the single-selected page still forwards so the page's context menu
   // wins (PoC §5 — Chromium fires `context-menu` natively).
   if (!context.isPrimaryButton) {
     if (
-      target.payload.kind === 'frame-body' &&
+      target.payload.kind === 'page-body' &&
       isSingleSelected(context, target.payload.entityId)
     ) {
       return {
@@ -132,16 +132,16 @@ function routeByPayload(
         entityKind: payload.entityKind,
         side: payload.side,
       }
-    case 'frame-body':
+    case 'page-body':
       // Additive modifier wins over the forward-into-page shortcut: shift/
-      // cmd-click on the frame body must reach the selection system so users
-      // can extend a multi-selection from a single-selected frame (the page
+      // cmd-click on the page body must reach the selection system so users
+      // can extend a multi-selection from a single-selected page (the page
       // content blocker is removed in that state, so the click would
       // otherwise land in the webpage). Mirrors `chrome` and `entity-body`.
       if (isAdditive(context.modifiers)) {
-        return { kind: 'toggle-select', entityId: payload.entityId, entityKind: 'frame' }
+        return { kind: 'toggle-select', entityId: payload.entityId, entityKind: 'page' }
       }
-      // PoC: on the single-selected frame's body, forward the pointer event
+      // PoC: on the single-selected page's body, forward the pointer event
       // into the page so the user interacts with web content directly.
       // Otherwise (unselected or multi-selected) keep the existing
       // click-to-select / drag-to-move behavior.
@@ -153,7 +153,7 @@ function routeByPayload(
         }
       }
       return {
-        kind: 'frame-body-press',
+        kind: 'page-body-press',
         entityId: payload.entityId,
         preserveSelection: context.selectedEntityIds.includes(payload.entityId),
       }
@@ -212,7 +212,7 @@ export function routePointerDoubleClick(
 ): CanvasPointerDoubleClickAction {
   switch (target.payload.kind) {
     case 'chrome':
-      // Group chrome → rename. Frame/file chrome dbl-click is a no-op
+      // Group chrome → rename. Page/file chrome dbl-click is a no-op
       // (chrome owns its own click handlers in aboveView).
       if (target.payload.entityKind === 'group') {
         return { kind: 'enter-group-rename', groupId: target.payload.entityId }

@@ -42,7 +42,7 @@ The app is a surface other tools can talk to.
 ### Spatial thinking over linear workflows
 
 Arrangement, proximity, and grouping carry meaning on the canvas. The canvas
-is not just a container — it's a thinking tool. Two frames placed side by side
+is not just a container — it's a thinking tool. Two pages placed side by side
 are being compared. A cluster of references is a research thread. The spatial
 layout is part of the work product.
 

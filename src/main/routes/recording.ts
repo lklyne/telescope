@@ -20,18 +20,18 @@ export const recordingRoutes: Route[] = [
     async handler({ response, body }) {
       try {
         const payload = body as {
-          frameId?: string
+          pageId?: string
           outputPath?: string
           fps?: number
           quality?: 'high' | 'medium' | 'compact'
         }
-        if (!payload.frameId) {
-          writeJson(response, 400, { error: 'frameId is required' })
+        if (!payload.pageId) {
+          writeJson(response, 400, { error: 'pageId is required' })
           return
         }
-        const page = findPageById(payload.frameId)
+        const page = findPageById(payload.pageId)
         if (!page) {
-          writeJson(response, 404, { error: `Frame not found: ${payload.frameId}` })
+          writeJson(response, 404, { error: `Page not found: ${payload.pageId}` })
           return
         }
         const result = await startRecording({

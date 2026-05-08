@@ -1,7 +1,7 @@
 import { type CSSProperties, useMemo, useEffect, useRef, useState } from 'react'
 import type {
   AgentPresenceCursor,
-  CanvasSceneFrameEntity,
+  CanvasScenePageEntity,
   PresenceActivity,
 } from '../../shared/types'
 import { labelForPresenceCursor } from '../../shared/agent-presence'
@@ -12,7 +12,7 @@ import {
   type Vec2,
 } from '../../shared/cursor-motion'
 import { foldSpline } from '../../shared/cursor-spline'
-import { framePointMatchesTargetRect } from '../../shared/presence-targeting'
+import { pagePointMatchesTargetRect } from '../../shared/presence-targeting'
 import {
   PRESENCE_TRAVEL_MS,
   PRESENCE_STEP_DELAY_MS,
@@ -65,32 +65,32 @@ function activityStyle(activity: PresenceActivity): CSSProperties {
 
 function TargetHalo({
   cursor,
-  frame,
+  page,
   overlayOffsetY,
 }: {
   cursor: AgentPresenceCursor
-  frame: CanvasSceneFrameEntity | null
+  page: CanvasScenePageEntity | null
   overlayOffsetY: number
 }) {
   if (
-    !frame ||
+    !page ||
     !cursor.targetRect ||
-    !framePointMatchesTargetRect(
-      cursor.frameX,
-      cursor.frameY,
+    !pagePointMatchesTargetRect(
+      cursor.pageX,
+      cursor.pageY,
       cursor.targetRect,
     )
   ) {
     return null
   }
-  const scaleX = frame.screenWidth / Math.max(frame.width, 1)
-  const scaleY = frame.screenHeight / Math.max(frame.height, 1)
+  const scaleX = page.screenWidth / Math.max(page.width, 1)
+  const scaleY = page.screenHeight / Math.max(page.height, 1)
   return (
     <div
       className="absolute rounded-xl border"
       style={{
-        left: frame.screenX + cursor.targetRect.x * scaleX - 6,
-        top: frame.screenY + cursor.targetRect.y * scaleY - overlayOffsetY - 6,
+        left: page.screenX + cursor.targetRect.x * scaleX - 6,
+        top: page.screenY + cursor.targetRect.y * scaleY - overlayOffsetY - 6,
         width: cursor.targetRect.width * scaleX + 12,
         height: cursor.targetRect.height * scaleY + 12,
         borderColor: cursor.color,
@@ -204,44 +204,44 @@ function AgentCursor({
   )
 }
 
-/** Halo around an agent-active frame so it's discoverable while CDP runs.
- *  Pass `originY={canvasOrigin.y}` when mounted in aboveView so frame coords
+/** Halo around an agent-active page so it's discoverable while CDP runs.
+ *  Pass `originY={canvasOrigin.y}` when mounted in aboveView so page coords
  *  align against the WCV whose origin sits at the toolbar inset. */
-export function ActiveFrameHighlightLayer({
+export function ActivePageHighlightLayer({
   cursors,
-  frames,
+  pages,
   originY = 0,
 }: {
   cursors: AgentPresenceCursor[]
-  frames: CanvasSceneFrameEntity[]
+  pages: CanvasScenePageEntity[]
   originY?: number
 }) {
-  const activeFrames = useMemo(() => {
+  const activePages = useMemo(() => {
     const map = new Map<string, string>()
     for (const cursor of cursors) {
-      if (cursor.frameId && !map.has(cursor.frameId)) {
-        map.set(cursor.frameId, cursor.color)
+      if (cursor.pageId && !map.has(cursor.pageId)) {
+        map.set(cursor.pageId, cursor.color)
       }
     }
     return map
   }, [cursors])
 
-  if (activeFrames.size === 0) return null
+  if (activePages.size === 0) return null
   const inset = -4
   return (
     <>
-      {frames
-        .filter((frame) => activeFrames.has(frame.id))
-        .map((frame) => (
+      {pages
+        .filter((page) => activePages.has(page.id))
+        .map((page) => (
           <div
-            key={`frame-highlight-${frame.id}`}
+            key={`page-highlight-${page.id}`}
             className="absolute rounded-sm pointer-events-none"
             style={{
-              left: frame.screenX + inset,
-              top: frame.screenY + inset - originY,
-              width: frame.screenWidth - inset * 2,
-              height: frame.screenHeight - inset * 2,
-              boxShadow: `0 0 0 2px ${activeFrames.get(frame.id)!}, 0 0 24px 4px color-mix(in srgb, ${activeFrames.get(frame.id)!} 25%, transparent)`,
+              left: page.screenX + inset,
+              top: page.screenY + inset - originY,
+              width: page.screenWidth - inset * 2,
+              height: page.screenHeight - inset * 2,
+              boxShadow: `0 0 0 2px ${activePages.get(page.id)!}, 0 0 24px 4px color-mix(in srgb, ${activePages.get(page.id)!} 25%, transparent)`,
               transition: 'box-shadow 300ms ease-out',
             }}
           />
@@ -361,14 +361,14 @@ function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
 
 export function AgentCursorLayer({
   cursors,
-  frames,
+  pages,
   canvasOrigin,
   pan,
   zoom,
   overlayOffsetY = 0,
 }: {
   cursors: AgentPresenceCursor[]
-  frames: CanvasSceneFrameEntity[]
+  pages: CanvasScenePageEntity[]
   canvasOrigin: { x: number; y: number }
   pan: { x: number; y: number }
   zoom: number
@@ -409,9 +409,9 @@ export function AgentCursorLayer({
         <TargetHalo
           key={`halo-${cursor.sessionId}`}
           cursor={cursor}
-          frame={
-            cursor.frameId
-              ? (frames.find((frame) => frame.id === cursor.frameId) ?? null)
+          page={
+            cursor.pageId
+              ? (pages.find((page) => page.id === cursor.pageId) ?? null)
               : null
           }
           overlayOffsetY={overlayOffsetY}

@@ -1,42 +1,42 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  createFrames,
+  createPages,
   createGroup,
-  deleteFrames,
+  deletePages,
   getSidebar,
 } from './app-client'
 
-const createdFrameIds: string[] = []
+const createdPageIds: string[] = []
 
-async function createFrame(input: { url: string; canvasX: number; canvasY: number; presetIndex?: number }) {
-  const result = await createFrames([input])
-  createdFrameIds.push(...result.frameIds)
-  return result.frameIds[0]
+async function createPage(input: { url: string; canvasX: number; canvasY: number; presetIndex?: number }) {
+  const result = await createPages([input])
+  createdPageIds.push(...result.pageIds)
+  return result.pageIds[0]
 }
 
-async function cleanupFrames() {
-  if (!createdFrameIds.length) return
-  const frameIds = createdFrameIds.splice(0, createdFrameIds.length)
-  await deleteFrames(frameIds)
+async function cleanupPages() {
+  if (!createdPageIds.length) return
+  const pageIds = createdPageIds.splice(0, createdPageIds.length)
+  await deletePages(pageIds)
 }
 
 describe('left sidebar hierarchy', () => {
   afterEach(async () => {
-    await cleanupFrames()
+    await cleanupPages()
   })
 
   it('serializes nested user groups as nested sidebar items', async () => {
-    const innerLeft = await createFrame({
+    const innerLeft = await createPage({
       url: 'https://example.com',
       canvasX: 160,
       canvasY: 120,
     })
-    const innerRight = await createFrame({
+    const innerRight = await createPage({
       url: 'https://example.org',
       canvasX: 520,
       canvasY: 120,
     })
-    const outerOnly = await createFrame({
+    const outerOnly = await createPage({
       url: 'https://example.net',
       canvasX: 920,
       canvasY: 120,
@@ -64,7 +64,7 @@ describe('left sidebar hierarchy', () => {
       entityCount: 2,
     })
     expect(outerChildren[1]).toMatchObject({
-      kind: 'frame',
+      kind: 'page',
       id: outerOnly,
     })
   })

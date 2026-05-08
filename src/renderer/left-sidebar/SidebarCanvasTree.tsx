@@ -13,9 +13,9 @@ import {
   Square,
   StickyNote,
 } from 'lucide-react'
-import type { LeftSidebarElectronAPI, SidebarCanvasItem, SidebarFileItem, SidebarFrameItem, SidebarGroupItem, SidebarTextItem } from '../../shared/types'
+import type { LeftSidebarElectronAPI, SidebarCanvasItem, SidebarFileItem, SidebarPageItem, SidebarGroupItem, SidebarTextItem } from '../../shared/types'
 import { iconForFilePath } from '../shared/fileIcon'
-import { FrameListItem } from '../shared/frameListItem'
+import { PageListItem } from '../shared/pageListItem'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 
 const RENAMABLE_FILE_PATTERN = /\.(md|wireframe\.json)$/i
@@ -307,18 +307,18 @@ function SidebarCanvasTreeItem({
   }
 
   const isSelected = selectedEntityIds.includes(item.id)
-  if (item.kind === 'frame') {
+  if (item.kind === 'page') {
     return (
       <div>
-        <FrameListItem
-          frame={item}
+        <PageListItem
+          page={item}
           active={isSelected}
           isDark={isDark}
           contentPaddingLeft={LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP}
           contentPaddingRight={LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING}
-          onClick={() => api.revealFrame(item.id)}
-          onRename={(name) => api.renameFrame(item.id, name)}
-          onDelete={() => api.deleteFrame(item.id)}
+          onClick={() => api.revealPage(item.id)}
+          onRename={(name) => api.renamePage(item.id, name)}
+          onDelete={() => api.deletePage(item.id)}
         />
       </div>
     )

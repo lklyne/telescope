@@ -40,7 +40,7 @@ export default function App({
   const [sidebarData, setSidebarData] = useState<LeftSidebarData>(initialSidebarData)
   const [pagesExpanded, setPagesExpanded] = useState(true)
   const [editingTabId, setEditingTabId] = useState<string | null>(null)
-  const previousActiveFrameCountRef = useRef<number | null>(null)
+  const previousActivePageCountRef = useRef<number | null>(null)
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
 
@@ -69,8 +69,8 @@ export default function App({
       for (const entityId of sidebarData.selectedEntityIds) {
         const item = findSidebarItemById(sidebarData.items, entityId)
         if (!item || item.kind === 'group') continue
-        if (item.kind === 'frame') {
-          api.deleteFrame(item.id)
+        if (item.kind === 'page') {
+          api.deletePage(item.id)
         } else {
           api.deleteEntity(item.id, item.kind)
         }
@@ -96,13 +96,13 @@ export default function App({
   const pagesHeaderLabel = pagesExpanded ? 'Spaces' : activeTab?.name ?? 'Spaces'
 
   useEffect(() => {
-    const nextCount = activeTab?.frames.length ?? 0
-    const previousCount = previousActiveFrameCountRef.current
+    const nextCount = activeTab?.pages.length ?? 0
+    const previousCount = previousActivePageCountRef.current
     if (previousCount !== null && nextCount > previousCount) {
       setPagesExpanded(true)
     }
-    previousActiveFrameCountRef.current = nextCount
-  }, [activeTab?.id, activeTab?.frames.length])
+    previousActivePageCountRef.current = nextCount
+  }, [activeTab?.id, activeTab?.pages.length])
 
   function startRenameTab(tabId: string) {
     setEditingTabId(tabId)

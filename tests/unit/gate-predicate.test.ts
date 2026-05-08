@@ -12,7 +12,7 @@ function base(): GateInputs {
     hoveringCanvasChrome: false,
     selectedEntityIds: [],
     selectedEntityKinds: [],
-    selectionOwnsFrameContent: false,
+    selectionOwnsPageContent: false,
     hasSavedDrawings: false,
   }
 }
@@ -44,7 +44,7 @@ describe('shouldGateBeOpen — canvas mode (default-open per ADR 0002 Step 7)', 
   )
 
   it.each(['inspect', 'annotate-comment'] as const)(
-    'closed when toolMode is %s without composer open (frame receives mousemove)',
+    'closed when toolMode is %s without composer open (page receives mousemove)',
     (toolMode) => {
       expect(shouldGateBeOpen({ ...base(), toolMode })).toBe(false)
     },
@@ -95,26 +95,26 @@ describe('shouldGateBeOpen — browser mode falls through to browserModeNeedsGat
     ).toBe(true)
   })
 
-  it('closed in browser mode for single-frame selection with saved drawings', () => {
+  it('closed in browser mode for single-page selection with saved drawings', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
         viewMode: 'browser',
         hasSavedDrawings: true,
         selectedEntityIds: ['f1'],
-        selectedEntityKinds: ['frame'],
+        selectedEntityKinds: ['page'],
       }),
     ).toBe(false)
   })
 
-  it('open in browser mode when saved drawings exist and multi-selection includes a frame', () => {
+  it('open in browser mode when saved drawings exist and multi-selection includes a page', () => {
     expect(
       shouldGateBeOpen({
         ...base(),
         viewMode: 'browser',
         hasSavedDrawings: true,
         selectedEntityIds: ['f1', 't1'],
-        selectedEntityKinds: ['frame', 'text'],
+        selectedEntityKinds: ['page', 'text'],
       }),
     ).toBe(true)
   })

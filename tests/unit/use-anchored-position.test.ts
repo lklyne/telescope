@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { anchoredSlotRect } from '../../src/renderer/above-view/useAnchoredPosition'
 import { CHROME_HEADER_HEIGHT } from '../../src/shared/entity-chrome-slots'
-import type { CanvasSceneFrameEntity, CanvasSceneTextEntity, LayoutUpdateData } from '../../src/shared/types'
+import type { CanvasScenePageEntity, CanvasSceneTextEntity, LayoutUpdateData } from '../../src/shared/types'
 
-function frameEntity(): CanvasSceneFrameEntity {
+function pageEntity(): CanvasScenePageEntity {
   return {
-    kind: 'frame',
+    kind: 'page',
     id: 'f1',
-    label: 'frame',
+    label: 'page',
     url: 'https://example.com',
     canGoBack: false,
     canGoForward: false,
@@ -49,8 +49,8 @@ function makeLayout(entities: LayoutUpdateData['entities'], originY = 60): Layou
 }
 
 describe('anchoredSlotRect', () => {
-  it('returns header rect above frame body in overlay-local coords', () => {
-    const layout = makeLayout([frameEntity()])
+  it('returns header rect above page body in overlay-local coords', () => {
+    const layout = makeLayout([pageEntity()])
     const rect = anchoredSlotRect(layout, 'f1', 'header')
     expect(rect).toEqual({
       x: 200,
@@ -61,7 +61,7 @@ describe('anchoredSlotRect', () => {
   })
 
   it('returns body rect adjusted for overlay origin', () => {
-    const layout = makeLayout([frameEntity()])
+    const layout = makeLayout([pageEntity()])
     const rect = anchoredSlotRect(layout, 'f1', 'body')
     expect(rect).toEqual({ x: 200, y: 250 - 60, width: 400, height: 300 })
   })

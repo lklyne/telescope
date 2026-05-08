@@ -35,7 +35,7 @@ import type {
 } from '../../shared/types'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { normalizeUserUrl } from '../../shared/url'
-import { FramePresetDropdown } from '../shared/FramePresetDropdown'
+import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { ZOOM_PRESETS } from './useToolbarState'
 
 function toolbarIconBtnClass(isDark: boolean): string {
@@ -181,7 +181,7 @@ function ShapeMenu({
   )
 }
 
-function AddFramePresetMenu({
+function AddPagePresetMenu({
   isDark,
   onAddPage,
   onDropdownOpenChange,
@@ -193,7 +193,7 @@ function AddFramePresetMenu({
   const triggerClassName = toolbarIconBtnClass(isDark)
 
   return (
-    <FramePresetDropdown
+    <PagePresetDropdown
       align="center"
       isDark={isDark}
       onOpenChange={onDropdownOpenChange}
@@ -204,7 +204,7 @@ function AddFramePresetMenu({
       trigger={
         <button
         className={`${triggerClassName} flex items-center gap-0.5 pr-1`}
-        title="Add Frame"
+        title="Add page"
         type="button"
       >
         <Frame size={14} />
@@ -332,7 +332,7 @@ export function CenterActions({
 
         {!isBrowserMode ? (
           <div className="flex items-center">
-            <AddFramePresetMenu
+            <AddPagePresetMenu
               isDark={isDark}
               onAddPage={onAddPage}
               onDropdownOpenChange={onDropdownOpenChange}
@@ -395,7 +395,7 @@ export function CenterActions({
           <button
             onClick={onToggleInspectMode}
             className={inspectEnabled ? activeIconButtonClassName : iconButtonClassName}
-            title={hasSelection ? 'Inspect' : 'Inspect any frame'}
+            title={hasSelection ? 'Inspect' : 'Inspect any page'}
             disabled={!inspectAvailable}
             type="button"
           >
@@ -526,7 +526,7 @@ export function CenterAddressBar({
           title={
             selection.isLoadingAnySelected
               ? selection.selectionCount > 1
-                ? `Loading ${selection.loadingFrameCount}/${selection.selectionCount} frames`
+                ? `Loading ${selection.loadingPageCount}/${selection.selectionCount} pages`
                 : selection.loadingPhase === 'waiting-response'
                   ? 'Waiting for response'
                   : 'Loading'
@@ -564,7 +564,7 @@ interface RightPanelToggleProps {
   isDark: boolean
   devtoolsOpen: boolean
   isBrowserMode: boolean
-  hasFrames: boolean
+  hasPages: boolean
   onToggleDevTools: () => void
   onToggleBrowserMode: () => void
 }
@@ -573,7 +573,7 @@ export function RightPanelToggle({
   isDark,
   devtoolsOpen,
   isBrowserMode,
-  hasFrames,
+  hasPages,
   onToggleDevTools,
   onToggleBrowserMode,
 }: RightPanelToggleProps) {
@@ -600,7 +600,7 @@ export function RightPanelToggle({
             <Tabs.Tab className={modeTabClassName} value="canvas" title="Canvas">
               <LayoutTemplate size={14} />
             </Tabs.Tab>
-            <Tabs.Tab className={modeTabClassName} disabled={!hasFrames} value="browser" title="Browser">
+            <Tabs.Tab className={modeTabClassName} disabled={!hasPages} value="browser" title="Browser">
               <PanelTop size={14} />
             </Tabs.Tab>
             <Tabs.Indicator className={modeTabIndicatorClassName} />

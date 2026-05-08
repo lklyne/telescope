@@ -44,7 +44,7 @@ import {
   pages,
   setInspectHoveredTarget,
   setInspectSelectedTarget,
-  setInspectActiveFrameId,
+  setInspectActivePageId,
   workspaceAutosaveTimer,
   setWorkspaceAutosaveTimer,
   setSelectionOverlayActive,
@@ -89,7 +89,7 @@ import {
   deselectAll,
   selectPage,
   setBrowserMode,
-  setSelectedFrames,
+  setSelectedPages,
 } from './selection-state'
 import {
   selectGroup as commitSelectGroup,
@@ -150,7 +150,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
       workspaceGroups.push(
         ...snapshot.groups.map((group) => ({
           ...group,
-          frameIds: group.frameIds ? [...group.frameIds] : undefined,
+          pageIds: group.pageIds ? [...group.pageIds] : undefined,
           metadata: group.metadata ? { ...group.metadata } : undefined,
         })),
       )
@@ -208,7 +208,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
     if (snapshot.entities) {
       for (const id of snapshot.entityOrder ?? Object.keys(snapshot.entities)) {
         const entity = snapshot.entities[id]
-        if (entity?.kind === 'frame' && !restoredPageIds.has(entity.id)) {
+        if (entity?.kind === 'page' && !restoredPageIds.has(entity.id)) {
           createPage({
             id: entity.id,
             name: entity.name,
@@ -277,10 +277,10 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
       }
     }
 
-    if (snapshot.selectedFrameId) {
-      selectPageById(snapshot.selectedFrameId)
-    } else if (snapshot.selectedFrameIds?.length) {
-      setSelectedFrames(snapshot.selectedFrameIds)
+    if (snapshot.selectedPageId) {
+      selectPageById(snapshot.selectedPageId)
+    } else if (snapshot.selectedPageIds?.length) {
+      setSelectedPages(snapshot.selectedPageIds)
     } else if (
       snapshot.selectedPageIndex !== null &&
       snapshot.selectedPageIndex >= 0 &&
@@ -295,12 +295,12 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
       commitSelectGroup(snapshot.selectedGroupId)
     }
 
-    // Restore browser mode — legacy snapshots may have browserTabMode 'responsive' or 'frame',
-    // both now just mean "browser mode targeting a frame"
-    if (snapshot.browserTabMode === 'frame' || snapshot.browserTabMode === 'responsive') {
-      const frameId = snapshot.selectedFrameId ?? uiSelectedEntityId()
-      if (frameId) {
-        setUiBrowserMode({ frameId })
+    // Restore browser mode — legacy snapshots may have browserTabMode 'responsive' or 'page',
+    // both now just mean "browser mode targeting a page"
+    if (snapshot.browserTabMode === 'page' || snapshot.browserTabMode === 'responsive') {
+      const pageId = snapshot.selectedPageId ?? uiSelectedEntityId()
+      if (pageId) {
+        setUiBrowserMode({ pageId })
       } else {
         setUiCanvasMode()
       }
@@ -349,9 +349,9 @@ export function restorePersistedWorkspace(
   const activeTab = workspaceTabs.find((tab) => tab.id === activeWorkspaceTabId)
   if (!activeTab) return false
   if (record.viewMode === 'browser') {
-    const frameId = activeTab.snapshot.selectedFrameId ?? activeTab.snapshot.selectedFrameIds?.[0]
-    if (frameId) {
-      setUiBrowserMode({ frameId })
+    const pageId = activeTab.snapshot.selectedPageId ?? activeTab.snapshot.selectedPageIds?.[0]
+    if (pageId) {
+      setUiBrowserMode({ pageId })
     }
   } else {
     setUiCanvasMode()
@@ -393,7 +393,7 @@ function resetWindowState(): void {
   })
   setInspectHoveredTarget(null)
   setInspectSelectedTarget(null)
-  setInspectActiveFrameId(null)
+  setInspectActivePageId(null)
   resetLayoutCache()
   pages.length = 0
   workspaceGroups.length = 0

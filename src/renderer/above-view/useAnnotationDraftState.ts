@@ -197,35 +197,35 @@ function buildPendingAnnotation(
   payload: AnnotationElementSelectionPayload,
   layout: LayoutUpdateData,
 ): PendingAnnotation | null {
-  const frame = layout.entities.find((candidate) => candidate.id === payload.frameId)
-  if (!frame) return null
+  const page = layout.entities.find((candidate) => candidate.id === payload.pageId)
+  if (!page) return null
   const bb = payload.boundingBox
   const contentScreenX =
-    'contentScreenX' in frame && frame.contentScreenX != null ? frame.contentScreenX : frame.screenX
+    'contentScreenX' in page && page.contentScreenX != null ? page.contentScreenX : page.screenX
   const contentScreenY =
-    'contentScreenY' in frame && frame.contentScreenY != null ? frame.contentScreenY : frame.screenY
+    'contentScreenY' in page && page.contentScreenY != null ? page.contentScreenY : page.screenY
   const contentScreenWidth =
-    'contentScreenWidth' in frame && frame.contentScreenWidth != null
-      ? frame.contentScreenWidth
-      : frame.screenWidth
+    'contentScreenWidth' in page && page.contentScreenWidth != null
+      ? page.contentScreenWidth
+      : page.screenWidth
   const contentScreenHeight =
-    'contentScreenHeight' in frame && frame.contentScreenHeight != null
-      ? frame.contentScreenHeight
-      : frame.screenHeight
-  const scaleX = contentScreenWidth / frame.width
-  const scaleY = contentScreenHeight / frame.height
+    'contentScreenHeight' in page && page.contentScreenHeight != null
+      ? page.contentScreenHeight
+      : page.screenHeight
+  const scaleX = contentScreenWidth / page.width
+  const scaleY = contentScreenHeight / page.height
   const elementLeft = contentScreenX + (bb ? bb.x * scaleX : contentScreenWidth / 2)
   const elementTop = toOverlayY(
     layout,
     contentScreenY + (bb ? bb.y * scaleY : contentScreenHeight / 2),
   )
   const elementHeight = bb ? bb.height * scaleY : 0
-  // Anchor composer to outer shell bounds (device frame when present) so it clears
-  // the chrome with a consistent gap regardless of whether the frame is toggled on.
-  const frameBottomOverlay = toOverlayY(layout, frame.screenY + frame.screenHeight)
-  const frameTopOverlay = toOverlayY(layout, frame.screenY)
-  const elementBottom = Math.max(elementTop + elementHeight, frameBottomOverlay)
-  const elementTopAnchor = Math.min(elementTop, frameTopOverlay)
+  // Anchor composer to outer shell bounds (device page when present) so it clears
+  // the chrome with a consistent gap regardless of whether the page is toggled on.
+  const pageBottomOverlay = toOverlayY(layout, page.screenY + page.screenHeight)
+  const pageTopOverlay = toOverlayY(layout, page.screenY)
+  const elementBottom = Math.max(elementTop + elementHeight, pageBottomOverlay)
+  const elementTopAnchor = Math.min(elementTop, pageTopOverlay)
   const composerWidth = Math.min(420, window.innerWidth - VIEWPORT_PADDING * 2)
   const composerX = Math.min(
     Math.max(elementLeft, VIEWPORT_PADDING),
@@ -239,7 +239,7 @@ function buildPendingAnnotation(
   const composerY = canRenderBelow ? belowY : Math.max(VIEWPORT_PADDING, aboveY)
   const anchor: AnnotationAnchor = {
     type: 'element',
-    frameId: payload.frameId,
+    pageId: payload.pageId,
     selector: payload.elementPath,
     elementPath: payload.fullPath,
     boundingBox: payload.boundingBox,

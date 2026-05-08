@@ -5,7 +5,7 @@ export {
   selectPage,
   setBrowserMode,
   setCanvasMode,
-  setSelectedFrames,
+  setSelectedPages,
   toggleBrowserMode,
 } from './selection-state'
 
@@ -57,6 +57,6 @@ export {
   selectPageById,
   setHoverEntity,
   setSelectedEntities,
-  setHoveredFrame,
+  setHoveredPage,
   setSelectedGroupId,
 } from './runtime-core'

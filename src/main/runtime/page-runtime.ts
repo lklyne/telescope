@@ -1,11 +1,11 @@
-// Facade: re-exports page lifecycle and frame IPC functions.
+// Facade: re-exports page lifecycle and page IPC functions.
 
 export {
   findPageById,
   findPageByPageView,
   pages,
 } from './runtime-context'
-export { handleFrameIpcResponse, requestNodeDetail } from './frame-ipc'
+export { handlePageIpcResponse, requestNodeDetail } from './page-ipc'
 export type { Page } from './runtime-entities'
 export {
   getComponentAncestryByNodeId,
@@ -16,11 +16,11 @@ export {
 export { createPage, removePageById } from './page-factory'
 
 export {
-  queryFrameElements,
-  takeFrameAgentSnapshot,
-  takeFrameScreenshot,
-  takeFrameSnapshot,
-} from './frame-queries'
+  queryPageElements,
+  takePageAgentSnapshot,
+  takePageScreenshot,
+  takePageSnapshot,
+} from './page-queries'
 
 export {
   setMcpConnectionStatus,

@@ -8,10 +8,10 @@ import { WebSocket, WebSocketServer, type RawData } from 'ws'
 
 import { APP_CONTROL_DISCOVERY_FILE, APP_CONTROL_PORT, APP_CONTROL_VERSION } from '../shared/constants'
 import { getUiState } from './ui-state'
-import { findPageById, clearAutomationInteractiveFrameIds, automationInteractiveFrameCounts, getZoom } from './runtime/runtime-context'
+import { findPageById, clearAutomationInteractivePageIds, automationInteractivePageCounts, getZoom } from './runtime/runtime-context'
 import {
-  beginAutomationInteractiveFrame,
-  endAutomationInteractiveFrame,
+  beginAutomationInteractivePage,
+  endAutomationInteractivePage,
   sendInteractiveState,
 } from './runtime/overlay-manager'
 import { boundIsFillBrowserPage } from './runtime/runtime-geometry'
@@ -19,7 +19,7 @@ import {
   activeSessions,
   resolveSession,
   updatePresenceCursor,
-  resolveCanvasPointForFrame,
+  resolveCanvasPointForPage,
   pendingIntents,
   beginPresenceDeparture,
 } from './presence-manager'
@@ -29,7 +29,7 @@ import {
   PRESENCE_CURSOR_STEP_DELAY_MS,
   PRESENCE_CURSOR_POSITION_SKIP_PX,
 } from './presence-cursor'
-import { framePointMatchesTargetRect } from '../shared/presence-targeting'
+import { pagePointMatchesTargetRect } from '../shared/presence-targeting'
 import {
   type CdpProxyRegistration,
   type CdpClientBridge,
@@ -186,7 +186,7 @@ function handleCdpProxyUpgrade(request: IncomingMessage, socket: Duplex, head: B
   }
 
   const url = request.url ? new URL(request.url, `http://${APP_CONTROL_HOST}`) : null
-  const token = url ? /^\/cdp\/frame\/([^/]+)$/.exec(url.pathname)?.[1] : null
+  const token = url ? /^\/cdp\/page\/([^/]+)$/.exec(url.pathname)?.[1] : null
   if (!token) {
     socket.destroy()
     return
@@ -213,11 +213,11 @@ import { edgesGroupsRoutes } from './routes/edges-groups'
 import { recordingRoutes } from './routes/recording'
 import { annotationRoutes } from './routes/annotations'
 import { entityRoutes } from './routes/entities'
-import { frameRoutes } from './routes/frames'
+import { pageRoutes } from './routes/pages'
 import { testRoutes } from './routes/test'
 
 const routes: Route[] = [
-  ...frameRoutes,
+  ...pageRoutes,
   ...workspaceRoutes,
   ...sessionRoutes,
   ...edgesGroupsRoutes,
@@ -301,7 +301,7 @@ export async function startAppControlServer(): Promise<void> {
   const candidateCdpProxyServer = new WebSocketServer({ noServer: true })
 
   candidateCdpProxyServer.on('connection', (clientSocket: WebSocket, request: IncomingMessage, registration: CdpProxyRegistration) => {
-    const page = findPageById(registration.frameId)
+    const page = findPageById(registration.pageId)
     if (!page || page.pageView.webContents.isDestroyed()) {
       closeSocketQuietly(clientSocket)
       return
@@ -324,7 +324,7 @@ export async function startAppControlServer(): Promise<void> {
     if (!registration.selectionSnapshot) {
       registration.selectionSnapshot = getUiState().selection
     }
-    beginAutomationInteractiveFrame(registration.frameId)
+    beginAutomationInteractivePage(registration.pageId)
 
     // Snapshot emulation scale on mousePressed so mouseReleased uses the
     // same transform even if the user zooms between the two events.
@@ -434,19 +434,19 @@ export async function startAppControlServer(): Promise<void> {
             }
           : null
 
-      const frameX = targetRect ? targetRect.x + targetRect.width / 2 : undefined
-      const frameY = targetRect ? targetRect.y + targetRect.height / 2 : undefined
+      const pageX = targetRect ? targetRect.x + targetRect.width / 2 : undefined
+      const pageY = targetRect ? targetRect.y + targetRect.height / 2 : undefined
       const resolved =
-        frameX !== undefined && frameY !== undefined
-          ? resolveCanvasPointForFrame(registration.frameId, { frameX, frameY, targetRect })
+        pageX !== undefined && pageY !== undefined
+          ? resolveCanvasPointForPage(registration.pageId, { pageX, pageY, targetRect })
           : null
 
       upsertPresenceCursor(request, {
         body: pageSessionBody(),
-        surface: 'frame',
-        frameId: registration.frameId,
-        frameX,
-        frameY,
+        surface: 'page',
+        pageId: registration.pageId,
+        pageX,
+        pageY,
         canvasX: resolved?.canvasX,
         canvasY: resolved?.canvasY,
         activity: 'acting',
@@ -476,7 +476,7 @@ export async function startAppControlServer(): Promise<void> {
         registration.activeBridge = null
       }
       registration.updatedAt = Date.now()
-      endAutomationInteractiveFrame(registration.frameId)
+      endAutomationInteractivePage(registration.pageId)
       restoreAutomationSelectionIfNeeded(registration)
 
       // If this was the last active CDP bridge for the session, treat the
@@ -529,11 +529,11 @@ export async function startAppControlServer(): Promise<void> {
           await refreshCdpProxyRegistration(registration)
           cdpProxyLog('timing', 'refresh-target-before-attach', {
             token: registration.token,
-            frameId: registration.frameId,
+            pageId: registration.pageId,
             durationMs: Date.now() - startedAt,
           })
         } catch (error) {
-          sendProtocolError(id, error instanceof Error ? error.message : 'Unable to refresh frame target')
+          sendProtocolError(id, error instanceof Error ? error.message : 'Unable to refresh page target')
           return
         }
       }
@@ -554,7 +554,7 @@ export async function startAppControlServer(): Promise<void> {
         if (cdpType === 'mousePressed' || cdpType === 'mouseReleased' || cdpType === 'mouseMoved') {
           const x = params.x as number
           const y = params.y as number
-          const resolved = resolveCanvasPointForFrame(registration.frameId, { frameX: x, frameY: y })
+          const resolved = resolveCanvasPointForPage(registration.pageId, { pageX: x, pageY: y })
           if (resolved) {
             // On mousePressed, if the intent already placed the cursor at the
             // target, suppress the reposition — otherwise the click lands
@@ -564,10 +564,10 @@ export async function startAppControlServer(): Promise<void> {
               const existing = registration.sessionId
                 ? presenceCursors.get(registration.sessionId)
                 : undefined
-              if (existing && existing.frameId === registration.frameId) {
+              if (existing && existing.pageId === registration.pageId) {
                 const rect = existing.targetRect
                 const withinTargetRect =
-                  rect != null && framePointMatchesTargetRect(x, y, rect, 0)
+                  rect != null && pagePointMatchesTargetRect(x, y, rect, 0)
                 const canvasDistance = Math.hypot(
                   resolved.canvasX - existing.canvasX,
                   resolved.canvasY - existing.canvasY,
@@ -579,17 +579,17 @@ export async function startAppControlServer(): Promise<void> {
             }
             upsertPresenceCursor(request, {
               body: pageSessionBody(),
-              surface: 'frame',
-              frameId: registration.frameId,
-              // On skip, preserve all rendering-input fields (frame coords,
+              surface: 'page',
+              pageId: registration.pageId,
+              // On skip, preserve all rendering-input fields (page coords,
               // targetRect, targetRef/Name). canvas-layout-data recomputes
-              // frame-cursor canvasX/Y from frameX/Y or targetRect; clearing
-              // both would snap the cursor to frame center.
+              // page-cursor canvasX/Y from pageX/Y or targetRect; clearing
+              // both would snap the cursor to page center.
               ...(skipPosition
                 ? {}
                 : {
-                    frameX: x,
-                    frameY: y,
+                    pageX: x,
+                    pageY: y,
                     canvasX: resolved.canvasX,
                     canvasY: resolved.canvasY,
                     targetRef: null,
@@ -682,10 +682,10 @@ export async function startAppControlServer(): Promise<void> {
         const deltaY = typeof params.deltaY === 'number' ? params.deltaY : 0
         upsertPresenceCursor(request, {
           body: pageSessionBody(),
-          surface: 'frame',
-          frameId: registration.frameId,
-          frameX: x,
-          frameY: y,
+          surface: 'page',
+          pageId: registration.pageId,
+          pageX: x,
+          pageY: y,
           activity: 'acting',
           labelKey: 'scroll_page',
         })
@@ -710,7 +710,7 @@ export async function startAppControlServer(): Promise<void> {
           cdpProxyMetrics.interceptedScrolls += 1
           cdpProxyLog('timing', 'intercept-scroll-wheel', {
             token: registration.token,
-            frameId: registration.frameId,
+            pageId: registration.pageId,
             durationMs: Date.now() - startedAt,
           })
           if (id !== null) sendToClient(JSON.stringify({ id, result: {} }))
@@ -727,10 +727,10 @@ export async function startAppControlServer(): Promise<void> {
         const yDistance = typeof params.yDistance === 'number' ? params.yDistance : 0
         upsertPresenceCursor(request, {
           body: pageSessionBody(),
-          surface: 'frame',
-          frameId: registration.frameId,
-          frameX: x,
-          frameY: y,
+          surface: 'page',
+          pageId: registration.pageId,
+          pageX: x,
+          pageY: y,
           activity: 'acting',
           labelKey: 'scroll_page',
         })
@@ -755,7 +755,7 @@ export async function startAppControlServer(): Promise<void> {
           cdpProxyMetrics.interceptedScrolls += 1
           cdpProxyLog('timing', 'intercept-scroll-gesture', {
             token: registration.token,
-            frameId: registration.frameId,
+            pageId: registration.pageId,
             durationMs: Date.now() - startedAt,
           })
           if (id !== null) sendToClient(JSON.stringify({ id, result: {} }))
@@ -852,7 +852,7 @@ export function stopAppControlServer(): void {
   }
   cdpProxyRegistrations.clear()
   cdpProxyRegistrationsByKey.clear()
-  clearAutomationInteractiveFrameIds()
+  clearAutomationInteractivePageIds()
   mcpSessions.clear()
   removeDiscoveryFile()
   notifyStatusListeners()

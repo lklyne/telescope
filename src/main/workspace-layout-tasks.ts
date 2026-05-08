@@ -22,7 +22,7 @@ import { getManifest } from './design-system-store'
 import { normalizeUserUrl } from '../shared/url'
 import { makeId, createGroup } from './workspace-utils'
 import { createEdges } from './workspace-edges'
-import { createFrames } from './workspace-frames'
+import { createPages } from './workspace-pages'
 import { groupBounds } from './workspace-entities'
 import { findPlacement } from './workspace-placement'
 
@@ -110,7 +110,7 @@ function resolveStateCombinations(
 ): Array<{
   props: Record<string, unknown>
   pseudoState?: string
-  frameUrl: string
+  pageUrl: string
   label: string
 }> {
   const axes: Array<Array<[string, unknown]>> = []
@@ -130,17 +130,17 @@ function resolveStateCombinations(
   const combos: Array<{
     props: Record<string, unknown>
     pseudoState?: string
-    frameUrl: string
+    pageUrl: string
     label: string
   }> = []
 
   for (const props of baseCombos.length ? baseCombos : [{}]) {
     for (const pseudoState of states) {
       const routeValue = props.route
-      let frameUrl = normalizeUserUrl(request.url)
+      let pageUrl = normalizeUserUrl(request.url)
       if (typeof routeValue === 'string' && routeValue.trim()) {
         const trimmed = routeValue.trim()
-        frameUrl = /^https?:\/\//.test(trimmed)
+        pageUrl = /^https?:\/\//.test(trimmed)
           ? normalizeUserUrl(trimmed)
           : new URL(trimmed, normalizeUserUrl(request.url)).toString()
       }
@@ -149,7 +149,7 @@ function resolveStateCombinations(
       combos.push({
         props: labelProps,
         pseudoState,
-        frameUrl,
+        pageUrl,
         label: stateDisplayLabel(labelProps, pseudoState),
       })
     }
@@ -210,7 +210,7 @@ export function layoutComponentStates(
     height: height + USER_GROUP_PADDING * 2,
     layoutMode: 'row',
     managedLayout: true,
-    frameIds: [],
+    pageIds: [],
     sourceTaskId: taskId,
     metadata: {
       taskKind: 'component_states',
@@ -221,7 +221,7 @@ export function layoutComponentStates(
     },
   })
 
-  const frames: PageConfig[] = combinations.map((combo, index) => {
+  const pages: PageConfig[] = combinations.map((combo, index) => {
     const row = Math.floor(index / columnCount)
     const col = index % columnCount
     const canvasX = placement.canvasX + col * (preset.width + CLUSTER_HORIZONTAL_GUTTER)
@@ -237,8 +237,8 @@ export function layoutComponentStates(
     )
 
     return {
-      id: makeId('frame'),
-      url: combo.frameUrl,
+      id: makeId('page'),
+      url: combo.pageUrl,
       presetIndex,
       canvasX,
       canvasY,
@@ -262,8 +262,8 @@ export function layoutComponentStates(
     }
   })
 
-  const { frameIds } = createFrames({ frames })
-  group.frameIds = [...frameIds]
+  const { pageIds } = createPages({ pages })
+  group.pageIds = [...pageIds]
 
   if (request.focus ?? true) {
     const bounds = groupBounds(group)
@@ -278,7 +278,7 @@ export function layoutComponentStates(
   return {
     taskId,
     groupId,
-    frameIds,
+    pageIds,
     placement,
     warnings: [],
   }
@@ -319,7 +319,7 @@ export function applyTaskLayout(
     height: clusterSize.height + USER_GROUP_PADDING * 2,
     layoutMode: 'row',
     managedLayout: true,
-    frameIds: [],
+    pageIds: [],
     sourceTaskId: taskId,
     metadata: {
       taskKind: request.taskKind,
@@ -330,10 +330,10 @@ export function applyTaskLayout(
   })
 
   let cursorX = placement.canvasX
-  const framesToCreate = presetIndexes.map((presetIndex) => {
+  const pagesToCreate = presetIndexes.map((presetIndex) => {
     const preset = VIEWPORT_PRESETS[presetIndex]
-    const id = makeId('frame')
-    const frame = {
+    const id = makeId('page')
+    const page = {
       id,
       url,
       presetIndex,
@@ -350,16 +350,16 @@ export function applyTaskLayout(
       },
     }
     cursorX += preset.width + CLUSTER_HORIZONTAL_GUTTER
-    return frame
+    return page
   })
 
-  const { frameIds } = createFrames({ frames: framesToCreate })
-  group.frameIds = [...frameIds]
+  const { pageIds } = createPages({ pages: pagesToCreate })
+  group.pageIds = [...pageIds]
 
   const { edgeIds } = createEdges({
-    edges: frameIds.slice(0, -1).map((frameId, index) => ({
-      fromEntityId: frameId,
-      toEntityId: frameIds[index + 1],
+    edges: pageIds.slice(0, -1).map((pageId, index) => ({
+      fromEntityId: pageId,
+      toEntityId: pageIds[index + 1],
       kind: 'breakpoint_variant' as const,
       metadata: {
         taskKind: request.taskKind,
@@ -382,7 +382,7 @@ export function applyTaskLayout(
     taskId,
     taskKind: request.taskKind,
     groupId,
-    frameIds,
+    pageIds,
     edgeIds,
     resolvedPresets: presetLabels,
     placement,

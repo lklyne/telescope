@@ -1,7 +1,7 @@
 import type {
   ClipboardEntityPayload,
   ClipboardEntitySelectionPayload,
-  ClipboardFrameSelectionPayload,
+  ClipboardPageSelectionPayload,
 } from '../shared/types'
 import {
   createPage,
@@ -11,7 +11,7 @@ import {
   getSelectedEntityIds,
   selectPageById,
   setSelectedEntities,
-  setSelectedFrames,
+  setSelectedPages,
 } from './runtime/ui-actions'
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
@@ -23,13 +23,13 @@ import { layoutAllViews, snapToGrid } from './runtime/surface-layout'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
 import { cloneMetadata } from './workspace-utils'
 
-export function copyableFramePayload(
-  frameIds: string[],
-): ClipboardFrameSelectionPayload | null {
-  if (!frameIds.length) return null
+export function copyablePagePayload(
+  pageIds: string[],
+): ClipboardPageSelectionPayload | null {
+  if (!pageIds.length) return null
 
-  const selectedPages = frameIds
-    .map((frameId) => findPageById(frameId))
+  const selectedPages = pageIds
+    .map((pageId) => findPageById(pageId))
     .filter((page): page is Exclude<typeof page, undefined> => page !== undefined)
 
   if (!selectedPages.length) return null
@@ -39,7 +39,7 @@ export function copyableFramePayload(
 
   return {
     version: 1,
-    frames: selectedPages.map((page) => ({
+    pages: selectedPages.map((page) => ({
       url: page.pageView.webContents.getURL() || 'about:blank',
       presetIndex: page.presetIndex,
       dx: page.canvasX - minX,
@@ -90,7 +90,7 @@ export function copyableSelectionPayload():
     const page = findPageById(id)
     if (page) {
       entities.push({
-        kind: 'frame',
+        kind: 'page',
         url: page.pageView.webContents.getURL() || 'about:blank',
         presetIndex: page.presetIndex,
         metadata: cloneMetadata(page.metadata) as Record<string, unknown> | undefined,
@@ -152,30 +152,30 @@ export function copyableSelectionPayload():
   return { version: 2, entities }
 }
 
-export function pasteFramesFromClipboard(input: {
-  payload: ClipboardFrameSelectionPayload
+export function pastePagesFromClipboard(input: {
+  payload: ClipboardPageSelectionPayload
   canvasX: number
   canvasY: number
-}): { frameIds: string[] } {
-  const frames = input.payload.frames.filter((frame) =>
-    Number.isFinite(frame.presetIndex) &&
-    Number.isFinite(frame.dx) &&
-    Number.isFinite(frame.dy) &&
-    typeof frame.url === 'string' &&
-    frame.url.trim().length > 0,
+}): { pageIds: string[] } {
+  const pages = input.payload.pages.filter((page) =>
+    Number.isFinite(page.presetIndex) &&
+    Number.isFinite(page.dx) &&
+    Number.isFinite(page.dy) &&
+    typeof page.url === 'string' &&
+    page.url.trim().length > 0,
   )
 
-  if (!frames.length) {
-    return { frameIds: [] }
+  if (!pages.length) {
+    return { pageIds: [] }
   }
 
-  const frameIds = frames.map((frame) => {
+  const pageIds = pages.map((entry) => {
     const page = createPage({
-      url: frame.url,
-      presetIndex: frame.presetIndex,
+      url: entry.url,
+      presetIndex: entry.presetIndex,
       linked: false,
-      canvasX: snapToGrid(input.canvasX + frame.dx),
-      canvasY: snapToGrid(input.canvasY + frame.dy),
+      canvasX: snapToGrid(input.canvasX + entry.dx),
+      canvasY: snapToGrid(input.canvasY + entry.dy),
       source: 'manual',
       metadata: {
         createdFrom: 'paste',
@@ -184,15 +184,15 @@ export function pasteFramesFromClipboard(input: {
     return page.id
   })
 
-  if (frameIds.length === 1) {
-    selectPageById(frameIds[0])
+  if (pageIds.length === 1) {
+    selectPageById(pageIds[0])
   } else {
-    setSelectedFrames(frameIds)
+    setSelectedPages(pageIds)
   }
 
   layoutAllViews()
   scheduleWorkspaceAutosave()
-  return { frameIds }
+  return { pageIds }
 }
 
 export function pasteEntitiesFromClipboard(input: {
@@ -205,7 +205,7 @@ export function pasteEntitiesFromClipboard(input: {
   for (const entity of input.payload.entities) {
     if (!Number.isFinite(entity.dx) || !Number.isFinite(entity.dy)) continue
 
-    if (entity.kind === 'frame') {
+    if (entity.kind === 'page') {
       if (
         !Number.isFinite(entity.presetIndex) ||
         typeof entity.url !== 'string' ||

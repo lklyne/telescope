@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
-  CanvasSceneFrameEntity,
+  CanvasScenePageEntity,
   LayoutUpdateData,
 } from '../../shared/types'
 import { AgentCursorLayer } from '../canvas-bg/AgentCursorLayer'
@@ -28,8 +28,8 @@ export default function App({
     >
       <AgentCursorLayer
         cursors={layoutData.presenceCursors}
-        frames={layoutData.entities.filter(
-          (entity): entity is CanvasSceneFrameEntity => entity.kind === 'frame',
+        pages={layoutData.entities.filter(
+          (entity): entity is CanvasScenePageEntity => entity.kind === 'page',
         )}
         canvasOrigin={layoutData.canvasOrigin}
         pan={layoutData.pan}

@@ -276,11 +276,11 @@ function injectBlockingOverlay(): void {
 
   // Hover state forwarding
   overlay.addEventListener('mouseenter', () => {
-    ipcRenderer.send('frame-hover', true)
+    ipcRenderer.send('page-hover', true)
   })
 
   overlay.addEventListener('mouseleave', () => {
-    ipcRenderer.send('frame-hover', false)
+    ipcRenderer.send('page-hover', false)
     middleDrag = null
   })
 
@@ -398,7 +398,7 @@ ipcRenderer.on('apply-linked-scroll', (_event, data: ScrollSyncData) => {
   applyIncomingLinkedScroll(data)
 })
 
-// --- MCP frame inspection handlers ---
+// --- MCP page inspection handlers ---
 
 ipcRenderer.on('take-dom-snapshot', (_event, payload: { requestId: string; maxDepth?: number; structured?: boolean }) => {
   const maxDepth = payload.maxDepth ?? 10
@@ -670,12 +670,12 @@ window.addEventListener('blur', () => {
   hideCommentBadgeHover()
 })
 
-// --- Frame hover state ---
+// --- Page hover state ---
 window.addEventListener('mouseenter', () => {
-  ipcRenderer.send('frame-hover', true)
+  ipcRenderer.send('page-hover', true)
 })
 window.addEventListener('mouseleave', () => {
-  ipcRenderer.send('frame-hover', false)
+  ipcRenderer.send('page-hover', false)
 })
 
 // --- Resize handle ---

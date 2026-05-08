@@ -6,13 +6,15 @@ Canonical terms used across the codebase, ADRs, and plans. Resolve language conf
 
 ## Canvas data model
 
-Follows [JSON Canvas v1.0](https://jsoncanvas.org).
+Follows [JSON Canvas v1.0](https://jsoncanvas.org) on disk; uses Specular-native terms in runtime and UI.
 
-- **Node** — any entity on the canvas. Kinds: frame, file, group, text, drawing, shape.
-- **Edge** — a connection between two nodes.
+- **Canvas item** — the user-facing and component-naming term for a thing on the canvas. Kinds: frame, file, group, text, drawing, shape. Use this in docs, UI copy, and component names (`CanvasItemChrome`, `SidebarCanvasItem`).
+- **Entity** — the runtime / persistence term for the same concept. Use this in `src/main/runtime/` types (`PersistedFrameEntity`, `CanvasEntityKind`, `CanvasSceneEntity`). One entity ⇔ one canvas item.
+- **Node** — JSON Canvas spec term. Use **only** in the disk-schema layer (`src/shared/json-canvas-types.ts`, `json-canvas-serializer.ts`). Never as a synonym for entity in runtime code.
+- **Edge** — a connection between two canvas items. Same name across all three layers.
 - **Canvas** — a single `.canvas` file; the spatial document.
 - **Space** — a folder of canvases (Obsidian-vault analogue).
-- **Frame** — Specular's UI term for live web-page nodes. May fold into the spec term "link" over time.
+- **Frame** — Specular's term for live web-page items. Serialized as JSON Canvas `link` nodes; the serializer is the only place the two names meet.
 
 ## Entity geometry
 

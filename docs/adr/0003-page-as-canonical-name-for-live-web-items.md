@@ -1,6 +1,7 @@
 # ADR 0003 — `Page` as the canonical name for live web items
 
 **Status:** Accepted
+**Implementation:** Not started — see Migration plan section. CONTEXT.md uses the new vocabulary; runtime / IPC / components still use `frame`.
 **Date:** 2026-05-08
 **Supersedes premise of:** the `frame` entity-kind name and the parallel runtime/entity vocabulary that came with it (e.g. `PersistedFrameEntity` ↔ runtime `Page` WCV wrapper).
 **Related:** [ADR 0001 — click-to-enter frame focus](./0001-click-to-enter-frame-focus.md), [ADR 0002 — canvas-anchored overlay UI](./0002-canvas-anchored-overlay-ui.md). Both ADRs were authored under the old name and are not being rewritten; their behavior is unchanged.

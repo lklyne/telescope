@@ -1,6 +1,7 @@
 # ADR 0004 — Text affordances (Text / Sticky note / Document) and the Specular spec-extension convention
 
 **Status:** Accepted
+**Implementation:** Not started — see Migration section. CONTEXT.md documents the three affordances and the `specular.textStyle` field; toolbar still has the old "Add Text Block" + "Add Note" buttons; the renderer has no plain/sticky branch yet; the `specular: {}` extension object is not yet emitted by the serializer.
 **Date:** 2026-05-08
 **Supersedes premise of:** the toolbar's "Add Text Block" + "Add Note" buttons, and the implicit assumption that a single `text` kind has one render style.
 **Related:** [ADR 0003 — Page as canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md). Both ADRs originate from a single naming pass on canvas items and tools (CONTEXT.md update, 2026-05-08).

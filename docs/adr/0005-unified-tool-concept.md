@@ -1,6 +1,7 @@
 # ADR 0005 — Unified `Tool` concept
 
 **Status:** Accepted
+**Implementation:** Not started — see Migration section. CONTEXT.md documents the `Tool` union; runtime still has the three parallel state machines (`pendingPlacement`, `AnnotationMode`, the `inspect` boolean) and three corresponding IPC families.
 **Date:** 2026-05-08
 **Supersedes premise of:** the three parallel state machines for `pendingPlacement`, `AnnotationMode` (`'off' | 'comment' | 'draw' | 'region_select'`), and the standalone `inspect` boolean. Also retires the term "annotation mode" as a name for runtime state.
 **Related:** [ADR 0004 — Text affordances](./0004-text-affordances-and-spec-extensions.md). The tool list reflects the post-0004 toolbar (`add-text` carries a `style` field for plain vs sticky; `add-document` replaces `add-note`).

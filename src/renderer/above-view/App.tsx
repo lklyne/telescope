@@ -550,7 +550,7 @@ export default function App({
         capture: true,
       } as EventListenerOptions)
     }
-  }, [api, layoutData.activeTool, layoutRef, onDragEnd, onDragMove, overlayInteractive, pendingPlacement])
+  }, [api, layoutData.activeTool.kind, layoutRef, onDragEnd, onDragMove, overlayInteractive, pendingPlacement])
 
   const viewportWheelAndPanApi = useMemo(
     () => ({

@@ -1,14 +1,7 @@
-/**
- * Tool mode management — single `activeTool` source of truth (ADR 0005).
- *
- * Replaces the three parallel state machines (`pendingPlacement`,
- * `AnnotationMode`, `inspect` boolean) with a single `Tool` discriminated
- * union. One-shot tools auto-revert to `select` after a placement; persistent
- * tools stay until replaced or dismissed.
- */
+// Tool mode management — single `activeTool` source of truth (ADR 0005).
 
 import type { DevtoolsPanelTab, Tool } from '../../shared/types'
-import { isOneShot } from '../../shared/tool'
+import { isAnnotationTool, isOneShot, toolAnnotateOverlay } from '../../shared/tool'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { pages } from './runtime-context'
 import { markDirty } from './layout-dirty'
@@ -27,30 +20,18 @@ import {
 import { requestLayout } from './surface-layout'
 
 function syncAnnotationState(): void {
-  const tool = uiActiveTool()
-  const mode =
-    tool.kind === 'comment'
-      ? 'comment'
-      : tool.kind === 'draw'
-        ? 'draw'
-        : tool.kind === 'region-select'
-          ? 'region_select'
-          : 'off'
+  const payload = toolAnnotateOverlay(uiActiveTool())
   for (const page of pages) {
-    page.pageView.webContents.send('set-annotate-mode', {
-      enabled: tool.kind === 'comment',
-      mode,
-    })
+    page.pageView.webContents.send('set-annotate-mode', payload)
   }
 }
 
 function applyToolSideEffects(prev: Tool, next: Tool): void {
-  const wasAnnotation = isAnnotationKind(prev.kind)
-  const isAnnotation = isAnnotationKind(next.kind)
+  const wasAnnotation = isAnnotationTool(prev)
+  const isAnnotation = isAnnotationTool(next)
   const wasInspect = prev.kind === 'inspect'
   const isInspect = next.kind === 'inspect'
 
-  // Inspect ↔ annotation transitions need to clear inspect hover state.
   if (wasInspect && !isInspect) {
     setHoveredInspectTarget(null)
   }
@@ -69,10 +50,6 @@ function applyToolSideEffects(prev: Tool, next: Tool): void {
   requestLayout()
 }
 
-function isAnnotationKind(kind: Tool['kind']): boolean {
-  return kind === 'comment' || kind === 'draw' || kind === 'region-select'
-}
-
 function sanitizeForFeatureFlags(tool: Tool): Tool {
   if (tool.kind === 'draw' && !DRAWING_FEATURE_ENABLED) {
     return { kind: 'select' }
@@ -82,26 +59,18 @@ function sanitizeForFeatureFlags(tool: Tool): Tool {
 
 function sanitizeForPages(tool: Tool): Tool {
   if (pages.length > 0) return tool
-  // Tools that operate on pages (annotations, inspect) require at least one
-  // frame on the canvas. Without pages they collapse to select.
-  if (isAnnotationKind(tool.kind) || tool.kind === 'inspect') {
+  // Annotation/inspect tools need at least one page; collapse to select otherwise.
+  if (isAnnotationTool(tool) || tool.kind === 'inspect') {
     return { kind: 'select' }
   }
   return tool
 }
 
-/**
- * Set the active tool. Returns the resulting Tool (which may be sanitized for
- * feature flags or page availability).
- */
 export function setActiveTool(tool: Tool): Tool {
   const sanitized = sanitizeForPages(sanitizeForFeatureFlags(tool))
   const prev = uiActiveTool()
   if (toolsEqual(prev, sanitized)) {
-    // Idempotent: still re-sync downstream listeners so a renderer that
-    // missed an event picks up the current state.
-    applyToolSideEffects(prev, sanitized)
-    return uiActiveTool()
+    return prev
   }
   setUiActiveTool(sanitized)
   applyToolSideEffects(prev, sanitized)
@@ -122,15 +91,10 @@ function toolsEqual(a: Tool, b: Tool): boolean {
   return true
 }
 
-/** Reset to the default `select` tool. */
 export function clearActiveTool(): Tool {
   return setActiveTool({ kind: 'select' })
 }
 
-/**
- * Called after a one-shot tool's placement completes. Reverts to `select`.
- * No-op for persistent tools.
- */
 export function finishOneShotPlacement(): void {
   const tool = uiActiveTool()
   if (isOneShot(tool.kind)) {

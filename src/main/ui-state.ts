@@ -120,7 +120,7 @@ export function setSelection(input: SelectionInput): UiState {
 }
 
 export function setActiveTool(tool: Tool): UiState {
-  uiState.activeTool = cloneTool(tool)
+  uiState.activeTool = tool
   markDirty('canvas', 'toolbar')
   return getUiState()
 }
@@ -322,10 +322,6 @@ export function selectedPageIndex(
   return index >= 0 ? index : null
 }
 
-function cloneTool(tool: Tool): Tool {
-  return { ...tool } as Tool
-}
-
 function cloneUiState(input: UiState): UiState {
   return {
     selection:
@@ -336,7 +332,7 @@ function cloneUiState(input: UiState): UiState {
             entityKindsById: { ...input.selection.entityKindsById },
           }
         : { ...input.selection },
-    activeTool: cloneTool(input.activeTool),
+    activeTool: input.activeTool,
     viewMode: { ...input.viewMode },
     leftSidebarOpen: input.leftSidebarOpen,
     devtools: { ...input.devtools },

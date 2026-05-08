@@ -1,14 +1,6 @@
-/**
- * Unified Tool concept — see ADR 0005.
- *
- * A Tool is the single representation of "what does my next click/gesture do?".
- * Exactly one tool is active at any moment. One-shot tools auto-revert to
- * `select` after a single placement; persistent tools stay until replaced or
- * dismissed (Escape).
- */
+// Unified Tool concept — see ADR 0005.
 
-// Local mirror of `ShapeKind` from `./types` to avoid the circular import that
-// types.ts → tool.ts would otherwise create. Keep these in sync.
+// Mirror of `ShapeKind` to avoid types.ts → tool.ts circular import.
 type ToolShapeKind = 'rectangle' | 'ellipse' | 'diamond'
 
 export type Tool =
@@ -46,14 +38,10 @@ export function isPersistent(kind: ToolKind): boolean {
   return toolDuration[kind] === 'persistent'
 }
 
-/** True when the active tool is one of the annotation-class tools (formerly
- *  `AnnotationMode !== 'off'`). */
 export function isAnnotationTool(tool: Tool): boolean {
   return tool.kind === 'comment' || tool.kind === 'draw' || tool.kind === 'region-select'
 }
 
-/** True when the active tool is a one-shot placement tool that adds a new
- *  entity to the canvas on click. */
 export function isPlacementTool(tool: Tool): boolean {
   return (
     tool.kind === 'add-page' ||
@@ -63,30 +51,32 @@ export function isPlacementTool(tool: Tool): boolean {
   )
 }
 
-/**
- * Reducer for "the user just performed the placement gesture (a click that
- * commits a one-shot tool)." One-shot tools revert to `select`; persistent
- * tools stay where they are. The runtime calls `finishOneShotPlacement` for
- * the side-effectful version.
- */
 export function applyPlacementCompletion(current: Tool): Tool {
   return isOneShot(current.kind) ? SELECT_TOOL : current
 }
 
-/**
- * Reducer for the Escape key. Always returns `select`, regardless of the
- * current tool. Mirrors the runtime behavior in keyboard-shortcuts.ts.
- */
 export function applyEscape(_current: Tool): Tool {
   return SELECT_TOOL
 }
 
 export const SELECT_TOOL: Tool = { kind: 'select' }
 
-/**
- * Lowercase gerund for cursor labels, status-bar narration, and live captions.
- * Sentence case is for menus and chrome — gerunds are for narration only.
- */
+// Page-content overlay vocabulary (legacy IPC). Kept narrow on purpose —
+// renderer-side mode that drives the comment-hover affordance vs region-select
+// rect, intentionally not part of the unified Tool vocabulary.
+export type AnnotateOverlayMode = 'off' | 'comment' | 'draw' | 'region_select'
+
+export function toolAnnotateOverlay(tool: Tool): {
+  enabled: boolean
+  mode: AnnotateOverlayMode
+} {
+  if (tool.kind === 'comment') return { enabled: true, mode: 'comment' }
+  if (tool.kind === 'draw') return { enabled: false, mode: 'draw' }
+  if (tool.kind === 'region-select') return { enabled: false, mode: 'region_select' }
+  return { enabled: false, mode: 'off' }
+}
+
+// Lowercase gerund for cursor labels, status-bar narration, and live captions.
 export function toolGerund(tool: Tool): string {
   switch (tool.kind) {
     case 'select':

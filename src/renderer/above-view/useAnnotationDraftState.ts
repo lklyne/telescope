@@ -118,8 +118,9 @@ export function useAnnotationDraftState({
     return cleanup
   }, [api])
 
+  const activeToolKind = layoutData.activeTool.kind
   useEffect(() => {
-    if (layoutData.activeTool.kind === 'comment') {
+    if (activeToolKind === 'comment') {
       if (drawingSession) {
         activeStrokeRef.current = null
         setDrawingSession(null)
@@ -127,7 +128,7 @@ export function useAnnotationDraftState({
       }
       return
     }
-    if (layoutData.activeTool.kind === 'region-select') {
+    if (activeToolKind === 'region-select') {
       // Keep pendingRegionRect intact during region-select mode.
       if (drawingSession) {
         activeStrokeRef.current = null
@@ -144,12 +145,11 @@ export function useAnnotationDraftState({
       setPendingRegionRect(null)
       setCommentText('')
     }
-  }, [activeStrokeRef, drawingSession, layoutData.activeTool, pendingAnnotation])
+  }, [activeStrokeRef, drawingSession, activeToolKind, pendingAnnotation])
 
   useEffect(() => {
-    if (layoutData.activeTool.kind === 'draw') return
+    if (activeToolKind === 'draw') return
     if (!drawingSession) return
-    // Auto-submit drawing when leaving draw mode
     if (drawingSession.strokes.length > 0) {
       api.createDrawing({
         canvasX: drawingSession.bounds.x,
@@ -160,7 +160,7 @@ export function useAnnotationDraftState({
       })
     }
     clearDraft()
-  }, [api, clearDraft, drawingSession, layoutData.activeTool])
+  }, [api, clearDraft, drawingSession, activeToolKind])
 
   useEffect(() => {
     resizeCommentInput()

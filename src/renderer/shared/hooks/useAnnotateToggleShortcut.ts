@@ -8,6 +8,7 @@ export function useAnnotateToggleShortcut(input: {
   drawingEnabled?: boolean
 }) {
   const { setTool, activeTool, drawingEnabled } = input
+  const activeKind = activeTool.kind
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!document.hasFocus()) return
@@ -19,16 +20,16 @@ export function useAnnotateToggleShortcut(input: {
       }
       if (isPlainShortcutKey(event, 'c')) {
         event.preventDefault()
-        setTool(activeTool.kind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
+        setTool(activeKind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
         return
       }
       if (drawingEnabled && isPlainShortcutKey(event, 'd')) {
         event.preventDefault()
-        setTool(activeTool.kind === 'draw' ? { kind: 'select' } : { kind: 'draw' })
+        setTool(activeKind === 'draw' ? { kind: 'select' } : { kind: 'draw' })
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [setTool, activeTool, drawingEnabled])
+  }, [setTool, activeKind, drawingEnabled])
 }

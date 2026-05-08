@@ -96,14 +96,6 @@ function uiInspectEnabled(): boolean {
   return uiActiveTool().kind === 'inspect'
 }
 
-function uiAnnotationMode(): 'off' | 'comment' | 'draw' | 'region_select' {
-  const tool = uiActiveTool()
-  if (tool.kind === 'comment') return 'comment'
-  if (tool.kind === 'draw') return 'draw'
-  if (tool.kind === 'region-select') return 'region_select'
-  return 'off'
-}
-
 function effectiveInspectionPageIds(): Set<string> {
   if (!uiInspectEnabled()) return new Set()
   const mode = currentInspectMode()
@@ -122,12 +114,6 @@ export function syncInspectionState(): void {
     })
   }
 }
-
-// Toolbar derives inspect / annotation state from `activeTool` carried on
-// `ToolbarSelectionData`, broadcast via `markDirty('toolbar')`. The dedicated
-// `inspect-state-changed` / `annotate-state-changed` channels are gone (ADR
-// 0005); call sites that used to invoke these notifiers now just rely on the
-// layout-driven broadcast.
 
 // --- Helpers ---
 
@@ -446,7 +432,7 @@ export function notifyDevtoolsPanelData(): void {
     activeTab: uiDevtoolsPanelTab(),
     panelMode,
     activeTool: uiActiveTool(),
-    annotateEnabled: uiAnnotationMode() === 'comment',
+    annotateEnabled: uiActiveTool().kind === 'comment',
     annotateAvailable: pages.length > 0,
     focusedAnnotationId: uiFocusedAnnotationId(),
     selection: selectedPageSummary(),

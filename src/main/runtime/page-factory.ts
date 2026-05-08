@@ -6,6 +6,7 @@ import { WebContentsView } from 'electron'
 import { randomUUID } from 'crypto'
 import { preloadPath } from './load-renderer'
 import type { PageConfig } from '../../shared/types'
+import { toolAnnotateOverlay } from '../../shared/tool'
 import {
   toolbarView,
   win,
@@ -198,21 +199,7 @@ export function createPage(config: PageConfig): Page {
     if (isSelectedPage(page)) clearInspectTargets()
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
     syncInspectionState()
-    {
-      const tool = uiActiveTool()
-      const mode =
-        tool.kind === 'comment'
-          ? 'comment'
-          : tool.kind === 'draw'
-            ? 'draw'
-            : tool.kind === 'region-select'
-              ? 'region_select'
-              : 'off'
-      page.pageView.webContents.send('set-annotate-mode', {
-        enabled: tool.kind === 'comment',
-        mode,
-      })
-    }
+    page.pageView.webContents.send('set-annotate-mode', toolAnnotateOverlay(uiActiveTool()))
     sendInteractiveState()
     broadcastCanvasZoomToPages()
     const overrides = pageOverridesFromMetadata(page.metadata)

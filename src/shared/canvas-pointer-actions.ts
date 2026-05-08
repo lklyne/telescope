@@ -224,6 +224,7 @@ export function routePointerDoubleClick(
       switch (target.payload.entityKind) {
         case 'shape':
         case 'text':
+        case 'file':
           return { kind: 'request-entity-edit', entityId: target.payload.entityId }
         case 'group':
           return { kind: 'enter-group', groupId: target.payload.entityId }

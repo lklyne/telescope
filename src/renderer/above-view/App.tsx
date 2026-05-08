@@ -881,7 +881,7 @@ export default function App({
               )}
               isDark={isDark}
               selectedEntityIdSet={selectedEntityIdSet}
-              selectedEntityCount={layoutData.selectedEntityIds.length}
+              editingEntityId={editingEntityId}
               jsonModeMap={fileJsonModeMap}
               canvasOrigin={layoutData.canvasOrigin}
               pan={layoutData.pan}

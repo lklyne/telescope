@@ -199,7 +199,7 @@ export function FileBodyLayer({
   entities,
   isDark,
   selectedEntityIdSet,
-  selectedEntityCount,
+  editingEntityId,
   jsonModeMap,
   canvasOrigin,
   pan,
@@ -209,7 +209,9 @@ export function FileBodyLayer({
   entities: CanvasSceneFileEntity[]
   isDark: boolean
   selectedEntityIdSet: Set<string>
-  selectedEntityCount: number
+  /** id of the entity currently in inline-edit mode (or null). Mounts the
+   *  inner editable surface iff `editingEntityId === entity.id`. */
+  editingEntityId: string | null
   jsonModeMap: FileJsonModeMap
   canvasOrigin: { x: number; y: number }
   pan: { x: number; y: number }
@@ -225,7 +227,7 @@ export function FileBodyLayer({
           entity={entity}
           isDark={isDark}
           isSelected={selectedEntityIdSet.has(entity.id)}
-          canEdit={selectedEntityIdSet.has(entity.id) && selectedEntityCount === 1}
+          canEdit={editingEntityId === entity.id}
           wireframeJsonMode={jsonModeMap.get(entity.id) ?? false}
           onTextEditingChange={onTextEditingChange}
         />

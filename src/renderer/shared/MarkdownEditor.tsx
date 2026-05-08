@@ -76,7 +76,15 @@ export function MarkdownEditor({
           return false
         },
         blur: () => {
-          onBlurRef.current?.()
+          // Defer one tick: an Electron WCV layout/focus-reconcile can
+          // briefly steal focus from contentDOM right as we enter
+          // editing-entity, and immediately return it. If we fired onBlur
+          // synchronously we'd commit the edit on every spurious thrash.
+          // Skip when focus has come back by the next task.
+          setTimeout(() => {
+            if (viewRef.current?.hasFocus) return
+            onBlurRef.current?.()
+          }, 0)
           return false
         },
         mousedown: (event) => {

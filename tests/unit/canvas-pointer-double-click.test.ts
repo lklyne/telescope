@@ -41,10 +41,10 @@ describe('routePointerDoubleClick', () => {
     ).toEqual({ kind: 'noop' })
   })
 
-  it('file body → noop', () => {
+  it('file body → request-entity-edit', () => {
     expect(
       routePointerDoubleClick(target({ kind: 'entity-body', entityId: 'fi1', entityKind: 'file' })),
-    ).toEqual({ kind: 'noop' })
+    ).toEqual({ kind: 'request-entity-edit', entityId: 'fi1' })
   })
 
   it('background → noop', () => {

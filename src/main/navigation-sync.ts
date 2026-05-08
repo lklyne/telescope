@@ -104,7 +104,7 @@ export function propagateNavigationFromPage(
  * This is the single entry point for all page navigation triggered by
  * user interactions (canvas chrome, right panel, context menu).
  */
-export function navigatePagePage(
+export function navigatePage(
   page: Page,
   action: NavigationSyncAction,
 ): void {

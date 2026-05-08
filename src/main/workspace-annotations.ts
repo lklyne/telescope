@@ -41,7 +41,7 @@ function resolvePageName(pageId: string): string | undefined {
   return `${label} ${preset.width}×${preset.height}`
 }
 
-function resolvePagePageUrl(pageId: string): string | undefined {
+function resolvePageUrl(pageId: string): string | undefined {
   const page = findPageById(pageId)
   if (!page) return undefined
   return canonicalAnnotationUrl(page.pageView.webContents.getURL())
@@ -67,7 +67,7 @@ function enrichedAnnotationMetadata(
         ? regionPrimaryPageId(request.metadata)
         : undefined
   const pageName = contextPageId ? resolvePageName(contextPageId) : undefined
-  const pageUrl = contextPageId ? resolvePagePageUrl(contextPageId) : undefined
+  const pageUrl = contextPageId ? resolvePageUrl(contextPageId) : undefined
 
   const metadata = request.metadata ? { ...request.metadata } : undefined
   const metadataWithContext: AnnotationMetadata = {

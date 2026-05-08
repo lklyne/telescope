@@ -7,7 +7,7 @@ import { deletePages } from '../workspace-entities'
 import { focusTargets } from '../workspace-groups'
 import { createPageAtPosition, setPagePreset, setDeviceOrientation } from '../runtime/document-commands'
 import { showDeviceFrameFromMetadata, setShowDeviceFrameMetadata } from '../runtime/runtime-entities'
-import { navigatePagePage } from '../navigation-sync'
+import { navigatePage } from '../navigation-sync'
 import { findPageById } from '../runtime/runtime-context'
 import {
   takePageAgentSnapshot,
@@ -128,7 +128,7 @@ export const pageRoutes: Route[] = [
           }
         }
         if (f.url !== undefined && f.url !== page.url) {
-          navigatePagePage(page, { type: 'load-url', url: f.url })
+          navigatePage(page, { type: 'load-url', url: f.url })
         }
         if (f.canvasX !== undefined) page.canvasX = f.canvasX
         if (f.canvasY !== undefined) page.canvasY = f.canvasY

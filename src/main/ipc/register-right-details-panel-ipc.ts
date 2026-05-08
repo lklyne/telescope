@@ -24,7 +24,7 @@ import {
   setFileDeviceOrientation,
   toggleFileDeviceShell,
 } from '../runtime/document-commands'
-import { navigatePagePage, togglePageLinked } from '../navigation-sync'
+import { navigatePage, togglePageLinked } from '../navigation-sync'
 import { deletePages } from '../workspace-entities'
 import { duplicatePageFromSource } from '../workspace-pages'
 import {
@@ -343,7 +343,7 @@ export function registerRightDetailsPanelIpc(): void {
     (_event, payload: { pageId: string; url: string }) => {
       const page = pages.find((p) => p.id === payload?.pageId)
       if (!page) return
-      navigatePagePage(page, { type: 'load-url', url: payload.url })
+      navigatePage(page, { type: 'load-url', url: payload.url })
     },
   )
 
@@ -352,7 +352,7 @@ export function registerRightDetailsPanelIpc(): void {
     (_event, payload: { pageId: string }) => {
       const page = pages.find((p) => p.id === payload?.pageId)
       if (!page) return
-      navigatePagePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
+      navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
     },
   )
 
@@ -361,7 +361,7 @@ export function registerRightDetailsPanelIpc(): void {
     (_event, payload: { pageId: string }) => {
       const page = pages.find((p) => p.id === payload?.pageId)
       if (!page) return
-      navigatePagePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
+      navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
     },
   )
 
@@ -370,7 +370,7 @@ export function registerRightDetailsPanelIpc(): void {
     (_event, payload: { pageId: string }) => {
       const page = pages.find((p) => p.id === payload?.pageId)
       if (!page) return
-      navigatePagePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
+      navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
     },
   )
 

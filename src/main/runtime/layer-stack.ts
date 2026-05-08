@@ -1,7 +1,7 @@
 /**
  * LAYER_STACK — the declarative z-order for singleton overlay WCVs.
  *
- * Pages (frameView/pageView) are added to the content view at
+ * Pages (pageView) are added to the content view at
  * creation time (see page-factory.ts) and interleaved between `bgView`
  * (bottom) and the above-pages cluster by virtue of us re-adding `bgView`
  * at index 0 and then re-adding every above-pages WCV.

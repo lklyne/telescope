@@ -85,7 +85,7 @@ class VideoRecorderInstance {
 
   async start(): Promise<void> {
     if (this.page.pageView.webContents.isDestroyed()) {
-      throw new Error('Target frame webContents is destroyed')
+      throw new Error('Target page webContents is destroyed')
     }
     const w = win
     if (!w || w.isDestroyed()) {

@@ -63,7 +63,7 @@ import { CHROME_HEADER_HEIGHT } from '../runtime/runtime-constants'
 import {
   scheduleWorkspaceAutosave,
 } from '../runtime/workspace-session'
-import { navigatePagePage, togglePageLinked } from '../navigation-sync'
+import { navigatePage, togglePageLinked } from '../navigation-sync'
 import {
   deviceIdFromMetadata,
   pageUsesCustomSize,
@@ -232,25 +232,25 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on('canvas-navigate-page', (_event, { pageId, url }: { pageId: string; url: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigatePagePage(page, { type: 'load-url', url })
+    navigatePage(page, { type: 'load-url', url })
   })
 
   ipcMain.on('canvas-back-page', (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigatePagePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
+    navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
   })
 
   ipcMain.on('canvas-forward-page', (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigatePagePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
+    navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
   })
 
   ipcMain.on('canvas-reload-page', (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigatePagePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
+    navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
   })
 
   ipcMain.on(
@@ -386,16 +386,16 @@ export function registerCanvasEntityIpc(): void {
       {
         label: 'Back',
         enabled: canGoBack,
-        click: () => navigatePagePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() }),
+        click: () => navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() }),
       },
       {
         label: 'Forward',
         enabled: canGoForward,
-        click: () => navigatePagePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() }),
+        click: () => navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() }),
       },
       {
         label: 'Reload',
-        click: () => navigatePagePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() }),
+        click: () => navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() }),
       },
       { type: 'separator' },
       {

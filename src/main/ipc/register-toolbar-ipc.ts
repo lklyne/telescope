@@ -15,6 +15,7 @@ import {
   focusSelectedPage,
   getSelectedEntityIds,
   openInspectPanel,
+  selectedPageId,
   setActiveTool,
   toggleBrowserMode,
   toggleLeftSidebar,
@@ -83,7 +84,13 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on('toolbar-set-tool', (_event, payload: Tool) => {
     if (!payload || typeof payload !== 'object' || typeof payload.kind !== 'string') return
-    const result = setActiveTool(payload)
+    // Toolbar-initiated add-page inherits the URL of the currently-selected
+    // page; the renderer doesn't know which page is selected.
+    const tool: Tool =
+      payload.kind === 'add-page' && payload.sourcePageId === undefined
+        ? { ...payload, sourcePageId: selectedPageId() ?? undefined }
+        : payload
+    const result = setActiveTool(tool)
     if (result.kind === 'inspect') openInspectPanel()
   })
 

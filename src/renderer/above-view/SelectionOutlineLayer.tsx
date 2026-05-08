@@ -33,6 +33,7 @@ import {
   MIN_TEXT_WIDTH,
 } from '../canvas-bg/entityConstants'
 import { MULTI_SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
+import { entityResizesAutomatically } from '../../shared/hit-test'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 
@@ -419,9 +420,6 @@ export function SelectionOutlineLayer({
       {visibleEntities.map((entity) => {
         const isSelected = selectedIdSet.has(entity.id)
         const borderRadius = entity.kind === 'text' ? 0 : 4
-        // Plain text entities auto-size to their content; manual resize
-        // would just be overwritten by the next ResizeObserver tick.
-        const isPlainText = entity.kind === 'text' && entity.textStyle === 'plain'
         return (
           <EntitySelectionOverlay
             key={`selection-outline-${entity.id}`}
@@ -430,7 +428,7 @@ export function SelectionOutlineLayer({
             borderRadius={borderRadius}
             isDark={isDark}
             isSelected={isSelected}
-            showResizeHandles={!isMultiSelect && !isPlainText}
+            showResizeHandles={!isMultiSelect && !entityResizesAutomatically(entity)}
           />
         )
       })}

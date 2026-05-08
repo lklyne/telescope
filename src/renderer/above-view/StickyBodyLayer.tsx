@@ -17,7 +17,7 @@
 
 import { memo, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
-import type { CanvasSceneTextEntity } from '../../shared/types'
+import type { CanvasSceneTextEntity, TextEntityStyle } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 
@@ -75,7 +75,7 @@ function StickyShell({
   isDark: boolean
   isSelected: boolean
   background: string
-  textStyle: 'plain' | 'sticky'
+  textStyle: TextEntityStyle
   shellRef?: React.Ref<HTMLDivElement>
   children: React.ReactNode
 }) {

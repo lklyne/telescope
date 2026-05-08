@@ -142,7 +142,7 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
 
 // Plain text auto-fits to its content via a renderer-side ResizeObserver,
 // so manual resize would just be overwritten on the next layout tick.
-function entityResizesAutomatically(entity: CanvasSceneEntity): boolean {
+export function entityResizesAutomatically(entity: CanvasSceneEntity): boolean {
   return entity.kind === 'text' && entity.textStyle === 'plain'
 }
 

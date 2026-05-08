@@ -16,6 +16,43 @@ Follows [JSON Canvas v1.0](https://jsoncanvas.org) on disk; uses Specular-native
 - **Space** — a folder of canvases (Obsidian-vault analogue).
 - **Page** — Specular's term for live web items: a URL rendered at a particular viewport size at a particular position on the canvas. The runtime `Page` (the `WebContentsView` wrapper in `src/main/runtime/page-factory.ts`) is the same concept — there is no separate "frame entity vs page wrapper" duality. Multiple pages can share the same URL (the multi-breakpoint workflow). Serialized as JSON Canvas `link` nodes; the serializer is the only place the two names meet. See [ADR 0003](./docs/adr/0003-page-as-canonical-name-for-live-web-items.md).
 
+## Text affordances
+
+The `text` and `file` kinds back three user-facing affordances. The toolbar exposes them under a single **`Add text ▾`** dropdown.
+
+| UX affordance | What it is | Spec mapping |
+|---|---|---|
+| **Text** | Short text, no background. Plain floating text on the canvas. | `text` node + `specular.textStyle: 'plain'` |
+| **Sticky note** | Short text inside a colored card. Padding, bg color. The default. | `text` node + `specular.textStyle: 'sticky'` |
+| **Document** | Longer markdown content as a `.md` file on disk; reusable across canvases. | `file` node, markdown renderer (selected by extension via `src/main/plugins/registry.ts`) |
+
+Text and Sticky note are the same `text` kind with a render-style toggle. Document is a separate `file` kind because its content lives on disk, not in the `.canvas` JSON.
+
+Default `textStyle` when the field is absent is `'sticky'` — preserves rendering of legacy canvases without migration. New "Add text" placements stamp `'plain'`.
+
+## Specular extensions to JSON Canvas
+
+JSON Canvas v1.0 tolerates additional fields on nodes; Specular adds its own under a single namespaced object so they don't collide with other tools' extensions and so this glossary can list them in one place:
+
+```jsonc
+{
+  "id": "...",
+  "type": "text",
+  "x": 0, "y": 0, "width": 200, "height": 60,
+  "text": "...",
+  "specular": {
+    "textStyle": "plain"   // 'plain' | 'sticky'
+    // future Specular-only fields go here
+  }
+}
+```
+
+Conventions:
+- Specular-only fields live under the top-level `specular: {}` object.
+- Reading other tools' canvases: missing fields fall back to documented defaults.
+- Reading our canvases in other tools: the `specular` object is silently ignored; nodes still render as standard JSON Canvas (text/file/link/group).
+- Genuinely new node kinds (`drawing`, `shape`) remain top-level `type` values, since they aren't JSON Canvas spec kinds and no fallback rendering is meaningful.
+
 ## Entity geometry
 
 - **Entity rect** — the full bounding rect of an entity, body + chrome as one layout unit ([ADR 0002](./docs/adr/0002-canvas-anchored-overlay-ui.md)). Pan / zoom / drag / resize operate on this rect.

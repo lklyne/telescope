@@ -7,12 +7,22 @@
  * The contenteditable textarea inside is the one exception — it needs real
  * DOM events, and works because the cards mount inside aboveView's WCV
  * which already holds keyboard focus during edit.
+ *
+ * Plain text entities auto-size to their content. The shell has no fixed
+ * width/height; instead a ResizeObserver measures the rendered card and
+ * pushes the size back to main via `onUpdateSize`, which keeps the stored
+ * bounds in sync with what the user sees so the selection outline hugs
+ * the text. Stickies keep fixed bounds and use the manual resize handles.
  */
 
 import { memo, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import type { CanvasSceneTextEntity } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
+import { MarkdownEditor } from '../shared/MarkdownEditor'
+
+const PLAIN_MIN_WIDTH = 40
+const PLAIN_MIN_HEIGHT = 18
 
 /**
  * Wraps the sticky body cards in a viewport transform so they live in
@@ -54,6 +64,7 @@ function StickyShell({
   isSelected,
   background,
   textStyle,
+  shellRef,
   children,
 }: {
   id: string
@@ -65,28 +76,39 @@ function StickyShell({
   isSelected: boolean
   background: string
   textStyle: 'plain' | 'sticky'
+  shellRef?: React.Ref<HTMLDivElement>
   children: React.ReactNode
 }) {
   const isPlain = textStyle === 'plain'
   return (
     <div
+      ref={shellRef}
       data-entity-id={id}
       className="absolute pointer-events-auto"
-      style={{
-        left: canvasX,
-        top: canvasY,
-        width,
-        height,
-        background: isPlain ? 'transparent' : background,
-        boxShadow: isPlain
-          ? 'none'
-          : isDark
-            ? '0 2px 8px rgba(0, 0, 0, 0.3)'
-            : '0 2px 8px rgba(0, 0, 0, 0.08)',
-        overflow: isSelected ? 'visible' : 'hidden',
-        cursor: 'default',
-        touchAction: 'none',
-      }}
+      style={
+        isPlain
+          ? {
+              left: canvasX,
+              top: canvasY,
+              minWidth: PLAIN_MIN_WIDTH,
+              minHeight: PLAIN_MIN_HEIGHT,
+              cursor: 'default',
+              touchAction: 'none',
+            }
+          : {
+              left: canvasX,
+              top: canvasY,
+              width,
+              height,
+              background,
+              boxShadow: isDark
+                ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+                : '0 2px 8px rgba(0, 0, 0, 0.08)',
+              overflow: isSelected ? 'visible' : 'hidden',
+              cursor: 'default',
+              touchAction: 'none',
+            }
+      }
     >
       {children}
     </div>
@@ -101,6 +123,7 @@ function StickyCard({
   shouldAutoFocus,
   onAutoFocusConsumed,
   onUpdateText,
+  onUpdateSize,
   onTextEditingChange,
 }: {
   note: CanvasSceneTextEntity
@@ -110,20 +133,14 @@ function StickyCard({
   shouldAutoFocus: boolean
   onAutoFocusConsumed: () => void
   onUpdateText: (id: string, text: string) => void
+  onUpdateSize: (id: string, width: number, height: number) => void
   onTextEditingChange: (active: boolean) => void
 }) {
   const [localText, setLocalText] = useState(note.text)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isFocusedRef = useRef(false)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  useEffect(() => {
-    if (canEdit && shouldAutoFocus && textareaRef.current) {
-      textareaRef.current.focus()
-      const len = textareaRef.current.value.length
-      textareaRef.current.setSelectionRange(len, len)
-      onAutoFocusConsumed()
-    }
-  }, [canEdit, shouldAutoFocus, onAutoFocusConsumed])
+  const shellRef = useRef<HTMLDivElement | null>(null)
+  const lastReportedSizeRef = useRef<{ w: number; h: number } | null>(null)
 
   // Sync from props when not actively editing
   useEffect(() => {
@@ -150,8 +167,80 @@ function StickyCard({
 
   const textStyle = note.textStyle
   const isPlain = textStyle === 'plain'
-  const textColor = isPlain ? (isDark ? '#f4f4f5' : '#18181b') : 'rgb(0, 0, 0)'
+
+  // Auto-size: measure the rendered card and push size back to main so the
+  // selection outline tracks the actual content. Plain text only — stickies
+  // keep their explicit width/height. Coalesces with rAF so a burst of
+  // ResizeObserver entries during typing only triggers one IPC.
+  useEffect(() => {
+    if (!isPlain) return
+    const el = shellRef.current
+    if (!el) return
+    let pendingFrame = 0
+    let pending: { w: number; h: number } | null = null
+    const flush = () => {
+      pendingFrame = 0
+      if (!pending) return
+      const { w, h } = pending
+      pending = null
+      const last = lastReportedSizeRef.current
+      if (last && last.w === w && last.h === h) return
+      lastReportedSizeRef.current = { w, h }
+      onUpdateSize(note.id, w, h)
+    }
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const rect = entry.contentRect
+      pending = {
+        w: Math.max(PLAIN_MIN_WIDTH, Math.round(rect.width)),
+        h: Math.max(PLAIN_MIN_HEIGHT, Math.round(rect.height)),
+      }
+      if (!pendingFrame) pendingFrame = requestAnimationFrame(flush)
+    })
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      if (pendingFrame) cancelAnimationFrame(pendingFrame)
+    }
+  }, [isPlain, note.id, onUpdateSize])
+
+  // Stickies always sit on a light colored background; pass isDark=false so
+  // CodeMirror renders dark text matching the view-mode color below.
+  const editorIsDark = isPlain ? isDark : false
+  const textColor = isPlain ? (isDark ? '#e7e5e4' : '#1c1917') : '#1c1917'
   const placeholder = isPlain ? 'Type some text...' : 'Type a note...'
+
+  const innerColumnStyle: React.CSSProperties = isPlain
+    ? { display: 'flex', flexDirection: 'column' }
+    : {
+        width: note.width,
+        height: note.height,
+        display: 'flex',
+        flexDirection: 'column',
+      }
+
+  const editorClassName = isPlain
+    ? 'w-full pl-0 pr-2 py-0'
+    : 'flex-1 w-full px-2.5 pb-2'
+  const editorStyle: React.CSSProperties = {
+    boxSizing: 'border-box',
+    fontSize: 12,
+    color: textColor,
+    fontFamily: 'system-ui, sans-serif',
+    paddingTop: isPlain ? 0 : '0.3em',
+  }
+
+  const viewClassName = isPlain
+    ? 'select-none text-block-markdown pr-2'
+    : 'flex-1 select-none overflow-hidden text-block-markdown px-2 pb-2'
+  const viewStyle: React.CSSProperties = {
+    fontSize: 12,
+    color: textColor,
+    fontFamily: 'system-ui, sans-serif',
+    wordBreak: 'break-word',
+  }
+
   return (
     <StickyShell
       id={note.id}
@@ -163,15 +252,9 @@ function StickyCard({
       isSelected={isSelected}
       background={resolveCanvasColor(note.color)}
       textStyle={textStyle}
+      shellRef={shellRef}
     >
-      <div
-        style={{
-          width: note.width,
-          height: note.height,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div style={innerColumnStyle}>
         {!isPlain ? (
           <div
             style={{ minHeight: 8, cursor: 'grab' }}
@@ -182,21 +265,9 @@ function StickyCard({
           />
         ) : null}
         {canEdit ? (
-          <textarea
-            ref={textareaRef}
-            className={`text-block-textarea flex-1 w-full resize-none border-none outline-none bg-transparent ${
-              isPlain ? 'px-0 pb-0' : 'px-2.5 pb-2'
-            }`}
-            style={{
-              boxSizing: 'border-box',
-              fontSize: 12,
-              color: textColor,
-              fontFamily: 'system-ui, sans-serif',
-              paddingTop: isPlain ? 0 : '0.3em',
-            }}
+          <MarkdownEditor
             value={localText}
-            placeholder={placeholder}
-            onChange={(e) => handleTextChange(e.target.value)}
+            onChange={handleTextChange}
             onFocus={() => {
               isFocusedRef.current = true
               onTextEditingChange(true)
@@ -210,20 +281,15 @@ function StickyCard({
               }
               onUpdateText(note.id, localText)
             }}
-            onMouseDown={(e) => e.stopPropagation()}
+            isDark={editorIsDark}
+            autoFocus={shouldAutoFocus}
+            onAutoFocusConsumed={onAutoFocusConsumed}
+            placeholder={placeholder}
+            className={editorClassName}
+            style={editorStyle}
           />
         ) : (
-          <div
-            className={`flex-1 select-none overflow-hidden text-block-markdown ${
-              isPlain ? 'px-0 pb-0' : 'px-2 pb-2'
-            }`}
-            style={{
-              fontSize: 12,
-              color: textColor,
-              fontFamily: 'system-ui, sans-serif',
-              wordBreak: 'break-word',
-            }}
-          >
+          <div className={viewClassName} style={viewStyle}>
             {localText ? <Markdown>{localText}</Markdown> : <span>{placeholder}</span>}
           </div>
         )}
@@ -260,6 +326,7 @@ export function StickyBodyLayer({
   zoom,
   onPendingFocusConsumed,
   onUpdateText,
+  onUpdateSize,
   onTextEditingChange,
 }: {
   entities: CanvasSceneTextEntity[]
@@ -272,6 +339,7 @@ export function StickyBodyLayer({
   zoom: number
   onPendingFocusConsumed: () => void
   onUpdateText: (id: string, text: string) => void
+  onUpdateSize: (id: string, width: number, height: number) => void
   onTextEditingChange: (active: boolean) => void
 }) {
   if (!entities.length) return null
@@ -288,9 +356,9 @@ export function StickyBodyLayer({
           onAutoFocusConsumed={onPendingFocusConsumed}
           onTextEditingChange={onTextEditingChange}
           onUpdateText={onUpdateText}
+          onUpdateSize={onUpdateSize}
         />
       ))}
     </StickyViewportLayer>
   )
 }
-

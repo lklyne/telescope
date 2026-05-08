@@ -123,7 +123,6 @@ function StickyCard({
   onUpdateText,
   onUpdateSize,
   onCommitEdit,
-  onCancelEdit,
 }: {
   note: CanvasSceneTextEntity
   isDark: boolean
@@ -132,21 +131,24 @@ function StickyCard({
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
   onCommitEdit: () => void
-  onCancelEdit: () => void
 }) {
   const [localText, setLocalText] = useState(note.text)
-  const preEditTextRef = useRef(note.text)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const shellRef = useRef<HTMLDivElement | null>(null)
   const lastReportedSizeRef = useRef<{ w: number; h: number } | null>(null)
 
-  // Sync from props when not actively editing
   useEffect(() => {
-    if (!canEdit) {
-      setLocalText(note.text)
-      preEditTextRef.current = note.text
-    }
+    if (!canEdit) setLocalText(note.text)
   }, [canEdit, note.text])
+
+  const commitNow = () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+    onUpdateText(note.id, localText)
+    onCommitEdit()
+  }
 
   const handleTextChange = (value: string) => {
     setLocalText(value)
@@ -259,19 +261,8 @@ function StickyCard({
           <MarkdownEditor
             value={localText}
             onChange={handleTextChange}
-            onBlur={() => {
-              if (debounceRef.current) {
-                clearTimeout(debounceRef.current)
-                debounceRef.current = null
-              }
-              onUpdateText(note.id, localText)
-              onCommitEdit()
-            }}
-            onEscape={() => {
-              setLocalText(preEditTextRef.current)
-              onUpdateText(note.id, preEditTextRef.current)
-              onCancelEdit()
-            }}
+            onBlur={commitNow}
+            onEscape={commitNow}
             isDark={editorIsDark}
             autoFocus
             placeholder={placeholder}
@@ -315,7 +306,6 @@ export function StickyBodyLayer({
   onUpdateText,
   onUpdateSize,
   onCommitEdit,
-  onCancelEdit,
 }: {
   entities: CanvasSceneTextEntity[]
   isDark: boolean
@@ -329,7 +319,6 @@ export function StickyBodyLayer({
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
   onCommitEdit: () => void
-  onCancelEdit: () => void
 }) {
   if (!entities.length) return null
   return (
@@ -344,7 +333,6 @@ export function StickyBodyLayer({
           onUpdateText={onUpdateText}
           onUpdateSize={onUpdateSize}
           onCommitEdit={onCommitEdit}
-          onCancelEdit={onCancelEdit}
         />
       ))}
     </StickyViewportLayer>

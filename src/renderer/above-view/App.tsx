@@ -850,7 +850,6 @@ export default function App({
               zoom={layoutData.zoom}
               onUpdateText={(id, text) => api.updateShapeEntity(id, { text })}
               onCommitEdit={api.commitEntityEdit}
-              onCancelEdit={api.cancelEntityEdit}
             />
           ) : null}
 
@@ -870,7 +869,6 @@ export default function App({
                 api.updateTextEntity(id, { width, height })
               }
               onCommitEdit={api.commitEntityEdit}
-              onCancelEdit={api.cancelEntityEdit}
             />
           ) : null}
 

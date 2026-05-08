@@ -54,7 +54,6 @@ function ShapeText({
   textColor,
   onChange,
   onCommit,
-  onCancel,
   containerStyle,
 }: {
   text: string
@@ -62,7 +61,6 @@ function ShapeText({
   textColor: string
   onChange: (value: string) => void
   onCommit: (value: string) => void
-  onCancel: () => void
   containerStyle: React.CSSProperties
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -103,7 +101,7 @@ function ShapeText({
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             e.preventDefault()
-            onCancel()
+            onCommit((e.target as HTMLDivElement).textContent ?? '')
           }
         }}
         style={{
@@ -133,7 +131,6 @@ function ShapeBody({
   editing,
   onCommitText,
   onCommitEdit,
-  onCancelEdit,
 }: {
   shape: CanvasSceneShapeEntity
   isDark: boolean
@@ -141,17 +138,12 @@ function ShapeBody({
   editing: boolean
   onCommitText: (text: string) => void
   onCommitEdit: () => void
-  onCancelEdit: () => void
   selected: boolean
 }) {
   const [localText, setLocalText] = useState(shape.text)
-  const preEditTextRef = useRef(shape.text)
 
   useEffect(() => {
-    if (!editing) {
-      setLocalText(shape.text)
-      preEditTextRef.current = shape.text
-    }
+    if (!editing) setLocalText(shape.text)
   }, [editing, shape.text])
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
@@ -207,12 +199,6 @@ function ShapeBody({
         setLocalText(value)
         onCommitText(value)
         onCommitEdit()
-      }}
-      onCancel={() => {
-        const reverted = preEditTextRef.current
-        setLocalText(reverted)
-        onCommitText(reverted)
-        onCancelEdit()
       }}
     />
   )
@@ -321,7 +307,6 @@ function ShapeCard({
   editing,
   onUpdateText,
   onCommitEdit,
-  onCancelEdit,
 }: {
   shape: CanvasSceneShapeEntity
   isDark: boolean
@@ -329,7 +314,6 @@ function ShapeCard({
   editing: boolean
   onUpdateText: (id: string, text: string) => void
   onCommitEdit: () => void
-  onCancelEdit: () => void
 }) {
   return (
     <ShapeShell
@@ -346,7 +330,6 @@ function ShapeCard({
         selected={isSelected}
         onCommitText={(text) => onUpdateText(shape.id, text)}
         onCommitEdit={onCommitEdit}
-        onCancelEdit={onCancelEdit}
       />
     </ShapeShell>
   )
@@ -362,7 +345,6 @@ export function ShapeBodyLayer({
   zoom,
   onUpdateText,
   onCommitEdit,
-  onCancelEdit,
 }: {
   entities: CanvasSceneShapeEntity[]
   isDark: boolean
@@ -375,7 +357,6 @@ export function ShapeBodyLayer({
   zoom: number
   onUpdateText: (id: string, text: string) => void
   onCommitEdit: () => void
-  onCancelEdit: () => void
 }) {
   if (!entities.length) return null
   return (
@@ -389,7 +370,6 @@ export function ShapeBodyLayer({
           editing={editingEntityId === shape.id}
           onUpdateText={onUpdateText}
           onCommitEdit={onCommitEdit}
-          onCancelEdit={onCancelEdit}
         />
       ))}
     </ShapeViewportLayer>

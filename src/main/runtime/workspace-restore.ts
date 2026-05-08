@@ -169,7 +169,6 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             height: entity.height,
             parentGroupId: entity.parentGroupId,
             color: entity.color,
-            groupKind: entity.groupKind,
             layoutMode: entity.layoutMode,
             managedLayout: entity.managedLayout,
             sourceTaskId: entity.sourceTaskId,

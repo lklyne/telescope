@@ -68,7 +68,6 @@ function group(id: string, screenX: number, screenY: number, w = 600, h = 500): 
     screenY,
     screenWidth: w,
     screenHeight: h,
-    groupKind: 'manual',
     layoutMode: 'freeform',
     managedLayout: false,
     entityIds: [],

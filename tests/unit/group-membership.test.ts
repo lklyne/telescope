@@ -24,7 +24,6 @@ function group(
     screenWidth: 100,
     screenHeight: 100,
     parentGroupId,
-    groupKind: 'manual',
     layoutMode: 'freeform',
     managedLayout: false,
     entityIds,

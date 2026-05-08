@@ -195,7 +195,6 @@ export interface CanvasSceneGroupEntity {
   screenWidth: number
   screenHeight: number
   parentGroupId?: string
-  groupKind: WorkspaceGroupKind
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
   entityIds: string[]
@@ -305,7 +304,6 @@ export interface PersistedFileEntity extends CanvasEntityBase {
   metadata?: Record<string, unknown>
 }
 
-export type WorkspaceGroupKind = 'manual' | 'breakpoint_cluster' | 'component_states'
 export type WorkspaceGroupLayoutMode = 'freeform' | 'row' | 'grid'
 
 export interface PersistedGroupEntity extends CanvasEntityBase {
@@ -314,7 +312,6 @@ export interface PersistedGroupEntity extends CanvasEntityBase {
   color?: string
   width: number
   height: number
-  groupKind: WorkspaceGroupKind
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
   sourceTaskId?: string
@@ -791,7 +788,6 @@ export interface PanelGroupEntityDetail {
   id: string
   label: string
   color?: string
-  groupKind: WorkspaceGroupKind
   layoutMode: WorkspaceGroupLayoutMode
   entityIds: string[]
 }
@@ -1237,7 +1233,7 @@ export interface ClipboardEntitySelectionPayload {
 
 export interface WorkspaceGroup {
   id: string
-  kind: 'group' | 'breakpoint_cluster' | 'user'
+  kind: 'group'
   label: string
   canvasX: number
   canvasY: number
@@ -1245,7 +1241,6 @@ export interface WorkspaceGroup {
   height: number
   parentGroupId?: string
   color?: string
-  groupKind: WorkspaceGroupKind
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
   frameIds?: string[]

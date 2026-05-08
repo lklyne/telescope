@@ -115,7 +115,6 @@ export function createUserGroup(entityIds: string[], label?: string): WorkspaceG
     width: Math.max(USER_GROUP_PADDING * 2, contentBounds.width + USER_GROUP_PADDING * 2),
     height: Math.max(USER_GROUP_PADDING * 2, contentBounds.height + USER_GROUP_PADDING * 2),
     parentGroupId,
-    groupKind: 'manual',
     layoutMode: 'freeform',
     managedLayout: false,
   }

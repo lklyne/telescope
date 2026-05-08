@@ -3,7 +3,6 @@ import type {
   CanvasSceneGroupEntity,
   PersistedGroupEntity,
   WorkspaceGroup,
-  WorkspaceGroupKind,
   WorkspaceGroupLayoutMode,
 } from '../../shared/types'
 import { workspaceGroups } from './workspace-model'
@@ -23,7 +22,6 @@ export function createGroupEntity(input: {
   width?: number
   height?: number
   parentGroupId?: string
-  groupKind?: WorkspaceGroupKind
   layoutMode?: WorkspaceGroupLayoutMode
   managedLayout?: boolean
   sourceTaskId?: string
@@ -39,7 +37,6 @@ export function createGroupEntity(input: {
     width: input.width ?? DEFAULT_GROUP_WIDTH,
     height: input.height ?? DEFAULT_GROUP_HEIGHT,
     parentGroupId: input.parentGroupId,
-    groupKind: input.groupKind ?? 'manual',
     layoutMode: input.layoutMode ?? 'freeform',
     managedLayout: input.managedLayout ?? false,
     sourceTaskId: input.sourceTaskId,
@@ -63,7 +60,6 @@ export function updateGroupEntity(
   if (patch.width !== undefined) group.width = patch.width
   if (patch.height !== undefined) group.height = patch.height
   if (patch.parentGroupId !== undefined) group.parentGroupId = patch.parentGroupId
-  if (patch.groupKind !== undefined) group.groupKind = patch.groupKind
   if (patch.layoutMode !== undefined) group.layoutMode = patch.layoutMode
   if (patch.managedLayout !== undefined) group.managedLayout = patch.managedLayout
   if (patch.sourceTaskId !== undefined) group.sourceTaskId = patch.sourceTaskId
@@ -109,7 +105,6 @@ export function buildGroupSceneEntity(
     screenWidth: group.width * zoom,
     screenHeight: group.height * zoom,
     parentGroupId: group.parentGroupId,
-    groupKind: group.groupKind,
     layoutMode: group.layoutMode,
     managedLayout: group.managedLayout,
     entityIds,
@@ -127,7 +122,6 @@ export function persistGroupEntity(group: WorkspaceGroup): PersistedGroupEntity 
     width: group.width,
     height: group.height,
     parentGroupId: group.parentGroupId,
-    groupKind: group.groupKind,
     layoutMode: group.layoutMode,
     managedLayout: group.managedLayout,
     sourceTaskId: group.sourceTaskId,

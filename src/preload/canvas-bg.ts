@@ -92,8 +92,7 @@ const api: CanvasBgElectronAPI = {
   updatePageBounds: (pageId, patch) => ipcRenderer.send('canvas-update-page-bounds', { pageId, patch }),
   placePendingEntity: (canvasX, canvasY) =>
     ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY }),
-  cancelPendingPlacement: () => ipcRenderer.send('cancel-pending-placement'),
-  clearToolMode: () => ipcRenderer.send('toolbar-clear-tool-mode'),
+  setTool: (tool) => ipcRenderer.send('toolbar-set-tool', tool),
   startDragPage: (pageId, selection) =>
     ipcRenderer.send('canvas-drag-page-start', { pageId, selection }),
   dragPage: (pageId, dx, dy) => ipcRenderer.send('canvas-drag-page', { pageId, dx, dy }),

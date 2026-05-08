@@ -1,15 +1,12 @@
 import type {
-  AnnotationMode,
   CanvasEntityKind,
   CanvasSelectableTarget,
   DevtoolsPanelTab,
-  UiPendingPlacement,
-  UiSelection,
+  Tool,
   UiState,
-  UiViewMode,
   WorkspaceViewMode,
 } from '../shared/types'
-import { isAnnotationModeEnabled, isCanvasEntityKindEnabled } from '../shared/featureFlags'
+import { isCanvasEntityKindEnabled } from '../shared/featureFlags'
 import { markDirty } from './runtime/layout-dirty'
 import { breadcrumb } from './sentry-context'
 
@@ -51,7 +48,7 @@ function sanitizeSelectionInput(input: SelectionInput): SelectionInput {
 export function createDefaultUiState(): UiState {
   return {
     selection: { kind: 'none' },
-    toolMode: 'select',
+    activeTool: { kind: 'select' },
     viewMode: { kind: 'canvas' },
     leftSidebarOpen: true,
     devtools: {
@@ -64,7 +61,6 @@ export function createDefaultUiState(): UiState {
       commentOverlayVisible: false,
       selectionMarqueeVisible: false,
     },
-    pendingPlacement: null,
   }
 }
 
@@ -82,9 +78,6 @@ export function getUiState(): UiState {
 
 export function replaceUiState(nextState: UiState): UiState {
   uiState = cloneUiState(nextState)
-  if (!isAnnotationModeEnabled(annotationMode(uiState))) {
-    clearToolMode()
-  }
   setSelection(uiState.selection)
   return getUiState()
 }
@@ -126,35 +119,8 @@ export function setSelection(input: SelectionInput): UiState {
   return getUiState()
 }
 
-export function clearToolMode(): UiState {
-  uiState.toolMode = 'select'
-  markDirty('toolbar')
-  return getUiState()
-}
-
-export function setInspectEnabled(enabled: boolean, options?: { hasPages?: boolean }): UiState {
-  const hasPages = options?.hasPages ?? true
-  uiState.toolMode = enabled && hasPages ? 'inspect' : 'select'
-  return getUiState()
-}
-
-export function setAnnotationMode(
-  mode: AnnotationMode,
-  options?: { hasPages?: boolean },
-): UiState {
-  const hasPages = options?.hasPages ?? true
-  const nextMode = isAnnotationModeEnabled(mode) ? mode : 'off'
-  if (!hasPages || nextMode === 'off') {
-    uiState.toolMode = 'select'
-    markDirty('canvas', 'toolbar')
-    return getUiState()
-  }
-  const toolModeMap = {
-    comment: 'annotate-comment',
-    draw: 'annotate-draw',
-    region_select: 'annotate-region-select',
-  } as const
-  uiState.toolMode = toolModeMap[nextMode] ?? 'annotate-comment'
+export function setActiveTool(tool: Tool): UiState {
+  uiState.activeTool = cloneTool(tool)
   markDirty('canvas', 'toolbar')
   return getUiState()
 }
@@ -246,14 +212,6 @@ export function setSelectionMarqueeVisible(visible: boolean): UiState {
   return getUiState()
 }
 
-export function setPendingPlacement(
-  pendingPlacement: UiPendingPlacement | null,
-): UiState {
-  uiState.pendingPlacement = pendingPlacement
-  markDirty('canvas', 'toolbar')
-  return getUiState()
-}
-
 export function setDevtoolsWidth(width: number): UiState {
   uiState.devtools.width = width
   markDirty('bounds', 'devtools')
@@ -319,15 +277,8 @@ export function selectedGroupId(ui: UiState = uiState): string | null {
   return null
 }
 
-export function inspectEnabled(ui: UiState = uiState): boolean {
-  return ui.toolMode === 'inspect'
-}
-
-export function annotationMode(ui: UiState = uiState): AnnotationMode {
-  if (ui.toolMode === 'annotate-comment') return 'comment'
-  if (ui.toolMode === 'annotate-draw') return isAnnotationModeEnabled('draw') ? 'draw' : 'off'
-  if (ui.toolMode === 'annotate-region-select') return 'region_select'
-  return 'off'
+export function activeTool(ui: UiState = uiState): Tool {
+  return ui.activeTool
 }
 
 export function isCommentOverlayVisible(ui: UiState = uiState): boolean {
@@ -336,10 +287,6 @@ export function isCommentOverlayVisible(ui: UiState = uiState): boolean {
 
 export function isSelectionMarqueeVisible(ui: UiState = uiState): boolean {
   return ui.overlays.selectionMarqueeVisible
-}
-
-export function pendingPlacement(ui: UiState = uiState): UiPendingPlacement | null {
-  return ui.pendingPlacement
 }
 
 export function devtoolsOpen(ui: UiState = uiState): boolean {
@@ -375,6 +322,10 @@ export function selectedPageIndex(
   return index >= 0 ? index : null
 }
 
+function cloneTool(tool: Tool): Tool {
+  return { ...tool } as Tool
+}
+
 function cloneUiState(input: UiState): UiState {
   return {
     selection:
@@ -385,13 +336,10 @@ function cloneUiState(input: UiState): UiState {
             entityKindsById: { ...input.selection.entityKindsById },
           }
         : { ...input.selection },
-    toolMode: input.toolMode,
+    activeTool: cloneTool(input.activeTool),
     viewMode: { ...input.viewMode },
     leftSidebarOpen: input.leftSidebarOpen,
     devtools: { ...input.devtools },
     overlays: { ...input.overlays },
-    pendingPlacement: input.pendingPlacement
-      ? { ...input.pendingPlacement }
-      : null,
   }
 }

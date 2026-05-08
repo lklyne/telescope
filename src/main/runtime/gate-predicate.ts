@@ -11,11 +11,11 @@
  * Pure and testable. Authority lives in main.
  */
 import type { InteractionMode } from '../../shared/interaction-types'
-import type { CanvasEntityKind } from '../../shared/types'
+import type { CanvasEntityKind, Tool } from '../../shared/types'
 
 export type GateInputs = {
   interactionKind: InteractionMode['kind']
-  toolMode: 'select' | 'inspect' | 'annotate-comment' | 'annotate-draw' | 'annotate-region-select'
+  activeTool: Tool
   viewMode: 'canvas' | 'browser'
   /** Imperative override set by IPC handlers that open annotation/comment UI. */
   commentOverlayActive: boolean
@@ -29,10 +29,11 @@ export type GateInputs = {
 }
 
 export function shouldGateBeOpen(inputs: GateInputs): boolean {
-  // Inspect + annotate-comment drive feedback off the page's webContents
-  // mousemove (eyedropper, comment hover). Keep the gate closed unless
-  // the comment composer has been opened.
-  if (inputs.toolMode === 'inspect' || inputs.toolMode === 'annotate-comment') {
+  const toolKind = inputs.activeTool.kind
+  // Inspect + comment drive feedback off the page's webContents mousemove
+  // (eyedropper, comment hover). Keep the gate closed unless the comment
+  // composer has been opened.
+  if (toolKind === 'inspect' || toolKind === 'comment') {
     return inputs.commentOverlayActive
   }
   if (inputs.viewMode === 'canvas') return true
@@ -41,7 +42,7 @@ export function shouldGateBeOpen(inputs: GateInputs): boolean {
 
 function browserModeNeedsGate(inputs: GateInputs): boolean {
   if (interactionOpensGate(inputs.interactionKind)) return true
-  if (toolModeOpensGate(inputs.toolMode)) return true
+  if (toolOpensGate(inputs.activeTool)) return true
   if (inputs.commentOverlayActive) return true
   if (inputs.spaceHeld) return true
   if (inputs.hoveringCanvasChrome) return true
@@ -59,15 +60,15 @@ function interactionOpensGate(interactionKind: GateInputs['interactionKind']): b
 }
 
 /**
- * Tool modes that need the gate pre-armed to paint canvas-level UI above
- * pages (draw strokes, region-select marquee). `annotate-comment` and
- * `inspect` are excluded: they rely on the page's own webContents receiving
- * mousemove to drive the DOM inspection eyedropper. The gate reopens via
+ * Tools that need the gate pre-armed to paint canvas-level UI above pages
+ * (draw strokes, region-select marquee). `comment` and `inspect` are
+ * excluded: they rely on the page's own webContents receiving mousemove to
+ * drive the DOM inspection eyedropper. The gate reopens via
  * `commentOverlayActive` once the user picks an element and the composer
  * opens.
  */
-function toolModeOpensGate(toolMode: GateInputs['toolMode']): boolean {
-  return toolMode === 'annotate-draw' || toolMode === 'annotate-region-select'
+function toolOpensGate(tool: Tool): boolean {
+  return tool.kind === 'draw' || tool.kind === 'region-select'
 }
 
 /**
@@ -77,14 +78,14 @@ function toolModeOpensGate(toolMode: GateInputs['toolMode']): boolean {
  * with a page is a canvas-level gesture (drag, resize a group), not a page
  * interaction, so drawings should stay visible.
  *
- * We also yield when the user is in a tool mode that needs the page's
+ * We also yield when the user is in a tool that needs the page's
  * webContents to receive events (comment hover, inspect eyedropper).
- * Pending-placement keeps the gate open so drawings stay visible while
- * placing — above-view handles the placement preview and commit itself.
+ * Placement tools keep the gate open so drawings stay visible while placing
+ * — above-view handles the placement preview and commit itself.
  */
 function hasVisibleSavedDrawings(inputs: GateInputs): boolean {
   if (!inputs.hasSavedDrawings) return false
-  if (inputs.toolMode !== 'select') return false
+  if (inputs.activeTool.kind !== 'select') return false
   const singlePageSelected =
     inputs.selectedEntityIds.length === 1 &&
     inputs.selectedEntityKinds[0] === 'page'

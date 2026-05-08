@@ -60,12 +60,7 @@ import {
   notifyDevtoolsChanged,
 } from './devtools-panel'
 import { watchModifierKeys, wireKeyboardShortcuts } from './keyboard-shortcuts'
-import {
-  cancelPendingPlacement,
-  clearToolMode,
-  toggleAnnotateMode,
-  toggleDrawMode,
-} from './tool-mode'
+import { setActiveTool } from './tool-mode'
 import {
   groupSelectedEntities,
   ungroupSelectedGroup,
@@ -135,10 +130,9 @@ function mcpEmptyState() {
 export function initWindow(): void {
   wireMcpEmptyState(mcpEmptyState)
   wireKeyboardShortcuts({
-    cancelPendingPlacement,
-    clearToolMode,
-    toggleAnnotateMode,
-    toggleDrawMode,
+    setActiveTool: (tool) => {
+      setActiveTool(tool)
+    },
     setZoom,
     setPan,
     focusSelectedPage,

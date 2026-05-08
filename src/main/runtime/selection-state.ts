@@ -4,14 +4,14 @@ import {
 } from './runtime-context'
 import { activeWorkspaceTabId, workspaceTabs } from './workspace-model'
 import {
+  activeTool as uiActiveTool,
   devtoolsPanelTab as uiDevtoolsPanelTab,
-  pendingPlacement as uiPendingPlacement,
   selectedEntityIds as uiSelectedEntityIds,
   selectedPageIndex as uiSelectedPageIndex,
+  setActiveTool as setUiActiveTool,
   setBrowserMode as setUiBrowserMode,
   setCanvasMode as setUiCanvasMode,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
-  setPendingPlacement as setUiPendingPlacement,
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
@@ -49,8 +49,8 @@ function transitionViewMode(target: 'canvas' | 'browser', pageId?: string): bool
   // 1. Clear transient interaction state
   cancelActiveInteraction('external')
   setHoverTarget(null)
-  if (uiPendingPlacement()) {
-    setUiPendingPlacement(null)
+  if (uiActiveTool().kind !== 'select') {
+    setUiActiveTool({ kind: 'select' })
   }
 
   // 2. Perform the mode-specific transition

@@ -3,6 +3,7 @@ import {
   shouldFocusSelectedPage,
   type ShouldFocusSelectedPageInputs,
 } from '../../src/shared/should-focus-selected-page'
+import type { Tool } from '../../src/shared/tool'
 
 function inputs(
   overrides: Partial<ShouldFocusSelectedPageInputs> = {},
@@ -10,7 +11,7 @@ function inputs(
   return {
     selection: { kind: 'single-entity', entityId: 'f1', entityKind: 'page' },
     interactionKind: 'idle',
-    toolMode: 'select',
+    activeTool: { kind: 'select' },
     commentOverlayActive: false,
     ...overrides,
   }
@@ -55,8 +56,8 @@ describe('shouldFocusSelectedPage — divergence cases (plan §8 Phase A)', () =
     ).toBeNull()
   })
 
-  it('case 2: toolMode=annotate-draw with a page selected excludes', () => {
-    expect(shouldFocusSelectedPage(inputs({ toolMode: 'annotate-draw' }))).toBeNull()
+  it('case 2: activeTool=draw with a page selected excludes', () => {
+    expect(shouldFocusSelectedPage(inputs({ activeTool: { kind: 'draw' } }))).toBeNull()
   })
 
   it('case 3: active drag of the single-selected page excludes', () => {
@@ -65,17 +66,17 @@ describe('shouldFocusSelectedPage — divergence cases (plan §8 Phase A)', () =
     ).toBeNull()
   })
 
-  it('case 4: toolMode=inspect with a page selected excludes', () => {
-    expect(shouldFocusSelectedPage(inputs({ toolMode: 'inspect' }))).toBeNull()
+  it('case 4: activeTool=inspect with a page selected excludes', () => {
+    expect(shouldFocusSelectedPage(inputs({ activeTool: { kind: 'inspect' } }))).toBeNull()
   })
 
-  it('case 4: toolMode=annotate-comment with a page selected excludes', () => {
+  it('case 4: activeTool=comment with a page selected excludes', () => {
     expect(
-      shouldFocusSelectedPage(inputs({ toolMode: 'annotate-comment' })),
+      shouldFocusSelectedPage(inputs({ activeTool: { kind: 'comment' } })),
     ).toBeNull()
   })
 
-  it('case 4 follow-up: comment composer open (commentOverlayActive) excludes even when toolMode is select', () => {
+  it('case 4 follow-up: comment composer open (commentOverlayActive) excludes even when activeTool is select', () => {
     expect(
       shouldFocusSelectedPage(inputs({ commentOverlayActive: true })),
     ).toBeNull()
@@ -97,15 +98,20 @@ describe('shouldFocusSelectedPage — interaction modes other than idle exclude'
   }
 })
 
-describe('shouldFocusSelectedPage — tool modes other than select exclude', () => {
-  for (const toolMode of [
-    'inspect',
-    'annotate-comment',
-    'annotate-draw',
-    'annotate-region-select',
-  ] as const) {
-    it(`returns null when toolMode=${toolMode}`, () => {
-      expect(shouldFocusSelectedPage(inputs({ toolMode }))).toBeNull()
+describe('shouldFocusSelectedPage — tools other than select exclude', () => {
+  const tools: Tool[] = [
+    { kind: 'inspect' },
+    { kind: 'comment' },
+    { kind: 'draw' },
+    { kind: 'region-select' },
+    { kind: 'add-page' },
+    { kind: 'add-text', style: 'plain' },
+    { kind: 'add-document' },
+    { kind: 'add-shape', shapeKind: 'rectangle' },
+  ]
+  for (const tool of tools) {
+    it(`returns null when activeTool=${tool.kind}`, () => {
+      expect(shouldFocusSelectedPage(inputs({ activeTool: tool }))).toBeNull()
     })
   }
 })

@@ -93,12 +93,12 @@ export default function App({
     <div
       className="relative h-screen w-screen overflow-hidden"
       style={{
-        cursor: layoutData.annotationMode === 'draw' ? DRAW_CURSOR : undefined,
+        cursor: layoutData.activeTool.kind === 'draw' ? DRAW_CURSOR : undefined,
       }}
     >
       <CanvasDebugBadge
         annotationCount={layoutData.annotations.length}
-        annotationMode={layoutData.annotationMode}
+        activeTool={layoutData.activeTool}
         isDev={isDev}
         layoutTick={layoutTick}
       />

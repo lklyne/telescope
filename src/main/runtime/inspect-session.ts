@@ -65,13 +65,12 @@ import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { getRendererTagFor } from '../plugins/registry'
 import {
-  annotationMode as uiAnnotationMode,
+  activeTool as uiActiveTool,
   devtoolsPanelTab as uiDevtoolsPanelTab,
   focusedAnnotationId as uiFocusedAnnotationId,
   getUiState,
-  inspectEnabled as uiInspectEnabled,
   selectedEntityIds as uiSelectedEntityIds,
-  setInspectEnabled as setUiInspectEnabled,
+  setActiveTool as setUiActiveTool,
 } from '../ui-state'
 import { devtoolsPanelDebug } from './runtime-constants'
 
@@ -93,6 +92,18 @@ export function currentInspectMode(): InspectMode {
   return uiSelectedEntityIds().length === 1 ? 'page_locked' : 'global_target'
 }
 
+function uiInspectEnabled(): boolean {
+  return uiActiveTool().kind === 'inspect'
+}
+
+function uiAnnotationMode(): 'off' | 'comment' | 'draw' | 'region_select' {
+  const tool = uiActiveTool()
+  if (tool.kind === 'comment') return 'comment'
+  if (tool.kind === 'draw') return 'draw'
+  if (tool.kind === 'region-select') return 'region_select'
+  return 'off'
+}
+
 function effectiveInspectionPageIds(): Set<string> {
   if (!uiInspectEnabled()) return new Set()
   const mode = currentInspectMode()
@@ -112,22 +123,11 @@ export function syncInspectionState(): void {
   }
 }
 
-export function notifyInspectStateChanged(): void {
-  if (!toolbarView || toolbarView.webContents.isDestroyed()) return
-  toolbarView.webContents.send('inspect-state-changed', {
-    enabled: uiInspectEnabled(),
-    available: pages.length > 0,
-  })
-}
-
-export function notifyAnnotateStateChanged(): void {
-  if (!toolbarView || toolbarView.webContents.isDestroyed()) return
-  toolbarView.webContents.send('annotate-state-changed', {
-    enabled: uiAnnotationMode() !== 'off',
-    available: pages.length > 0,
-    mode: uiAnnotationMode(),
-  })
-}
+// Toolbar derives inspect / annotation state from `activeTool` carried on
+// `ToolbarSelectionData`, broadcast via `markDirty('toolbar')`. The dedicated
+// `inspect-state-changed` / `annotate-state-changed` channels are gone (ADR
+// 0005); call sites that used to invoke these notifiers now just rely on the
+// layout-driven broadcast.
 
 // --- Helpers ---
 
@@ -445,6 +445,7 @@ export function notifyDevtoolsPanelData(): void {
   devtoolsHeaderView.webContents.send('right-details-panel-data', {
     activeTab: uiDevtoolsPanelTab(),
     panelMode,
+    activeTool: uiActiveTool(),
     annotateEnabled: uiAnnotationMode() === 'comment',
     annotateAvailable: pages.length > 0,
     focusedAnnotationId: uiFocusedAnnotationId(),
@@ -474,16 +475,14 @@ export function setInspectMode(enabled: boolean): void {
   if (uiInspectEnabled() === nextEnabled) {
     syncInspectionState()
     notifyDevtoolsPanelData()
-    notifyInspectStateChanged()
     return
   }
-  setUiInspectEnabled(nextEnabled, { hasPages: pages.length > 0 })
+  setUiActiveTool(nextEnabled ? { kind: 'inspect' } : { kind: 'select' })
   if (!nextEnabled) {
     setInspectHoveredTargetState(null)
   }
   syncInspectionState()
   notifyDevtoolsPanelData()
-  notifyInspectStateChanged()
 }
 
 export function setHoveredInspectTarget(target: DevtoolsPanelDomTarget | null): void {

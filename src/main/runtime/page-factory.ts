@@ -16,7 +16,7 @@ import {
   setPendingFocus,
 } from './runtime-context'
 import {
-  annotationMode as uiAnnotationMode,
+  activeTool as uiActiveTool,
   selectedEntityIds as uiSelectedEntityIds,
   selectedPageIndex as uiSelectedPageIndex,
   setSelection as setUiSelection,
@@ -198,10 +198,21 @@ export function createPage(config: PageConfig): Page {
     if (isSelectedPage(page)) clearInspectTargets()
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
     syncInspectionState()
-    page.pageView.webContents.send('set-annotate-mode', {
-      enabled: uiAnnotationMode() === 'comment',
-      mode: uiAnnotationMode(),
-    })
+    {
+      const tool = uiActiveTool()
+      const mode =
+        tool.kind === 'comment'
+          ? 'comment'
+          : tool.kind === 'draw'
+            ? 'draw'
+            : tool.kind === 'region-select'
+              ? 'region_select'
+              : 'off'
+      page.pageView.webContents.send('set-annotate-mode', {
+        enabled: tool.kind === 'comment',
+        mode,
+      })
+    }
     sendInteractiveState()
     broadcastCanvasZoomToPages()
     const overrides = pageOverridesFromMetadata(page.metadata)

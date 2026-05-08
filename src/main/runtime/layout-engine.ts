@@ -42,7 +42,7 @@ import {
 import { shouldGateBeOpen } from './gate-predicate'
 import {
   getUiState,
-  annotationMode as uiAnnotationMode,
+  activeTool as uiActiveTool,
   selectedCanvasTargets,
 } from '../ui-state'
 import { drawingEntities } from './drawing-entity-state'
@@ -74,11 +74,7 @@ import { textEntities, buildTextEntitySceneEntity } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { listComponentViews, syncComponentViews } from './component-page-factory'
 import { getPresenceCursors } from '../app-control-server'
-import {
-  notifyDevtoolsPanelData,
-  notifyInspectStateChanged,
-  notifyAnnotateStateChanged,
-} from './inspect-session'
+import { notifyDevtoolsPanelData } from './inspect-session'
 import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
@@ -285,7 +281,7 @@ export function layoutAllViews(): void {
         : interactionState.kind === 'resizing-entity' ? 'resizing-entity'
         : interactionState.kind === 'editing-text' ? 'editing-text'
         : interactionState.kind,
-      toolMode: getUiState().toolMode,
+      activeTool: getUiState().activeTool,
       viewMode: uiWorkspaceViewMode(),
       commentOverlayActive: uiCommentOverlayVisible(),
       selectionMarqueeVisible: selectionOverlayActive,
@@ -515,8 +511,6 @@ export function layoutAllViews(): void {
       toolbarView.webContents.send('zoom-changed', Math.round(zoom * 100))
       toolbarView.webContents.send('toolbar-selection-changed', toolbarSelectionData())
       toolbarView.webContents.send('left-sidebar-changed', uiLeftSidebarOpen())
-      notifyInspectStateChanged()
-      notifyAnnotateStateChanged()
       toolbarView.webContents.send('agent-presence-changed', getPresenceCursors())
     }
   }

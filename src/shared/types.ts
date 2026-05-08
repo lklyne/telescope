@@ -8,6 +8,9 @@ import type {
 } from './cursor-motion'
 import type { CursorTuningParams } from './cursor-tuning'
 import type { PresenceDebugEntry } from './presence-debug'
+import type { Tool } from './tool'
+
+export type { Tool, ToolKind, ToolDuration } from './tool'
 
 // --- IPC Channel Types ---
 
@@ -375,7 +378,7 @@ export interface LayoutUpdateData {
   selectedEntityIds: string[]
   selection: CanvasSelectableTarget[]
   activeSelection: ActiveCanvasEntitySelection | null
-  annotationMode: AnnotationMode
+  activeTool: Tool
   annotations: Annotation[]
   fixProgress: Record<string, FixProgressEntry>
   viewMode: WorkspaceViewMode
@@ -574,10 +577,8 @@ export interface ToolbarSelectionData {
   activeTabId: string | null
   activeTabName: string | null
   viewMode: WorkspaceViewMode
-  pendingPlacementActive: boolean
+  activeTool: Tool
 }
-
-export type AnnotationMode = 'off' | 'comment' | 'draw' | 'region_select'
 
 export interface ThemeData {
   isDark: boolean
@@ -808,6 +809,7 @@ export interface PanelMultiEntitySummary {
 export interface DevtoolsPanelData {
   activeTab: DevtoolsPanelTab
   panelMode: PanelMode
+  activeTool: Tool
   annotateEnabled?: boolean
   annotateAvailable?: boolean
   focusedAnnotationId?: string | null
@@ -997,13 +999,6 @@ export type UiSelection =
       entityKindsById: Partial<Record<string, CanvasEntityKind>>
     }
 
-export type UiToolMode =
-  | 'select'
-  | 'inspect'
-  | 'annotate-comment'
-  | 'annotate-draw'
-  | 'annotate-region-select'
-
 export type SelectionOverlayRect = {
   left: number
   top: number
@@ -1037,23 +1032,13 @@ export interface UiOverlayState {
   selectionMarqueeVisible: boolean
 }
 
-export interface UiPendingPlacement {
-  entityKind: CanvasEntityKind
-  presetIndex?: number
-  customSize?: boolean
-  sourcePageId?: string
-  shapeKind?: ShapeKind
-  textStyle?: TextEntityStyle
-}
-
 export interface UiState {
   selection: UiSelection
-  toolMode: UiToolMode
+  activeTool: Tool
   viewMode: UiViewMode
   leftSidebarOpen: boolean
   devtools: UiDevtoolsState
   overlays: UiOverlayState
-  pendingPlacement: UiPendingPlacement | null
 }
 
 export interface ComponentTreeNode {
@@ -1573,21 +1558,12 @@ export interface ToolbarElectronAPI {
   goBackSelection: () => void
   goForwardSelection: () => void
   reloadSelection: () => void
-  addPage: (presetIndex: number | 'custom') => void
-  cancelPendingPlacement: () => void
-  addText: (style: TextEntityStyle) => void
-  addDocument: () => void
-  addShape: (shapeKind: ShapeKind) => void
+  setTool: (tool: Tool) => void
   reloadApp: () => void
   toggleTheme: () => void
   getInitialData: () => Promise<ThemeBootstrapData>
   toggleLeftSidebar: () => void
   toggleDevTools: () => void
-  clearToolMode: () => void
-  toggleInspectMode: () => void
-  toggleAnnotateMode: () => void
-  toggleDrawMode: () => void
-  toggleRegionSelectMode: () => void
   toggleBrowserMode: () => void
   dropdownOpen: () => void
   dropdownClose: () => void
@@ -1596,12 +1572,6 @@ export interface ToolbarElectronAPI {
   onSelectionChanged: (callback: (data: ToolbarSelectionData) => void) => () => void
   onLeftSidebarChanged: (callback: (open: boolean) => void) => () => void
   onDevtoolsChanged: (callback: (open: boolean) => void) => () => void
-  onInspectStateChanged: (
-    callback: (state: { enabled: boolean; available: boolean }) => void,
-  ) => () => void
-  onAnnotateStateChanged: (
-    callback: (state: { enabled: boolean; available: boolean; mode: AnnotationMode }) => void,
-  ) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onAgentPresenceChanged: (callback: (cursors: AgentPresenceCursor[]) => void) => () => void
   onFocusAddressBar: (callback: () => void) => () => void
@@ -1642,8 +1612,7 @@ export interface CanvasBgElectronAPI {
   setBrowserSizeMode: (pageId: string, mode: 'fill' | 'device') => void
   updatePageBounds: (pageId: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   placePendingEntity: (canvasX: number, canvasY: number) => void
-  cancelPendingPlacement: () => void
-  clearToolMode: () => void
+  setTool: (tool: Tool) => void
   startDragPage: (pageId: string, selection?: CanvasDragStartSelection) => void
   dragPage: (pageId: string, dx: number, dy: number) => void
   endDragPage: () => void
@@ -1884,9 +1853,7 @@ export interface LeftSidebarElectronAPI {
 }
 
 export interface DevtoolsPanelElectronAPI {
-  clearToolMode: () => void
-  toggleAnnotateMode: () => void
-  toggleDrawMode: () => void
+  setTool: (tool: Tool) => void
   setTextEditing: (active: boolean) => void
   selectPage: (pageId: string) => void
   clearInspectSelection: () => void

@@ -21,6 +21,7 @@ import {
   squareConstrainedRect,
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
+import { isAnnotationTool } from '../../shared/tool'
 import { DRAW_CURSOR } from '../canvas-bg/canvasBgConstants'
 import { ActivePageHighlightLayer } from '../canvas-bg/AgentCursorLayer'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
@@ -226,7 +227,7 @@ export default function App({
     layoutData,
     threadInputRef,
   })
-  const drawInteractionEnabled = layoutData.annotationMode === 'draw' && !openThreadId
+  const drawInteractionEnabled = layoutData.activeTool.kind === 'draw' && !openThreadId
   const selectedEdgeIds = useMemo(() => {
     const ids = new Set<string>()
     for (const target of layoutData.selection) {
@@ -240,7 +241,7 @@ export default function App({
       pendingRegionRect ||
       openThreadId ||
       drawingSession ||
-      layoutData.annotationMode === 'draw',
+      layoutData.activeTool.kind === 'draw',
   )
   // Gate authority is main (Phase 5d-v2 D6): shouldGateBeOpen() derives
   // bounds from interaction, toolMode, modifiers, presence, marquee,
@@ -305,11 +306,11 @@ export default function App({
 
   useAnnotationOverlayShortcuts({
     active: Boolean(pendingAnnotation || pendingRegionRect || drawingSession || openThreadId),
-    annotationModeActive: layoutData.annotationMode !== 'off',
+    annotationModeActive: isAnnotationTool(layoutData.activeTool),
     drawInteractionEnabled,
     drawingSessionActive: Boolean(pendingAnnotation || pendingRegionRect || drawingSession),
     clearDraft,
-    clearToolMode: api.clearToolMode,
+    clearToolMode: () => api.setTool({ kind: 'select' }),
     closeThread,
     deleteSelection: api.deleteSelection,
   })
@@ -375,7 +376,7 @@ export default function App({
   // never sees mouseenter/leave, so we dedupe and forward via api.hoverPage.
   const lastHoverIdRef = useRef<string | null>(null)
   const hoverForwardingEnabled =
-    layoutData.annotationMode !== 'draw' && layoutData.annotationMode !== 'region_select'
+    layoutData.activeTool.kind !== 'draw' && layoutData.activeTool.kind !== 'region-select'
   useEffect(() => {
     const clearHover = () => {
       if (lastHoverIdRef.current === null) return
@@ -416,21 +417,21 @@ export default function App({
   const routerOwnsCanvasPointers =
     !overlayInteractive &&
     !pendingPlacement &&
-    layoutData.annotationMode === 'off'
+    !isAnnotationTool(layoutData.activeTool)
   const toolGestureOwnsCanvasPointers =
     !overlayInteractive &&
-    (Boolean(pendingPlacement) || layoutData.annotationMode === 'region_select')
+    (Boolean(pendingPlacement) || layoutData.activeTool.kind === 'region-select')
 
   useEffect(() => {
     if (overlayInteractive) return
-    if (!pendingPlacement && layoutData.annotationMode !== 'region_select') return
+    if (!pendingPlacement && layoutData.activeTool.kind !== 'region-select') return
 
     const onPointerDown = (event: PointerEvent) => {
       if (isOverlayUiTarget(event.target)) return
       if (event.button !== 0) return
       const layout = layoutRef.current
       if (layout.viewMode !== 'canvas') return
-      if (!layout.pendingPlacement && layout.annotationMode !== 'region_select') return
+      if (!layout.pendingPlacement && layout.activeTool.kind !== 'region-select') return
 
       event.preventDefault()
       event.stopPropagation()
@@ -499,7 +500,7 @@ export default function App({
           updateShapePreview(ev)
           return
         }
-        if (!placementAtStart && current.annotationMode === 'region_select') {
+        if (!placementAtStart && current.activeTool.kind === 'region-select') {
           onDragMove(startX, startY, ev.clientX, ev.clientY)
         }
       }
@@ -538,7 +539,7 @@ export default function App({
           api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
           return
         }
-        if (current.annotationMode === 'region_select') {
+        if (current.activeTool.kind === 'region-select') {
           onDragEnd(startX, startY, ev.clientX, ev.clientY)
         }
       }
@@ -560,7 +561,7 @@ export default function App({
         capture: true,
       } as EventListenerOptions)
     }
-  }, [api, layoutData.annotationMode, layoutRef, onDragEnd, onDragMove, overlayInteractive, pendingPlacement])
+  }, [api, layoutData.activeTool, layoutRef, onDragEnd, onDragMove, overlayInteractive, pendingPlacement])
 
   const viewportWheelAndPanApi = useMemo(
     () => ({
@@ -780,7 +781,7 @@ export default function App({
 
       {!captureMode ? (
         <>
-          {layoutData.annotationMode === 'region_select' ? (
+          {layoutData.activeTool.kind === 'region-select' ? (
             <RegionSelectAnnotations
               annotations={layoutData.annotations}
               interactive={!selectionOverlay && !pendingRegionRect}

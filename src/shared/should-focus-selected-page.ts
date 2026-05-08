@@ -9,26 +9,19 @@
  *   1. Inline text editor active over a single-selected page
  *      (`interactionKind === 'editing-text'`) — keystrokes go to the
  *      editor's contenteditable, not the page.
- *   2. `toolMode === 'annotate-draw'` with a page selected — strokes are
+ *   2. `activeTool.kind === 'draw'` with a page selected — strokes are
  *      canvas-bound; the page must not capture keys.
  *   3. Active drag of a single-selected page
  *      (`interactionKind === 'dragging-entities'`) — Escape and arrow
  *      handling stay with the canvas.
- *   4. `toolMode === 'inspect'` or `'annotate-comment'` with a page
- *      selected — keyboard goes to the canvas (Escape exits the mode).
+ *   4. `activeTool.kind === 'inspect'` or `'comment'` with a page
+ *      selected — keyboard goes to the canvas (Escape exits the tool).
  *      When the comment composer opens, `commentOverlayActive` flips and
  *      keeps the predicate at null.
  */
 
-import type { CanvasEntityKind } from './types'
+import type { CanvasEntityKind, Tool } from './types'
 import type { InteractionMode } from './interaction-types'
-
-export type FocusToolMode =
-  | 'select'
-  | 'inspect'
-  | 'annotate-comment'
-  | 'annotate-draw'
-  | 'annotate-region-select'
 
 export type FocusSelectionInput =
   | { kind: 'none' }
@@ -38,7 +31,7 @@ export type FocusSelectionInput =
 export type ShouldFocusSelectedPageInputs = {
   selection: FocusSelectionInput
   interactionKind: InteractionMode['kind']
-  toolMode: FocusToolMode
+  activeTool: Tool
   commentOverlayActive: boolean
 }
 
@@ -48,7 +41,7 @@ export function shouldFocusSelectedPage(
   if (inputs.selection.kind !== 'single-entity') return null
   if (inputs.selection.entityKind !== 'page') return null
   if (inputs.interactionKind !== 'idle') return null
-  if (inputs.toolMode !== 'select') return null
+  if (inputs.activeTool.kind !== 'select') return null
   if (inputs.commentOverlayActive) return null
   return inputs.selection.entityId
 }

@@ -7,9 +7,7 @@ import type {
 } from '../shared/types'
 
 const api: DevtoolsPanelElectronAPI = {
-  clearToolMode: () => ipcRenderer.send('toolbar-clear-tool-mode'),
-  toggleAnnotateMode: () => ipcRenderer.send('toolbar-toggle-annotate'),
-  toggleDrawMode: () => ipcRenderer.send('toolbar-toggle-draw'),
+  setTool: (tool) => ipcRenderer.send('toolbar-set-tool', tool),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),
   selectPage: (pageId: string) => ipcRenderer.send('right-details-panel-select-page', { pageId }),
   clearInspectSelection: () => ipcRenderer.send('right-details-panel-clear-inspect-selection'),

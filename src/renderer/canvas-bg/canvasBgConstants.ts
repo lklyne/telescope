@@ -23,7 +23,7 @@ export const EMPTY_LAYOUT: LayoutUpdateData = {
   selectedEntityIds: [],
   selection: [],
   activeSelection: null,
-  annotationMode: 'off',
+  activeTool: { kind: 'select' },
   annotations: [],
   fixProgress: {},
   viewMode: 'canvas',

@@ -38,19 +38,18 @@ import type { MultiResizeEntry } from '../runtime/document-commands'
 import { createNoteFile, readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
 import { saveImageBuffer } from '../runtime/image-assets'
 import {
-  cancelPendingPlacement,
+  activeTool,
+  finishOneShotPlacement,
   focusCanvasBounds,
   focusSelectedPage,
   getSelectedEntityIds,
   selectEntity,
   openDevToolsForSelectedPage,
-  pendingPlacement,
   selectPage,
   selectPageById,
   selectedPageId,
+  setActiveTool,
   setSelectedEntities,
-  toggleAnnotateMode,
-  toggleDrawMode,
 } from '../runtime/ui-actions'
 import {
   layoutAllViews,
@@ -145,23 +144,22 @@ export function registerCanvasEntityIpc(): void {
     ) => {
       const { canvasX, canvasY } = payload
       const dragRect = payload.dragRect ?? null
-      const placement = pendingPlacement()
-      if (!placement) return
-      if (placement.entityKind === 'text') {
+      const tool = activeTool()
+      if (tool.kind === 'add-text') {
         createTextEntity({
           canvasX,
           canvasY,
-          textStyle: placement.textStyle ?? 'sticky',
+          textStyle: tool.style,
         })
-      } else if (placement.entityKind === 'file') {
+      } else if (tool.kind === 'add-document') {
         try {
           const filePath = createNoteFile()
           createFileEntity({ canvasX, canvasY, file: filePath, width: 300, height: 300 })
         } catch (error) {
           console.error('Failed to create note file:', error)
         }
-      } else if (placement.entityKind === 'shape') {
-        const shapeKind = placement.shapeKind ?? 'rectangle'
+      } else if (tool.kind === 'add-shape') {
+        const shapeKind = tool.shapeKind
         const created = dragRect
           ? createShapeEntity({
               canvasX: dragRect.x,
@@ -178,18 +176,20 @@ export function registerCanvasEntityIpc(): void {
         if (aboveView && !aboveView.webContents.isDestroyed()) {
           aboveView.webContents.send('shape-begin-edit', { entityId: created.id })
         }
-      } else {
+      } else if (tool.kind === 'add-page') {
         createPageAtPosition({
-          sourcePageId: placement.sourcePageId,
-          presetIndex: placement.presetIndex ?? 0,
-          customSize: placement.customSize ?? false,
+          sourcePageId: tool.sourcePageId,
+          presetIndex: tool.presetIndex ?? 0,
+          customSize: tool.customSize ?? false,
           canvasX,
           canvasY: canvasY - CHROME_HEADER_HEIGHT,
           mode: 'add_from_toolbar',
           focus: true,
         })
+      } else {
+        return
       }
-      cancelPendingPlacement()
+      finishOneShotPlacement()
     },
   )
 
@@ -509,12 +509,14 @@ export function registerCanvasEntityIpc(): void {
   })
 
   ipcMain.on('canvas-toggle-annotate-mode', () => {
-    toggleAnnotateMode()
+    const next = activeTool().kind === 'comment' ? { kind: 'select' as const } : { kind: 'comment' as const }
+    setActiveTool(next)
   })
 
   ipcMain.on('canvas-toggle-draw-mode', () => {
     if (!DRAWING_FEATURE_ENABLED) return
-    toggleDrawMode()
+    const next = activeTool().kind === 'draw' ? { kind: 'select' as const } : { kind: 'draw' as const }
+    setActiveTool(next)
   })
 
   ipcMain.on('canvas-create-annotation', (_event, request: AnnotationCreateRequest) => {

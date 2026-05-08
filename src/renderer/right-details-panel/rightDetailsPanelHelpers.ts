@@ -5,6 +5,7 @@ export { isUnresolved } from '../../shared/annotation-utils'
 export const INITIAL_PANEL_DATA: DevtoolsPanelData = {
   activeTab: 'comments',
   panelMode: { kind: 'document' },
+  activeTool: { kind: 'select' },
   annotateEnabled: false,
   annotateAvailable: false,
 }

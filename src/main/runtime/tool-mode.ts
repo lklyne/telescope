@@ -1,144 +1,149 @@
 /**
- * Tool mode management — annotation, inspect, placement, and devtools panel tab.
+ * Tool mode management — single `activeTool` source of truth (ADR 0005).
+ *
+ * Replaces the three parallel state machines (`pendingPlacement`,
+ * `AnnotationMode`, `inspect` boolean) with a single `Tool` discriminated
+ * union. One-shot tools auto-revert to `select` after a placement; persistent
+ * tools stay until replaced or dismissed.
  */
 
-import type { AnnotationMode, DevtoolsPanelTab } from '../../shared/types'
+import type { DevtoolsPanelTab, Tool } from '../../shared/types'
+import { isOneShot } from '../../shared/tool'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { pages } from './runtime-context'
 import { markDirty } from './layout-dirty'
 import {
-  annotationMode as uiAnnotationMode,
+  activeTool as uiActiveTool,
   devtoolsPanelTab as uiDevtoolsPanelTab,
-  inspectEnabled as uiInspectEnabled,
-  pendingPlacement as uiPendingPlacement,
   selectedPageIndex as uiSelectedPageIndex,
-  clearToolMode as clearUiToolMode,
-  setAnnotationMode as setUiAnnotationMode,
-  setCanvasMode as setUiCanvasMode,
+  setActiveTool as setUiActiveTool,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
-  setInspectEnabled as setUiInspectEnabled,
-  setPendingPlacement as setUiPendingPlacement,
 } from '../ui-state'
 import {
-  setInspectMode,
   setHoveredInspectTarget,
   syncInspectionState,
-  notifyAnnotateStateChanged,
-  notifyInspectStateChanged,
   notifyDevtoolsPanelData,
 } from './inspect-session'
 import { requestLayout } from './surface-layout'
 
 function syncAnnotationState(): void {
+  const tool = uiActiveTool()
+  const mode =
+    tool.kind === 'comment'
+      ? 'comment'
+      : tool.kind === 'draw'
+        ? 'draw'
+        : tool.kind === 'region-select'
+          ? 'region_select'
+          : 'off'
   for (const page of pages) {
     page.pageView.webContents.send('set-annotate-mode', {
-      enabled: uiAnnotationMode() === 'comment',
-      mode: uiAnnotationMode(),
+      enabled: tool.kind === 'comment',
+      mode,
     })
   }
 }
 
-function setAnnotationMode(nextMode: AnnotationMode): AnnotationMode {
-  const resolvedMode = pages.length > 0 ? nextMode : 'off'
-  if (uiAnnotationMode() === resolvedMode) {
-    syncAnnotationState()
-    notifyAnnotateStateChanged()
-    requestLayout()
-    return uiAnnotationMode()
-  }
-  setUiAnnotationMode(resolvedMode, { hasPages: pages.length > 0 })
-  if (resolvedMode !== 'off' && uiInspectEnabled()) {
-    setUiInspectEnabled(false, { hasPages: pages.length > 0 })
-  }
-  markDirty('canvas')
-  syncAnnotationState()
-  syncInspectionState()
-  notifyAnnotateStateChanged()
-  notifyInspectStateChanged()
-  requestLayout()
-  return uiAnnotationMode()
-}
+function applyToolSideEffects(prev: Tool, next: Tool): void {
+  const wasAnnotation = isAnnotationKind(prev.kind)
+  const isAnnotation = isAnnotationKind(next.kind)
+  const wasInspect = prev.kind === 'inspect'
+  const isInspect = next.kind === 'inspect'
 
-export function toggleInspectMode(): boolean {
-  const next = !uiInspectEnabled()
-  setInspectMode(next)
-  return next
-}
+  // Inspect ↔ annotation transitions need to clear inspect hover state.
+  if (wasInspect && !isInspect) {
+    setHoveredInspectTarget(null)
+  }
 
-export function clearToolMode(): void {
-  const hadAnnotationMode = uiAnnotationMode() !== 'off'
-  const hadInspectEnabled = uiInspectEnabled()
-  clearUiToolMode()
-  setHoveredInspectTarget(null)
-  if (hadAnnotationMode) {
+  if (wasAnnotation || isAnnotation) {
     markDirty('canvas')
     syncAnnotationState()
   }
+
   syncInspectionState()
-  notifyAnnotateStateChanged()
-  notifyInspectStateChanged()
-  if (hadAnnotationMode || hadInspectEnabled) {
+
+  if (wasAnnotation !== isAnnotation || wasInspect !== isInspect) {
     notifyDevtoolsPanelData()
   }
-  cancelPendingPlacement()
+
   requestLayout()
 }
 
-export function startPendingPlacement(input: {
-  entityKind?: import('../../shared/types').CanvasEntityKind
-  presetIndex?: number
-  customSize?: boolean
-  sourcePageId?: string
-  shapeKind?: import('../../shared/types').ShapeKind
-  textStyle?: import('../../shared/types').TextEntityStyle
-}): void {
-  setUiPendingPlacement({
-    entityKind: input.entityKind ?? 'page',
-    presetIndex: input.presetIndex,
-    customSize: input.customSize ?? false,
-    sourcePageId: input.sourcePageId,
-    shapeKind: input.shapeKind,
-    textStyle: input.textStyle,
-  })
-  setUiCanvasMode()
-  setUiInspectEnabled(false, { hasPages: pages.length > 0 })
-  setUiAnnotationMode('off', { hasPages: pages.length > 0 })
-  requestLayout()
+function isAnnotationKind(kind: Tool['kind']): boolean {
+  return kind === 'comment' || kind === 'draw' || kind === 'region-select'
 }
 
-export function cancelPendingPlacement(): void {
-  if (!uiPendingPlacement()) return
-  setUiPendingPlacement(null)
-  requestLayout()
-}
-
-export function pendingPlacement() {
-  return uiPendingPlacement()
-}
-
-export function toggleAnnotateMode(): boolean {
-  const nextMode = uiAnnotationMode() === 'comment' ? 'off' : 'comment'
-  return setAnnotationMode(nextMode) === 'comment'
-}
-
-export function toggleDrawMode(): boolean {
-  if (!DRAWING_FEATURE_ENABLED) {
-    if (uiAnnotationMode() === 'draw') {
-      setAnnotationMode('off')
-    }
-    return false
+function sanitizeForFeatureFlags(tool: Tool): Tool {
+  if (tool.kind === 'draw' && !DRAWING_FEATURE_ENABLED) {
+    return { kind: 'select' }
   }
-  const nextMode = uiAnnotationMode() === 'draw' ? 'off' : 'draw'
-  return setAnnotationMode(nextMode) === 'draw'
+  return tool
 }
 
-export function toggleRegionSelectMode(): boolean {
-  const nextMode = uiAnnotationMode() === 'region_select' ? 'off' : 'region_select'
-  return setAnnotationMode(nextMode) === 'region_select'
+function sanitizeForPages(tool: Tool): Tool {
+  if (pages.length > 0) return tool
+  // Tools that operate on pages (annotations, inspect) require at least one
+  // frame on the canvas. Without pages they collapse to select.
+  if (isAnnotationKind(tool.kind) || tool.kind === 'inspect') {
+    return { kind: 'select' }
+  }
+  return tool
+}
+
+/**
+ * Set the active tool. Returns the resulting Tool (which may be sanitized for
+ * feature flags or page availability).
+ */
+export function setActiveTool(tool: Tool): Tool {
+  const sanitized = sanitizeForPages(sanitizeForFeatureFlags(tool))
+  const prev = uiActiveTool()
+  if (toolsEqual(prev, sanitized)) {
+    // Idempotent: still re-sync downstream listeners so a renderer that
+    // missed an event picks up the current state.
+    applyToolSideEffects(prev, sanitized)
+    return uiActiveTool()
+  }
+  setUiActiveTool(sanitized)
+  applyToolSideEffects(prev, sanitized)
+  return uiActiveTool()
+}
+
+function toolsEqual(a: Tool, b: Tool): boolean {
+  if (a.kind !== b.kind) return false
+  if (a.kind === 'add-text' && b.kind === 'add-text') return a.style === b.style
+  if (a.kind === 'add-shape' && b.kind === 'add-shape') return a.shapeKind === b.shapeKind
+  if (a.kind === 'add-page' && b.kind === 'add-page') {
+    return (
+      a.presetIndex === b.presetIndex &&
+      a.customSize === b.customSize &&
+      a.sourcePageId === b.sourcePageId
+    )
+  }
+  return true
+}
+
+/** Reset to the default `select` tool. */
+export function clearActiveTool(): Tool {
+  return setActiveTool({ kind: 'select' })
+}
+
+/**
+ * Called after a one-shot tool's placement completes. Reverts to `select`.
+ * No-op for persistent tools.
+ */
+export function finishOneShotPlacement(): void {
+  const tool = uiActiveTool()
+  if (isOneShot(tool.kind)) {
+    setActiveTool({ kind: 'select' })
+  }
+}
+
+export function activeTool(): Tool {
+  return uiActiveTool()
 }
 
 export function isAnnotateMode(): boolean {
-  return uiAnnotationMode() === 'comment'
+  return uiActiveTool().kind === 'comment'
 }
 
 export function setDevtoolsPanelTab(tab: DevtoolsPanelTab): { needsDevtoolsAttach: boolean; attachPageIndex: number | null } {
@@ -158,6 +163,3 @@ export function setDevtoolsPanelTab(tab: DevtoolsPanelTab): { needsDevtoolsAttac
   notifyDevtoolsPanelData()
   return { needsDevtoolsAttach: attachPageIndex !== null, attachPageIndex }
 }
-
-// Re-export setAnnotationMode for wiring
-export { setAnnotationMode }

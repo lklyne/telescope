@@ -76,7 +76,7 @@ export function useCanvasViewportGestures({
 
     const handlePointerEnter = () => {
       const layout = layoutRef.current
-      if (layout.annotationMode !== 'comment') return
+      if (layout.activeTool.kind !== 'comment') return
       api.clearAnnotateHover()
     }
 

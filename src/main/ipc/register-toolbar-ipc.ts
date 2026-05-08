@@ -190,13 +190,17 @@ export function registerToolbarIpc(): void {
     toolbarView.setBounds({ x: 0, y: 0, width, height: layoutCache.toolbarHeight })
   })
 
-  ipcMain.on('toolbar-add-text-entity', () => {
-    startPendingPlacement({
-      entityKind: 'text',
-    })
-  })
+  ipcMain.on(
+    'toolbar-add-text',
+    (_event, payload: { style: 'plain' | 'sticky' }) => {
+      startPendingPlacement({
+        entityKind: 'text',
+        textStyle: payload?.style ?? 'sticky',
+      })
+    },
+  )
 
-  ipcMain.on('toolbar-add-note', () => {
+  ipcMain.on('toolbar-add-document', () => {
     startPendingPlacement({
       entityKind: 'file',
     })

@@ -90,6 +90,7 @@ export function startPendingPlacement(input: {
   customSize?: boolean
   sourceFrameId?: string
   shapeKind?: import('../../shared/types').ShapeKind
+  textStyle?: import('../../shared/types').TextEntityStyle
 }): void {
   setUiPendingPlacement({
     entityKind: input.entityKind ?? 'frame',
@@ -97,6 +98,7 @@ export function startPendingPlacement(input: {
     customSize: input.customSize ?? false,
     sourceFrameId: input.sourceFrameId,
     shapeKind: input.shapeKind,
+    textStyle: input.textStyle,
   })
   setUiCanvasMode()
   setUiInspectEnabled(false, { hasPages: pages.length > 0 })

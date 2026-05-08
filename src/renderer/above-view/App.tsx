@@ -905,6 +905,9 @@ export default function App({
               zoom={layoutData.zoom}
               onPendingFocusConsumed={() => setPendingTextEditId(null)}
               onUpdateText={(id, text) => api.updateTextEntity(id, { text })}
+              onUpdateSize={(id, width, height) =>
+                api.updateTextEntity(id, { width, height })
+              }
               onTextEditingChange={api.setTextEditing}
             />
           ) : null}

@@ -123,11 +123,15 @@ export interface CanvasSceneFrameEntity {
   useSvgDeviceShell?: boolean
 }
 
+/** 'plain' = unbacked text, 'sticky' = text in a colored card. See ADR 0004. */
+export type TextEntityStyle = 'plain' | 'sticky'
+
 export interface CanvasSceneTextEntity {
   kind: 'text'
   id: string
   text: string
   color: string
+  textStyle: TextEntityStyle
   canvasX: number
   canvasY: number
   width: number
@@ -255,6 +259,7 @@ export interface PendingPlacement {
   entityKind: CanvasEntityKind
   presetIndex?: number
   shapeKind?: ShapeKind
+  textStyle?: TextEntityStyle
   width: number
   height: number
   initialClientX: number | null
@@ -288,6 +293,8 @@ export interface PersistedTextEntity extends CanvasEntityBase {
   color: string
   width: number
   height: number
+  /** Optional — reader defaults to 'sticky' when absent (legacy canvases). See ADR 0004. */
+  textStyle?: TextEntityStyle
   label?: string
 }
 
@@ -1036,6 +1043,7 @@ export interface UiPendingPlacement {
   customSize?: boolean
   sourceFrameId?: string
   shapeKind?: ShapeKind
+  textStyle?: TextEntityStyle
 }
 
 export interface UiState {
@@ -1213,6 +1221,7 @@ export interface ClipboardEntityPayload {
   // Text entity-specific
   text?: string
   color?: string
+  textStyle?: TextEntityStyle
   width?: number
   height?: number
   // File entity-specific
@@ -1566,8 +1575,8 @@ export interface ToolbarElectronAPI {
   reloadSelection: () => void
   addPage: (presetIndex: number | 'custom') => void
   cancelPendingPlacement: () => void
-  addTextEntity: () => void
-  addNote: () => void
+  addText: (style: TextEntityStyle) => void
+  addDocument: () => void
   addShape: (shapeKind: ShapeKind) => void
   reloadApp: () => void
   toggleTheme: () => void

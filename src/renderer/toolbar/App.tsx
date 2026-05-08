@@ -166,8 +166,8 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 zoomPercent={zoomPercent}
                 currentPresetValue={currentPresetValue}
                 onAddPage={toolbarApi.addPage}
-                onAddTextEntity={toolbarApi.addTextEntity}
-                onAddNote={toolbarApi.addNote}
+                onAddText={toolbarApi.addText}
+                onAddDocument={toolbarApi.addDocument}
                 onAddShape={toolbarApi.addShape}
                 onDropdownOpenChange={(open) => {
                   if (open) toolbarApi.dropdownOpen()
@@ -216,8 +216,8 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 zoomPercent={zoomPercent}
                 currentPresetValue={currentPresetValue}
                 onAddPage={toolbarApi.addPage}
-                onAddTextEntity={toolbarApi.addTextEntity}
-                onAddNote={toolbarApi.addNote}
+                onAddText={toolbarApi.addText}
+                onAddDocument={toolbarApi.addDocument}
                 onAddShape={toolbarApi.addShape}
                 onDropdownOpenChange={(open) => {
                   if (open) toolbarApi.dropdownOpen()

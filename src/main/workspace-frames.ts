@@ -385,6 +385,7 @@ export function duplicateEntity(input: {
       canvasY: notePlacement.canvasY,
       text: note.text,
       color: note.color,
+      textStyle: note.textStyle,
       width: note.width,
       height: note.height,
     })

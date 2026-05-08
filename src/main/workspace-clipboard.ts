@@ -105,6 +105,7 @@ export function copyableSelectionPayload():
         kind: 'text',
         text: note.text,
         color: note.color,
+        textStyle: note.textStyle,
         width: note.width,
         height: note.height,
         dx: note.canvasX - minX,
@@ -230,6 +231,7 @@ export function pasteEntitiesFromClipboard(input: {
         canvasY: snapToGrid(input.canvasY + entity.dy),
         text: entity.text,
         color: entity.color,
+        textStyle: entity.textStyle,
         width: entity.width,
         height: entity.height,
       })

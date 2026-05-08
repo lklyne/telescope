@@ -33,6 +33,7 @@ import {
   MIN_TEXT_WIDTH,
 } from '../canvas-bg/entityConstants'
 import { MULTI_SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
+import { entityResizesAutomatically } from '../../shared/hit-test'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 
@@ -427,7 +428,7 @@ export function SelectionOutlineLayer({
             borderRadius={borderRadius}
             isDark={isDark}
             isSelected={isSelected}
-            showResizeHandles={!isMultiSelect}
+            showResizeHandles={!isMultiSelect && !entityResizesAutomatically(entity)}
           />
         )
       })}

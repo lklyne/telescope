@@ -272,6 +272,7 @@ export function createTextEntity(input: {
   canvasY: number
   text?: string
   color?: string
+  textStyle?: import('../../shared/types').TextEntityStyle
   width?: number
   height?: number
   id?: string

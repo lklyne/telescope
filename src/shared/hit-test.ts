@@ -134,9 +134,16 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   if (inputs.selectedGroupId) selected.add(inputs.selectedGroupId)
   for (const entity of inputs.entities) {
     if (!selected.has(entity.id)) continue
+    if (entityResizesAutomatically(entity)) continue
     pushPerEntityHandles(out, entity)
   }
   return out
+}
+
+// Plain text auto-fits to its content via a renderer-side ResizeObserver,
+// so manual resize would just be overwritten on the next layout tick.
+export function entityResizesAutomatically(entity: CanvasSceneEntity): boolean {
+  return entity.kind === 'text' && entity.textStyle === 'plain'
 }
 
 function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity): void {

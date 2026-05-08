@@ -203,6 +203,7 @@ export function duplicateGroup(input: {
         canvasY: snapToGrid(entity.canvasY + offsetY),
         text: entity.text,
         color: entity.color,
+        textStyle: entity.textStyle,
         width: entity.width,
         height: entity.height,
         parentGroupId: clonedGroup.id,

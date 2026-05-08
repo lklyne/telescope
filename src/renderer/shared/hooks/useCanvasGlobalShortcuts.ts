@@ -21,9 +21,9 @@ export function useCanvasGlobalShortcuts(input: {
 
       const layout = layoutRef.current
 
-      if (isPlainShortcutKey(event, 'escape') && layout.pendingPlacement) {
+      if (isPlainShortcutKey(event, 'escape') && layout.activeTool.kind !== 'select') {
         event.preventDefault()
-        api.cancelPendingPlacement()
+        api.setTool({ kind: 'select' })
         return
       }
 

@@ -20,12 +20,12 @@ function previewBoxStyle(
 
 export function CanvasDebugBadge({
   annotationCount,
-  annotationMode,
+  activeTool,
   isDev,
   layoutTick,
 }: {
   annotationCount: number
-  annotationMode: import('../../shared/types').LayoutUpdateData['annotationMode']
+  activeTool: import('../../shared/types').Tool
   isDev: boolean
   layoutTick: number
 }) {
@@ -35,7 +35,7 @@ export function CanvasDebugBadge({
       className="pointer-events-auto absolute left-2 top-2 z-[70] rounded border border-zinc-300/80 bg-white/90 px-2 py-1 text-[10px] text-zinc-700 shadow dark:border-zinc-600 dark:bg-zinc-900/90 dark:text-zinc-200"
       data-overlay-ui
     >
-      mode:{annotationMode} updates:{layoutTick} pending: 0 anns:{annotationCount} hits:0
+      tool:{activeTool.kind} updates:{layoutTick} pending: 0 anns:{annotationCount} hits:0
     </div>
   )
 }

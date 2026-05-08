@@ -1,6 +1,14 @@
 import { ipcRenderer } from 'electron'
-import type { Annotation, AnnotationMode, ScrollSyncData } from '../shared/types'
+import type { Annotation, ScrollSyncData } from '../shared/types'
 import { PRESENCE_SCROLL_ANIMATION_MS } from '../shared/presence-timing'
+
+// The page-content preload still consumes the legacy `set-annotate-mode`
+// channel from main: it carries an `enabled` flag plus a coarse mode
+// discriminator so the comment-overlay knows whether to draw the standard
+// hover affordance or the region-select rect. This is a renderer-process
+// implementation detail and intentionally not part of the unified `Tool`
+// vocabulary (ADR 0005).
+type AnnotateOverlayMode = 'off' | 'comment' | 'draw' | 'region_select'
 
 import {
   getInspectableElementByNodeId,
@@ -51,7 +59,7 @@ let interactive = false
 let multiSelected = false
 let canvasZoom = 1
 let annotateEnabled = false
-let annotationMode: AnnotationMode = 'off'
+let annotationMode: AnnotateOverlayMode = 'off'
 let cleanupBlockingOverlayListeners: (() => void) | null = null
 const SELECTION_DEBUG = process.env.CANVAS_DEBUG_SELECTION === '1'
 
@@ -352,7 +360,7 @@ ipcRenderer.on('set-multi-selected', (_event, value: boolean) => {
   applyInteractiveState()
 })
 
-ipcRenderer.on('set-annotate-mode', (_event, payload: { enabled?: boolean; mode?: AnnotationMode } | undefined) => {
+ipcRenderer.on('set-annotate-mode', (_event, payload: { enabled?: boolean; mode?: AnnotateOverlayMode } | undefined) => {
   selectionDebug('ipc:set-annotate-mode', {
     enabled: Boolean(payload?.enabled),
     mode: payload?.mode ?? 'off',

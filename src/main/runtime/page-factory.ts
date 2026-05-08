@@ -6,6 +6,7 @@ import { WebContentsView } from 'electron'
 import { randomUUID } from 'crypto'
 import { preloadPath } from './load-renderer'
 import type { PageConfig } from '../../shared/types'
+import { toolAnnotateOverlay } from '../../shared/tool'
 import {
   toolbarView,
   win,
@@ -16,7 +17,7 @@ import {
   setPendingFocus,
 } from './runtime-context'
 import {
-  annotationMode as uiAnnotationMode,
+  activeTool as uiActiveTool,
   selectedEntityIds as uiSelectedEntityIds,
   selectedPageIndex as uiSelectedPageIndex,
   setSelection as setUiSelection,
@@ -198,10 +199,7 @@ export function createPage(config: PageConfig): Page {
     if (isSelectedPage(page)) clearInspectTargets()
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
     syncInspectionState()
-    page.pageView.webContents.send('set-annotate-mode', {
-      enabled: uiAnnotationMode() === 'comment',
-      mode: uiAnnotationMode(),
-    })
+    page.pageView.webContents.send('set-annotate-mode', toolAnnotateOverlay(uiActiveTool()))
     sendInteractiveState()
     broadcastCanvasZoomToPages()
     const overrides = pageOverridesFromMetadata(page.metadata)

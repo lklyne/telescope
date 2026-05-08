@@ -1,33 +1,35 @@
 import { useEffect } from 'react'
 import { isPlainShortcutKey, isTypingTarget } from '../../../shared/gesture-utils'
+import type { Tool } from '../../../shared/types'
 
 export function useAnnotateToggleShortcut(input: {
-  toggleAnnotateMode: () => void
-  toggleDrawMode?: () => void
-  clearToolMode?: () => void
+  setTool: (tool: Tool) => void
+  activeTool: Tool
+  drawingEnabled?: boolean
 }) {
-  const { toggleAnnotateMode, toggleDrawMode, clearToolMode } = input
+  const { setTool, activeTool, drawingEnabled } = input
+  const activeKind = activeTool.kind
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!document.hasFocus()) return
       if (isTypingTarget(event.target)) return
-      if (clearToolMode && isPlainShortcutKey(event, 'v')) {
+      if (isPlainShortcutKey(event, 'v')) {
         event.preventDefault()
-        clearToolMode()
+        setTool({ kind: 'select' })
         return
       }
       if (isPlainShortcutKey(event, 'c')) {
         event.preventDefault()
-        toggleAnnotateMode()
+        setTool(activeKind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
         return
       }
-      if (toggleDrawMode && isPlainShortcutKey(event, 'd')) {
+      if (drawingEnabled && isPlainShortcutKey(event, 'd')) {
         event.preventDefault()
-        toggleDrawMode()
+        setTool(activeKind === 'draw' ? { kind: 'select' } : { kind: 'draw' })
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [clearToolMode, toggleAnnotateMode, toggleDrawMode])
+  }, [setTool, activeKind, drawingEnabled])
 }

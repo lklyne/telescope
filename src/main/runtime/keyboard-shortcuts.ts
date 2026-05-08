@@ -3,10 +3,11 @@
  */
 
 import type { WebContents } from 'electron'
+import type { Tool } from '../../shared/types'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { arrowNavigationLocked, setArrowNavigationLocked, setSpaceModifierHeld } from './runtime-context'
 import { undo, redo, canUndo, canRedo } from './workspace-undo'
-import { pendingPlacement as uiPendingPlacement } from '../ui-state'
+import { activeTool as uiActiveTool } from '../ui-state'
 import { selectAdjacentPage } from './selection-state'
 import { layoutAllViews } from './layout-engine'
 import { currentKeyboardTargetPageId, selectNone } from './selection-controller'
@@ -35,10 +36,7 @@ function isTextEditingActive(): boolean {
 }
 
 // Late-bound references to runtime-core functions
-let _cancelPendingPlacement: () => void = () => {}
-let _clearToolMode: () => void = () => {}
-let _toggleAnnotateMode: () => boolean = () => false
-let _toggleDrawMode: () => boolean = () => false
+let _setActiveTool: (tool: Tool) => void = () => {}
 let _setZoom: (value: number) => void = () => {}
 let _setPan: (x: number, y: number) => void = () => {}
 let _focusSelectedPage: () => boolean = () => false
@@ -46,25 +44,28 @@ let _groupSelectedEntities: () => unknown = () => null
 let _ungroupSelectedGroup: () => unknown = () => null
 
 export function wireKeyboardShortcuts(fns: {
-  cancelPendingPlacement: () => void
-  clearToolMode: () => void
-  toggleAnnotateMode: () => boolean
-  toggleDrawMode: () => boolean
+  setActiveTool: (tool: Tool) => void
   setZoom: (value: number) => void
   setPan: (x: number, y: number) => void
   focusSelectedPage: () => boolean
   groupSelectedEntities: () => unknown
   ungroupSelectedGroup: () => unknown
 }): void {
-  _cancelPendingPlacement = fns.cancelPendingPlacement
-  _clearToolMode = fns.clearToolMode
-  _toggleAnnotateMode = fns.toggleAnnotateMode
-  _toggleDrawMode = fns.toggleDrawMode
+  _setActiveTool = fns.setActiveTool
   _setZoom = fns.setZoom
   _setPan = fns.setPan
   _focusSelectedPage = fns.focusSelectedPage
   _groupSelectedEntities = fns.groupSelectedEntities
   _ungroupSelectedGroup = fns.ungroupSelectedGroup
+}
+
+function toggleTool(target: Tool): void {
+  const current = uiActiveTool()
+  if (current.kind === target.kind) {
+    _setActiveTool({ kind: 'select' })
+  } else {
+    _setActiveTool(target)
+  }
 }
 
 function selectAdjacentPageOnce(direction: ArrowDirection): boolean {
@@ -112,10 +113,10 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
       !input.meta &&
       !input.control &&
       !input.alt &&
-      uiPendingPlacement()
+      uiActiveTool().kind !== 'select'
     ) {
       event.preventDefault()
-      _cancelPendingPlacement()
+      _setActiveTool({ kind: 'select' })
       return
     }
 
@@ -210,7 +211,7 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
       !input.alt
     ) {
       event.preventDefault()
-      _clearToolMode()
+      _setActiveTool({ kind: 'select' })
       return
     }
 
@@ -224,7 +225,7 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
       !input.alt
     ) {
       event.preventDefault()
-      _toggleAnnotateMode()
+      toggleTool({ kind: 'comment' })
       return
     }
 
@@ -239,7 +240,7 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
       !input.alt
     ) {
       event.preventDefault()
-      _toggleDrawMode()
+      toggleTool({ kind: 'draw' })
       return
     }
 

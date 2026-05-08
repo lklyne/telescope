@@ -21,9 +21,9 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const isDark = useTheme(initialTheme, rightDetailsPanelApi.onThemeChanged)
 
   useAnnotateToggleShortcut({
-    clearToolMode: rightDetailsPanelApi.clearToolMode,
-    toggleAnnotateMode: rightDetailsPanelApi.toggleAnnotateMode,
-    toggleDrawMode: DRAWING_FEATURE_ENABLED ? rightDetailsPanelApi.toggleDrawMode : undefined,
+    setTool: rightDetailsPanelApi.setTool,
+    activeTool: panelData.activeTool,
+    drawingEnabled: DRAWING_FEATURE_ENABLED,
   })
   useReportTextEditing(rightDetailsPanelApi.setTextEditing)
 

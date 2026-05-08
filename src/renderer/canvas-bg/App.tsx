@@ -9,15 +9,14 @@ import type {
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
-import { CanvasDebugBadge, CanvasGridSurface, PlacementPreviewLayer } from './CanvasGridSurface'
+import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
 import { BrowserTabBar } from './BrowserTabBar'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { PageBorderLayer } from './PageBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { GroupInlineMenu } from './InlineEntityMenu'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
-import { usePendingPlacementState } from './usePendingPlacementState'
-import { useCanvasViewportGestures, type ShapePlacementDragPreview } from './useCanvasViewportGestures'
+import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 const GROUP_MENU_DELAY_MS = 150
@@ -36,19 +35,11 @@ export default function App({
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
-  const { pendingPlacementPreview, setPlacementCursor } =
-    usePendingPlacementState(layoutData)
-  const [shapePlacementPreview, setShapePlacementPreview] =
-    useState<ShapePlacementDragPreview | null>(null)
-  const [captureMode, setCaptureMode] = useState(false)
-  useEffect(() => api.onCaptureMode(setCaptureMode), [])
 
   useCanvasViewportGestures({
     api,
     bgRef,
     layoutRef,
-    setPlacementCursor,
-    onShapePlacementPreview: setShapePlacementPreview,
   })
 
   const pageEntities = useMemo(
@@ -93,12 +84,12 @@ export default function App({
     <div
       className="relative h-screen w-screen overflow-hidden"
       style={{
-        cursor: layoutData.annotationMode === 'draw' ? DRAW_CURSOR : undefined,
+        cursor: layoutData.activeTool.kind === 'draw' ? DRAW_CURSOR : undefined,
       }}
     >
       <CanvasDebugBadge
         annotationCount={layoutData.annotations.length}
-        annotationMode={layoutData.annotationMode}
+        activeTool={layoutData.activeTool}
         isDev={isDev}
         layoutTick={layoutTick}
       />
@@ -109,30 +100,6 @@ export default function App({
         pan={layoutData.pan}
         zoom={layoutData.zoom}
       />
-      {!captureMode ? (
-        <>
-          <PlacementPreviewLayer
-            isDark={isDark}
-            preview={shapePlacementPreview ? null : pendingPlacementPreview}
-          />
-          {shapePlacementPreview &&
-          shapePlacementPreview.rect.width > 0 &&
-          shapePlacementPreview.rect.height > 0 ? (
-            <PlacementPreviewLayer
-              isDark={isDark}
-              preview={{
-                entityKind: 'shape',
-                shapeKind: shapePlacementPreview.shapeKind,
-                left: shapePlacementPreview.rect.left,
-                top: shapePlacementPreview.rect.top,
-                width: shapePlacementPreview.rect.width,
-                height: shapePlacementPreview.rect.height,
-              }}
-            />
-          ) : null}
-        </>
-      ) : null}
-
       {layoutData.viewMode === 'browser' ? (
         <BrowserTabBar
           activeBrowserTabId={layoutData.activeBrowserTabId}

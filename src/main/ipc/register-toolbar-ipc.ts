@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import type { Tool } from '../../shared/types'
 import {
   layoutCache,
   pan,
@@ -11,20 +12,14 @@ import {
   layoutAllViews,
 } from '../runtime/surface-layout'
 import {
-  cancelPendingPlacement,
-  clearToolMode,
   focusSelectedPage,
   getSelectedEntityIds,
   openInspectPanel,
   selectedPageId,
-  startPendingPlacement,
-  toggleAnnotateMode,
+  setActiveTool,
   toggleBrowserMode,
   toggleLeftSidebar,
   toggleDevTools,
-  toggleDrawMode,
-  toggleRegionSelectMode,
-  toggleInspectMode,
 } from '../runtime/ui-actions'
 import { endDevtoolsResize, setDevtoolsWidthFromScreenX } from '../runtime/window-shell'
 import { selectBrowserTab } from '../runtime/runtime-core'
@@ -87,26 +82,16 @@ export function registerToolbarIpc(): void {
     toggleBrowserMode()
   })
 
-  ipcMain.on('toolbar-toggle-inspect', () => {
-    if (toggleInspectMode()) {
-      openInspectPanel()
-    }
-  })
-
-  ipcMain.on('toolbar-clear-tool-mode', () => {
-    clearToolMode()
-  })
-
-  ipcMain.on('toolbar-toggle-annotate', () => {
-    toggleAnnotateMode()
-  })
-
-  ipcMain.on('toolbar-toggle-draw', () => {
-    toggleDrawMode()
-  })
-
-  ipcMain.on('toolbar-toggle-region-select', () => {
-    toggleRegionSelectMode()
+  ipcMain.on('toolbar-set-tool', (_event, payload: Tool) => {
+    if (!payload || typeof payload !== 'object' || typeof payload.kind !== 'string') return
+    // Toolbar-initiated add-page inherits the URL of the currently-selected
+    // page; the renderer doesn't know which page is selected.
+    const tool: Tool =
+      payload.kind === 'add-page' && payload.sourcePageId === undefined
+        ? { ...payload, sourcePageId: selectedPageId() ?? undefined }
+        : payload
+    const result = setActiveTool(tool)
+    if (result.kind === 'inspect') openInspectPanel()
   })
 
   ipcMain.on('toggle-devtools', () => {
@@ -130,14 +115,6 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on('devtools-resize-end', () => {
     endDevtoolsResize()
-  })
-
-  ipcMain.on('add-page', (_event, presetIndex: number | 'custom') => {
-    startPendingPlacement({
-      sourcePageId: selectedPageId() ?? undefined,
-      presetIndex: typeof presetIndex === 'number' ? presetIndex : undefined,
-      customSize: presetIndex === 'custom',
-    })
   })
 
   ipcMain.on('add-browser-page', (_event, presetIndex: number | 'custom') => {
@@ -174,10 +151,6 @@ export function registerToolbarIpc(): void {
     }
   })
 
-  ipcMain.on('cancel-pending-placement', () => {
-    cancelPendingPlacement()
-  })
-
   ipcMain.on('toolbar-dropdown-open', () => {
     if (!toolbarView || !win) return
     const { width, height } = win.getBounds()
@@ -189,30 +162,4 @@ export function registerToolbarIpc(): void {
     const { width } = win.getBounds()
     toolbarView.setBounds({ x: 0, y: 0, width, height: layoutCache.toolbarHeight })
   })
-
-  ipcMain.on(
-    'toolbar-add-text',
-    (_event, payload: { style: 'plain' | 'sticky' }) => {
-      startPendingPlacement({
-        entityKind: 'text',
-        textStyle: payload?.style ?? 'sticky',
-      })
-    },
-  )
-
-  ipcMain.on('toolbar-add-document', () => {
-    startPendingPlacement({
-      entityKind: 'file',
-    })
-  })
-
-  ipcMain.on(
-    'toolbar-add-shape',
-    (_event, payload: { shapeKind: 'rectangle' | 'ellipse' | 'diamond' }) => {
-      startPendingPlacement({
-        entityKind: 'shape',
-        shapeKind: payload?.shapeKind ?? 'rectangle',
-      })
-    },
-  )
 }

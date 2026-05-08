@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AgentPresenceCursor,
-  AnnotationMode,
   ConnectedRepo,
   ToolbarElectronAPI,
   ToolbarSelectionData,
@@ -16,21 +15,12 @@ const api: ToolbarElectronAPI = {
   goBackSelection: () => ipcRenderer.send('toolbar-back-selection'),
   goForwardSelection: () => ipcRenderer.send('toolbar-forward-selection'),
   reloadSelection: () => ipcRenderer.send('toolbar-reload-selection'),
-  addPage: (presetIndex) => ipcRenderer.send('add-page', presetIndex),
-  cancelPendingPlacement: () => ipcRenderer.send('cancel-pending-placement'),
-  addText: (style) => ipcRenderer.send('toolbar-add-text', { style }),
-  addDocument: () => ipcRenderer.send('toolbar-add-document'),
-  addShape: (shapeKind) => ipcRenderer.send('toolbar-add-shape', { shapeKind }),
+  setTool: (tool) => ipcRenderer.send('toolbar-set-tool', tool),
   reloadApp: () => ipcRenderer.send('reload-app'),
   toggleTheme: () => ipcRenderer.send('toggle-theme'),
   getInitialData: () => ipcRenderer.invoke('get-theme-bootstrap'),
   toggleLeftSidebar: () => ipcRenderer.send('toggle-left-sidebar'),
   toggleDevTools: () => ipcRenderer.send('toggle-devtools'),
-  clearToolMode: () => ipcRenderer.send('toolbar-clear-tool-mode'),
-  toggleInspectMode: () => ipcRenderer.send('toolbar-toggle-inspect'),
-  toggleAnnotateMode: () => ipcRenderer.send('toolbar-toggle-annotate'),
-  toggleDrawMode: () => ipcRenderer.send('toolbar-toggle-draw'),
-  toggleRegionSelectMode: () => ipcRenderer.send('toolbar-toggle-region-select'),
   toggleBrowserMode: () => ipcRenderer.send('toolbar-toggle-browser-mode'),
   dropdownOpen: () => ipcRenderer.send('toolbar-dropdown-open'),
   dropdownClose: () => ipcRenderer.send('toolbar-dropdown-close'),
@@ -55,22 +45,6 @@ const api: ToolbarElectronAPI = {
     const handler = (_event: Electron.IpcRendererEvent, open: boolean) => callback(open)
     ipcRenderer.on('devtools-changed', handler)
     return () => ipcRenderer.removeListener('devtools-changed', handler)
-  },
-  onInspectStateChanged: (callback) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      state: { enabled: boolean; available: boolean },
-    ) => callback(state)
-    ipcRenderer.on('inspect-state-changed', handler)
-    return () => ipcRenderer.removeListener('inspect-state-changed', handler)
-  },
-  onAnnotateStateChanged: (callback) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      state: { enabled: boolean; available: boolean; mode: AnnotationMode },
-    ) => callback(state)
-    ipcRenderer.on('annotate-state-changed', handler)
-    return () => ipcRenderer.removeListener('annotate-state-changed', handler)
   },
   onThemeChanged: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: { isDark: boolean }) =>

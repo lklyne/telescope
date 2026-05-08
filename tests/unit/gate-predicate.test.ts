@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { shouldGateBeOpen, type GateInputs } from '../../src/main/runtime/gate-predicate'
+import type { Tool } from '../../src/shared/tool'
 
 function base(): GateInputs {
   return {
     interactionKind: 'idle',
-    toolMode: 'select',
+    activeTool: { kind: 'select' },
     viewMode: 'canvas',
     commentOverlayActive: false,
     selectionMarqueeVisible: false,
@@ -18,7 +19,7 @@ function base(): GateInputs {
 }
 
 describe('shouldGateBeOpen — canvas mode (default-open per ADR 0002 Step 7)', () => {
-  it('open when idle in select mode', () => {
+  it('open when idle in select tool', () => {
     expect(shouldGateBeOpen(base())).toBe(true)
   })
 
@@ -36,25 +37,25 @@ describe('shouldGateBeOpen — canvas mode (default-open per ADR 0002 Step 7)', 
     expect(shouldGateBeOpen({ ...base(), interactionKind: 'editing-text' })).toBe(true)
   })
 
-  it.each(['annotate-draw', 'annotate-region-select'] as const)(
-    'open when toolMode is %s',
-    (toolMode) => {
-      expect(shouldGateBeOpen({ ...base(), toolMode })).toBe(true)
+  it.each<Tool>([{ kind: 'draw' }, { kind: 'region-select' }])(
+    'open when activeTool is %s',
+    (activeTool) => {
+      expect(shouldGateBeOpen({ ...base(), activeTool })).toBe(true)
     },
   )
 
-  it.each(['inspect', 'annotate-comment'] as const)(
-    'closed when toolMode is %s without composer open (page receives mousemove)',
-    (toolMode) => {
-      expect(shouldGateBeOpen({ ...base(), toolMode })).toBe(false)
+  it.each<Tool>([{ kind: 'inspect' }, { kind: 'comment' }])(
+    'closed when activeTool is %s without composer open (page receives mousemove)',
+    (activeTool) => {
+      expect(shouldGateBeOpen({ ...base(), activeTool })).toBe(false)
     },
   )
 
-  it.each(['inspect', 'annotate-comment'] as const)(
-    'open when toolMode is %s and comment composer is active',
-    (toolMode) => {
+  it.each<Tool>([{ kind: 'inspect' }, { kind: 'comment' }])(
+    'open when activeTool is %s and comment composer is active',
+    (activeTool) => {
       expect(
-        shouldGateBeOpen({ ...base(), toolMode, commentOverlayActive: true }),
+        shouldGateBeOpen({ ...base(), activeTool, commentOverlayActive: true }),
       ).toBe(true)
     },
   )
@@ -119,4 +120,3 @@ describe('shouldGateBeOpen — browser mode falls through to browserModeNeedsGat
     ).toBe(true)
   })
 })
-

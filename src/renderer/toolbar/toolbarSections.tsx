@@ -28,9 +28,9 @@ import {
 import { Menu } from '@base-ui/react/menu'
 import type {
   AgentPresenceCursor,
-  AnnotationMode,
   ShapeKind,
   TextEntityStyle,
+  Tool,
   ToolbarSelectionData,
 } from '../../shared/types'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
@@ -259,25 +259,14 @@ export function LeftActions({
 interface CenterActionsProps {
   isDark: boolean
   isBrowserMode: boolean
-  defaultToolActive: boolean
-  annotationMode: AnnotationMode
-  annotateAvailable: boolean
+  activeTool: Tool
+  hasPages: boolean
   drawingEnabled: boolean
   hasSelection: boolean
-  inspectEnabled: boolean
-  inspectAvailable: boolean
   zoomPercent: number
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
-  onAddPage: (presetIndex: number | 'custom') => void
-  onAddText: (style: TextEntityStyle) => void
-  onAddDocument: () => void
-  onAddShape: (shapeKind: ShapeKind) => void
+  onSetTool: (tool: Tool) => void
   onDropdownOpenChange: (open: boolean) => void
-  onClearToolMode: () => void
-  onToggleAnnotateMode: () => void
-  onToggleDrawMode: () => void
-  onToggleRegionSelectMode: () => void
-  onToggleInspectMode: () => void
   onToggleTheme: () => void
   onZoomSet: (value: number) => void
 }
@@ -285,28 +274,40 @@ interface CenterActionsProps {
 export function CenterActions({
   isDark,
   isBrowserMode,
-  defaultToolActive,
-  annotationMode,
-  annotateAvailable,
+  activeTool,
+  hasPages,
   drawingEnabled,
   hasSelection,
-  inspectEnabled,
-  inspectAvailable,
   zoomPercent,
   currentPresetValue,
-  onAddPage,
-  onAddText,
-  onAddDocument,
-  onAddShape,
+  onSetTool,
   onDropdownOpenChange,
-  onClearToolMode,
-  onToggleAnnotateMode,
-  onToggleDrawMode,
-  onToggleRegionSelectMode,
-  onToggleInspectMode,
   onToggleTheme,
   onZoomSet,
 }: CenterActionsProps) {
+  const defaultToolActive = activeTool.kind === 'select'
+  const annotateAvailable = hasPages
+  const inspectAvailable = hasPages
+  const inspectEnabled = activeTool.kind === 'inspect'
+  const onAddPage = (presetIndex: number | 'custom') =>
+    onSetTool({
+      kind: 'add-page',
+      presetIndex: typeof presetIndex === 'number' ? presetIndex : undefined,
+      customSize: presetIndex === 'custom',
+    })
+  const onAddText = (style: TextEntityStyle) => onSetTool({ kind: 'add-text', style })
+  const onAddDocument = () => onSetTool({ kind: 'add-document' })
+  const onAddShape = (shapeKind: ShapeKind) =>
+    onSetTool({ kind: 'add-shape', shapeKind })
+  const onClearToolMode = () => onSetTool({ kind: 'select' })
+  const onToggleAnnotateMode = () =>
+    onSetTool(activeTool.kind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
+  const onToggleDrawMode = () =>
+    onSetTool(activeTool.kind === 'draw' ? { kind: 'select' } : { kind: 'draw' })
+  const onToggleRegionSelectMode = () =>
+    onSetTool(activeTool.kind === 'region-select' ? { kind: 'select' } : { kind: 'region-select' })
+  const onToggleInspectMode = () =>
+    onSetTool(activeTool.kind === 'inspect' ? { kind: 'select' } : { kind: 'inspect' })
   const iconButtonClassName = toolbarIconBtnClass(isDark)
   const activeIconButtonClassName = toolbarActiveIconBtnClass(isDark)
   const selectTriggerClassName = isDark
@@ -360,7 +361,7 @@ export function CenterActions({
         <div className="ml-0.5 flex items-center gap-2">
           <button
             onClick={onToggleAnnotateMode}
-            className={`${annotationMode === 'comment' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+            className={`${activeTool.kind === 'comment' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
             title="Comments"
             disabled={!annotateAvailable}
             type="button"
@@ -371,7 +372,7 @@ export function CenterActions({
           {drawingEnabled ? (
             <button
               onClick={onToggleDrawMode}
-              className={`${annotationMode === 'draw' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+              className={`${activeTool.kind === 'draw' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
               title="Draw Feedback"
               disabled={!annotateAvailable}
               type="button"
@@ -382,7 +383,7 @@ export function CenterActions({
 
           <button
             onClick={onToggleRegionSelectMode}
-            className={`${annotationMode === 'region_select' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+            className={`${activeTool.kind === 'region-select' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
             title="Region Select"
             disabled={!annotateAvailable}
             type="button"

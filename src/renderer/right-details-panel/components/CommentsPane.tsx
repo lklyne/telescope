@@ -293,7 +293,7 @@ export function CommentsPane({
                   ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
                   : 'border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-200'
             } disabled:pointer-events-none disabled:opacity-45`}
-            onClick={() => rightDetailsPanelApi.toggleAnnotateMode()}
+            onClick={() => rightDetailsPanelApi.setTool({ kind: annotateEnabled ? 'select' : 'comment' })}
             disabled={!annotateAvailable}
           >
             <MessageCircle size={14} />

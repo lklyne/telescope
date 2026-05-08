@@ -92,7 +92,7 @@ export function currentKeyboardTargetPageId(): string | null {
   return shouldFocusSelectedPage({
     selection: predicateSelectionInput(ui.selection),
     interactionKind: predicateInteractionKind(interactionState),
-    toolMode: ui.toolMode,
+    activeTool: ui.activeTool,
     commentOverlayActive: isCommentOverlayVisible(ui),
   })
 }

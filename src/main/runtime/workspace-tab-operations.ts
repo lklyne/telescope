@@ -63,7 +63,7 @@ export function applyTabState(tab: PersistedWorkspaceTab): void {
     replaceUiState({
       ...getUiState(),
       selection: { kind: 'none' },
-      toolMode: 'select',
+      activeTool: { kind: 'select' },
       viewMode:
         tab.snapshot.browserTabMode === 'page' && tab.snapshot.selectedPageId
           ? { kind: 'browser', pageId: tab.snapshot.selectedPageId }
@@ -79,7 +79,6 @@ export function applyTabState(tab: PersistedWorkspaceTab): void {
         commentOverlayVisible: false,
         selectionMarqueeVisible: false,
       },
-      pendingPlacement: null,
     })
     workspaceAnnotations.length = 0
     workspaceAnnotations.push(...cloneAnnotationsForPersistence(tab.annotations))

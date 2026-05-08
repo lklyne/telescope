@@ -1,6 +1,6 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import type { AgentPresenceCursor, AnnotationMode, ToolbarSelectionData } from '../../shared/types'
+import type { AgentPresenceCursor, Tool, ToolbarSelectionData } from '../../shared/types'
 import { toolbarApi } from './toolbarApi'
 
 export const ZOOM_PRESETS = [10, 25, 50, 75, 100, 150, 200] as const
@@ -21,17 +21,14 @@ const EMPTY_SELECTION: ToolbarSelectionData = {
   activeTabId: null,
   activeTabName: null,
   viewMode: 'canvas',
-  pendingPlacementActive: false,
+  activeTool: { kind: 'select' },
 }
 
 export interface ToolbarState {
   zoomPercent: number
   leftSidebarOpen: boolean
   devtoolsOpen: boolean
-  inspectEnabled: boolean
-  inspectAvailable: boolean
-  annotationMode: AnnotationMode
-  annotateAvailable: boolean
+  activeTool: Tool
   selection: ToolbarSelectionData
   addressValue: string
   setAddressValue: Dispatch<SetStateAction<string>>
@@ -40,7 +37,6 @@ export interface ToolbarState {
   hasSelection: boolean
   hasPages: boolean
   isBrowserMode: boolean
-  defaultToolActive: boolean
   agentCursors: AgentPresenceCursor[]
 }
 
@@ -48,10 +44,6 @@ export function useToolbarState(): ToolbarState {
   const [zoomPercent, setZoomPercent] = useState(100)
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [devtoolsOpen, setDevtoolsOpen] = useState(false)
-  const [inspectEnabled, setInspectEnabled] = useState(false)
-  const [inspectAvailable, setInspectAvailable] = useState(false)
-  const [annotationMode, setAnnotationMode] = useState<AnnotationMode>('off')
-  const [annotateAvailable, setAnnotateAvailable] = useState(false)
   const [selection, setSelection] = useState<ToolbarSelectionData>(EMPTY_SELECTION)
   const [addressValue, setAddressValue] = useState('')
   const [agentCursors, setAgentCursors] = useState<AgentPresenceCursor[]>([])
@@ -67,14 +59,6 @@ export function useToolbarState(): ToolbarState {
     })
     const cleanupLeftSidebar = toolbarApi.onLeftSidebarChanged((open) => setLeftSidebarOpen(open))
     const cleanupDevtools = toolbarApi.onDevtoolsChanged((open) => setDevtoolsOpen(open))
-    const cleanupInspect = toolbarApi.onInspectStateChanged((state) => {
-      setInspectEnabled(state.enabled)
-      setInspectAvailable(state.available)
-    })
-    const cleanupAnnotate = toolbarApi.onAnnotateStateChanged((state) => {
-      setAnnotationMode(state.mode)
-      setAnnotateAvailable(state.available)
-    })
     const cleanupPresence = toolbarApi.onAgentPresenceChanged((cursors) => {
       setAgentCursors(cursors)
     })
@@ -92,8 +76,6 @@ export function useToolbarState(): ToolbarState {
       cleanupSelection()
       cleanupLeftSidebar()
       cleanupDevtools()
-      cleanupInspect()
-      cleanupAnnotate()
       cleanupPresence()
       cleanupFocusAddress()
       clearTimeout(focusTimer)
@@ -106,16 +88,12 @@ export function useToolbarState(): ToolbarState {
   const hasSelection = selection.selectionCount > 0
   const hasPages = selection.availablePageCount > 0
   const isBrowserMode = selection.viewMode === 'browser'
-  const defaultToolActive = !inspectEnabled && annotationMode === 'off'
 
   return {
     zoomPercent,
     leftSidebarOpen,
     devtoolsOpen,
-    inspectEnabled,
-    inspectAvailable,
-    annotationMode,
-    annotateAvailable,
+    activeTool: selection.activeTool,
     selection,
     addressValue,
     setAddressValue,
@@ -124,7 +102,6 @@ export function useToolbarState(): ToolbarState {
     hasSelection,
     hasPages,
     isBrowserMode,
-    defaultToolActive,
     agentCursors,
   }
 }

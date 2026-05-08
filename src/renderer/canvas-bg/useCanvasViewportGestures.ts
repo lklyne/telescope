@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { RefObject } from 'react'
-import type { CanvasBgElectronAPI, LayoutUpdateData, ShapeKind } from '../../shared/types'
+import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
 import {
   classifyViewportWheel,
   isOverlayUiTarget,
@@ -18,30 +18,18 @@ import {
  * marquee, and edge gestures enter through aboveView.
  */
 
-export type ShapePlacementDragPreview = {
-  rect: { left: number; top: number; width: number; height: number }
-  shapeKind: ShapeKind
-}
-
 export function useCanvasViewportGestures({
   api,
   bgRef,
   layoutRef,
-  setPlacementCursor,
-  onShapePlacementPreview,
 }: {
   api: CanvasBgElectronAPI
   bgRef: RefObject<HTMLDivElement | null>
   layoutRef: RefObject<LayoutUpdateData>
-  setPlacementCursor: React.Dispatch<
-    React.SetStateAction<{ clientX: number; clientY: number } | null>
-  >
-  onShapePlacementPreview: (preview: ShapePlacementDragPreview | null) => void
 }) {
   useEffect(() => {
     const el = bgRef.current
     if (!el) return
-    onShapePlacementPreview(null)
 
     // Wheel zoom/pan — document-level so it works over entities too.
     const handleWheel = (event: WheelEvent) => {
@@ -61,22 +49,9 @@ export function useCanvasViewportGestures({
       api.canvasPan(action.deltaX, action.deltaY)
     }
 
-    // Placement cursor + annotate-hover clear — plain pointer tracking,
-    // not a drag gesture.
-    const handlePointerMove = (event: PointerEvent) => {
-      const layout = layoutRef.current
-      if (
-        layout.pendingPlacement &&
-        event.clientY >= layout.canvasOrigin.y &&
-        !isOverlayUiTarget(event.target)
-      ) {
-        setPlacementCursor({ clientX: event.clientX, clientY: event.clientY })
-      }
-    }
-
     const handlePointerEnter = () => {
       const layout = layoutRef.current
-      if (layout.annotationMode !== 'comment') return
+      if (layout.activeTool.kind !== 'comment') return
       api.clearAnnotateHover()
     }
 
@@ -154,7 +129,6 @@ export function useCanvasViewportGestures({
     document.addEventListener('mouseup', handleMiddleMouseUp)
     document.addEventListener('dragover', handleDragOver)
     document.addEventListener('drop', handleDrop)
-    el.addEventListener('pointermove', handlePointerMove)
     el.addEventListener('pointerenter', handlePointerEnter)
     window.addEventListener('blur', handleWindowBlur)
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -166,10 +140,9 @@ export function useCanvasViewportGestures({
       document.removeEventListener('mouseup', handleMiddleMouseUp)
       document.removeEventListener('dragover', handleDragOver)
       document.removeEventListener('drop', handleDrop)
-      el.removeEventListener('pointermove', handlePointerMove)
       el.removeEventListener('pointerenter', handlePointerEnter)
       window.removeEventListener('blur', handleWindowBlur)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [api, bgRef, layoutRef, setPlacementCursor])
+  }, [api, bgRef, layoutRef])
 }

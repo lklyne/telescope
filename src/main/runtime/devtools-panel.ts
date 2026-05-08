@@ -28,7 +28,7 @@ import {
 } from '../ui-state'
 import { layoutAllViews, layoutDevtoolsViews } from './layout-engine'
 import { requestLayout } from './viewport-control'
-import { syncInspectionState, notifyInspectStateChanged, notifyAnnotateStateChanged } from './inspect-session'
+import { syncInspectionState } from './inspect-session'
 import { devtoolsPanelDebug } from './runtime-constants'
 
 export function notifyDevtoolsChanged(): void {
@@ -36,8 +36,6 @@ export function notifyDevtoolsChanged(): void {
     toolbarView.webContents.send('left-sidebar-changed', uiLeftSidebarOpen())
     toolbarView.webContents.send('devtools-changed', uiDevtoolsOpen())
   }
-  notifyInspectStateChanged()
-  notifyAnnotateStateChanged()
 }
 
 export function toggleLeftSidebar(): void {

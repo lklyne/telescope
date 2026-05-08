@@ -5,12 +5,10 @@
  * left sidebar, and annotation overlay renderers.
  */
 
-import { screen } from 'electron'
 import type {
   ActiveCanvasEntitySelection,
   AgentPresenceCursor,
   Annotation,
-  AnnotationMode,
   CanvasSceneEntity,
   CanvasScenePageEntity,
   CanvasSceneGroupEntity,
@@ -25,7 +23,6 @@ import {
   aboveView,
   cursorOverlayWindow,
   leftSidebarView,
-  win,
 } from './view-refs'
 import { safeSend } from './safe-send'
 import { layoutCache } from './layout-cache'
@@ -42,11 +39,10 @@ import {
 import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
 import {
   activeBrowserPageId as uiActiveBrowserPageId,
-  annotationMode as uiAnnotationMode,
+  activeTool as uiActiveTool,
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsWidth as uiDevtoolsWidth,
   leftSidebarOpen as uiLeftSidebarOpen,
-  pendingPlacement as uiPendingPlacement,
   selectedCanvasTargets as uiSelectedCanvasTargets,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
@@ -97,16 +93,6 @@ import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { getPresenceCursors } from '../app-control-server'
 import { getFixProgress } from '../agent-fix/fix-progress'
-
-function mainWindowContentBounds(): {
-  x: number; y: number; width: number; height: number
-} | null {
-  if (!win || win.isDestroyed()) return null
-  if ('getContentBounds' in win && typeof win.getContentBounds === 'function') {
-    return win.getContentBounds()
-  }
-  return win.getBounds()
-}
 
 // --- Exported data builders ---
 
@@ -278,67 +264,71 @@ function buildUserGroupSceneEntities(
     })
 }
 
+function placementEntityKindForTool(tool: ReturnType<typeof uiActiveTool>): PendingPlacement['entityKind'] | null {
+  switch (tool.kind) {
+    case 'add-page':
+      return 'page'
+    case 'add-text':
+      return 'text'
+    case 'add-document':
+      return 'file'
+    case 'add-shape':
+      return 'shape'
+    default:
+      return null
+  }
+}
+
+function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPlacement | null {
+  const entityKind = placementEntityKindForTool(tool)
+  if (!entityKind) return null
+  const isText = entityKind === 'text'
+  const isFile = entityKind === 'file'
+  const isShape = entityKind === 'shape'
+  const presetIndex = tool.kind === 'add-page' ? tool.presetIndex : undefined
+  const customSize = tool.kind === 'add-page' ? tool.customSize === true : false
+  const sourcePageId = tool.kind === 'add-page' ? tool.sourcePageId : undefined
+  const shapeKind = tool.kind === 'add-shape' ? tool.shapeKind : undefined
+  const sourcePage = sourcePageId ? findPageById(sourcePageId) : null
+  const preset = (isText || isFile || isShape)
+    ? null
+    : viewportPresetForIndex(presetIndex ?? 0)
+  const customDims = sourcePage ? pageContentSize(sourcePage) : localFillBrowserViewportSize()
+  const shapeDefault = isShape && shapeKind ? defaultShapeSize(shapeKind) : null
+  return {
+    entityKind,
+    presetIndex,
+    shapeKind,
+    width: isText
+      ? DEFAULT_TEXT_WIDTH
+      : isFile
+        ? DEFAULT_FILE_WIDTH
+        : shapeDefault
+          ? shapeDefault.width
+          : customSize
+            ? customDims.width
+            : (preset?.width ?? 0),
+    height: isText
+      ? DEFAULT_TEXT_HEIGHT
+      : isFile
+        ? DEFAULT_FILE_HEIGHT
+        : shapeDefault
+          ? shapeDefault.height
+          : customSize
+            ? customDims.height
+            : (preset?.height ?? 0),
+  }
+}
+
 export function buildCanvasLayoutData(
   pages: CanvasScenePageEntity[],
   activeSelection: ActiveCanvasEntitySelection | null,
 ): LayoutUpdateData {
   const fillViewport = localFillBrowserViewportSize()
-  const pending = uiPendingPlacement()
+  const tool = uiActiveTool()
   const viewMode = uiWorkspaceViewMode()
   const origin = localCanvasOrigin()
-  const pendingPlacementData: PendingPlacement | null =
-    pending
-      ? (() => {
-          const isText = pending.entityKind === 'text'
-          const isFile = pending.entityKind === 'file'
-          const isShape = pending.entityKind === 'shape'
-          const sourcePage = pending.sourcePageId ? findPageById(pending.sourcePageId) : null
-          const preset = (isText || isFile || isShape) ? null : viewportPresetForIndex(pending.presetIndex ?? 0)
-          const customSize = sourcePage ? pageContentSize(sourcePage) : localFillBrowserViewportSize()
-          const contentBounds = mainWindowContentBounds()
-          const cursor = screen.getCursorScreenPoint()
-          const initialClientX =
-            contentBounds &&
-            cursor.x >= contentBounds.x &&
-            cursor.x <= contentBounds.x + contentBounds.width
-              ? cursor.x - contentBounds.x
-              : null
-          const initialClientY =
-            contentBounds &&
-            cursor.y >= contentBounds.y &&
-            cursor.y <= contentBounds.y + contentBounds.height
-              ? cursor.y - contentBounds.y
-              : null
-          const shapeDefault = isShape
-            ? defaultShapeSize(pending.shapeKind ?? 'rectangle')
-            : null
-          return {
-            entityKind: pending.entityKind,
-            presetIndex: pending.presetIndex,
-            shapeKind: pending.shapeKind,
-            width: isText
-              ? DEFAULT_TEXT_WIDTH
-              : isFile
-                ? DEFAULT_FILE_WIDTH
-                : shapeDefault
-                  ? shapeDefault.width
-                  : pending.customSize
-                    ? customSize.width
-                    : (preset?.width ?? 0),
-            height: isText
-              ? DEFAULT_TEXT_HEIGHT
-              : isFile
-                ? DEFAULT_FILE_HEIGHT
-                : shapeDefault
-                  ? shapeDefault.height
-                  : pending.customSize
-                    ? customSize.height
-                    : (preset?.height ?? 0),
-            initialClientX,
-            initialClientY,
-          }
-        })()
-      : null
+  const pendingPlacementData = buildPlacementPreview(tool)
   const groupEntities = buildUserGroupSceneEntities(origin)
   return {
     zoom,
@@ -366,7 +356,7 @@ export function buildCanvasLayoutData(
     selectedEntityIds: uiSelectedEntityIds(),
     selection: uiSelectedCanvasTargets(),
     activeSelection,
-    annotationMode: uiAnnotationMode(),
+    activeTool: tool,
     annotations: [...workspaceAnnotations],
     fixProgress: getFixProgress(),
     viewMode,
@@ -487,7 +477,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       activeTabId: activeWorkspaceTabId,
       activeTabName,
       viewMode: uiWorkspaceViewMode(),
-      pendingPlacementActive: uiPendingPlacement() !== null,
+      activeTool: uiActiveTool(),
     }
   }
 
@@ -522,6 +512,6 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     activeTabId: activeWorkspaceTabId,
     activeTabName,
     viewMode: uiWorkspaceViewMode(),
-    pendingPlacementActive: uiPendingPlacement() !== null,
+    activeTool: uiActiveTool(),
   }
 }

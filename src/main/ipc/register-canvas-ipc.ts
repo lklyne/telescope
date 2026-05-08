@@ -7,7 +7,7 @@ import { pages } from '../runtime/page-runtime'
 import { aboveView, bgView } from '../runtime/view-refs'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { setHoverEntity, setHoveredPage } from '../runtime/runtime-core'
-import { annotationMode as uiAnnotationMode, selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
+import { activeTool as uiActiveTool, selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
 import {
   canvasOrigin,
   layoutAllViews,
@@ -18,7 +18,6 @@ import {
 import { saveImageBuffer } from '../runtime/image-assets'
 import { imageSizeFromBuffer } from '../runtime/image-sizing'
 import {
-  cancelPendingPlacement,
   focusSelectedPage,
   getSelectedEntityIds,
   selectBrowserTab,
@@ -246,7 +245,7 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on('canvas-hover-page', (_event, { pageId }: { pageId: string | null }) => {
     if (interactionBlocksPageHover()) return
-    if (uiAnnotationMode() === 'region_select') return
+    if (uiActiveTool().kind === 'region-select') return
     setHoveredPage(pageId)
   })
 

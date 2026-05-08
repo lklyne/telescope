@@ -21,23 +21,18 @@ export {
 
 export {
   setHoveredInspectTarget,
-  setInspectMode,
   setInspectNodeFromPanel,
   setSelectedInspectNodeById,
   setSelectedInspectTarget,
 } from './inspect-session'
 
 export {
-  cancelPendingPlacement,
-  clearToolMode,
+  activeTool,
+  clearActiveTool,
+  finishOneShotPlacement,
   isAnnotateMode,
-  pendingPlacement,
+  setActiveTool,
   setDevtoolsPanelTab,
-  startPendingPlacement,
-  toggleAnnotateMode,
-  toggleDrawMode,
-  toggleRegionSelectMode,
-  toggleInspectMode,
 } from './tool-mode'
 
 export { selectAdjacentPage } from './selection-state'

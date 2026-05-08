@@ -33,7 +33,7 @@ export function PageChromeOverlay({
   const selectedPageId =
     layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null
   const hoveredPageId = layoutData.hover?.id ?? null
-  const dragEnabled = layoutData.annotationMode !== 'region_select'
+  const dragEnabled = layoutData.activeTool.kind !== 'region-select'
   return (
     <>
       {pages.map((page) => (

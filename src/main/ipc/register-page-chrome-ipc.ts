@@ -15,7 +15,7 @@ import {
 } from '../runtime/ui-actions'
 import { interactionBlocksPageHover } from '../runtime/interaction-state'
 import {
-  annotationMode as uiAnnotationMode,
+  activeTool as uiActiveTool,
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
@@ -52,7 +52,7 @@ export function registerPageChromeIpc(): void {
 
   ipcMain.on('page-hover', (event, hovered: boolean) => {
     if (interactionBlocksPageHover()) return
-    if (uiAnnotationMode() === 'region_select') return
+    if (uiActiveTool().kind === 'region-select') return
     // Canvas mode: aboveView's gate is unconditionally open (gate-predicate.ts),
     // so its hit-test is the sole hover authority. The page only sees synthetic
     // events forwarded by aboveView, and the blocking overlay's mouseenter can

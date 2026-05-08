@@ -21,10 +21,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     zoomPercent,
     leftSidebarOpen,
     devtoolsOpen,
-    inspectEnabled,
-    inspectAvailable,
-    annotationMode,
-    annotateAvailable,
+    activeTool,
     selection,
     addressValue,
     setAddressValue,
@@ -33,16 +30,15 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     hasSelection,
     hasPages,
     isBrowserMode,
-    defaultToolActive,
     agentCursors,
   } = useToolbarState()
 
   const isDark = useTheme(initialTheme, toolbarApi.onThemeChanged)
 
   useAnnotateToggleShortcut({
-    clearToolMode: toolbarApi.clearToolMode,
-    toggleAnnotateMode: toolbarApi.toggleAnnotateMode,
-    toggleDrawMode: DRAWING_FEATURE_ENABLED ? toolbarApi.toggleDrawMode : undefined,
+    setTool: toolbarApi.setTool,
+    activeTool,
+    drawingEnabled: DRAWING_FEATURE_ENABLED,
   })
   useReportTextEditing(toolbarApi.setTextEditing)
 
@@ -51,18 +47,14 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
       if (!document.hasFocus()) return
       if (
         isPlainShortcutKey(event, 'escape') &&
-        (selection.pendingPlacementActive ||
-          annotationMode !== 'off' ||
-          inspectEnabled ||
-          selection.viewMode === 'browser')
+        (activeTool.kind !== 'select' || selection.viewMode === 'browser')
       ) {
         event.preventDefault()
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur()
         }
-        toolbarApi.cancelPendingPlacement()
-        if (annotationMode !== 'off' || inspectEnabled) {
-          toolbarApi.clearToolMode()
+        if (activeTool.kind !== 'select') {
+          toolbarApi.setTool({ kind: 'select' })
         }
         if (selection.viewMode === 'browser') {
           toolbarApi.toggleBrowserMode()
@@ -77,7 +69,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [annotationMode, inspectEnabled, selection.viewMode])
+  }, [activeTool, selection.viewMode])
   const isMac = navigator.userAgent.includes('Mac')
   const showMultiPageAddressBar = selection.selectionCount > 1
   const showTabsModeAddressBar = isBrowserMode && hasSelection
@@ -156,28 +148,17 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
               <CenterActions
                 isDark={isDark}
                 isBrowserMode={isBrowserMode}
-                defaultToolActive={defaultToolActive}
-                annotationMode={annotationMode}
-                annotateAvailable={annotateAvailable}
+                activeTool={activeTool}
+                hasPages={hasPages}
                 drawingEnabled={DRAWING_FEATURE_ENABLED}
                 hasSelection={hasSelection}
-                inspectEnabled={inspectEnabled}
-                inspectAvailable={inspectAvailable}
                 zoomPercent={zoomPercent}
                 currentPresetValue={currentPresetValue}
-                onAddPage={toolbarApi.addPage}
-                onAddText={toolbarApi.addText}
-                onAddDocument={toolbarApi.addDocument}
-                onAddShape={toolbarApi.addShape}
+                onSetTool={toolbarApi.setTool}
                 onDropdownOpenChange={(open) => {
                   if (open) toolbarApi.dropdownOpen()
                   else toolbarApi.dropdownClose()
                 }}
-                onClearToolMode={toolbarApi.clearToolMode}
-                onToggleAnnotateMode={toolbarApi.toggleAnnotateMode}
-                onToggleDrawMode={toolbarApi.toggleDrawMode}
-                onToggleRegionSelectMode={toolbarApi.toggleRegionSelectMode}
-                onToggleInspectMode={toolbarApi.toggleInspectMode}
                 onToggleTheme={toolbarApi.toggleTheme}
                 onZoomSet={(value) => toolbarApi.zoomSet(value / 100)}
               />
@@ -206,28 +187,17 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
               <CenterActions
                 isDark={isDark}
                 isBrowserMode={isBrowserMode}
-                defaultToolActive={defaultToolActive}
-                annotationMode={annotationMode}
-                annotateAvailable={annotateAvailable}
+                activeTool={activeTool}
+                hasPages={hasPages}
                 drawingEnabled={DRAWING_FEATURE_ENABLED}
                 hasSelection={hasSelection}
-                inspectEnabled={inspectEnabled}
-                inspectAvailable={inspectAvailable}
                 zoomPercent={zoomPercent}
                 currentPresetValue={currentPresetValue}
-                onAddPage={toolbarApi.addPage}
-                onAddText={toolbarApi.addText}
-                onAddDocument={toolbarApi.addDocument}
-                onAddShape={toolbarApi.addShape}
+                onSetTool={toolbarApi.setTool}
                 onDropdownOpenChange={(open) => {
                   if (open) toolbarApi.dropdownOpen()
                   else toolbarApi.dropdownClose()
                 }}
-                onClearToolMode={toolbarApi.clearToolMode}
-                onToggleAnnotateMode={toolbarApi.toggleAnnotateMode}
-                onToggleDrawMode={toolbarApi.toggleDrawMode}
-                onToggleRegionSelectMode={toolbarApi.toggleRegionSelectMode}
-                onToggleInspectMode={toolbarApi.toggleInspectMode}
                 onToggleTheme={toolbarApi.toggleTheme}
                 onZoomSet={(value) => toolbarApi.zoomSet(value / 100)}
               />

@@ -174,6 +174,33 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       }
       const target = hitTest(inputs, { x: event.clientX, y: windowY })
 
+      // Inline-edit outside-click commits the active edit and swallows the
+      // click — per ADR 0001 precedent ("the exit click does not double as
+      // the next interaction"). The user clicks again to act on the new
+      // target. A click that lands on the editing entity's own body is
+      // ignored here; the editor's textarea/contentEditable handles its
+      // own pointer interactions inside that body.
+      const editingEntityId =
+        layout.interaction.kind === 'editing-entity'
+          ? layout.interaction.entityId
+          : null
+      if (editingEntityId !== null) {
+        const hitEntityId =
+          target.payload.kind === 'entity-body' ||
+          target.payload.kind === 'page-body' ||
+          target.payload.kind === 'chrome' ||
+          target.payload.kind === 'resize-handle' ||
+          target.payload.kind === 'anchor'
+            ? target.payload.entityId
+            : null
+        if (hitEntityId !== editingEntityId) {
+          apiRef.current.commitEntityEdit()
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+      }
+
       const modifiers: SelectionModifiers = {
         shift: event.shiftKey,
         meta: event.metaKey,
@@ -225,8 +252,8 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       switch (action.kind) {
         case 'noop':
           return
-        case 'enter-shape-edit':
-          apiRef.current.requestShapeEdit(action.entityId)
+        case 'request-entity-edit':
+          apiRef.current.requestEntityEdit(action.entityId)
           break
         case 'enter-group':
           apiRef.current.enterGroup(action.groupId)
@@ -237,9 +264,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
           // earlier — this branch only fires if the rename label is hit
           // through the chrome slot via hit-test).
           return
-        case 'request-text-edit':
-          apiRef.current.requestTextEdit(action.entityId)
-          break
       }
       event.preventDefault()
       event.stopPropagation()

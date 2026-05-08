@@ -202,10 +202,12 @@ function isSingleSelected(context: CanvasPointerContext, entityId: string): bool
  */
 export type CanvasPointerDoubleClickAction =
   | { kind: 'noop' }
-  | { kind: 'enter-shape-edit'; entityId: string }
+  /** Enter inline edit on any editable canvas item (text, sticky, shape).
+   *  Group rename is dispatched by the rename label's own dblclick (chrome
+   *  hit) and group-body dblclick still descends via `enter-group`. */
+  | { kind: 'request-entity-edit'; entityId: string }
   | { kind: 'enter-group'; groupId: string }
   | { kind: 'enter-group-rename'; groupId: string }
-  | { kind: 'request-text-edit'; entityId: string }
 
 export function routePointerDoubleClick(
   target: HitTarget,
@@ -221,9 +223,8 @@ export function routePointerDoubleClick(
     case 'entity-body':
       switch (target.payload.entityKind) {
         case 'shape':
-          return { kind: 'enter-shape-edit', entityId: target.payload.entityId }
         case 'text':
-          return { kind: 'request-text-edit', entityId: target.payload.entityId }
+          return { kind: 'request-entity-edit', entityId: target.payload.entityId }
         case 'group':
           return { kind: 'enter-group', groupId: target.payload.entityId }
         default:

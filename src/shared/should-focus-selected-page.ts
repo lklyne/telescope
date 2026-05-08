@@ -6,8 +6,8 @@
  * Selection — not a separate "focus" state — drives forwarding. The four
  * divergence cases from the plan are baked in:
  *
- *   1. Inline text editor active over a single-selected page
- *      (`interactionKind === 'editing-text'`) — keystrokes go to the
+ *   1. Inline entity editor active over a single-selected page
+ *      (`interactionKind === 'editing-entity'`) — keystrokes go to the
  *      editor's contenteditable, not the page.
  *   2. `activeTool.kind === 'draw'` with a page selected — strokes are
  *      canvas-bound; the page must not capture keys.

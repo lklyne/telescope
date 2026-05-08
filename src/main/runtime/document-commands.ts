@@ -64,6 +64,7 @@ import {
   useSvgDeviceShellFromMetadata,
 } from './runtime-entities'
 import { selectEntities, selectGroup } from './selection-controller'
+import { cancelEditingEntityIfMatches } from './editing-entity-runtime'
 import { layoutAllViews, pageContentSize, requestLayout, snapToGrid, zoom } from './surface-layout'
 import {
   createTextEntity as createTextEntityInState,
@@ -298,6 +299,7 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
 }
 
 export function deleteTextEntity(id: string): boolean {
+  cancelEditingEntityIfMatches(id)
   const deleted = deleteTextEntityInState(id)
   if (deleted) {
     removeEdgesTouchingEntities(new Set([id]))
@@ -343,6 +345,7 @@ export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id
 }
 
 export function deleteFileEntity(id: string): boolean {
+  cancelEditingEntityIfMatches(id)
   const deleted = deleteFileEntityInState(id)
   if (deleted) {
     removeEdgesTouchingEntities(new Set([id]))
@@ -375,6 +378,7 @@ export function updateDrawingEntity(
 }
 
 export function deleteDrawingEntity(id: string): boolean {
+  cancelEditingEntityIfMatches(id)
   const deleted = deleteDrawingEntityInState(id)
   if (deleted) {
     removeEdgesTouchingEntities(new Set([id]))
@@ -422,6 +426,7 @@ export function updateShapeEntity(
 }
 
 export function deleteShapeEntity(id: string): boolean {
+  cancelEditingEntityIfMatches(id)
   const deleted = deleteShapeEntityInState(id)
   if (deleted) {
     removeEdgesTouchingEntities(new Set([id]))

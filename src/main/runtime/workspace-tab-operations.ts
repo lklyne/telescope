@@ -53,12 +53,17 @@ import { destroyActivePages } from './workspace-restore'
 import { restoreWorkspaceSnapshot, transitionToTab } from './workspace-restore'
 import { clearInspectTargets, syncInspectionState, notifyDevtoolsPanelData } from './inspect-session'
 import { sendInteractiveState } from './overlay-manager'
+import { cancelActive as cancelActiveInteraction } from './interaction-controller'
 
 function makePageId(): string {
   return `page_${randomUUID()}`
 }
 
 export function applyTabState(tab: PersistedWorkspaceTab): void {
+  // Tab switch is a hard transition — drop any in-flight inline edit
+  // before swapping entities. The renderer's blur handler saves the
+  // text on unmount; this just clears the editing-entity mode token.
+  cancelActiveInteraction('tab-switch')
   withWorkspacePersistenceSuspended(() => {
     replaceUiState({
       ...getUiState(),

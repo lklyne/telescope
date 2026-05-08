@@ -47,8 +47,8 @@ export function beginEntityResize(entity: CanvasSelectableTarget): CanvasInterac
   return next
 }
 
-export function beginTextEditing(entityId: string): CanvasInteractionState {
-  const next: CanvasInteractionState = { kind: 'editing-text', entityId }
+export function beginEntityEditing(entityId: string): CanvasInteractionState {
+  const next: CanvasInteractionState = { kind: 'editing-entity', entityId }
   setInteractionState(next)
   markDirty('canvas')
   requestLayout()

@@ -4,10 +4,9 @@ import type { CanvasEntityKind, SelectionModifiers } from '../../shared/types'
 import type { EdgeSide } from '../../shared/types'
 import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
-import { aboveView, bgView } from '../runtime/view-refs'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { setHoverEntity, setHoveredPage } from '../runtime/runtime-core'
-import { activeTool as uiActiveTool, selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
+import { activeTool as uiActiveTool } from '../ui-state'
 import {
   canvasOrigin,
   layoutAllViews,
@@ -33,7 +32,12 @@ import {
   interactionBlocksPageHover,
   interactionBlocksPageSelection,
 } from '../runtime/interaction-state'
-import { tryEnter, commitActive } from '../runtime/interaction-controller'
+import { commitActive } from '../runtime/interaction-controller'
+import {
+  beginEditingEntity,
+  cancelEditingEntity,
+  commitEditingEntity,
+} from '../runtime/editing-entity-runtime'
 import { setTextEditingActive } from '../runtime/keyboard-shortcuts'
 import {
   forwardPointerToPage,
@@ -67,6 +71,7 @@ import { createFileEntity } from '../runtime/document-commands'
 import {
   applyEntitySelectionMutation,
   enterGroup,
+  resolveEntityKind,
   selectGroup,
   selectNone,
 } from '../runtime/selection-controller'
@@ -178,17 +183,6 @@ export function registerCanvasIpc(): void {
       ? ['page', 'text', 'file', 'drawing', 'shape', 'edge']
       : ['page', 'text', 'file', 'shape', 'edge'],
   )
-  const INLINE_TEXT_EDIT_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>([
-    'page',
-    'text',
-    'file',
-    'shape',
-  ])
-  const selectedInlineTextEditEntityId = () =>
-    uiSelectedCanvasTargets().find((target) =>
-      INLINE_TEXT_EDIT_ENTITY_KINDS.has(target.kind)
-    )?.id ?? null
-
   ipcMain.on(
     'canvas-select-entity',
     (
@@ -218,29 +212,35 @@ export function registerCanvasIpc(): void {
     enterGroup(groupId, { clearInteraction: true })
   })
 
-  // dblclick on a text/shape body in aboveView dispatches request-text-edit
-  // / enter-shape-edit through the router; main selects the entity and pings
-  // both views, since the editable surface (sticky body) now lives in
-  // aboveView while inline shape editor still lives in bgView. Whichever
-  // layer hosts the body for that entity picks the ping up; the other ignores.
-  ipcMain.on('canvas-request-text-edit', (_event, { entityId }: { entityId: string }) => {
-    selectEntity(entityId, 'text')
-    if (bgView && !bgView.webContents.isDestroyed()) {
-      bgView.webContents.send('text-begin-edit', { entityId })
-    }
-    if (aboveView && !aboveView.webContents.isDestroyed()) {
-      aboveView.webContents.send('text-begin-edit', { entityId })
-    }
+  // Unified inline-edit entry point. Dblclick on a sticky/text/shape body
+  // (or a group rename label) sends `canvas-request-entity-edit`; main
+  // selects the entity, transitions the InteractionController into
+  // `editing-entity`, and stashes the token. The renderer derives
+  // editing state from the broadcast `interaction` field of the next
+  // layout-update — no separate begin-edit channel.
+  ipcMain.on(
+    'canvas-request-entity-edit',
+    (_event, { entityId }: { entityId: string }) => {
+      const kind = resolveEntityKind(entityId)
+      if (kind === 'edge' || kind === 'drawing') return
+      // Selection first so the renderer's selection outline / chrome
+      // updates atomically with the edit-mode entry. selectEntity for
+      // groups uses selectGroup; pages use selectPageById.
+      if (kind === 'group') {
+        selectGroup(entityId, { clearInteraction: true })
+      } else {
+        selectEntity(entityId, kind)
+      }
+      beginEditingEntity(entityId)
+    },
+  )
+
+  ipcMain.on('canvas-commit-entity-edit', () => {
+    commitEditingEntity()
   })
 
-  ipcMain.on('canvas-request-shape-edit', (_event, { entityId }: { entityId: string }) => {
-    selectEntity(entityId, 'shape')
-    if (bgView && !bgView.webContents.isDestroyed()) {
-      bgView.webContents.send('shape-begin-edit', { entityId })
-    }
-    if (aboveView && !aboveView.webContents.isDestroyed()) {
-      aboveView.webContents.send('shape-begin-edit', { entityId })
-    }
+  ipcMain.on('canvas-cancel-entity-edit', () => {
+    cancelEditingEntity('escape')
   })
 
   ipcMain.on('canvas-hover-page', (_event, { pageId }: { pageId: string | null }) => {
@@ -265,15 +265,13 @@ export function registerCanvasIpc(): void {
     },
   )
 
+  // Renderers report whether a typing target (textarea / contenteditable /
+  // input) is currently focused so canvas-mode keyboard shortcuts back
+  // off (Cmd+Z, single-letter tool hotkeys, etc.). Edit-mode lifecycle
+  // (`editing-entity`) is owned by the request/commit/cancel-entity-edit
+  // IPC pair — this handler stays focus-tracking-only.
   ipcMain.on('canvas-set-text-editing', (event, { active }: { active: boolean }) => {
     setTextEditingActive(event.sender, active)
-    const isCanvasBgEditor = bgView?.webContents === event.sender
-    if (active && isCanvasBgEditor) {
-      const selectedEntityId = selectedInlineTextEditEntityId()
-      if (selectedEntityId) tryEnter({ kind: 'editing-text', entityId: selectedEntityId })
-      return
-    }
-    if (!active) commitActive()
   })
 
   // --- Browser mode ---

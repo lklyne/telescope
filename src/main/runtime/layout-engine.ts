@@ -279,7 +279,7 @@ export function layoutAllViews(): void {
         : interactionState.kind === 'panning-canvas' ? 'panning'
         : interactionState.kind === 'marquee-select' ? 'marquee'
         : interactionState.kind === 'resizing-entity' ? 'resizing-entity'
-        : interactionState.kind === 'editing-text' ? 'editing-text'
+        : interactionState.kind === 'editing-entity' ? 'editing-entity'
         : interactionState.kind,
       activeTool: getUiState().activeTool,
       viewMode: uiWorkspaceViewMode(),

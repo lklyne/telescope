@@ -134,26 +134,10 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-delete-shape', { id }),
   placePendingShape: (canvasX, canvasY, dragRect) =>
     ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY, dragRect: dragRect ?? null }),
-  onShapeBeginEdit: (callback) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      data: { entityId: string },
-    ) => callback(data)
-    ipcRenderer.on('shape-begin-edit', handler)
-    return () => ipcRenderer.removeListener('shape-begin-edit', handler)
-  },
-  onTextBeginEdit: (callback) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      data: { entityId: string },
-    ) => callback(data)
-    ipcRenderer.on('text-begin-edit', handler)
-    return () => ipcRenderer.removeListener('text-begin-edit', handler)
-  },
-  requestTextEdit: (entityId) =>
-    ipcRenderer.send('canvas-request-text-edit', { entityId }),
-  requestShapeEdit: (entityId) =>
-    ipcRenderer.send('canvas-request-shape-edit', { entityId }),
+  requestEntityEdit: (entityId) =>
+    ipcRenderer.send('canvas-request-entity-edit', { entityId }),
+  commitEntityEdit: () => ipcRenderer.send('canvas-commit-entity-edit'),
+  cancelEntityEdit: () => ipcRenderer.send('canvas-cancel-entity-edit'),
   showFileInFinder: (filePath: string) =>
     ipcRenderer.send('canvas-show-file-in-finder', { filePath }),
   updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) =>

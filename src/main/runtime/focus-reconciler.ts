@@ -21,8 +21,8 @@
 import type { FocusTarget } from '../../shared/interaction-types'
 
 export type FocusState = {
-  interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'dragging-edge' | 'editing-text'
-  editingTextEntityId: string | null
+  interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'dragging-edge' | 'editing-entity'
+  editingEntityId: string | null
   selectedPageId: string | null
   workspaceViewMode: 'canvas' | 'browser'
   commentOverlayActive: boolean
@@ -56,10 +56,10 @@ export function expectedFocus(state: FocusState): FocusTarget {
     case 'resizing-entity':
     case 'dragging-edge':
       return { kind: 'aboveView' }
-    case 'editing-text':
+    case 'editing-entity':
       // Inline canvas editors (sticky notes, shapes, markdown files,
-      // wireframes) render in aboveView, so keyboard focus lives there
-      // while typing.
+      // wireframes, group rename) render in aboveView, so keyboard focus
+      // lives there while typing.
       return { kind: 'aboveView' }
     case 'idle':
       break

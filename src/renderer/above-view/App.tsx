@@ -116,39 +116,6 @@ export default function App({
 
   useEffect(() => api.onSelectionOverlayChanged(setSelectionOverlay), [])
 
-  // A text-begin-edit ping (from dblclick + keyboard shortcut) flips the
-  // matching sticky into edit mode. Auto-clears after 1s if the entity
-  // disappears or the layer never picks it up.
-  const [pendingTextEditId, setPendingTextEditId] = useState<string | null>(null)
-  useEffect(() => {
-    if (!pendingTextEditId) return
-    const timeoutId = window.setTimeout(() => setPendingTextEditId(null), 1000)
-    return () => window.clearTimeout(timeoutId)
-  }, [pendingTextEditId])
-  useEffect(
-    () =>
-      api.onTextBeginEdit(({ entityId }) => {
-        setPendingTextEditId(entityId)
-      }),
-    [],
-  )
-
-  // Same pattern for shape entities. Main fans `shape-begin-edit` out to
-  // both views; aboveView flips the matching shape into edit mode.
-  const [pendingShapeEditId, setPendingShapeEditId] = useState<string | null>(null)
-  useEffect(() => {
-    if (!pendingShapeEditId) return
-    const timeoutId = window.setTimeout(() => setPendingShapeEditId(null), 1000)
-    return () => window.clearTimeout(timeoutId)
-  }, [pendingShapeEditId])
-  useEffect(
-    () =>
-      api.onShapeBeginEdit(({ entityId }) => {
-        setPendingShapeEditId(entityId)
-      }),
-    [],
-  )
-
   // Marquee preview ids — outline layer highlights entities that the in-flight
   // marquee currently overlaps. canvas-bg used to derive this; aboveView owns
   // the marquee gesture, so we derive locally from `selectionOverlay`.
@@ -163,6 +130,13 @@ export default function App({
     [layoutData.selectedEntityIds],
   )
   const interactionIdle = layoutData.interaction.kind === 'idle'
+
+  // Single source of truth for "is anything currently in inline-edit mode?"
+  // Derived from the broadcast interaction state — no separate ping channel.
+  const editingEntityId =
+    layoutData.interaction.kind === 'editing-entity'
+      ? layoutData.interaction.entityId
+      : null
 
   const marqueePreviewIds = useMemo(() => {
     if (
@@ -870,14 +844,13 @@ export default function App({
               )}
               isDark={isDark}
               selectedEntityIdSet={selectedEntityIdSet}
-              selectedEntityCount={layoutData.selectedEntityIds.length}
-              pendingEditEntityId={pendingShapeEditId}
+              editingEntityId={editingEntityId}
               canvasOrigin={layoutData.canvasOrigin}
               pan={layoutData.pan}
               zoom={layoutData.zoom}
-              onPendingFocusConsumed={() => setPendingShapeEditId(null)}
               onUpdateText={(id, text) => api.updateShapeEntity(id, { text })}
-              onTextEditingChange={api.setTextEditing}
+              onCommitEdit={api.commitEntityEdit}
+              onCancelEdit={api.cancelEntityEdit}
             />
           ) : null}
 
@@ -888,17 +861,16 @@ export default function App({
               )}
               isDark={isDark}
               selectedEntityIdSet={selectedEntityIdSet}
-              selectedEntityCount={layoutData.selectedEntityIds.length}
-              pendingEditEntityId={pendingTextEditId}
+              editingEntityId={editingEntityId}
               canvasOrigin={layoutData.canvasOrigin}
               pan={layoutData.pan}
               zoom={layoutData.zoom}
-              onPendingFocusConsumed={() => setPendingTextEditId(null)}
               onUpdateText={(id, text) => api.updateTextEntity(id, { text })}
               onUpdateSize={(id, width, height) =>
                 api.updateTextEntity(id, { width, height })
               }
-              onTextEditingChange={api.setTextEditing}
+              onCommitEdit={api.commitEntityEdit}
+              onCancelEdit={api.cancelEntityEdit}
             />
           ) : null}
 
@@ -948,7 +920,12 @@ export default function App({
             isDark={isDark}
             onJsonModeChange={setFileJsonMode}
           />
-          <GroupRenameOverlay api={api} layoutData={layoutData} isDark={isDark} />
+          <GroupRenameOverlay
+            api={api}
+            layoutData={layoutData}
+            isDark={isDark}
+            editingEntityId={editingEntityId}
+          />
 
           {layoutData.viewMode === 'canvas' ? (
             <StickyNotePopover

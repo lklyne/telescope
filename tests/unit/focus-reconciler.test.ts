@@ -4,7 +4,7 @@ import { expectedFocus, focusKey, type FocusState } from '../../src/main/runtime
 function state(overrides: Partial<FocusState> = {}): FocusState {
   return {
     interactionMode: 'idle',
-    editingTextEntityId: null,
+    editingEntityId: null,
     selectedPageId: null,
     workspaceViewMode: 'canvas',
     commentOverlayActive: false,
@@ -35,8 +35,8 @@ describe('expectedFocus', () => {
     })
   }
 
-  it('editing-text routes to aboveView (post-Phase-C: inline editors live in aboveView)', () => {
-    expect(expectedFocus(state({ interactionMode: 'editing-text', editingTextEntityId: 'e1' })))
+  it('editing-entity routes to aboveView (post-Phase-C: inline editors live in aboveView)', () => {
+    expect(expectedFocus(state({ interactionMode: 'editing-entity', editingEntityId: 'e1' })))
       .toEqual({ kind: 'aboveView' })
   })
 

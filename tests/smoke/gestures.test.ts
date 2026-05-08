@@ -58,8 +58,8 @@ const modes: Array<{ label: string; build: () => Promise<TryEnterInput> | TryEnt
     build: async () => ({ kind: 'resizing-entity', target: { kind: 'page', id: await createPage() } }),
   },
   {
-    label: 'editing-text',
-    build: async () => ({ kind: 'editing-text', entityId: await createPage() }),
+    label: 'editing-entity',
+    build: async () => ({ kind: 'editing-entity', entityId: await createPage() }),
   },
   {
     label: 'dragging-edge',

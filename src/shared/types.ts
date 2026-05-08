@@ -89,7 +89,7 @@ export type CanvasInteractionState =
   | { kind: 'marquee-select' }
   | { kind: 'panning-canvas' }
   | { kind: 'resizing-entity'; entity: CanvasSelectableTarget }
-  | { kind: 'editing-text'; entityId: string }
+  | { kind: 'editing-entity'; entityId: string }
 
 export interface CanvasScenePageEntity {
   kind: 'page'
@@ -1642,10 +1642,12 @@ export interface CanvasBgElectronAPI {
     canvasY: number,
     dragRect?: { x: number; y: number; width: number; height: number } | null,
   ) => void
-  onShapeBeginEdit: (callback: (data: { entityId: string }) => void) => () => void
-  onTextBeginEdit: (callback: (data: { entityId: string }) => void) => () => void
-  requestTextEdit: (entityId: string) => void
-  requestShapeEdit: (entityId: string) => void
+  /** Enter inline-edit mode on an entity (sticky, shape, group, etc.). */
+  requestEntityEdit: (entityId: string) => void
+  /** Commit the active inline edit (renderers fire on blur). */
+  commitEntityEdit: () => void
+  /** Cancel the active inline edit (renderers fire on Escape). */
+  cancelEntityEdit: () => void
   showFileInFinder: (filePath: string) => void
   updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) => void
   duplicateGroup: (id: string) => void

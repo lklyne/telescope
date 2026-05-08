@@ -50,9 +50,9 @@ describe('shouldFocusSelectedPage — selection shape', () => {
 })
 
 describe('shouldFocusSelectedPage — divergence cases (plan §8 Phase A)', () => {
-  it('case 1: inline text editor active — interactionKind=editing-text excludes', () => {
+  it('case 1: inline entity editor active — interactionKind=editing-entity excludes', () => {
     expect(
-      shouldFocusSelectedPage(inputs({ interactionKind: 'editing-text' })),
+      shouldFocusSelectedPage(inputs({ interactionKind: 'editing-entity' })),
     ).toBeNull()
   })
 
@@ -90,7 +90,7 @@ describe('shouldFocusSelectedPage — interaction modes other than idle exclude'
     'dragging-entities',
     'resizing-entity',
     'dragging-edge',
-    'editing-text',
+    'editing-entity',
   ] as const) {
     it(`returns null when interactionKind=${interactionKind}`, () => {
       expect(shouldFocusSelectedPage(inputs({ interactionKind }))).toBeNull()

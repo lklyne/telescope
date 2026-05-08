@@ -20,6 +20,7 @@ export function MarkdownEditor({
   onChange,
   onFocus,
   onBlur,
+  onEscape,
   isDark,
   autoFocus = false,
   onAutoFocusConsumed,
@@ -31,6 +32,8 @@ export function MarkdownEditor({
   onChange: (value: string) => void
   onFocus?: () => void
   onBlur?: () => void
+  /** Called when the user presses Escape inside the editor. */
+  onEscape?: () => void
   isDark: boolean
   autoFocus?: boolean
   onAutoFocusConsumed?: () => void
@@ -45,9 +48,11 @@ export function MarkdownEditor({
   const onChangeRef = useRef(onChange)
   const onFocusRef = useRef(onFocus)
   const onBlurRef = useRef(onBlur)
+  const onEscapeRef = useRef(onEscape)
   onChangeRef.current = onChange
   onFocusRef.current = onFocus
   onBlurRef.current = onBlur
+  onEscapeRef.current = onEscape
 
   useEffect(() => {
     const container = containerRef.current
@@ -76,6 +81,14 @@ export function MarkdownEditor({
         },
         mousedown: (event) => {
           event.stopPropagation()
+          return false
+        },
+        keydown: (event) => {
+          if (event.key === 'Escape' && onEscapeRef.current) {
+            event.preventDefault()
+            onEscapeRef.current()
+            return true
+          }
           return false
         },
       }),

@@ -11,16 +11,16 @@ function target(payload: HitTarget['payload']): HitTarget {
 }
 
 describe('routePointerDoubleClick', () => {
-  it('shape body → enter-shape-edit', () => {
+  it('shape body → request-entity-edit', () => {
     expect(
       routePointerDoubleClick(target({ kind: 'entity-body', entityId: 's1', entityKind: 'shape' })),
-    ).toEqual({ kind: 'enter-shape-edit', entityId: 's1' })
+    ).toEqual({ kind: 'request-entity-edit', entityId: 's1' })
   })
 
-  it('text body → request-text-edit', () => {
+  it('text body → request-entity-edit', () => {
     expect(
       routePointerDoubleClick(target({ kind: 'entity-body', entityId: 't1', entityKind: 'text' })),
-    ).toEqual({ kind: 'request-text-edit', entityId: 't1' })
+    ).toEqual({ kind: 'request-entity-edit', entityId: 't1' })
   })
 
   it('group body → enter-group', () => {

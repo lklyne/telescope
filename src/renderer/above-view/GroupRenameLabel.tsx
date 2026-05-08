@@ -4,9 +4,13 @@
  * `data-overlay-ui` so the canvas-pointer-router yields. Group bounds
  * (the bordered rect itself) keep rendering in canvas-bg via
  * `GroupBoundsLayer` — only the rename label moves.
+ *
+ * Edit-mode entry/commit/cancel flows through the unified
+ * `canvas-{request,commit,cancel}-entity-edit` IPC pair (the same
+ * channel used by sticky/text/shape bodies); `isRenaming` is derived
+ * from `editingEntityId === group.id`, never local state.
  */
 
-import { useState } from 'react'
 import { FolderOpen } from 'lucide-react'
 import type {
   CanvasBgElectronAPI,
@@ -22,10 +26,12 @@ export function GroupRenameOverlay({
   api,
   layoutData,
   isDark,
+  editingEntityId,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
   isDark: boolean
+  editingEntityId: string | null
 }) {
   if (layoutData.viewMode !== 'canvas') return null
   const groups = layoutData.groups ?? []
@@ -39,6 +45,7 @@ export function GroupRenameOverlay({
           layoutData={layoutData}
           group={group}
           isDark={isDark}
+          isRenaming={editingEntityId === group.id}
         />
       ))}
     </>
@@ -50,13 +57,14 @@ function GroupRenameItem({
   layoutData,
   group,
   isDark,
+  isRenaming,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
   group: CanvasSceneGroupEntity
   isDark: boolean
+  isRenaming: boolean
 }) {
-  const [isRenaming, setIsRenaming] = useState(false)
   const labelColorClass = group.color
     ? isDark ? 'text-zinc-100' : 'text-zinc-900'
     : isDark ? 'text-zinc-300' : 'text-zinc-700'
@@ -140,19 +148,19 @@ function GroupRenameItem({
         cursor: isRenaming ? 'text' : 'grab',
       }}
       onMouseDown={onMouseDown}
-      onDoubleClick={() => setIsRenaming(true)}
+      onDoubleClick={() => api.requestEntityEdit(group.id)}
     >
       <span className="inline-flex items-center gap-1 pb-1">
         <FolderOpen size={14} className={`shrink-0 ${iconColorClass}`} />
         <InlineEditLabel
           value={group.label}
           isEditing={isRenaming}
-          onStartEdit={() => setIsRenaming(true)}
+          onStartEdit={() => api.requestEntityEdit(group.id)}
           onCommit={(next) => {
-            setIsRenaming(false)
             api.renameGroup(group.id, next)
+            api.commitEntityEdit()
           }}
-          onCancel={() => setIsRenaming(false)}
+          onCancel={() => api.cancelEntityEdit()}
           variant="canvas-chrome"
           isDark={isDark}
           titleClassName="min-w-0 truncate"

@@ -44,6 +44,7 @@ import {
   pageBoundsById,
 } from './workspace-entities'
 import { findDuplicatePlacement } from './workspace-placement'
+import { cancelEditingEntityIfMatches } from './runtime/editing-entity-runtime'
 
 // --- Entity parent-group helpers ---
 
@@ -274,6 +275,7 @@ export function deleteGroups(input: DeleteGroupsRequest): DeleteGroupsResponse {
   const deletedEdgeIds: string[] = []
   const missingGroupIds: string[] = []
 
+  for (const groupId of input.groupIds) cancelEditingEntityIfMatches(groupId)
   for (const groupId of input.groupIds) {
     const idx = workspaceGroups.findIndex((group) => group.id === groupId)
     if (idx === -1) {

@@ -21,7 +21,7 @@ function interactionModeKey(): FocusState['interactionMode'] {
     case 'dragging-entities': return 'dragging-entities'
     case 'resizing-entity': return 'resizing-entity'
     case 'dragging-edge': return 'dragging-edge'
-    case 'editing-text': return 'editing-text'
+    case 'editing-entity': return 'editing-entity'
   }
 }
 
@@ -30,7 +30,7 @@ function currentFocusState(): FocusState {
   const selectedPage = idx != null ? pages[idx] : null
   return {
     interactionMode: interactionModeKey(),
-    editingTextEntityId: interactionState.kind === 'editing-text' ? interactionState.entityId : null,
+    editingEntityId: interactionState.kind === 'editing-entity' ? interactionState.entityId : null,
     selectedPageId: selectedPage?.id ?? null,
     workspaceViewMode: workspaceViewMode(),
     commentOverlayActive: isCommentOverlayVisible(),

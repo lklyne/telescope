@@ -78,7 +78,7 @@ function predicateInteractionKind(
     case 'dragging-entities': return 'dragging-entities'
     case 'resizing-entity': return 'resizing-entity'
     case 'dragging-edge': return 'dragging-edge'
-    case 'editing-text': return 'editing-text'
+    case 'editing-entity': return 'editing-entity'
   }
 }
 

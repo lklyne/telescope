@@ -75,6 +75,32 @@ Per [ADR 0002](./docs/adr/0002-canvas-anchored-overlay-ui.md). All canvas-anchor
 - **`useAnchoredPosition(entityId, slot)`** — pure positioning hook. Reads the layout broadcast aboveView already receives, returns screen-space coords for the entity's chrome slot.
 - **`EntityChrome` compound** — the `Root / DragTrigger / Title / Actions / Button` primitives composed inside `CanvasItemChrome` consumers. Style once, compose differently per consumer.
 
+## Tools
+
+A **Tool** is the single representation of "what does my next click/gesture do?" There is exactly one active tool at any moment. Tools are mutually exclusive; you switch by toolbar click, keyboard shortcut, or Escape (which returns to `select`). See [ADR 0005](./docs/adr/0005-unified-tool-concept.md).
+
+```ts
+type Tool =
+  | { kind: 'select' }                                                       // default
+  | { kind: 'add-page' }                                                     // one-shot
+  | { kind: 'add-text', style: 'plain' | 'sticky' }                          // one-shot
+  | { kind: 'add-document' }                                                 // one-shot
+  | { kind: 'add-shape', shapeKind: 'rectangle' | 'ellipse' | 'diamond' }    // one-shot
+  | { kind: 'comment' }                                                      // persistent
+  | { kind: 'draw' }                                                         // persistent — creates drawing entities
+  | { kind: 'region-select' }                                                // persistent
+  | { kind: 'inspect' }                                                      // persistent
+```
+
+- **One-shot tools** auto-revert to `select` after one placement.
+- **Persistent tools** stay active until toggled off, replaced, or Escape.
+- The toolbar does **not** visually distinguish one-shot from persistent — users learn the duration by use.
+- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `region-select` → "selecting region", `inspect` → "inspecting".
+
+Replaces three previously-parallel state machines: `pendingPlacement`, `AnnotationMode`, and the `inspect` boolean. The legacy term "annotation mode" no longer names a state — annotations themselves remain, but the *mode of being in the comment tool* is just a tool.
+
+**Not a tool:** **View mode** (canvas vs browser). View mode answers "which surface am I looking at?", not "what does my next click do?" — it's structural, not transient. Stays in its own state.
+
 ## UI copy voice
 
 - **Sentence case** — capitalize the first word only. Default for menus, buttons, dialog text, chrome labels: "Reveal codebase in finder", "Delete project…", "Rename".

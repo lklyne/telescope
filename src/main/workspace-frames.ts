@@ -87,7 +87,6 @@ function ensureManualRowGroup(sourceFrameId: string, url: string): WorkspaceGrou
     width: sourceBounds.width + USER_GROUP_PADDING * 2,
     height: sourceBounds.height + USER_GROUP_PADDING * 2,
     parentGroupId: existingPage?.parentGroupId,
-    groupKind: 'breakpoint_cluster',
     layoutMode: 'row',
     managedLayout: true,
     metadata: {

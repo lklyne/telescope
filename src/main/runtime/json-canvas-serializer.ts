@@ -205,7 +205,6 @@ function serializeGroupEntityToGroupNode(entity: PersistedGroupEntity): JsonCanv
     label: entity.label,
     color: entity.color,
     // App-specific extensions
-    groupKind: entity.groupKind,
     layoutMode: entity.layoutMode,
     parentGroupId: entity.parentGroupId,
     managedLayout: entity.managedLayout,
@@ -395,7 +394,6 @@ function deserializeGroupNodeToGroup(node: JsonCanvasGroupNode): PersistedGroupE
     height: node.height,
     parentGroupId: node.parentGroupId,
     color: node.groupColor ?? node.color,
-    groupKind: (node.groupKind as PersistedGroupEntity['groupKind']) ?? 'manual',
     layoutMode: (node.layoutMode as PersistedGroupEntity['layoutMode']) ?? 'freeform',
     managedLayout: node.managedLayout ?? false,
     sourceTaskId: node.sourceTaskId,

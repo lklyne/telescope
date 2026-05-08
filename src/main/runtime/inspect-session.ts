@@ -368,7 +368,6 @@ function buildGroupEntityDetail(entityId: string): PanelGroupEntityDetail | unde
     id: group.id,
     label: group.label,
     color: group.color,
-    groupKind: group.groupKind,
     layoutMode: group.layoutMode,
     entityIds: group.entityIds ?? [],
   }

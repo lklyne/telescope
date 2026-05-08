@@ -55,7 +55,6 @@ export interface JsonCanvasGroupNode extends JsonCanvasNodeBase {
   background?: string
   backgroundStyle?: 'cover' | 'ratio' | 'repeat'
   // App-specific extensions
-  groupKind?: string
   layoutMode?: string
   frameIds?: string[]
   entityIds?: string[]

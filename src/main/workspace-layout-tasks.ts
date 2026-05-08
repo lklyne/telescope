@@ -55,7 +55,7 @@ function clusterBoundsForPresets(presetIndexes: number[]): { width: number; heig
 
 function duplicateClusterWarning(url: string, presetLabels: string[]): string[] {
   const duplicates = workspaceGroups.filter((group) => {
-    if (group.kind !== 'breakpoint_cluster') return false
+    if (group.metadata?.taskKind !== 'breakpoint_map') return false
     return (
       group.metadata?.url === url &&
       JSON.stringify(group.metadata?.presets ?? []) === JSON.stringify(presetLabels)
@@ -208,7 +208,6 @@ export function layoutComponentStates(
     canvasY: placement.canvasY - USER_GROUP_PADDING,
     width: width + USER_GROUP_PADDING * 2,
     height: height + USER_GROUP_PADDING * 2,
-    groupKind: 'component_states',
     layoutMode: 'row',
     managedLayout: true,
     frameIds: [],
@@ -318,7 +317,6 @@ export function applyTaskLayout(
     canvasY: placement.canvasY - USER_GROUP_PADDING,
     width: clusterSize.width + USER_GROUP_PADDING * 2,
     height: clusterSize.height + USER_GROUP_PADDING * 2,
-    groupKind: 'breakpoint_cluster',
     layoutMode: 'row',
     managedLayout: true,
     frameIds: [],

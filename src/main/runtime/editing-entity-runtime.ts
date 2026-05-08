@@ -19,7 +19,7 @@
  *     automatically.
  */
 
-import type { Token } from '../../shared/interaction-types'
+import type { CancelReason, Token } from '../../shared/interaction-types'
 import {
   cancel as cancelInteraction,
   commit as commitInteraction,
@@ -75,7 +75,7 @@ export function commitEditingEntity(): void {
 /**
  * Cancel the active edit, if any. Idempotent: a no-op when not editing.
  */
-export function cancelEditingEntity(reason: 'escape' | 'external' = 'escape'): void {
+export function cancelEditingEntity(reason: CancelReason = 'escape'): void {
   syncTokenWithMode()
   if (!activeToken) return
   const token = activeToken

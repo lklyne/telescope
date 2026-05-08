@@ -174,17 +174,15 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       }
       const target = hitTest(inputs, { x: event.clientX, y: windowY })
 
-      // Inline-edit outside-click commits the active edit and swallows the
-      // click — per ADR 0001 precedent ("the exit click does not double as
-      // the next interaction"). The user clicks again to act on the new
-      // target. A click that lands on the editing entity's own body is
-      // ignored here; the editor's textarea/contentEditable handles its
-      // own pointer interactions inside that body.
+      // Inline-edit outside-click (primary button) commits the active edit
+      // and swallows the click — per ADR 0001 precedent: the exit click
+      // does not double as the next interaction. Right/middle clicks fall
+      // through so context menus and middle-click pan still work.
       const editingEntityId =
         layout.interaction.kind === 'editing-entity'
           ? layout.interaction.entityId
           : null
-      if (editingEntityId !== null) {
+      if (editingEntityId !== null && event.button === 0) {
         const hitEntityId =
           target.payload.kind === 'entity-body' ||
           target.payload.kind === 'page-body' ||

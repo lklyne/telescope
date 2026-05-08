@@ -275,8 +275,8 @@ export function deleteGroups(input: DeleteGroupsRequest): DeleteGroupsResponse {
   const deletedEdgeIds: string[] = []
   const missingGroupIds: string[] = []
 
-  for (const groupId of input.groupIds) cancelEditingEntityIfMatches(groupId)
   for (const groupId of input.groupIds) {
+    cancelEditingEntityIfMatches(groupId)
     const idx = workspaceGroups.findIndex((group) => group.id === groupId)
     if (idx === -1) {
       missingGroupIds.push(groupId)

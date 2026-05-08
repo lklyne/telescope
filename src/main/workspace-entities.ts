@@ -269,8 +269,8 @@ export function deletePages(input: DeletePagesRequest): DeletePagesResponse {
   const deletedPageIds: string[] = []
   const missingPageIds: string[] = []
 
-  for (const pageId of input.pageIds) cancelEditingEntityIfMatches(pageId)
   for (const pageId of input.pageIds) {
+    cancelEditingEntityIfMatches(pageId)
     const removed = removePageById(pageId)
     if (!removed) {
       missingPageIds.push(pageId)

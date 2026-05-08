@@ -9,7 +9,13 @@ import type { WebContents } from 'electron'
 import type { FocusTarget } from '../../shared/interaction-types'
 import { expectedFocus, focusKey, type FocusState } from './focus-reconciler'
 import { aboveView, bgView, toolbarView, leftSidebarView, win } from './view-refs'
-import { pages, interactionState, pendingFocus, setPendingFocus } from './runtime-context'
+import {
+  getEditingEntityId,
+  pages,
+  interactionState,
+  pendingFocus,
+  setPendingFocus,
+} from './runtime-context'
 import { isCommentOverlayVisible, selectedPageIndex, workspaceViewMode } from '../ui-state'
 import { currentKeyboardTargetPageId } from './selection-controller'
 
@@ -30,7 +36,7 @@ function currentFocusState(): FocusState {
   const selectedPage = idx != null ? pages[idx] : null
   return {
     interactionMode: interactionModeKey(),
-    editingEntityId: interactionState.kind === 'editing-entity' ? interactionState.entityId : null,
+    editingEntityId: getEditingEntityId(),
     selectedPageId: selectedPage?.id ?? null,
     workspaceViewMode: workspaceViewMode(),
     commentOverlayActive: isCommentOverlayVisible(),

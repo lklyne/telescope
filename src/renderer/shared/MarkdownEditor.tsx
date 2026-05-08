@@ -44,6 +44,7 @@ export function MarkdownEditor({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartmentRef = useRef<Compartment | null>(null)
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const onChangeRef = useRef(onChange)
   const onFocusRef = useRef(onFocus)
@@ -77,11 +78,12 @@ export function MarkdownEditor({
         },
         blur: () => {
           // Defer one tick: an Electron WCV layout/focus-reconcile can
-          // briefly steal focus from contentDOM right as we enter
-          // editing-entity, and immediately return it. If we fired onBlur
-          // synchronously we'd commit the edit on every spurious thrash.
-          // Skip when focus has come back by the next task.
-          setTimeout(() => {
+          // briefly steal focus from contentDOM and immediately return
+          // it. Firing onBlur synchronously would commit on every
+          // spurious thrash.
+          if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+          blurTimerRef.current = setTimeout(() => {
+            blurTimerRef.current = null
             if (viewRef.current?.hasFocus) return
             onBlurRef.current?.()
           }, 0)
@@ -119,6 +121,10 @@ export function MarkdownEditor({
     }
 
     return () => {
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current)
+        blurTimerRef.current = null
+      }
       view.destroy()
       viewRef.current = null
       themeCompartmentRef.current = null

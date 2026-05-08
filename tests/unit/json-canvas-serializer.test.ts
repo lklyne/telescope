@@ -7,8 +7,10 @@ import type {
   PersistedDrawingEntity,
   PersistedFileEntity,
   PersistedShapeEntity,
+  PersistedTextEntity,
   WorkspaceSnapshot,
 } from '../../src/shared/types'
+import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
 
 function emptySnapshot(): WorkspaceSnapshot {
   return {
@@ -147,6 +149,87 @@ describe('json-canvas-serializer drawings', () => {
     const doc = serializeToJsonCanvas(snapshot)
     const { snapshot: restored } = deserializeFromJsonCanvas(doc)
     expect(restored.entities?.['sh2']).toEqual(shape)
+  })
+
+  it('round-trips a plain text entity via specular.textStyle', () => {
+    const text: PersistedTextEntity = {
+      kind: 'text',
+      id: 't-plain',
+      text: 'Heading',
+      color: '#FFE18E',
+      textStyle: 'plain',
+      canvasX: 10,
+      canvasY: 20,
+      width: 200,
+      height: 60,
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['t-plain'] = text
+    snapshot.entityOrder = ['t-plain']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes).toHaveLength(1)
+    expect(doc.nodes[0]).toMatchObject({
+      type: 'text',
+      id: 't-plain',
+      text: 'Heading',
+      specular: { textStyle: 'plain' },
+    })
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['t-plain']).toEqual(text)
+  })
+
+  it('round-trips a sticky text entity via specular.textStyle', () => {
+    const text: PersistedTextEntity = {
+      kind: 'text',
+      id: 't-sticky',
+      text: 'remember this',
+      color: '#FFE18E',
+      textStyle: 'sticky',
+      canvasX: 0,
+      canvasY: 0,
+      width: 200,
+      height: 200,
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['t-sticky'] = text
+    snapshot.entityOrder = ['t-sticky']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes[0]).toMatchObject({
+      type: 'text',
+      id: 't-sticky',
+      specular: { textStyle: 'sticky' },
+    })
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['t-sticky']).toEqual(text)
+  })
+
+  it('defaults legacy text nodes (no specular field) to textStyle: sticky', () => {
+    const legacyDoc: JsonCanvasDocument = {
+      nodes: [
+        {
+          id: 't-legacy',
+          type: 'text',
+          x: 5,
+          y: 6,
+          width: 100,
+          height: 50,
+          text: 'old note',
+          color: '3',
+        },
+      ],
+      edges: [],
+    }
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(legacyDoc)
+    expect(restored.entities?.['t-legacy']).toMatchObject({
+      kind: 'text',
+      id: 't-legacy',
+      textStyle: 'sticky',
+    })
   })
 
   it('preserves drawing z-order among other entities', () => {

@@ -229,6 +229,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             canvasY: entity.canvasY,
             text: (entity as any).text,
             color: (entity as any).color,
+            textStyle: (entity as any).textStyle,
             width: (entity as any).width,
             height: (entity as any).height,
             parentGroupId: (entity as any).parentGroupId,

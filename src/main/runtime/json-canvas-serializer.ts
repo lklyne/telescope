@@ -134,7 +134,7 @@ function serializeFrameToLinkNode(entity: PersistedFrameEntity): JsonCanvasLinkN
 }
 
 function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNode {
-  return {
+  const node: JsonCanvasTextNode = {
     id: entity.id,
     type: 'text',
     x: entity.canvasX,
@@ -144,6 +144,10 @@ function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNod
     text: entity.text,
     color: entity.color,
   }
+  if (entity.textStyle !== undefined) {
+    node.specular = { textStyle: entity.textStyle }
+  }
+  return node
 }
 
 function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNode {
@@ -328,6 +332,7 @@ function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTextEntit
     id: node.id,
     text: node.text,
     color: resolveCanvasColor(node.color ?? '3'),
+    textStyle: node.specular?.textStyle ?? 'sticky',
     canvasX: node.x,
     canvasY: node.y,
     width: node.width,

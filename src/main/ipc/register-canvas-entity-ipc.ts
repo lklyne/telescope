@@ -148,7 +148,11 @@ export function registerCanvasEntityIpc(): void {
       const placement = pendingPlacement()
       if (!placement) return
       if (placement.entityKind === 'text') {
-        createTextEntity({ canvasX, canvasY })
+        createTextEntity({
+          canvasX,
+          canvasY,
+          textStyle: placement.textStyle ?? 'sticky',
+        })
       } else if (placement.entityKind === 'file') {
         try {
           const filePath = createNoteFile()

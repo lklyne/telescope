@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto'
 import type {
   CanvasSceneTextEntity,
   PersistedTextEntity,
+  TextEntityStyle,
 } from '../../shared/types'
 import { resolveCanvasColor, COLOR_PRESETS } from '../../shared/canvas-colors'
 import { markDirty } from './layout-dirty'
@@ -19,6 +20,7 @@ export interface TextEntity {
   id: string
   text: string
   color: string
+  textStyle: TextEntityStyle
   canvasX: number
   canvasY: number
   width: number
@@ -38,6 +40,7 @@ export function createTextEntity(input: {
   canvasY: number
   text?: string
   color?: string
+  textStyle?: TextEntityStyle
   width?: number
   height?: number
   id?: string
@@ -48,6 +51,7 @@ export function createTextEntity(input: {
     id: input.id ?? `text_${randomUUID()}`,
     text: input.text ?? '',
     color: resolveCanvasColor(input.color ?? '3'),
+    textStyle: input.textStyle ?? 'sticky',
     canvasX: input.canvasX,
     canvasY: input.canvasY,
     width: input.width ?? DEFAULT_TEXT_WIDTH,
@@ -65,6 +69,7 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
   if (!entity) return null
   if (patch.text !== undefined) entity.text = patch.text
   if (patch.color !== undefined) entity.color = resolveCanvasColor(patch.color)
+  if (patch.textStyle !== undefined) entity.textStyle = patch.textStyle
   if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
   if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
   if (patch.width !== undefined) entity.width = patch.width
@@ -100,6 +105,7 @@ export function buildTextEntitySceneEntity(
     id: entity.id,
     text: entity.text,
     color: entity.color,
+    textStyle: entity.textStyle,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
     width: entity.width,
@@ -118,6 +124,7 @@ export function persistTextEntity(entity: TextEntity): PersistedTextEntity {
     id: entity.id,
     text: entity.text,
     color: entity.color,
+    textStyle: entity.textStyle,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
     width: entity.width,

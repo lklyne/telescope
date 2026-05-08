@@ -21,9 +21,19 @@ export interface JsonCanvasNodeBase {
   color?: CanvasColor
 }
 
+/**
+ * Specular-only fields on a JSON Canvas node, namespaced so they don't
+ * collide with other tools' extensions. See ADR 0004.
+ */
+export interface SpecularNodeExtensions {
+  /** 'plain' = unbacked text; 'sticky' = colored card. Missing → 'sticky'. */
+  textStyle?: 'plain' | 'sticky'
+}
+
 export interface JsonCanvasTextNode extends JsonCanvasNodeBase {
   type: 'text'
   text: string
+  specular?: SpecularNodeExtensions
 }
 
 export interface JsonCanvasLinkNode extends JsonCanvasNodeBase {

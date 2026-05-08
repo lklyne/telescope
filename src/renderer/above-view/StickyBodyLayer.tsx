@@ -53,6 +53,7 @@ function StickyShell({
   isDark,
   isSelected,
   background,
+  textStyle,
   children,
 }: {
   id: string
@@ -63,8 +64,10 @@ function StickyShell({
   isDark: boolean
   isSelected: boolean
   background: string
+  textStyle: 'plain' | 'sticky'
   children: React.ReactNode
 }) {
+  const isPlain = textStyle === 'plain'
   return (
     <div
       data-entity-id={id}
@@ -74,10 +77,12 @@ function StickyShell({
         top: canvasY,
         width,
         height,
-        background,
-        boxShadow: isDark
-          ? '0 2px 8px rgba(0, 0, 0, 0.3)'
-          : '0 2px 8px rgba(0, 0, 0, 0.08)',
+        background: isPlain ? 'transparent' : background,
+        boxShadow: isPlain
+          ? 'none'
+          : isDark
+            ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+            : '0 2px 8px rgba(0, 0, 0, 0.08)',
         overflow: isSelected ? 'visible' : 'hidden',
         cursor: 'default',
         touchAction: 'none',
@@ -143,6 +148,10 @@ function StickyCard({
     }, 300)
   }
 
+  const textStyle = note.textStyle
+  const isPlain = textStyle === 'plain'
+  const textColor = isPlain ? (isDark ? '#f4f4f5' : '#18181b') : 'rgb(0, 0, 0)'
+  const placeholder = isPlain ? 'Type some text...' : 'Type a note...'
   return (
     <StickyShell
       id={note.id}
@@ -153,6 +162,7 @@ function StickyCard({
       isDark={isDark}
       isSelected={isSelected}
       background={resolveCanvasColor(note.color)}
+      textStyle={textStyle}
     >
       <div
         style={{
@@ -162,26 +172,30 @@ function StickyCard({
           flexDirection: 'column',
         }}
       >
-        <div
-          style={{ minHeight: 8, cursor: 'grab' }}
-          onMouseDown={(e) => {
-            if (e.button !== 0) return
-            e.stopPropagation()
-          }}
-        />
+        {!isPlain ? (
+          <div
+            style={{ minHeight: 8, cursor: 'grab' }}
+            onMouseDown={(e) => {
+              if (e.button !== 0) return
+              e.stopPropagation()
+            }}
+          />
+        ) : null}
         {canEdit ? (
           <textarea
             ref={textareaRef}
-            className="text-block-textarea flex-1 w-full resize-none border-none outline-none bg-transparent px-2.5 pb-2"
+            className={`text-block-textarea flex-1 w-full resize-none border-none outline-none bg-transparent ${
+              isPlain ? 'px-0 pb-0' : 'px-2.5 pb-2'
+            }`}
             style={{
               boxSizing: 'border-box',
               fontSize: 12,
-              color: 'rgb(0, 0, 0)',
+              color: textColor,
               fontFamily: 'system-ui, sans-serif',
-              paddingTop: '0.3em',
+              paddingTop: isPlain ? 0 : '0.3em',
             }}
             value={localText}
-            placeholder="Type a note..."
+            placeholder={placeholder}
             onChange={(e) => handleTextChange(e.target.value)}
             onFocus={() => {
               isFocusedRef.current = true
@@ -200,15 +214,17 @@ function StickyCard({
           />
         ) : (
           <div
-            className="flex-1 select-none overflow-hidden px-2 pb-2 text-block-markdown"
+            className={`flex-1 select-none overflow-hidden text-block-markdown ${
+              isPlain ? 'px-0 pb-0' : 'px-2 pb-2'
+            }`}
             style={{
               fontSize: 12,
-              color: 'rgb(0, 0, 0)',
+              color: textColor,
               fontFamily: 'system-ui, sans-serif',
               wordBreak: 'break-word',
             }}
           >
-            {localText ? <Markdown>{localText}</Markdown> : <span>Type a note...</span>}
+            {localText ? <Markdown>{localText}</Markdown> : <span>{placeholder}</span>}
           </div>
         )}
       </div>
@@ -221,6 +237,7 @@ const MemoStickyCard = memo(StickyCard, (prev, next) => {
     prev.note.id === next.note.id &&
     prev.note.text === next.note.text &&
     prev.note.color === next.note.color &&
+    prev.note.textStyle === next.note.textStyle &&
     prev.note.canvasX === next.note.canvasX &&
     prev.note.canvasY === next.note.canvasY &&
     prev.note.width === next.note.width &&

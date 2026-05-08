@@ -9,7 +9,7 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
     workspaceViewMode: 'canvas',
     commentOverlayActive: false,
     pendingFocus: null,
-    focusedFrameId: null,
+    focusedPageId: null,
     ...overrides,
   }
 }
@@ -44,21 +44,21 @@ describe('expectedFocus', () => {
     expect(expectedFocus(state({ commentOverlayActive: true }))).toEqual({ kind: 'aboveView' })
   })
 
-  describe('focusedFrameId (predicate-derived keyboard target)', () => {
+  describe('focusedPageId (predicate-derived keyboard target)', () => {
     it('routes to the target page in idle canvas mode', () => {
-      expect(expectedFocus(state({ focusedFrameId: 'f1' })))
+      expect(expectedFocus(state({ focusedPageId: 'f1' })))
         .toEqual({ kind: 'page', id: 'f1' })
     })
     it('yields to active gestures', () => {
-      expect(expectedFocus(state({ focusedFrameId: 'f1', interactionMode: 'panning' })))
+      expect(expectedFocus(state({ focusedPageId: 'f1', interactionMode: 'panning' })))
         .toEqual({ kind: 'aboveView' })
     })
     it('yields to comment overlay', () => {
-      expect(expectedFocus(state({ focusedFrameId: 'f1', commentOverlayActive: true })))
+      expect(expectedFocus(state({ focusedPageId: 'f1', commentOverlayActive: true })))
         .toEqual({ kind: 'aboveView' })
     })
     it('yields to explicit pendingFocus', () => {
-      expect(expectedFocus(state({ focusedFrameId: 'f1', pendingFocus: { kind: 'toolbar' } })))
+      expect(expectedFocus(state({ focusedPageId: 'f1', pendingFocus: { kind: 'toolbar' } })))
         .toEqual({ kind: 'toolbar' })
     })
   })

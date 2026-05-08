@@ -39,10 +39,10 @@ import {
 import { createEdges } from '../workspace-edges'
 import { deleteEdge, updateEdge } from '../runtime/document-commands'
 import {
-  copyableFramePayload,
+  copyablePagePayload,
   copyableSelectionPayload,
   pasteEntitiesFromClipboard,
-  pasteFramesFromClipboard,
+  pastePagesFromClipboard,
 } from '../workspace-clipboard'
 import { descendantEntityIdsForGroup } from '../runtime/group-descendants'
 
@@ -104,8 +104,8 @@ function scheduleViewportDelta(): void {
   pendingViewportTimer = setTimeout(flushViewportDelta, VIEWPORT_EVENT_FRAME_MS)
 }
 
-function resolveDraggedFrameIds(frameId: string): string[] {
-  return selectedDragEntityIds(frameId)
+function resolveDraggedPageIds(pageId: string): string[] {
+  return selectedDragEntityIds(pageId)
 }
 
 function resolveDraggedEntityIds(entityId: string): string[] {
@@ -113,7 +113,7 @@ function resolveDraggedEntityIds(entityId: string): string[] {
 }
 
 let activeDragSession: {
-  kind: 'frame' | 'entity' | 'group'
+  kind: 'page' | 'entity' | 'group'
   ids: string[]
 } | null = null
 
@@ -122,7 +122,7 @@ function applyDragStartSelection(
   selection: CanvasDragStartSelection | undefined,
 ): void {
   if (!selection || selection.preserveSelection) return
-  if (selection.entityKind === 'frame') {
+  if (selection.entityKind === 'page') {
     selectCanvasPageById(entityId, { clearInteraction: false })
     return
   }
@@ -130,7 +130,7 @@ function applyDragStartSelection(
 }
 
 function beginDragSession(
-  kind: 'frame' | 'entity' | 'group',
+  kind: 'page' | 'entity' | 'group',
   entityIds: string[],
 ): boolean {
   if (!entityIds.length) return false
@@ -146,7 +146,7 @@ function beginDragSession(
 }
 
 function activeDragIds(
-  kind: 'frame' | 'entity' | 'group',
+  kind: 'page' | 'entity' | 'group',
   anchorId: string,
 ): string[] | null {
   if (!activeDragSession || activeDragSession.kind !== kind) return null
@@ -154,7 +154,7 @@ function activeDragIds(
   return activeDragSession.ids
 }
 
-function endDragSession(kind: 'frame' | 'entity' | 'group'): void {
+function endDragSession(kind: 'page' | 'entity' | 'group'): void {
   if (!activeDragSession || activeDragSession.kind !== kind) return
   activeDragSession = null
   finalizeDrag()
@@ -196,55 +196,55 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-drag-frame-start',
+    'canvas-drag-page-start',
     (
       _event,
-      { frameId, selection }: { frameId: string; selection?: CanvasDragStartSelection },
+      { pageId, selection }: { pageId: string; selection?: CanvasDragStartSelection },
     ) => {
       // Enter drag mode BEFORE mutating selection. commitSelection calls
       // layoutAllViews() synchronously; while interactionState.kind is 'idle'
       // the focus reconciler routes focus to bgView and aboveView blurs,
       // which the drag's window blur listener treats as a cancel.
-      const started = beginDragSession('frame', resolveDraggedFrameIds(frameId))
-      if (started) applyDragStartSelection(frameId, selection)
+      const started = beginDragSession('page', resolveDraggedPageIds(pageId))
+      if (started) applyDragStartSelection(pageId, selection)
     },
   )
 
   ipcMain.on(
-    'canvas-drag-frame',
-    (_event, { frameId, dx, dy }: { frameId: string; dx: number; dy: number }) => {
-      const frameIds = activeDragIds('frame', frameId)
-      if (!frameIds) return
-      if (frameIds.length === 1) {
-        const idx = pages.findIndex((candidate) => candidate.id === frameId)
+    'canvas-drag-page',
+    (_event, { pageId, dx, dy }: { pageId: string; dx: number; dy: number }) => {
+      const pageIds = activeDragIds('page', pageId)
+      if (!pageIds) return
+      if (pageIds.length === 1) {
+        const idx = pages.findIndex((candidate) => candidate.id === pageId)
         if (idx !== -1) selectPage(idx)
       }
-      applyDragDelta(frameIds, dx, dy)
+      applyDragDelta(pageIds, dx, dy)
       requestLayout()
     },
   )
 
-  ipcMain.on('canvas-drag-frame-end', () => {
-    endDragSession('frame')
+  ipcMain.on('canvas-drag-page-end', () => {
+    endDragSession('page')
   })
 
   ipcMain.on(
-    'canvas-drag-copy-frame',
+    'canvas-drag-copy-page',
     (
       _event,
-      { frameId, canvasX, canvasY }: { frameId: string; canvasX: number; canvasY: number },
+      { pageId, canvasX, canvasY }: { pageId: string; canvasX: number; canvasY: number },
     ) => {
-      const entityIds = resolveDraggedFrameIds(frameId)
+      const entityIds = resolveDraggedPageIds(pageId)
       // Use generic entity copy for mixed selections
       const entityPayload = copyableSelectionPayload()
       if (entityPayload) {
         pasteEntitiesFromClipboard({ payload: entityPayload, canvasX, canvasY })
         return
       }
-      // Fallback to frame-only copy
-      const payload = copyableFramePayload(entityIds)
+      // Fallback to page-only copy
+      const payload = copyablePagePayload(entityIds)
       if (!payload) return
-      pasteFramesFromClipboard({ payload, canvasX, canvasY })
+      pastePagesFromClipboard({ payload, canvasX, canvasY })
     },
   )
 
@@ -254,7 +254,7 @@ export function registerCanvasDragIpc(): void {
       _event,
       { entityId, selection }: { entityId: string; selection?: CanvasDragStartSelection },
     ) => {
-      // See canvas-drag-frame-start: enter drag mode before applying selection
+      // See canvas-drag-page-start: enter drag mode before applying selection
       // so the focus reconciler keeps aboveView focused through layoutAllViews.
       const started = beginDragSession('entity', resolveDraggedEntityIds(entityId))
       if (started) applyDragStartSelection(entityId, selection)

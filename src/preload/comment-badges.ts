@@ -231,10 +231,10 @@ function pageCommentBadgeData(): PageCommentBadge[] {
   const anchorKey = (annotation: Annotation): string => {
     const anchor = annotation.anchor
     if (anchor.type === 'canvas') return `canvas:${anchor.canvasX}:${anchor.canvasY}`
-    if (anchor.type === 'frame') return `frame:${anchor.frameId}:${anchor.offsetX}:${anchor.offsetY}`
+    if (anchor.type === 'page') return `page:${anchor.pageId}:${anchor.offsetX}:${anchor.offsetY}`
     if (anchor.type === 'region') return `region:${anchor.canvasRect.x}:${anchor.canvasRect.y}:${anchor.canvasRect.width}:${anchor.canvasRect.height}`
     const bb = anchor.boundingBox
-    return `element:${anchor.frameId}:${anchor.elementPath ?? anchor.selector}:${bb?.x ?? ''}:${bb?.y ?? ''}:${bb?.width ?? ''}:${bb?.height ?? ''}`
+    return `element:${anchor.pageId}:${anchor.elementPath ?? anchor.selector}:${bb?.x ?? ''}:${bb?.y ?? ''}:${bb?.width ?? ''}:${bb?.height ?? ''}`
   }
 
   for (const annotation of unresolved) {
@@ -274,7 +274,7 @@ function pageCommentBadgeData(): PageCommentBadge[] {
       })
       continue
     }
-    if (anchor.type === 'frame') {
+    if (anchor.type === 'page') {
       badges.push({
         key,
         annotationId: value.representative.id,

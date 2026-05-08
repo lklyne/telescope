@@ -23,7 +23,7 @@ type SelectionInput =
     }
 
 type BrowserTarget = {
-  frameId: string
+  pageId: string
 }
 
 const DEFAULT_DEVTOOLS_WIDTH = 400
@@ -37,10 +37,10 @@ function sanitizeSelectionInput(input: SelectionInput): SelectionInput {
 
   if (input.kind === 'multi-entity') {
     const entityIds = input.entityIds.filter((entityId) =>
-      isCanvasEntityKindEnabled(input.entityKindsById[entityId] ?? 'frame'),
+      isCanvasEntityKindEnabled(input.entityKindsById[entityId] ?? 'page'),
     )
     const entityKindsById = Object.fromEntries(
-      entityIds.map((entityId) => [entityId, input.entityKindsById[entityId] ?? 'frame']),
+      entityIds.map((entityId) => [entityId, input.entityKindsById[entityId] ?? 'page']),
     ) as Partial<Record<string, CanvasEntityKind>>
     return { kind: 'multi-entity', entityIds, entityKindsById }
   }
@@ -105,7 +105,7 @@ export function setSelection(input: SelectionInput): UiState {
           ? {
               kind: 'single-entity',
               entityId,
-              entityKind: nextInput.entityKindsById[entityId] ?? 'frame',
+              entityKind: nextInput.entityKindsById[entityId] ?? 'page',
             }
           : { kind: 'none' }
     } else {
@@ -169,11 +169,11 @@ export function setCanvasMode(): UiState {
 }
 
 export function setBrowserMode(target: BrowserTarget): UiState {
-  if (uiState.viewMode.kind !== 'browser' || uiState.viewMode.frameId !== target.frameId) {
+  if (uiState.viewMode.kind !== 'browser' || uiState.viewMode.pageId !== target.pageId) {
     breadcrumb('view-mode', 'browser')
   }
-  uiState.selection = { kind: 'single-entity', entityId: target.frameId, entityKind: 'frame' }
-  uiState.viewMode = { kind: 'browser', frameId: target.frameId }
+  uiState.selection = { kind: 'single-entity', entityId: target.pageId, entityKind: 'page' }
+  uiState.viewMode = { kind: 'browser', pageId: target.pageId }
   markDirty('canvas', 'sidebar', 'toolbar', 'bounds', 'pages')
   return getUiState()
 }
@@ -187,7 +187,7 @@ export function updateSelectionForRemovedEntity(entityId: string): UiState {
     const { entityIds, entityKindsById } = uiState.selection
     const remaining = entityIds.filter((candidate) => candidate !== entityId)
     const remainingKindsById = Object.fromEntries(
-      remaining.map((id) => [id, entityKindsById[id] ?? 'frame']),
+      remaining.map((id) => [id, entityKindsById[id] ?? 'page']),
     ) as Partial<Record<string, CanvasEntityKind>>
     uiState.selection =
       remaining.length > 1
@@ -200,12 +200,12 @@ export function updateSelectionForRemovedEntity(entityId: string): UiState {
           ? {
               kind: 'single-entity',
               entityId: remaining[0],
-              entityKind: remainingKindsById[remaining[0]] ?? 'frame',
+              entityKind: remainingKindsById[remaining[0]] ?? 'page',
             }
           : { kind: 'none' }
   }
 
-  if (uiState.viewMode.kind === 'browser' && uiState.viewMode.frameId === entityId) {
+  if (uiState.viewMode.kind === 'browser' && uiState.viewMode.pageId === entityId) {
     uiState.viewMode = { kind: 'canvas' }
   }
   return getUiState()
@@ -264,14 +264,14 @@ export function workspaceViewMode(ui: UiState = uiState): WorkspaceViewMode {
   return ui.viewMode.kind === 'canvas' ? 'canvas' : 'browser'
 }
 
-export function activeBrowserFrameId(ui: UiState = uiState): string | null {
-  if (ui.viewMode.kind === 'browser') return ui.viewMode.frameId
+export function activeBrowserPageId(ui: UiState = uiState): string | null {
+  if (ui.viewMode.kind === 'browser') return ui.viewMode.pageId
   return selectedEntityId(ui)
 }
 
 export function activeBrowserTabId(ui: UiState = uiState): string | null {
   if (ui.viewMode.kind === 'canvas') return null
-  return ui.viewMode.frameId
+  return ui.viewMode.pageId
 }
 
 export function selectedEntityIds(ui: UiState = uiState): string[] {
@@ -281,7 +281,7 @@ export function selectedEntityIds(ui: UiState = uiState): string[] {
   if (ui.selection.kind === 'multi-entity') {
     const { entityIds, entityKindsById } = ui.selection
     return entityIds.filter((entityId) =>
-      isCanvasEntityKindEnabled(entityKindsById[entityId] ?? 'frame'),
+      isCanvasEntityKindEnabled(entityKindsById[entityId] ?? 'page'),
     )
   }
   return []
@@ -296,10 +296,10 @@ export function selectedCanvasTargets(ui: UiState = uiState): CanvasSelectableTa
   if (ui.selection.kind === 'multi-entity') {
     const { entityIds, entityKindsById } = ui.selection
     return entityIds
-      .filter((entityId) => isCanvasEntityKindEnabled(entityKindsById[entityId] ?? 'frame'))
+      .filter((entityId) => isCanvasEntityKindEnabled(entityKindsById[entityId] ?? 'page'))
       .map((entityId) => ({
         id: entityId,
-        kind: entityKindsById[entityId] ?? 'frame',
+        kind: entityKindsById[entityId] ?? 'page',
       }))
   }
   return []
@@ -308,7 +308,7 @@ export function selectedCanvasTargets(ui: UiState = uiState): CanvasSelectableTa
 export function selectedEntityId(ui: UiState = uiState): string | null {
   if (ui.selection.kind === 'single-entity') return ui.selection.entityId
   if (ui.selection.kind === 'multi-entity') return ui.selection.entityIds[0] ?? null
-  if (ui.viewMode.kind === 'browser') return ui.viewMode.frameId
+  if (ui.viewMode.kind === 'browser') return ui.viewMode.pageId
   return null
 }
 
@@ -366,12 +366,12 @@ export function selectedPageIndex(
   pageIds: string[],
   ui: UiState = uiState,
 ): number | null {
-  const activeFrameId =
+  const activePageId =
     ui.selection.kind === 'multi-entity'
       ? ui.selection.entityIds.find((entityId) => pageIds.includes(entityId)) ?? null
       : selectedEntityId(ui)
-  if (!activeFrameId) return null
-  const index = pageIds.indexOf(activeFrameId)
+  if (!activePageId) return null
+  const index = pageIds.indexOf(activePageId)
   return index >= 0 ? index : null
 }
 

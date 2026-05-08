@@ -11,16 +11,16 @@ const api: DevtoolsPanelElectronAPI = {
   toggleAnnotateMode: () => ipcRenderer.send('toolbar-toggle-annotate'),
   toggleDrawMode: () => ipcRenderer.send('toolbar-toggle-draw'),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),
-  selectFrame: (frameId: string) => ipcRenderer.send('right-details-panel-select-frame', { frameId }),
+  selectPage: (pageId: string) => ipcRenderer.send('right-details-panel-select-page', { pageId }),
   clearInspectSelection: () => ipcRenderer.send('right-details-panel-clear-inspect-selection'),
-  setInspectHoverNode: (frameId: string, nodeId: string | null) =>
-    ipcRenderer.send('right-details-panel-hover-node', { frameId, nodeId }),
-  setInspectSelectedNode: (frameId: string, nodeId: string | null) =>
-    ipcRenderer.send('right-details-panel-select-node', { frameId, nodeId }),
-  editComponentProp: (frameId, payload) =>
-    ipcRenderer.send('right-details-panel-edit-component-prop', { frameId, ...payload }),
-  editComponentToken: (frameId, payload) =>
-      ipcRenderer.send('right-details-panel-edit-component-token', { frameId, ...payload }),
+  setInspectHoverNode: (pageId: string, nodeId: string | null) =>
+    ipcRenderer.send('right-details-panel-hover-node', { pageId, nodeId }),
+  setInspectSelectedNode: (pageId: string, nodeId: string | null) =>
+    ipcRenderer.send('right-details-panel-select-node', { pageId, nodeId }),
+  editComponentProp: (pageId, payload) =>
+    ipcRenderer.send('right-details-panel-edit-component-prop', { pageId, ...payload }),
+  editComponentToken: (pageId, payload) =>
+      ipcRenderer.send('right-details-panel-edit-component-token', { pageId, ...payload }),
   createAnnotation: (request: AnnotationCreateRequest) =>
     ipcRenderer.send('right-details-panel-create-annotation', request),
   resolveAnnotation: (annotationId) =>
@@ -71,30 +71,30 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('right-details-panel-update-edge', { id, patch }),
   deleteEdge: (id) =>
     ipcRenderer.send('right-details-panel-delete-edge', { id }),
-  setFramePreset: (frameId: string, presetIndex: number) =>
-    ipcRenderer.send('right-details-panel-set-frame-preset', { frameId, presetIndex }),
-  setFrameCustom: (frameId: string) =>
-    ipcRenderer.send('right-details-panel-set-frame-custom', { frameId }),
-  setDeviceOrientation: (frameId: string, orientation: string) =>
-    ipcRenderer.send('right-details-panel-set-device-orientation', { frameId, orientation }),
-  toggleDeviceShell: (frameId: string) =>
-    ipcRenderer.send('right-details-panel-toggle-device-shell', { frameId }),
-  toggleSvgDeviceShell: (frameId: string) =>
-    ipcRenderer.send('right-details-panel-toggle-svg-device-shell', { frameId }),
-  navigateFrame: (frameId: string, url: string) =>
-    ipcRenderer.send('right-details-panel-navigate-frame', { frameId, url }),
-  goBackFrame: (frameId: string) =>
-    ipcRenderer.send('right-details-panel-go-back-frame', { frameId }),
-  goForwardFrame: (frameId: string) =>
-    ipcRenderer.send('right-details-panel-go-forward-frame', { frameId }),
-  reloadFrame: (frameId: string) =>
-    ipcRenderer.send('right-details-panel-reload-frame', { frameId }),
-  duplicateFrame: (frameId: string) =>
-    ipcRenderer.send('right-details-panel-duplicate-frame', { frameId }),
-  toggleLinkedFrame: (frameId: string) =>
-    ipcRenderer.send('right-details-panel-toggle-linked-frame', { frameId }),
-  deleteFrame: (frameId: string) =>
-    ipcRenderer.send('right-details-panel-delete-frame', { frameId }),
+  setPagePreset: (pageId: string, presetIndex: number) =>
+    ipcRenderer.send('right-details-panel-set-page-preset', { pageId, presetIndex }),
+  setPageCustom: (pageId: string) =>
+    ipcRenderer.send('right-details-panel-set-page-custom', { pageId }),
+  setDeviceOrientation: (pageId: string, orientation: string) =>
+    ipcRenderer.send('right-details-panel-set-device-orientation', { pageId, orientation }),
+  toggleDeviceShell: (pageId: string) =>
+    ipcRenderer.send('right-details-panel-toggle-device-shell', { pageId }),
+  toggleSvgDeviceShell: (pageId: string) =>
+    ipcRenderer.send('right-details-panel-toggle-svg-device-shell', { pageId }),
+  navigatePage: (pageId: string, url: string) =>
+    ipcRenderer.send('right-details-panel-navigate-page', { pageId, url }),
+  goBackPage: (pageId: string) =>
+    ipcRenderer.send('right-details-panel-go-back-page', { pageId }),
+  goForwardPage: (pageId: string) =>
+    ipcRenderer.send('right-details-panel-go-forward-page', { pageId }),
+  reloadPage: (pageId: string) =>
+    ipcRenderer.send('right-details-panel-reload-page', { pageId }),
+  duplicatePage: (pageId: string) =>
+    ipcRenderer.send('right-details-panel-duplicate-page', { pageId }),
+  toggleLinkedPage: (pageId: string) =>
+    ipcRenderer.send('right-details-panel-toggle-linked-page', { pageId }),
+  deletePage: (pageId: string) =>
+    ipcRenderer.send('right-details-panel-delete-page', { pageId }),
   openBrowserDevTools: () => ipcRenderer.send('right-details-panel-open-browser-devtools'),
   closeBrowserDevTools: () => ipcRenderer.send('right-details-panel-dismiss-browser-devtools'),
   getInitialData: () => ipcRenderer.invoke('get-theme-bootstrap'),

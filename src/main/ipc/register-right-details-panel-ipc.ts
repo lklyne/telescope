@@ -14,8 +14,8 @@ import { notifyDevtoolsPanelData } from '../runtime/inspect-session'
 import {
   deleteEdge,
   updateEdge,
-  setFramePreset,
-  setFrameCustom,
+  setPagePreset,
+  setPageCustom,
   setDeviceOrientation,
   toggleDeviceShell,
   toggleSvgDeviceShell,
@@ -24,9 +24,9 @@ import {
   setFileDeviceOrientation,
   toggleFileDeviceShell,
 } from '../runtime/document-commands'
-import { navigateFramePage, togglePageLinked } from '../navigation-sync'
-import { deleteFrames } from '../workspace-entities'
-import { duplicateFrameFromSource } from '../workspace-frames'
+import { navigatePage, togglePageLinked } from '../navigation-sync'
+import { deletePages } from '../workspace-entities'
+import { duplicatePageFromSource } from '../workspace-pages'
 import {
   dismissBrowserDevTools,
   openDevToolsForSelectedPage,
@@ -45,26 +45,26 @@ import {
 import { pages } from '../runtime/page-runtime'
 
 type ComponentPropOverridePayload = {
-  frameId: string
+  pageId: string
   componentId: string
   propPath: string[]
   value: unknown
 }
 
 type ComponentTokenOverridePayload = {
-  frameId: string
+  pageId: string
   componentId?: string
   token: string
   value: string
   selector?: string
 }
 
-function forwardOverrideToFrame(
-  frameId: string,
+function forwardOverrideToPage(
+  pageId: string,
   channel: 'override-props' | 'override-token',
   payload: Record<string, unknown>,
 ): void {
-  const page = pages.find((candidate) => candidate.id === frameId)
+  const page = pages.find((candidate) => candidate.id === pageId)
   if (!page || page.pageView.webContents.isDestroyed()) return
   page.pageView.webContents.send(channel, payload)
 }
@@ -83,31 +83,31 @@ export function registerRightDetailsPanelIpc(): void {
   })
 
   ipcMain.on(
-    'right-details-panel-select-frame',
-    (_event, payload: { frameId?: string } | undefined) => {
-      const frameId = payload?.frameId?.trim()
-      if (!frameId) return
-      selectPageById(frameId)
+    'right-details-panel-select-page',
+    (_event, payload: { pageId?: string } | undefined) => {
+      const pageId = payload?.pageId?.trim()
+      if (!pageId) return
+      selectPageById(pageId)
     },
   )
 
   ipcMain.on(
     'right-details-panel-hover-node',
-    (_event, { frameId, nodeId }: { frameId: string; nodeId: string | null }) => {
-      if (!frameId) return
-      setInspectNodeFromPanel(frameId, nodeId, false)
+    (_event, { pageId, nodeId }: { pageId: string; nodeId: string | null }) => {
+      if (!pageId) return
+      setInspectNodeFromPanel(pageId, nodeId, false)
     },
   )
 
   ipcMain.on(
     'right-details-panel-select-node',
-    (_event, { frameId, nodeId }: { frameId: string; nodeId: string | null }) => {
-      if (!frameId) return
-      if (selectPageById(frameId)) {
+    (_event, { pageId, nodeId }: { pageId: string; nodeId: string | null }) => {
+      if (!pageId) return
+      if (selectPageById(pageId)) {
         openInspectPanel()
       }
-      setSelectedInspectNodeById(frameId, nodeId)
-      setInspectNodeFromPanel(frameId, nodeId, true)
+      setSelectedInspectNodeById(pageId, nodeId)
+      setInspectNodeFromPanel(pageId, nodeId, true)
     },
   )
 
@@ -115,9 +115,9 @@ export function registerRightDetailsPanelIpc(): void {
     'right-details-panel-edit-component-prop',
     (
       _event,
-      { frameId, componentId, propPath, value }: ComponentPropOverridePayload,
+      { pageId, componentId, propPath, value }: ComponentPropOverridePayload,
     ) => {
-      forwardOverrideToFrame(frameId, 'override-props', {
+      forwardOverrideToPage(pageId, 'override-props', {
         componentId,
         propPath,
         value,
@@ -129,9 +129,9 @@ export function registerRightDetailsPanelIpc(): void {
     'right-details-panel-edit-component-token',
     (
       _event,
-      { frameId, componentId, token, value, selector }: ComponentTokenOverridePayload,
+      { pageId, componentId, token, value, selector }: ComponentTokenOverridePayload,
     ) => {
-      forwardOverrideToFrame(frameId, 'override-token', {
+      forwardOverrideToPage(pageId, 'override-token', {
         componentId,
         token,
         value,
@@ -258,46 +258,46 @@ export function registerRightDetailsPanelIpc(): void {
     },
   )
 
-  // --- Device Frame ---
+  // --- Device Page ---
 
   ipcMain.on(
-    'right-details-panel-set-frame-preset',
-    (_event, payload: { frameId: string; presetIndex: number }) => {
-      if (!payload?.frameId || typeof payload.presetIndex !== 'number') return
-      setFramePreset(payload.frameId, payload.presetIndex)
+    'right-details-panel-set-page-preset',
+    (_event, payload: { pageId: string; presetIndex: number }) => {
+      if (!payload?.pageId || typeof payload.presetIndex !== 'number') return
+      setPagePreset(payload.pageId, payload.presetIndex)
     },
   )
 
   ipcMain.on(
-    'right-details-panel-set-frame-custom',
-    (_event, payload: { frameId: string }) => {
-      if (!payload?.frameId) return
-      setFrameCustom(payload.frameId)
+    'right-details-panel-set-page-custom',
+    (_event, payload: { pageId: string }) => {
+      if (!payload?.pageId) return
+      setPageCustom(payload.pageId)
     },
   )
 
   ipcMain.on(
     'right-details-panel-set-device-orientation',
-    (_event, payload: { frameId: string; orientation: string }) => {
-      if (!payload?.frameId) return
+    (_event, payload: { pageId: string; orientation: string }) => {
+      if (!payload?.pageId) return
       if (payload.orientation !== 'portrait' && payload.orientation !== 'landscape') return
-      setDeviceOrientation(payload.frameId, payload.orientation)
+      setDeviceOrientation(payload.pageId, payload.orientation)
     },
   )
 
   ipcMain.on(
     'right-details-panel-toggle-device-shell',
-    (_event, payload: { frameId: string }) => {
-      if (!payload?.frameId) return
-      toggleDeviceShell(payload.frameId)
+    (_event, payload: { pageId: string }) => {
+      if (!payload?.pageId) return
+      toggleDeviceShell(payload.pageId)
     },
   )
 
   ipcMain.on(
     'right-details-panel-toggle-svg-device-shell',
-    (_event, payload: { frameId: string }) => {
-      if (!payload?.frameId) return
-      toggleSvgDeviceShell(payload.frameId)
+    (_event, payload: { pageId: string }) => {
+      if (!payload?.pageId) return
+      toggleSvgDeviceShell(payload.pageId)
     },
   )
 
@@ -336,68 +336,68 @@ export function registerRightDetailsPanelIpc(): void {
     },
   )
 
-  // --- Frame navigation & actions ---
+  // --- Page navigation & actions ---
 
   ipcMain.on(
-    'right-details-panel-navigate-frame',
-    (_event, payload: { frameId: string; url: string }) => {
-      const page = pages.find((p) => p.id === payload?.frameId)
+    'right-details-panel-navigate-page',
+    (_event, payload: { pageId: string; url: string }) => {
+      const page = pages.find((p) => p.id === payload?.pageId)
       if (!page) return
-      navigateFramePage(page, { type: 'load-url', url: payload.url })
+      navigatePage(page, { type: 'load-url', url: payload.url })
     },
   )
 
   ipcMain.on(
-    'right-details-panel-go-back-frame',
-    (_event, payload: { frameId: string }) => {
-      const page = pages.find((p) => p.id === payload?.frameId)
+    'right-details-panel-go-back-page',
+    (_event, payload: { pageId: string }) => {
+      const page = pages.find((p) => p.id === payload?.pageId)
       if (!page) return
-      navigateFramePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
+      navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
     },
   )
 
   ipcMain.on(
-    'right-details-panel-go-forward-frame',
-    (_event, payload: { frameId: string }) => {
-      const page = pages.find((p) => p.id === payload?.frameId)
+    'right-details-panel-go-forward-page',
+    (_event, payload: { pageId: string }) => {
+      const page = pages.find((p) => p.id === payload?.pageId)
       if (!page) return
-      navigateFramePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
+      navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
     },
   )
 
   ipcMain.on(
-    'right-details-panel-reload-frame',
-    (_event, payload: { frameId: string }) => {
-      const page = pages.find((p) => p.id === payload?.frameId)
+    'right-details-panel-reload-page',
+    (_event, payload: { pageId: string }) => {
+      const page = pages.find((p) => p.id === payload?.pageId)
       if (!page) return
-      navigateFramePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
+      navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
     },
   )
 
   ipcMain.on(
-    'right-details-panel-duplicate-frame',
-    (_event, payload: { frameId: string }) => {
-      if (!payload?.frameId) return
-      if (!pages.some((p) => p.id === payload.frameId)) return
-      duplicateFrameFromSource({ sourceFrameId: payload.frameId })
+    'right-details-panel-duplicate-page',
+    (_event, payload: { pageId: string }) => {
+      if (!payload?.pageId) return
+      if (!pages.some((p) => p.id === payload.pageId)) return
+      duplicatePageFromSource({ sourcePageId: payload.pageId })
     },
   )
 
   ipcMain.on(
-    'right-details-panel-toggle-linked-frame',
-    (_event, payload: { frameId: string }) => {
-      const page = pages.find((p) => p.id === payload?.frameId)
+    'right-details-panel-toggle-linked-page',
+    (_event, payload: { pageId: string }) => {
+      const page = pages.find((p) => p.id === payload?.pageId)
       if (!page) return
       togglePageLinked(page)
     },
   )
 
   ipcMain.on(
-    'right-details-panel-delete-frame',
-    (_event, payload: { frameId: string }) => {
-      if (!payload?.frameId) return
-      if (!pages.some((p) => p.id === payload.frameId)) return
-      deleteFrames({ frameIds: [payload.frameId] })
+    'right-details-panel-delete-page',
+    (_event, payload: { pageId: string }) => {
+      if (!payload?.pageId) return
+      if (!pages.some((p) => p.id === payload.pageId)) return
+      deletePages({ pageIds: [payload.pageId] })
     },
   )
 }

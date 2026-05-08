@@ -46,7 +46,7 @@ export interface PageConfig {
   canvasY: number
   linked?: boolean
   suppressInitialNavigationBroadcast?: boolean
-  source?: WorkspaceFrameSource
+  source?: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
@@ -54,7 +54,7 @@ export interface PageConfig {
 
 // --- Generic Canvas Entity Types ---
 
-export type CanvasEntityKind = 'frame' | 'text' | 'file' | 'group' | 'edge' | 'drawing' | 'shape'
+export type CanvasEntityKind = 'page' | 'text' | 'file' | 'group' | 'edge' | 'drawing' | 'shape'
 
 export type ShapeKind = 'rectangle' | 'ellipse' | 'diamond'
 
@@ -88,8 +88,8 @@ export type CanvasInteractionState =
   | { kind: 'resizing-entity'; entity: CanvasSelectableTarget }
   | { kind: 'editing-text'; entityId: string }
 
-export interface CanvasSceneFrameEntity {
-  kind: 'frame'
+export interface CanvasScenePageEntity {
+  kind: 'page'
   id: string
   label: string
   faviconUrl?: string | null
@@ -105,12 +105,12 @@ export interface CanvasSceneFrameEntity {
   height: number
   presetIndex: number
   linked: boolean
-  /** Outer screen bounds (includes shell when device frame is on). */
+  /** Outer screen bounds (includes shell when device page is on). */
   screenX: number
   screenY: number
   screenWidth: number
   screenHeight: number
-  /** Device frame state. */
+  /** Device page state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
@@ -174,11 +174,11 @@ export interface CanvasSceneFileEntity {
    * to re-pick the folder.
    */
   componentInferredRepoPath?: string
-  /** Device frame state. */
+  /** Device page state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  /** Inner content screen bounds (when device frame is on). */
+  /** Inner content screen bounds (when device page is on). */
   contentScreenX?: number
   contentScreenY?: number
   contentScreenWidth?: number
@@ -239,7 +239,7 @@ export interface CanvasSceneShapeEntity {
 }
 
 export type CanvasSceneEntity =
-  | CanvasSceneFrameEntity
+  | CanvasScenePageEntity
   | CanvasSceneTextEntity
   | CanvasSceneFileEntity
   | CanvasSceneGroupEntity
@@ -276,13 +276,13 @@ export interface CanvasEntityBase {
   parentGroupId?: string
 }
 
-export interface PersistedFrameEntity extends CanvasEntityBase {
-  kind: 'frame'
+export interface PersistedPageEntity extends CanvasEntityBase {
+  kind: 'page'
   name?: string
   url: string
   presetIndex: number
   linked: boolean
-  source?: WorkspaceFrameSource
+  source?: WorkspacePageSource
   groupId?: string
   metadata?: Record<string, unknown>
 }
@@ -346,7 +346,7 @@ export interface PersistedShapeEntity extends CanvasEntityBase {
 }
 
 export type PersistedCanvasEntity =
-  | PersistedFrameEntity
+  | PersistedPageEntity
   | PersistedTextEntity
   | PersistedFileEntity
   | PersistedGroupEntity
@@ -367,7 +367,7 @@ export interface LayoutUpdateData {
    */
   leftChromeWidth: number
   entities: CanvasSceneEntity[]
-  browserTabs: WorkspaceTabFrameSummary[]
+  browserTabs: WorkspaceTabPageSummary[]
   browserFillViewport: {
     width: number
     height: number
@@ -380,7 +380,7 @@ export interface LayoutUpdateData {
   fixProgress: Record<string, FixProgressEntry>
   viewMode: WorkspaceViewMode
   activeBrowserTabId: string | null
-  activeBrowserFrameId: string | null
+  activeBrowserPageId: string | null
   selectedGroupId?: string | null
   hover: CanvasHoverTarget
   interaction: CanvasInteractionState
@@ -390,21 +390,21 @@ export interface LayoutUpdateData {
   edges: WorkspaceEdge[]
   groups?: CanvasSceneGroupEntity[]
   presenceCursors: AgentPresenceCursor[]
-  /** Predicate-derived: the frame id that should hold keyboard + receive
-   *  forwarded input, or null. See `shouldFocusSelectedFrame`. */
-  keyboardTargetFrameId: string | null
+  /** Predicate-derived: the page id that should hold keyboard + receive
+   *  forwarded input, or null. See `shouldFocusSelectedPage`. */
+  keyboardTargetPageId: string | null
 }
 
-export type PresenceSurface = 'canvas' | 'frame'
+export type PresenceSurface = 'canvas' | 'page'
 
 export type PresenceActivity = 'traveling' | 'acting' | 'waiting' | 'thinking' | 'idle' | 'departing'
 
 export type PresenceLabelKey =
   | 'scan_workspace'
   | 'find_placement'
-  | 'create_frame'
-  | 'select_frame'
-  | 'attach_frame'
+  | 'create_page'
+  | 'select_page'
+  | 'attach_page'
   | 'inspect_page'
   | 'find_target'
   | 'click_target'
@@ -428,8 +428,8 @@ export interface PresenceTargetRect {
 export interface PresenceCoordinates {
   canvasX?: number
   canvasY?: number
-  frameX?: number
-  frameY?: number
+  pageX?: number
+  pageY?: number
   targetRect?: PresenceTargetRect | null
 }
 
@@ -440,7 +440,7 @@ export interface PresenceEvent {
   surface: PresenceSurface
   phase: PresenceActivity
   eventType?: 'start' | 'surface' | 'act' | 'think' | 'done' | null
-  frameId?: string | null
+  pageId?: string | null
   coordinates?: PresenceCoordinates | null
   labelKey: PresenceLabelKey | null
   taskLabel?: string | null
@@ -459,9 +459,9 @@ export interface AgentPresenceCursor {
   canvasY: number
   surface: PresenceSurface
   activity: PresenceActivity
-  frameId?: string | null
-  frameX?: number | null
-  frameY?: number | null
+  pageId?: string | null
+  pageX?: number | null
+  pageY?: number | null
   labelKey: PresenceLabelKey | null
   taskLabel?: string | null
   labelHint?: string | null
@@ -487,15 +487,15 @@ export interface AgentSnapshotNode {
   fullPath: string
 }
 
-export interface AgentSnapshotFrame {
-  frameId: string
+export interface AgentSnapshotPage {
+  pageId: string
   url: string
   title: string
   nodes: AgentSnapshotNode[]
 }
 
-export interface SidebarFrameItem {
-  kind: 'frame'
+export interface SidebarPageItem {
+  kind: 'page'
   id: string
   label: string
   faviconUrl?: string | null
@@ -540,7 +540,7 @@ export interface SidebarGroupItem {
 }
 
 export type SidebarCanvasItem =
-  | SidebarFrameItem
+  | SidebarPageItem
   | SidebarTextItem
   | SidebarFileItem
   | SidebarDrawingItem
@@ -554,21 +554,21 @@ export interface LeftSidebarData {
   tabs: WorkspaceTabSummary[]
   activeTabId: string | null
   viewMode: WorkspaceViewMode
-  hasFrames: boolean
+  hasPages: boolean
   items: SidebarCanvasItem[]
 }
 
 export interface ToolbarSelectionData {
-  activeFrameId: string | null
+  activePageId: string | null
   selectedEntityIds: string[]
   selectionCount: number
-  availableFrameCount: number
+  availablePageCount: number
   displayUrl: string
   placeholder: string
   canGoBack: boolean
   canGoForward: boolean
-  isLoadingActiveFrame: boolean
-  loadingFrameCount: number
+  isLoadingActivePage: boolean
+  loadingPageCount: number
   isLoadingAnySelected: boolean
   loadingPhase: 'idle' | 'waiting-response' | 'loading'
   activeTabId: string | null
@@ -726,7 +726,7 @@ export interface FloatingUiBootstrapData extends ThemeBootstrapData, FloatingUiU
 
 export type PanelMode =
   | { kind: 'document' }
-  | { kind: 'frame'; entityId: string }
+  | { kind: 'page'; entityId: string }
   | { kind: 'text'; entityId: string }
   | { kind: 'file'; entityId: string }
   | { kind: 'drawing'; entityId: string }
@@ -814,7 +814,7 @@ export interface DevtoolsPanelData {
   selection?: DevtoolsPanelSelectionSummary
   inspect?: InspectPanelState
   annotations?: Annotation[]
-  frames?: DevtoolsPanelFrameSummary[]
+  pages?: DevtoolsPanelPageSummary[]
   originBindings?: OriginBindings
   fixInProgress?: Record<string, number>
   fixProgress?: Record<string, FixProgressEntry>
@@ -845,7 +845,7 @@ export interface DevtoolsPanelData {
   }
 }
 
-export interface DevtoolsPanelFrameSummary {
+export interface DevtoolsPanelPageSummary {
   id: string
   label: string
   url: string
@@ -867,12 +867,12 @@ export type DevtoolsPanelTab = 'comments' | 'inspect' | 'browser-devtools' | 'se
 
 export type InspectNodeSource = 'react' | 'dom' | 'dom_fallback'
 
-export type InspectMode = 'frame_locked' | 'global_target'
+export type InspectMode = 'page_locked' | 'global_target'
 
 export interface InspectNodeSummary {
   id: string
   parentId?: string
-  frameId: string
+  pageId: string
   name: string
   source: InspectNodeSource
   dsComponentName?: string
@@ -882,7 +882,7 @@ export interface InspectNodeSummary {
 
 export interface InspectNodeDetail extends DevtoolsPanelDomTarget {
   nodeId: string
-  frameId: string
+  pageId: string
   props?: Record<string, unknown>
   tokens?: Record<string, string>
   dsComponentName?: string
@@ -900,7 +900,7 @@ export interface InspectPanelState {
   available: boolean
   enabled: boolean
   mode: InspectMode
-  activeFrameId: string | null
+  activePageId: string | null
   hoveredNodeId: string | null
   selectedNodeId: string | null
   treeRootIds: string[]
@@ -921,7 +921,7 @@ export interface InspectPanelState {
 }
 
 export interface DevtoolsPanelSelectionSummary {
-  frameId: string
+  pageId: string
   url: string
   pageTitle: string
   viewportLabel: string
@@ -944,7 +944,7 @@ export interface DevtoolsPanelDomAttribute {
 
 export interface DevtoolsPanelDomTarget {
   id: string
-  frameId: string
+  pageId: string
   timestamp: number
   tagName: string
   name: string
@@ -1023,7 +1023,7 @@ export type SelectionOverlayPayload = {
 
 export type UiViewMode =
   | { kind: 'canvas' }
-  | { kind: 'browser'; frameId: string }
+  | { kind: 'browser'; pageId: string }
 
 export interface UiDevtoolsState {
   open: boolean
@@ -1041,7 +1041,7 @@ export interface UiPendingPlacement {
   entityKind: CanvasEntityKind
   presetIndex?: number
   customSize?: boolean
-  sourceFrameId?: string
+  sourcePageId?: string
   shapeKind?: ShapeKind
   textStyle?: TextEntityStyle
 }
@@ -1087,7 +1087,7 @@ export interface WorkspacePageSnapshot {
   canvasX: number
   canvasY: number
   linked: boolean
-  source?: WorkspaceFrameSource
+  source?: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
@@ -1103,8 +1103,8 @@ export interface WorkspaceSnapshot {
   /** Ordered entity IDs for z-ordering (front-to-back). */
   entityOrder?: string[]
   selectedPageIndex: number | null
-  selectedFrameId?: string | null
-  selectedFrameIds?: string[]
+  selectedPageId?: string | null
+  selectedPageIds?: string[]
   selectedGroupId?: string | null
   leftSidebarOpen?: boolean
   devtoolsOpen: boolean
@@ -1153,11 +1153,11 @@ export type LegacyPersistedWorkspaceStore = {
   workspaces: LegacyPersistedWorkspaceRecord[]
 }
 
-export type WorkspaceFrameSource = 'manual' | 'generated'
+export type WorkspacePageSource = 'manual' | 'generated'
 
-export interface WorkspaceFrame {
+export interface WorkspacePage {
   id: string
-  kind: 'frame'
+  kind: 'page'
   name?: string
   url: string
   presetIndex: number
@@ -1166,7 +1166,7 @@ export interface WorkspaceFrame {
   width: number
   height: number
   linkedBrowsing: boolean
-  source: WorkspaceFrameSource
+  source: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
@@ -1197,26 +1197,26 @@ export interface WorkspaceFileEntity {
   parentGroupId?: string
 }
 
-export interface ClipboardFramePayload {
+export interface ClipboardPagePayload {
   url: string
   presetIndex: number
   dx: number
   dy: number
 }
 
-export interface ClipboardFrameSelectionPayload {
+export interface ClipboardPageSelectionPayload {
   version: 1
-  frames: ClipboardFramePayload[]
+  pages: ClipboardPagePayload[]
 }
 
 export interface ClipboardEntityPayload {
   kind: CanvasEntityKind
   dx: number
   dy: number
-  // Frame-specific
+  // Page-specific
   url?: string
   presetIndex?: number
-  // Frame device metadata (so paste reproduces the device shell)
+  // Page device metadata (so paste reproduces the device shell)
   metadata?: Record<string, unknown>
   // Text entity-specific
   text?: string
@@ -1252,14 +1252,14 @@ export interface WorkspaceGroup {
   color?: string
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
-  frameIds?: string[]
+  pageIds?: string[]
   entityIds?: string[]
   sourceTaskId?: string
   metadata?: Record<string, unknown>
 }
 
 export type WorkspaceCanvasEntity =
-  | WorkspaceFrame
+  | WorkspacePage
   | WorkspaceTextEntity
   | WorkspaceFileEntity
   | WorkspaceGroup
@@ -1297,9 +1297,9 @@ export interface WorkspaceBounds {
 
 export type WorkspaceViewMode = 'canvas' | 'browser'
 /** @deprecated Browser mode no longer has sub-modes; kept for snapshot compat */
-export type BrowserTabMode = 'responsive' | 'frame'
+export type BrowserTabMode = 'responsive' | 'page'
 
-export interface WorkspaceTabFrameSummary {
+export interface WorkspaceTabPageSummary {
   id: string
   label: string
   name?: string
@@ -1315,8 +1315,8 @@ export interface WorkspaceTabSummary {
   name: string
   expanded: boolean
   isActive: boolean
-  frameCount: number
-  frames: WorkspaceTabFrameSummary[]
+  pageCount: number
+  pages: WorkspaceTabPageSummary[]
 }
 
 export interface WorkspaceGraph {
@@ -1491,7 +1491,7 @@ export interface ApplyTaskLayoutResponse {
   taskId: string
   taskKind: TaskKind
   groupId: string
-  frameIds: string[]
+  pageIds: string[]
   edgeIds: string[]
   resolvedPresets: string[]
   placement: PlacementResult
@@ -1514,44 +1514,44 @@ export interface LayoutComponentStatesRequest {
 export interface LayoutComponentStatesResponse {
   taskId: string
   groupId: string
-  frameIds: string[]
+  pageIds: string[]
   placement: PlacementResult
   warnings: string[]
 }
 
-export interface DeleteFramesRequest {
-  frameIds: string[]
+export interface DeletePagesRequest {
+  pageIds: string[]
   focusAfter?: boolean
 }
 
-export interface DeleteFramesResponse {
-  deletedFrameIds: string[]
+export interface DeletePagesResponse {
+  deletedPageIds: string[]
   deletedEdgeIds: string[]
   deletedGroupIds: string[]
-  missingFrameIds: string[]
+  missingPageIds: string[]
   warnings: string[]
 }
 
 export interface DeleteGroupsRequest {
   groupIds: string[]
-  deleteMemberFrames?: boolean
+  deleteMemberPages?: boolean
   focusAfter?: boolean
 }
 
 export interface DeleteGroupsResponse {
   deletedGroupIds: string[]
-  deletedFrameIds: string[]
+  deletedPageIds: string[]
   deletedEdgeIds: string[]
   missingGroupIds: string[]
   warnings: string[]
 }
 
-export interface CreateFramesRequest {
-  frames: PageConfig[]
+export interface CreatePagesRequest {
+  pages: PageConfig[]
 }
 
-export interface CreateFramesResponse {
-  frameIds: string[]
+export interface CreatePagesResponse {
+  pageIds: string[]
 }
 
 export interface CreateEdgesRequest {
@@ -1631,29 +1631,29 @@ export interface CanvasBgElectronAPI {
     modifiers?: SelectionModifiers,
   ) => void
   clearAnnotateHover: () => void
-  selectFrame: (frameId: string, modifiers?: SelectionModifiers) => void
-  selectBrowserTab: (frameId: string) => void
-  addBrowserFrame: (presetIndex: number | 'custom') => void
-  navigateFrame: (frameId: string, url: string) => void
-  goBackFrame: (frameId: string) => void
-  goForwardFrame: (frameId: string) => void
-  reloadFrame: (frameId: string) => void
-  setFrameCustom: (frameId: string) => void
-  setBrowserSizeMode: (frameId: string, mode: 'fill' | 'device') => void
-  updateFrameBounds: (frameId: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  selectPage: (pageId: string, modifiers?: SelectionModifiers) => void
+  selectBrowserTab: (pageId: string) => void
+  addBrowserPage: (presetIndex: number | 'custom') => void
+  navigatePage: (pageId: string, url: string) => void
+  goBackPage: (pageId: string) => void
+  goForwardPage: (pageId: string) => void
+  reloadPage: (pageId: string) => void
+  setPageCustom: (pageId: string) => void
+  setBrowserSizeMode: (pageId: string, mode: 'fill' | 'device') => void
+  updatePageBounds: (pageId: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   placePendingEntity: (canvasX: number, canvasY: number) => void
   cancelPendingPlacement: () => void
   clearToolMode: () => void
-  startDragFrame: (frameId: string, selection?: CanvasDragStartSelection) => void
-  dragFrame: (frameId: string, dx: number, dy: number) => void
-  endDragFrame: () => void
-  dragCopyFrame: (frameId: string, canvasX: number, canvasY: number) => void
-  setFramePreset: (frameId: string, index: number) => void
-  renameFrame: (frameId: string, name: string) => void
-  duplicateFrame: (frameId: string) => void
-  toggleLinkedFrame: (frameId: string) => void
-  deleteFrame: (frameId: string) => void
-  showFrameContextMenu: (frameId: string) => void
+  startDragPage: (pageId: string, selection?: CanvasDragStartSelection) => void
+  dragPage: (pageId: string, dx: number, dy: number) => void
+  endDragPage: () => void
+  dragCopyPage: (pageId: string, canvasX: number, canvasY: number) => void
+  setPagePreset: (pageId: string, index: number) => void
+  renamePage: (pageId: string, name: string) => void
+  duplicatePage: (pageId: string) => void
+  toggleLinkedPage: (pageId: string) => void
+  deletePage: (pageId: string) => void
+  showPageContextMenu: (pageId: string) => void
   dropdownOpen: () => void
   dropdownClose: () => void
   copySelection: () => void
@@ -1710,7 +1710,7 @@ export interface CanvasBgElectronAPI {
   createAnnotation: (request: AnnotationCreateRequest) => void
   createDrawing: (input: { canvasX: number; canvasY: number; width: number; height: number; strokes: AnnotationDrawingStroke[] }) => void
   selectEntities: (entityIds: string[]) => void
-  resizeMultiSelection: (entries: Array<{ id: string; kind: 'frame' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
+  resizeMultiSelection: (entries: Array<{ id: string; kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number }>) => void
   deleteSelection: () => void
   moveAnnotation: (annotationId: string, dx: number, dy: number) => void
   addAnnotationReply: (annotationId: string, text: string) => void
@@ -1743,14 +1743,14 @@ export interface CanvasBgElectronAPI {
   createEdge: (fromEntityId: string, toEntityId: string, fromSide?: EdgeSide, toSide?: EdgeSide) => void
   deleteEdge: (edgeId: string) => void
   selectEdge: (edgeId: string | null) => void
-  hoverFrame: (frameId: string | null) => void
+  hoverPage: (pageId: string | null) => void
   setTextEditing: (active: boolean) => void
-  /** Forward a wheel event hitting the single-selected frame's body to the
+  /** Forward a wheel event hitting the single-selected page's body to the
    *  page's webContents (aboveview-interactive-layer-poc.md). */
-  forwardWheelToFrame: (frameId: string, payload: ForwardWheelPayload) => void
-  /** PoC: forward a pointer event hitting the single-selected frame's body
+  forwardWheelToPage: (pageId: string, payload: ForwardWheelPayload) => void
+  /** PoC: forward a pointer event hitting the single-selected page's body
    *  to the page's webContents. */
-  forwardPointerToFrame: (frameId: string, payload: ForwardPointerPayload) => void
+  forwardPointerToPage: (pageId: string, payload: ForwardPointerPayload) => void
   /** PoC: subscribe to the focused page's `cursor-changed` mirror so the
    *  OS cursor (chosen from aboveView, the topmost WCV) tracks what the
    *  underlying page would show. */
@@ -1776,7 +1776,7 @@ export type CanvasDragStartSelection = {
   preserveSelection?: boolean
 }
 
-/** Payload for `forwardWheelToFrame` — kept in shared/types so the renderer
+/** Payload for `forwardWheelToPage` — kept in shared/types so the renderer
  *  can build it without reaching into main code. Coordinates are in window
  *  space (`event.clientX`, `event.clientY + canvasOrigin.y`). */
 export type ForwardWheelPayload = {
@@ -1792,7 +1792,7 @@ export type ForwardWheelPayload = {
   metaKey: boolean
 }
 
-/** Payload for `forwardPointerToFrame`. Window-space coords; the main-side
+/** Payload for `forwardPointerToPage`. Window-space coords; the main-side
  *  helper subtracts the page WCV's origin before dispatching. */
 export type ForwardPointerPayload = {
   kind: 'down' | 'up' | 'move'
@@ -1808,15 +1808,15 @@ export type ForwardPointerPayload = {
 }
 
 export interface FloatingUiElectronAPI {
-  navigateFrame: (frameId: string, url: string) => void
-  goBackFrame: (frameId: string) => void
-  goForwardFrame: (frameId: string) => void
-  reloadFrame: (frameId: string) => void
-  setFramePreset: (frameId: string, index: number) => void
-  setFrameCustom: (frameId: string) => void
-  duplicateFrame: (frameId: string) => void
-  toggleLinkedFrame: (frameId: string) => void
-  deleteFrame: (frameId: string) => void
+  navigatePage: (pageId: string, url: string) => void
+  goBackPage: (pageId: string) => void
+  goForwardPage: (pageId: string) => void
+  reloadPage: (pageId: string) => void
+  setPagePreset: (pageId: string, index: number) => void
+  setPageCustom: (pageId: string) => void
+  duplicatePage: (pageId: string) => void
+  toggleLinkedPage: (pageId: string) => void
+  deletePage: (pageId: string) => void
   updateTextEntity: (id: string, patch: { color?: string }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
@@ -1858,7 +1858,7 @@ export interface DevtoolsResizeHandleElectronAPI {
 }
 
 export interface LeftSidebarElectronAPI {
-  revealFrame: (frameId: string) => void
+  revealPage: (pageId: string) => void
   revealEntity: (entityId: string, entityKind: CanvasEntityKind) => void
   deleteEntity: (entityId: string, entityKind: CanvasEntityKind) => void
   revealGroup: (groupId: string) => void
@@ -1866,7 +1866,7 @@ export interface LeftSidebarElectronAPI {
   selectTab: (tabId: string) => void
   createTab: () => void
   renameTab: (tabId: string, name: string) => void
-  renameFrame: (frameId: string, name: string) => void
+  renamePage: (pageId: string, name: string) => void
   renameGroup: (groupId: string, name: string) => void
   renameFileEntity: (entityId: string, name: string) => void
   renameTextEntity: (entityId: string, name: string) => void
@@ -1874,7 +1874,7 @@ export interface LeftSidebarElectronAPI {
   duplicateTab: (tabId: string) => void
   deleteTab: (tabId: string) => void
   reorderTab: (tabId: string, toIndex: number) => void
-  deleteFrame: (frameId: string) => void
+  deletePage: (pageId: string) => void
   setTabExpanded: (tabId: string, expanded: boolean) => void
   setTextEditing: (active: boolean) => void
   toggleBrowserMode: () => void
@@ -1888,16 +1888,16 @@ export interface DevtoolsPanelElectronAPI {
   toggleAnnotateMode: () => void
   toggleDrawMode: () => void
   setTextEditing: (active: boolean) => void
-  selectFrame: (frameId: string) => void
+  selectPage: (pageId: string) => void
   clearInspectSelection: () => void
-  setInspectHoverNode: (frameId: string, nodeId: string | null) => void
-  setInspectSelectedNode: (frameId: string, nodeId: string | null) => void
+  setInspectHoverNode: (pageId: string, nodeId: string | null) => void
+  setInspectSelectedNode: (pageId: string, nodeId: string | null) => void
   editComponentProp: (
-    frameId: string,
+    pageId: string,
     payload: { componentId: string; propPath: string[]; value: unknown },
   ) => void
   editComponentToken: (
-    frameId: string,
+    pageId: string,
     payload: { componentId?: string; token: string; value: string; selector?: string },
   ) => void
   createAnnotation: (request: AnnotationCreateRequest) => void
@@ -1925,18 +1925,18 @@ export interface DevtoolsPanelElectronAPI {
   deleteShapeEntity: (id: string) => void
   updateEdge: (id: string, patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string }) => void
   deleteEdge: (id: string) => void
-  setFramePreset: (frameId: string, presetIndex: number) => void
-  setFrameCustom: (frameId: string) => void
-  setDeviceOrientation: (frameId: string, orientation: string) => void
-  toggleDeviceShell: (frameId: string) => void
-  toggleSvgDeviceShell: (frameId: string) => void
-  navigateFrame: (frameId: string, url: string) => void
-  goBackFrame: (frameId: string) => void
-  goForwardFrame: (frameId: string) => void
-  reloadFrame: (frameId: string) => void
-  duplicateFrame: (frameId: string) => void
-  toggleLinkedFrame: (frameId: string) => void
-  deleteFrame: (frameId: string) => void
+  setPagePreset: (pageId: string, presetIndex: number) => void
+  setPageCustom: (pageId: string) => void
+  setDeviceOrientation: (pageId: string, orientation: string) => void
+  toggleDeviceShell: (pageId: string) => void
+  toggleSvgDeviceShell: (pageId: string) => void
+  navigatePage: (pageId: string, url: string) => void
+  goBackPage: (pageId: string) => void
+  goForwardPage: (pageId: string) => void
+  reloadPage: (pageId: string) => void
+  duplicatePage: (pageId: string) => void
+  toggleLinkedPage: (pageId: string) => void
+  deletePage: (pageId: string) => void
   openBrowserDevTools: () => void
   closeBrowserDevTools: () => void
   getInitialData: () => Promise<ThemeBootstrapData>
@@ -1948,8 +1948,8 @@ export interface DevtoolsPanelElectronAPI {
 
 export type AnnotationAnchor =
   | { type: 'canvas'; canvasX: number; canvasY: number }
-  | { type: 'frame'; frameId: string; offsetX: number; offsetY: number }
-  | { type: 'element'; frameId: string; selector: string; elementPath?: string; boundingBox?: DevtoolsPanelDomRect }
+  | { type: 'page'; pageId: string; offsetX: number; offsetY: number }
+  | { type: 'element'; pageId: string; selector: string; elementPath?: string; boundingBox?: DevtoolsPanelDomRect }
   | { type: 'region'; canvasRect: WorkspaceBounds }
 
 export type AnnotationStatus = 'pending' | 'acknowledged' | 'resolved' | 'dismissed'
@@ -1981,7 +1981,7 @@ export interface AnnotationDrawing {
 }
 
 export interface AnnotationElementSelectionPayload {
-  frameId: string
+  pageId: string
   nodeId: string
   id: string
   timestamp: number
@@ -2007,15 +2007,15 @@ export interface AnnotationElementSelectionPayload {
 }
 
 export interface AnnotationInspectContext
-  extends Omit<AnnotationElementSelectionPayload, 'frameId'> {
-  frameId: string
+  extends Omit<AnnotationElementSelectionPayload, 'pageId'> {
+  pageId: string
   reactComponents?: string[]
   sourceLocation?: SourceLocation
 }
 
 export interface RegionComponentGroup {
-  frameId: string
-  frameName: string
+  pageId: string
+  pageName: string
   components: {
     name: string
     sourceLocation?: { file: string; line?: number; column?: number }
@@ -2024,22 +2024,22 @@ export interface RegionComponentGroup {
 }
 
 export interface RegionElementGroup {
-  frameId: string
-  frameName: string
+  pageId: string
+  pageName: string
   elements: unknown[]
 }
 
 export interface AnnotationMetadata extends Record<string, unknown> {
   inspectContext?: AnnotationInspectContext
-  /** Human-readable frame label, e.g. "iPad Mini 768×1024" */
-  frameName?: string
+  /** Human-readable page label, e.g. "iPad Mini 768×1024" */
+  pageName?: string
   /** Canonical page URL (hash removed) associated with the annotation anchor. */
   pageUrl?: string
   /** Base64-encoded PNG screenshot of the selected region. */
   regionScreenshot?: string
-  /** React components found in the selected region, grouped by frame. */
+  /** React components found in the selected region, grouped by page. */
   regionComponents?: RegionComponentGroup[]
-  /** DOM elements found within the selected region, grouped by frame. */
+  /** DOM elements found within the selected region, grouped by page. */
   regionElements?: RegionElementGroup[]
   /** Who resolved this annotation, when status === 'resolved'. */
   resolvedBy?: 'user' | 'agent'

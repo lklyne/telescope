@@ -15,7 +15,7 @@ import {
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
-  selectFrames,
+  selectPages,
   selectNone,
   selectPageById,
 } from './selection-controller'
@@ -33,8 +33,8 @@ export function selectPageByIndex(index: number): boolean {
   return selectPageById(pages[index].id)
 }
 
-export function setSelectedFrames(frameIds: string[]): void {
-  void selectFrames(frameIds)
+export function setSelectedPages(pageIds: string[]): void {
+  void selectPages(pageIds)
 }
 
 export function deselectAll(): void {
@@ -45,7 +45,7 @@ export function deselectAll(): void {
  * Single gate for all view-mode transitions. Clears transient state
  * (interaction, hover, pending placement) so nothing leaks across modes.
  */
-function transitionViewMode(target: 'canvas' | 'browser', frameId?: string): boolean {
+function transitionViewMode(target: 'canvas' | 'browser', pageId?: string): boolean {
   // 1. Clear transient interaction state
   cancelActiveInteraction('external')
   setHoverTarget(null)
@@ -55,21 +55,21 @@ function transitionViewMode(target: 'canvas' | 'browser', frameId?: string): boo
 
   // 2. Perform the mode-specific transition
   if (target === 'browser') {
-    const selectedFrameIds = uiSelectedEntityIds()
+    const selectedPageIds = uiSelectedEntityIds()
     const selectedIdx = uiSelectedPageIndex(pages.map((p) => p.id))
     const currentSelectedPageId =
       selectedIdx !== null && selectedIdx >= 0 && selectedIdx < pages.length
         ? pages[selectedIdx].id
         : null
     const targetId =
-      frameId ?? currentSelectedPageId ?? selectedFrameIds[0] ?? pages[0]?.id ?? null
+      pageId ?? currentSelectedPageId ?? selectedPageIds[0] ?? pages[0]?.id ?? null
     if (!targetId) return false
     const page = pages.find((p) => p.id === targetId)
     if (!page) return false
-    if (currentSelectedPageId !== targetId || selectedFrameIds.length !== 1 || selectedFrameIds[0] !== targetId) {
+    if (currentSelectedPageId !== targetId || selectedPageIds.length !== 1 || selectedPageIds[0] !== targetId) {
       selectPageById(targetId)
     }
-    setUiBrowserMode({ frameId: targetId })
+    setUiBrowserMode({ pageId: targetId })
   } else {
     if (uiWorkspaceViewMode() === 'canvas') return false
     setUiCanvasMode()
@@ -85,8 +85,8 @@ function transitionViewMode(target: 'canvas' | 'browser', frameId?: string): boo
   return true
 }
 
-export function setBrowserMode(frameId?: string): boolean {
-  return transitionViewMode('browser', frameId)
+export function setBrowserMode(pageId?: string): boolean {
+  return transitionViewMode('browser', pageId)
 }
 
 export function setCanvasMode(): void {
@@ -103,22 +103,22 @@ export function toggleBrowserMode(): boolean {
 
 export function selectAdjacentPage(direction: ArrowDirection): boolean {
   if (!pages.length) return false
-  const frameOrder = workspaceTabs
+  const pageOrder = workspaceTabs
     .find((tab) => tab.id === activeWorkspaceTabId)
     ?.snapshot.pages.map((page) => page.id)
     .filter((id): id is string => Boolean(id))
-  if (!frameOrder?.length) return false
+  if (!pageOrder?.length) return false
   const selectedIdx = uiSelectedPageIndex(pages.map((p) => p.id))
   const currentSelectedPageId =
     selectedIdx !== null && selectedIdx >= 0 && selectedIdx < pages.length
       ? pages[selectedIdx].id
       : null
-  const currentFrameId =
-    currentSelectedPageId ?? uiSelectedEntityIds()[0] ?? frameOrder[0]
-  const currentOrderIndex = frameOrder.indexOf(currentFrameId)
+  const currentPageId =
+    currentSelectedPageId ?? uiSelectedEntityIds()[0] ?? pageOrder[0]
+  const currentOrderIndex = pageOrder.indexOf(currentPageId)
   const baseOrderIndex = currentOrderIndex >= 0 ? currentOrderIndex : 0
   const step = direction === 'left' || direction === 'up' ? -1 : 1
-  const nextOrderIndex = (baseOrderIndex + step + frameOrder.length) % frameOrder.length
-  const nextFrameId = frameOrder[nextOrderIndex]
-  return selectPageById(nextFrameId)
+  const nextOrderIndex = (baseOrderIndex + step + pageOrder.length) % pageOrder.length
+  const nextPageId = pageOrder[nextOrderIndex]
+  return selectPageById(nextPageId)
 }

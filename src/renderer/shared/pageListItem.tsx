@@ -4,7 +4,7 @@ import { Menu } from '@base-ui/react/menu'
 import { Laptop, Smartphone, Tablet } from 'lucide-react'
 import { InlineEditLabel } from './InlineEditLabel'
 
-type FrameVisual = {
+type PageVisual = {
   id: string
   label: string
   name?: string
@@ -13,8 +13,8 @@ type FrameVisual = {
   height?: number
 }
 
-interface FrameListItemProps {
-  frame: FrameVisual
+interface PageListItemProps {
+  page: PageVisual
   active: boolean
   compact?: boolean
   fullBleedCompact?: boolean
@@ -36,7 +36,7 @@ function viewportIcon(label: string, width?: number) {
   return Laptop
 }
 
-function FrameGlyph({
+function PageGlyph({
   faviconUrl,
   Icon,
 }: {
@@ -64,8 +64,8 @@ function FrameGlyph({
   return <Icon size={14} className="shrink-0 text-zinc-500" />
 }
 
-export function FrameListItem({
-  frame,
+export function PageListItem({
+  page,
   active,
   compact = false,
   fullBleedCompact = false,
@@ -76,9 +76,9 @@ export function FrameListItem({
   onClick,
   onRename,
   onDelete,
-}: FrameListItemProps) {
+}: PageListItemProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const Icon = viewportIcon(frame.label, frame.width)
+  const Icon = viewportIcon(page.label, page.width)
   const hasContextMenu = onRename !== undefined || onDelete !== undefined
 
   function startRename() {
@@ -88,7 +88,7 @@ export function FrameListItem({
 
   function commitRename(next: string) {
     setIsEditing(false)
-    if (onRename && next && next !== frame.label) onRename(next)
+    if (onRename && next && next !== page.label) onRename(next)
   }
 
   const rootClassName = `flex items-center gap-1 text-left text-xs font-normal ${
@@ -116,18 +116,18 @@ export function FrameListItem({
 
   const content = isEditing ? (
     <div className={rootClassName} style={horizontalPaddingStyle}>
-      <FrameGlyph faviconUrl={frame.faviconUrl} Icon={Icon} />
+      <PageGlyph faviconUrl={page.faviconUrl} Icon={Icon} />
       <InlineEditLabel
-        value={frame.label}
+        value={page.label}
         isEditing
         onCommit={commitRename}
         onCancel={() => setIsEditing(false)}
         variant="sidebar-row"
         isDark={isDark}
       />
-      {showDimensions && frame.width && frame.height ? (
+      {showDimensions && page.width && page.height ? (
         <span className="ml-auto shrink-0 text-xs text-zinc-400">
-          {frame.width}&times;{frame.height}
+          {page.width}&times;{page.height}
         </span>
       ) : null}
     </div>
@@ -139,13 +139,13 @@ export function FrameListItem({
         style={horizontalPaddingStyle}
         onClick={onClick}
         onDoubleClick={startRename}
-        title={frame.label}
+        title={page.label}
       >
-        <FrameGlyph faviconUrl={frame.faviconUrl} Icon={Icon} />
-        <span className="min-w-0 flex-1 truncate">{frame.label}</span>
-        {showDimensions && frame.width && frame.height ? (
+        <PageGlyph faviconUrl={page.faviconUrl} Icon={Icon} />
+        <span className="min-w-0 flex-1 truncate">{page.label}</span>
+        {showDimensions && page.width && page.height ? (
           <span className="ml-auto shrink-0 text-xs text-zinc-400">
-            {frame.width}&times;{frame.height}
+            {page.width}&times;{page.height}
           </span>
         ) : null}
       </button>

@@ -67,7 +67,7 @@ export function InspectDetailSection({
                     className="w-full rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] text-zinc-900 outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                     defaultValue={valuePreview(value)}
                     onBlur={(event) =>
-                      rightDetailsPanelApi.editComponentProp(activeDetail.frameId, {
+                      rightDetailsPanelApi.editComponentProp(activeDetail.pageId, {
                         componentId: activeDetail.nodeId,
                         propPath: [key],
                         value: parseEditedValue(event.currentTarget.value, value),
@@ -86,7 +86,7 @@ export function InspectDetailSection({
                     className="w-full rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] text-zinc-900 outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                     defaultValue={value || ''}
                     onBlur={(event) =>
-                      rightDetailsPanelApi.editComponentToken(activeDetail.frameId, {
+                      rightDetailsPanelApi.editComponentToken(activeDetail.pageId, {
                         componentId: activeDetail.nodeId,
                         token: key,
                         value: event.currentTarget.value,

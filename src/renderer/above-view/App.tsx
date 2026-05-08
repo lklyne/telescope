@@ -3,7 +3,7 @@ import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
   CanvasSceneFileEntity,
-  CanvasSceneFrameEntity,
+  CanvasScenePageEntity,
   CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
   LayoutUpdateData,
@@ -22,12 +22,12 @@ import {
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { DRAW_CURSOR } from '../canvas-bg/canvasBgConstants'
-import { ActiveFrameHighlightLayer } from '../canvas-bg/AgentCursorLayer'
+import { ActivePageHighlightLayer } from '../canvas-bg/AgentCursorLayer'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer, type FileJsonModeMap } from './FileBodyLayer'
-import { FrameFocusRingLayer } from './FrameFocusRingLayer'
+import { PageFocusRingLayer } from './PageFocusRingLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { SelectionOutlineLayer } from './SelectionOutlineLayer'
 import { ShapeBodyLayer } from './ShapeBodyLayer'
@@ -48,7 +48,7 @@ import {
 } from './useCanvasPointerRouter'
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
-import { FrameChromeOverlay } from './FrameChrome'
+import { PageChromeOverlay } from './PageChrome'
 import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
 import { StickyNotePopover } from './StickyNotePopover'
@@ -372,7 +372,7 @@ export default function App({
 
   // One window pointermove handler drives both placement-preview cursor and
   // hover forwarding. When above-view intercepts events (gate open), canvas-bg
-  // never sees mouseenter/leave, so we dedupe and forward via api.hoverFrame.
+  // never sees mouseenter/leave, so we dedupe and forward via api.hoverPage.
   const lastHoverIdRef = useRef<string | null>(null)
   const hoverForwardingEnabled =
     layoutData.annotationMode !== 'draw' && layoutData.annotationMode !== 'region_select'
@@ -380,7 +380,7 @@ export default function App({
     const clearHover = () => {
       if (lastHoverIdRef.current === null) return
       lastHoverIdRef.current = null
-      api.hoverFrame(null)
+      api.hoverPage(null)
     }
     if (!pendingPlacement && !hoverForwardingEnabled) {
       clearHover()
@@ -398,7 +398,7 @@ export default function App({
         const nextId = hitTestHoverTarget(event.clientX, event.clientY)
         if (nextId !== lastHoverIdRef.current) {
           lastHoverIdRef.current = nextId
-          api.hoverFrame(nextId)
+          api.hoverPage(nextId)
         }
       }
     }
@@ -569,8 +569,8 @@ export default function App({
     }),
     [],
   )
-  // Pre-route wheel events that hit the single-selected frame's body into
-  // that frame's page. Cmd/Ctrl+wheel is already classified as 'zoom' by
+  // Pre-route wheel events that hit the single-selected page's body into
+  // that page's page. Cmd/Ctrl+wheel is already classified as 'zoom' by
   // useViewportWheelAndMiddlePan and stays on the canvas. Wheel during a
   // drag/marquee/edge gesture also stays with the canvas — forwarding it
   // would scroll the page underneath an in-flight gesture.
@@ -581,20 +581,20 @@ export default function App({
       if (layout.interaction.kind !== 'idle') return false
       const selected = layout.selectedEntityIds
       if (selected.length !== 1) return false
-      const frameId = selected[0]
-      const frame = layout.entities.find(
-        (entity): entity is CanvasSceneEntity & { kind: 'frame' } =>
-          entity.kind === 'frame' && entity.id === frameId,
+      const pageId = selected[0]
+      const page = layout.entities.find(
+        (entity): entity is CanvasSceneEntity & { kind: 'page' } =>
+          entity.kind === 'page' && entity.id === pageId,
       )
-      if (!frame) return false
+      if (!page) return false
       const windowY = event.clientY + layout.canvasOrigin.y
-      const x0 = frame.contentScreenX ?? frame.screenX
-      const y0 = frame.contentScreenY ?? frame.screenY
-      const x1 = x0 + (frame.contentScreenWidth ?? frame.screenWidth)
-      const y1 = y0 + (frame.contentScreenHeight ?? frame.screenHeight)
+      const x0 = page.contentScreenX ?? page.screenX
+      const y0 = page.contentScreenY ?? page.screenY
+      const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
+      const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
       if (event.clientX < x0 || event.clientX > x1) return false
       if (windowY < y0 || windowY > y1) return false
-      api.forwardWheelToFrame(frameId, {
+      api.forwardWheelToPage(pageId, {
         windowX: event.clientX,
         windowY,
         deltaX: event.deltaX,
@@ -625,12 +625,12 @@ export default function App({
     })
   }, [])
 
-  // PoC: continuous hover forwarding into the single-selected frame's body so
+  // PoC: continuous hover forwarding into the single-selected page's body so
   // cursor styling (link → hand, text → I-beam) and hover-driven UI react
   // without requiring a button-down. The router's `runForwardPointer` already
   // forwards moves while a button is held, so this listener only fires when
   // no buttons are pressed to avoid double-dispatch. When the pointer leaves
-  // the focused frame's body (or selection drops below one frame), reset
+  // the focused page's body (or selection drops below one page), reset
   // body cursor so the hand/I-beam doesn't bleed into canvas chrome.
   useEffect(() => {
     let cursorIsForwarded = false
@@ -645,21 +645,21 @@ export default function App({
       if (layout.viewMode !== 'canvas') return resetCursor()
       const selected = layout.selectedEntityIds
       if (selected.length !== 1) return resetCursor()
-      const frameId = selected[0]
-      const frame = layout.entities.find(
-        (entity): entity is CanvasSceneEntity & { kind: 'frame' } =>
-          entity.kind === 'frame' && entity.id === frameId,
+      const pageId = selected[0]
+      const page = layout.entities.find(
+        (entity): entity is CanvasSceneEntity & { kind: 'page' } =>
+          entity.kind === 'page' && entity.id === pageId,
       )
-      if (!frame) return resetCursor()
+      if (!page) return resetCursor()
       const windowY = event.clientY + layout.canvasOrigin.y
-      const x0 = frame.contentScreenX ?? frame.screenX
-      const y0 = frame.contentScreenY ?? frame.screenY
-      const x1 = x0 + (frame.contentScreenWidth ?? frame.screenWidth)
-      const y1 = y0 + (frame.contentScreenHeight ?? frame.screenHeight)
+      const x0 = page.contentScreenX ?? page.screenX
+      const y0 = page.contentScreenY ?? page.screenY
+      const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
+      const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
       if (event.clientX < x0 || event.clientX > x1) return resetCursor()
       if (windowY < y0 || windowY > y1) return resetCursor()
       cursorIsForwarded = true
-      api.forwardPointerToFrame(frameId, {
+      api.forwardPointerToPage(pageId, {
         kind: 'move',
         windowX: event.clientX,
         windowY,
@@ -839,10 +839,10 @@ export default function App({
           <MarqueeLayer overlay={selectionOverlay} />
 
           {layoutData.viewMode === 'canvas' && layoutData.presenceCursors.length > 0 ? (
-            <ActiveFrameHighlightLayer
+            <ActivePageHighlightLayer
               cursors={layoutData.presenceCursors}
-              frames={layoutData.entities.filter(
-                (e): e is CanvasSceneFrameEntity => e.kind === 'frame',
+              pages={layoutData.entities.filter(
+                (e): e is CanvasScenePageEntity => e.kind === 'page',
               )}
               originY={layoutData.canvasOrigin.y}
             />
@@ -929,14 +929,14 @@ export default function App({
           ) : null}
 
           {layoutData.viewMode === 'canvas' ? (
-            <FrameFocusRingLayer
-              frames={layoutData.entities.filter(
-                (e): e is CanvasSceneFrameEntity => e.kind === 'frame',
+            <PageFocusRingLayer
+              pages={layoutData.entities.filter(
+                (e): e is CanvasScenePageEntity => e.kind === 'page',
               )}
               fileEntities={layoutData.entities.filter(
                 (e): e is CanvasSceneFileEntity => e.kind === 'file',
               )}
-              focusedFrameId={layoutData.keyboardTargetFrameId}
+              focusedPageId={layoutData.keyboardTargetPageId}
               originY={layoutData.canvasOrigin.y}
             />
           ) : null}
@@ -951,7 +951,7 @@ export default function App({
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
 
-          <FrameChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
+          <PageChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
           <FileChromeOverlay
             api={api}
             layoutData={layoutData}

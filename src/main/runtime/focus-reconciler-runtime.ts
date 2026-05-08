@@ -11,7 +11,7 @@ import { expectedFocus, focusKey, type FocusState } from './focus-reconciler'
 import { aboveView, bgView, toolbarView, leftSidebarView, win } from './view-refs'
 import { pages, interactionState, pendingFocus, setPendingFocus } from './runtime-context'
 import { isCommentOverlayVisible, selectedPageIndex, workspaceViewMode } from '../ui-state'
-import { currentKeyboardTargetFrameId } from './selection-controller'
+import { currentKeyboardTargetPageId } from './selection-controller'
 
 function interactionModeKey(): FocusState['interactionMode'] {
   switch (interactionState.kind) {
@@ -35,7 +35,7 @@ function currentFocusState(): FocusState {
     workspaceViewMode: workspaceViewMode(),
     commentOverlayActive: isCommentOverlayVisible(),
     pendingFocus,
-    focusedFrameId: currentKeyboardTargetFrameId(),
+    focusedPageId: currentKeyboardTargetPageId(),
   }
 }
 

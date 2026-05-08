@@ -3,7 +3,7 @@ import { VIEWPORT_PRESETS } from '../../shared/constants'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type {
   AnnotationCreateRequest,
-  ClipboardFrameSelectionPayload,
+  ClipboardPageSelectionPayload,
   ClipboardEntitySelectionPayload,
 } from '../../shared/types'
 import { pages } from '../runtime/page-runtime'
@@ -23,8 +23,8 @@ import {
   deleteShapeEntity,
   deleteTextEntity,
   deleteFileEntity,
-  setFrameCustom,
-  setFramePreset,
+  setPageCustom,
+  setPagePreset,
   updateDrawingEntity,
   updateFileEntity,
   updateGroupEntity,
@@ -63,43 +63,43 @@ import { CHROME_HEADER_HEIGHT } from '../runtime/runtime-constants'
 import {
   scheduleWorkspaceAutosave,
 } from '../runtime/workspace-session'
-import { navigateFramePage, togglePageLinked } from '../navigation-sync'
+import { navigatePage, togglePageLinked } from '../navigation-sync'
 import {
   deviceIdFromMetadata,
-  frameUsesCustomSize,
-  setCustomFrameSizeMetadata,
+  pageUsesCustomSize,
+  setCustomPageSizeMetadata,
   setDeviceIdMetadata,
 } from '../runtime/runtime-entities'
 import { createAnnotation, moveAnnotation } from '../workspace-annotations'
 import { deleteEdges } from '../workspace-edges'
 import {
-  deleteFrames,
+  deletePages,
   groupBoundsForEntityIds,
 } from '../workspace-entities'
 import { findDuplicatePlacement } from '../workspace-placement'
 import {
-  createFrameAtPosition,
+  createPageAtPosition,
   duplicateEntity,
-  duplicateFrameFromSource,
-  tidySelectedFrames,
-} from '../workspace-frames'
+  duplicatePageFromSource,
+  tidySelectedPages,
+} from '../workspace-pages'
 import { deleteGroups, duplicateGroup, ungroupUserGroup } from '../workspace-groups'
 import {
-  copyableFramePayload,
+  copyablePagePayload,
   copyableSelectionPayload,
   pasteEntitiesFromClipboard,
-  pasteFramesFromClipboard,
+  pastePagesFromClipboard,
 } from '../workspace-clipboard'
 import { workspaceGroups } from '../runtime/workspace-model'
 import { selectGroup } from '../runtime/selection-controller'
 import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
 
-const CLIPBOARD_PREFIX_V1 = 'web-canvas:frames:'
+const CLIPBOARD_PREFIX_V1 = 'web-canvas:pages:'
 const CLIPBOARD_PREFIX = 'web-canvas:entities:'
 
 function parseClipboardSelection(
   rawText: string,
-): ClipboardEntitySelectionPayload | ClipboardFrameSelectionPayload | null {
+): ClipboardEntitySelectionPayload | ClipboardPageSelectionPayload | null {
   // Try v2 (entities) format first
   if (rawText.startsWith(CLIPBOARD_PREFIX)) {
     try {
@@ -114,13 +114,13 @@ function parseClipboardSelection(
     }
   }
 
-  // Backward compat: v1 (frames-only) format
+  // Backward compat: v1 (pages-only) format
   if (rawText.startsWith(CLIPBOARD_PREFIX_V1)) {
     try {
       const parsed = JSON.parse(
         rawText.slice(CLIPBOARD_PREFIX_V1.length),
-      ) as ClipboardFrameSelectionPayload
-      if (parsed?.version === 1 && Array.isArray(parsed.frames)) {
+      ) as ClipboardPageSelectionPayload
+      if (parsed?.version === 1 && Array.isArray(parsed.pages)) {
         return parsed
       }
     } catch {
@@ -179,8 +179,8 @@ export function registerCanvasEntityIpc(): void {
           aboveView.webContents.send('shape-begin-edit', { entityId: created.id })
         }
       } else {
-        createFrameAtPosition({
-          sourceFrameId: placement.sourceFrameId,
+        createPageAtPosition({
+          sourcePageId: placement.sourcePageId,
           presetIndex: placement.presetIndex ?? 0,
           customSize: placement.customSize ?? false,
           canvasX,
@@ -207,56 +207,56 @@ export function registerCanvasEntityIpc(): void {
       layoutAllViews()
       return
     }
-    // Split entity IDs into frames, text entities, file entities, and drawing entities by checking collections
-    const frameIds = entityIds.filter((id) => pages.some((p) => p.id === id))
+    // Split entity IDs into pages, text entities, file entities, and drawing entities by checking collections
+    const pageIds = entityIds.filter((id) => pages.some((p) => p.id === id))
     const textIds = entityIds.filter((id) => textEntities.some((n) => n.id === id))
     const fileIds = entityIds.filter((id) => fileEntities.some((f) => f.id === id))
     const drawingIds = entityIds.filter((id) => drawingEntities.some((d) => d.id === id))
     const shapeIds = entityIds.filter((id) => shapeEntities.some((s) => s.id === id))
-    if (frameIds.length) deleteFrames({ frameIds })
+    if (pageIds.length) deletePages({ pageIds })
     for (const id of textIds) deleteTextEntity(id)
     for (const id of fileIds) deleteFileEntity(id)
     for (const id of drawingIds) deleteDrawingEntity(id)
     for (const id of shapeIds) deleteShapeEntity(id)
   })
 
-  ipcMain.on('canvas-delete-frame', (_event, { frameId }: { frameId: string }) => {
-    if (!pages.some((candidate) => candidate.id === frameId)) return
-    deleteFrames({ frameIds: [frameId] })
+  ipcMain.on('canvas-delete-page', (_event, { pageId }: { pageId: string }) => {
+    if (!pages.some((candidate) => candidate.id === pageId)) return
+    deletePages({ pageIds: [pageId] })
   })
 
   ipcMain.on('canvas-tidy-selection', () => {
-    tidySelectedFrames()
+    tidySelectedPages()
   })
 
-  ipcMain.on('canvas-navigate-frame', (_event, { frameId, url }: { frameId: string; url: string }) => {
-    const page = pages.find((candidate) => candidate.id === frameId)
+  ipcMain.on('canvas-navigate-page', (_event, { pageId, url }: { pageId: string; url: string }) => {
+    const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigateFramePage(page, { type: 'load-url', url })
+    navigatePage(page, { type: 'load-url', url })
   })
 
-  ipcMain.on('canvas-back-frame', (_event, { frameId }: { frameId: string }) => {
-    const page = pages.find((candidate) => candidate.id === frameId)
+  ipcMain.on('canvas-back-page', (_event, { pageId }: { pageId: string }) => {
+    const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigateFramePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
+    navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
   })
 
-  ipcMain.on('canvas-forward-frame', (_event, { frameId }: { frameId: string }) => {
-    const page = pages.find((candidate) => candidate.id === frameId)
+  ipcMain.on('canvas-forward-page', (_event, { pageId }: { pageId: string }) => {
+    const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigateFramePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
+    navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
   })
 
-  ipcMain.on('canvas-reload-frame', (_event, { frameId }: { frameId: string }) => {
-    const page = pages.find((candidate) => candidate.id === frameId)
+  ipcMain.on('canvas-reload-page', (_event, { pageId }: { pageId: string }) => {
+    const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigateFramePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
+    navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
   })
 
   ipcMain.on(
     'canvas-reveal-entity',
     (_event, { entityId, entityKind }: { entityId: string; entityKind: string }) => {
-      if (entityKind === 'frame') {
+      if (entityKind === 'page') {
         if (!selectPageById(entityId)) return
         focusSelectedPage()
         return
@@ -310,33 +310,33 @@ export function registerCanvasEntityIpc(): void {
   })
 
   ipcMain.on(
-    'canvas-set-frame-preset',
-    (_event, { frameId, index }: { frameId: string; index: number }) => {
+    'canvas-set-page-preset',
+    (_event, { pageId, index }: { pageId: string; index: number }) => {
       if (index < 0 || index >= VIEWPORT_PRESETS.length) return
-      const idx = pages.findIndex((candidate) => candidate.id === frameId)
+      const idx = pages.findIndex((candidate) => candidate.id === pageId)
       if (idx === -1) return
       selectPage(idx)
-      setFramePreset(frameId, index)
+      setPagePreset(pageId, index)
     },
   )
 
-  ipcMain.on('canvas-set-frame-custom', (_event, { frameId }: { frameId: string }) => {
-    setFrameCustom(frameId)
+  ipcMain.on('canvas-set-page-custom', (_event, { pageId }: { pageId: string }) => {
+    setPageCustom(pageId)
   })
 
   ipcMain.on(
-    'canvas-update-frame-bounds',
+    'canvas-update-page-bounds',
     (
       _event,
       {
-        frameId,
+        pageId,
         patch,
       }: {
-        frameId: string
+        pageId: string
         patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }
       },
     ) => {
-      const page = pages.find((candidate) => candidate.id === frameId)
+      const page = pages.find((candidate) => candidate.id === pageId)
       if (!page) return
       const currentSize = pageContentSize(page)
       const nextSize = {
@@ -346,9 +346,9 @@ export function registerCanvasEntityIpc(): void {
       const sizeWasResized = patch.width !== undefined || patch.height !== undefined
       const sizeChanged =
         nextSize.width !== currentSize.width || nextSize.height !== currentSize.height
-      if (frameUsesCustomSize(page.metadata) || (sizeWasResized && sizeChanged)) {
-        let meta = setCustomFrameSizeMetadata(page.metadata, nextSize)
-        // Resizing away from a device preset clears the device — keeps shell as generic frame
+      if (pageUsesCustomSize(page.metadata) || (sizeWasResized && sizeChanged)) {
+        let meta = setCustomPageSizeMetadata(page.metadata, nextSize)
+        // Resizing away from a device preset clears the device — keeps shell as generic page
         if (sizeChanged && deviceIdFromMetadata(meta)) {
           meta = setDeviceIdMetadata(meta, null)
         }
@@ -362,23 +362,23 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-duplicate-frame', (_event, { frameId }: { frameId: string }) => {
-    if (!pages.some((candidate) => candidate.id === frameId)) return
-    duplicateFrameFromSource({
-      sourceFrameId: frameId,
+  ipcMain.on('canvas-duplicate-page', (_event, { pageId }: { pageId: string }) => {
+    if (!pages.some((candidate) => candidate.id === pageId)) return
+    duplicatePageFromSource({
+      sourcePageId: pageId,
       focus: true,
     })
   })
 
-  ipcMain.on('canvas-toggle-linked-frame', (_event, { frameId }: { frameId: string }) => {
-    const page = pages.find((candidate) => candidate.id === frameId)
+  ipcMain.on('canvas-toggle-linked-page', (_event, { pageId }: { pageId: string }) => {
+    const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
     togglePageLinked(page)
     layoutAllViews()
   })
 
-  ipcMain.on('canvas-show-frame-context-menu', (_event, { frameId }: { frameId: string }) => {
-    const page = pages.find((candidate) => candidate.id === frameId)
+  ipcMain.on('canvas-show-page-context-menu', (_event, { pageId }: { pageId: string }) => {
+    const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
     const canGoBack = page.pageView.webContents.canGoBack()
     const canGoForward = page.pageView.webContents.canGoForward()
@@ -386,26 +386,26 @@ export function registerCanvasEntityIpc(): void {
       {
         label: 'Back',
         enabled: canGoBack,
-        click: () => navigateFramePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() }),
+        click: () => navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() }),
       },
       {
         label: 'Forward',
         enabled: canGoForward,
-        click: () => navigateFramePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() }),
+        click: () => navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() }),
       },
       {
         label: 'Reload',
-        click: () => navigateFramePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() }),
+        click: () => navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() }),
       },
       { type: 'separator' },
       {
         label: 'Duplicate',
         click: () => {
-          duplicateFrameFromSource({ sourceFrameId: frameId, focus: true, skipGrouping: true })
+          duplicatePageFromSource({ sourcePageId: pageId, focus: true, skipGrouping: true })
         },
       },
       {
-        label: page.linked ? 'Unlink Frame' : 'Link Frame',
+        label: page.linked ? 'Unlink Page' : 'Link Page',
         click: () => {
           togglePageLinked(page)
           layoutAllViews()
@@ -415,23 +415,23 @@ export function registerCanvasEntityIpc(): void {
       {
         label: 'Delete',
         click: () => {
-          deleteFrames({ frameIds: [frameId] })
+          deletePages({ pageIds: [pageId] })
         },
       },
     ])
     menu.popup()
   })
 
-  ipcMain.on('canvas-reveal-frame', (_event, { frameId }: { frameId: string }) => {
-    if (!selectPageById(frameId)) return
+  ipcMain.on('canvas-reveal-page', (_event, { pageId }: { pageId: string }) => {
+    if (!selectPageById(pageId)) return
     focusSelectedPage()
   })
 
   ipcMain.on('canvas-set-selection-preset', (_event, index: number) => {
-    const frameId = selectedPageId()
-    if (!frameId) return
+    const pageId = selectedPageId()
+    if (!pageId) return
     if (index < 0 || index >= VIEWPORT_PRESETS.length) return
-    const page = pages.find((candidate) => candidate.id === frameId)
+    const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
     page.presetIndex = index
     scheduleWorkspaceAutosave()
@@ -446,7 +446,7 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on('canvas-duplicate-selection', () => {
     const entityIds = getSelectedEntityIds()
     if (!entityIds.length) return
-    // For single selection, duplicate the entity (frame or text entity)
+    // For single selection, duplicate the entity (page or text entity)
     if (entityIds.length === 1) {
       duplicateEntity({ entityId: entityIds[0], focus: true })
       return
@@ -487,16 +487,16 @@ export function registerCanvasEntityIpc(): void {
       if (payload.version === 2) {
         pasteEntitiesFromClipboard({ payload, canvasX, canvasY })
       } else {
-        pasteFramesFromClipboard({ payload, canvasX, canvasY })
+        pastePagesFromClipboard({ payload, canvasX, canvasY })
       }
     },
   )
 
   ipcMain.on('canvas-toggle-linked-selection', () => {
-    const frameIds = getSelectedEntityIds()
-    if (!frameIds.length) return
-    const selectedPages = frameIds
-      .map((frameId) => pages.find((candidate) => candidate.id === frameId))
+    const pageIds = getSelectedEntityIds()
+    if (!pageIds.length) return
+    const selectedPages = pageIds
+      .map((pageId) => pages.find((candidate) => candidate.id === pageId))
       .filter((page): page is (typeof pages)[number] => page !== undefined)
     if (!selectedPages.length) return
     const nextLinked = !selectedPages.every((page) => page.linked)

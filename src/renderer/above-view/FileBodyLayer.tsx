@@ -1,7 +1,7 @@
 /**
  * FileBodyLayer — file-entity bodies (image, video, markdown, wireframe,
  * component placeholder, fallback). Mounted in aboveView so a file placed
- * over a frame is actually drawn above it.
+ * over a page is actually drawn above it.
  *
  * Hit-tests run in `useCanvasPointerRouter` against the layout snapshot
  * (front-to-back), so this layer is purely visual for selection/drag/resize.

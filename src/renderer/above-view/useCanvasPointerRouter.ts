@@ -5,7 +5,7 @@
  * Runs the shared `hitTest` against the current layout snapshot on
  * pointerdown and dispatches a typed `CanvasPointerAction` to the existing
  * IPC surface. Replaces the per-layer `onMouseDown` handlers that used to
- * live in bgView (`FrameChromeLayer`, `EdgeLayer`, `ResizeHandles`,
+ * live in bgView (`PageChromeLayer`, `EdgeLayer`, `ResizeHandles`,
  * `EntityBlockLayers`, `GroupBoundsLayer`, and the old mouse gesture hooks).
  *
  * The router runs entirely in the renderer because the layout snapshot it
@@ -94,7 +94,7 @@ interface UseCanvasPointerRouterOptions {
 
 const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointerAction['kind']>([
   'noop',
-  'frame-body-press',
+  'page-body-press',
   'forward-pointer-down',
   'begin-entity-drag',
   'begin-group-drag',
@@ -115,7 +115,7 @@ export const FULL_ROUTER_CONSUME = ALL_KINDS
 
 const GROUP_DRAG_THRESHOLD = 4
 const MARQUEE_DRAG_THRESHOLD = 4
-const FRAME_BODY_DRAG_THRESHOLD = 4
+const PAGE_BODY_DRAG_THRESHOLD = 4
 
 function capturePointer(event: PointerEvent): (() => void) | null {
   const target = event.target
@@ -273,13 +273,13 @@ function dispatchAction(ctx: DispatchContext): boolean {
   switch (action.kind) {
     case 'noop':
       return false
-    case 'frame-body-press':
-      return runFrameBodyPress(action, api, event)
+    case 'page-body-press':
+      return runPageBodyPress(action, api, event)
     case 'forward-pointer-down':
       return runForwardPointer(action, api, event, layoutRef)
     case 'toggle-select':
-      if (action.entityKind === 'frame') {
-        api.selectFrame(action.entityId, { shift: true, meta: false, ctrl: false })
+      if (action.entityKind === 'page') {
+        api.selectPage(action.entityId, { shift: true, meta: false, ctrl: false })
       } else if (action.entityKind === 'group') {
         api.selectGroup(action.entityId)
       } else {
@@ -322,7 +322,7 @@ function runEntityDrag(
     entityKind: action.entityKind,
     preserveSelection: action.preserveSelection,
   }
-  if (action.entityKind === 'frame') api.startDragFrame(action.entityId, selection)
+  if (action.entityKind === 'page') api.startDragPage(action.entityId, selection)
   else api.startDragEntity(action.entityId, selection)
 
   let lastScreenX = event.screenX
@@ -336,7 +336,7 @@ function runEntityDrag(
   }
   const finish = () => {
     cleanup()
-    if (action.entityKind === 'frame') api.endDragFrame()
+    if (action.entityKind === 'page') api.endDragPage()
     else api.endDragEntity()
   }
   const onMove = (ev: PointerEvent) => {
@@ -346,7 +346,7 @@ function runEntityDrag(
     lastScreenX = ev.screenX
     lastScreenY = ev.screenY
     if (dx === 0 && dy === 0) return
-    if (action.entityKind === 'frame') api.dragFrame(action.entityId, dx, dy)
+    if (action.entityKind === 'page') api.dragPage(action.entityId, dx, dy)
     else api.dragEntity(action.entityId, dx, dy)
   }
   const onUp = (ev: PointerEvent) => {
@@ -361,8 +361,8 @@ function runEntityDrag(
   return true
 }
 
-function runFrameBodyPress(
-  action: Extract<CanvasPointerAction, { kind: 'frame-body-press' }>,
+function runPageBodyPress(
+  action: Extract<CanvasPointerAction, { kind: 'page-body-press' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
 ): boolean {
@@ -388,15 +388,15 @@ function runFrameBodyPress(
     const totalDy = ev.screenY - startScreenY
     if (
       !dragging &&
-      Math.abs(totalDx) < FRAME_BODY_DRAG_THRESHOLD &&
-      Math.abs(totalDy) < FRAME_BODY_DRAG_THRESHOLD
+      Math.abs(totalDx) < PAGE_BODY_DRAG_THRESHOLD &&
+      Math.abs(totalDy) < PAGE_BODY_DRAG_THRESHOLD
     ) {
       return
     }
     if (!dragging) {
       dragging = true
-      api.startDragFrame(action.entityId, {
-        entityKind: 'frame',
+      api.startDragPage(action.entityId, {
+        entityKind: 'page',
         preserveSelection: action.preserveSelection,
       })
     }
@@ -404,22 +404,22 @@ function runFrameBodyPress(
     const dy = ev.screenY - lastScreenY
     lastScreenX = ev.screenX
     lastScreenY = ev.screenY
-    if (dx !== 0 || dy !== 0) api.dragFrame(action.entityId, dx, dy)
+    if (dx !== 0 || dy !== 0) api.dragPage(action.entityId, dx, dy)
   }
 
   const onUp = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return
     cleanup()
     if (dragging) {
-      api.endDragFrame()
+      api.endDragPage()
       return
     }
     // Thread modifiers through so a shift/cmd-click on an unselected or
-    // multi-selected frame body extends the selection instead of replacing
-    // it. Routing already converts additive clicks on frame-body to
+    // multi-selected page body extends the selection instead of replacing
+    // it. Routing already converts additive clicks on page-body to
     // toggle-select, but reading the live modifier state here keeps the
     // gesture honest if the user presses shift between down and up.
-    api.selectFrame(action.entityId, {
+    api.selectPage(action.entityId, {
       shift: ev.shiftKey,
       meta: ev.metaKey,
       ctrl: ev.ctrlKey,
@@ -436,7 +436,7 @@ function runFrameBodyPress(
     // pointerup / pointercancel still abort cleanly.
     if (!dragging && ev.type === 'blur') return
     cleanup()
-    if (dragging) api.endDragFrame()
+    if (dragging) api.endDragPage()
   }
 
   window.addEventListener('pointermove', onMove)
@@ -531,8 +531,8 @@ function runResize(
 
   // Enter resize mode in main BEFORE the first dispatchPatch. The bounds-update
   // IPC synchronously requestLayouts; if interactionState is still 'idle' when
-  // reconcileFocus runs, focus moves to the selected page (frames only — they
-  // populate focusedFrameId), aboveView blurs, and the gesture is cancelled
+  // reconcileFocus runs, focus moves to the selected page (pages only — they
+  // populate focusedPageId), aboveView blurs, and the gesture is cancelled
   // after a single tick. Same gotcha as drag-start ordering.
   api.beginResize(action.entityId, entity.kind)
 
@@ -809,7 +809,7 @@ function runForwardPointer(
   const { entityId, button } = action
   let lastWindowX = event.clientX
   let lastWindowY = event.clientY + layoutRef.current.canvasOrigin.y
-  api.forwardPointerToFrame(entityId, {
+  api.forwardPointerToPage(entityId, {
     kind: 'down',
     windowX: lastWindowX,
     windowY: lastWindowY,
@@ -837,7 +837,7 @@ function runForwardPointer(
     if (ev.pointerId !== pointerId) return
     lastWindowX = ev.clientX
     lastWindowY = ev.clientY + layoutRef.current.canvasOrigin.y
-    api.forwardPointerToFrame(entityId, {
+    api.forwardPointerToPage(entityId, {
       kind: 'move',
       windowX: lastWindowX,
       windowY: lastWindowY,
@@ -851,7 +851,7 @@ function runForwardPointer(
   const sendUp = (ev: PointerEvent | null) => {
     const winX = ev ? ev.clientX : lastWindowX
     const winY = ev ? ev.clientY + layoutRef.current.canvasOrigin.y : lastWindowY
-    api.forwardPointerToFrame(entityId, {
+    api.forwardPointerToPage(entityId, {
       kind: 'up',
       windowX: winX,
       windowY: winY,
@@ -916,7 +916,7 @@ function runPan(api: CanvasBgElectronAPI, event: PointerEvent): boolean {
 
 function resizeConfigForEntity(entity: CanvasSceneEntity): ResizeConfig {
   switch (entity.kind) {
-    case 'frame':
+    case 'page':
       return { minWidth: 320, minHeight: 200, aspectRatioResizeMode: 'off' }
     case 'group':
       return {
@@ -954,8 +954,8 @@ function patchDispatcherForKind(
   api: CanvasBgElectronAPI,
 ): ((patch: { width: number; height: number; canvasX?: number; canvasY?: number }) => void) | null {
   switch (kind) {
-    case 'frame':
-      return (patch) => api.updateFrameBounds(id, patch)
+    case 'page':
+      return (patch) => api.updatePageBounds(id, patch)
     case 'group':
       return (patch) => api.updateGroupEntity(id, patch)
     case 'text':

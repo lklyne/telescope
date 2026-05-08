@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  createFrames,
-  deleteFrames,
+  createPages,
+  deletePages,
   getCurrentFocus,
   requestFocus,
 } from './app-client'
@@ -18,11 +18,11 @@ import { waitFor } from './test-utils'
  * intent today.
  */
 
-const createdFrameIds: string[] = []
+const createdPageIds: string[] = []
 
 afterEach(async () => {
-  if (createdFrameIds.length) {
-    await deleteFrames(createdFrameIds.splice(0))
+  if (createdPageIds.length) {
+    await deletePages(createdPageIds.splice(0))
   }
 })
 

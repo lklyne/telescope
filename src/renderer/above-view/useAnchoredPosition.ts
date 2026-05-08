@@ -69,7 +69,7 @@ function findEntity(layout: LayoutUpdateData, id: string): CanvasSceneEntity | u
  * unification this becomes a one-liner returning the entity rect as-is.
  */
 function entityRectFor(entity: CanvasSceneEntity): Rect {
-  const hasHeader = entity.kind === 'frame' || entity.kind === 'file' || entity.kind === 'group'
+  const hasHeader = entity.kind === 'page' || entity.kind === 'file' || entity.kind === 'group'
   const headerExtension = hasHeader ? CHROME_HEADER_HEIGHT : 0
   return {
     x: entity.screenX,

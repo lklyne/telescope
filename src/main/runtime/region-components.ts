@@ -1,7 +1,7 @@
 /**
  * Extracts React component context for a canvas region.
  *
- * For each frame intersecting the region, walks the cached component tree
+ * For each page intersecting the region, walks the cached component tree
  * and collects components with source locations, deduplicated by name + source.
  */
 
@@ -10,7 +10,7 @@ import type {
   RegionComponentGroup,
   SourceLocation,
 } from '../../shared/types'
-import { frameDisplayLabel } from './runtime-serialization'
+import { pageDisplayLabel } from './runtime-serialization'
 import type { Page } from './runtime-entities'
 
 interface ComponentEntry {
@@ -73,8 +73,8 @@ export function extractRegionComponents(
       : []
 
     groups.push({
-      frameId: page.id,
-      frameName: frameDisplayLabel(page),
+      pageId: page.id,
+      pageName: pageDisplayLabel(page),
       components,
     })
   }

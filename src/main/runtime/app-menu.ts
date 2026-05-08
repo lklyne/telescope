@@ -1,5 +1,5 @@
 import { app, dialog, Menu, type WebContents } from 'electron'
-import { deleteFrames } from '../workspace-entities'
+import { deletePages } from '../workspace-entities'
 import { pages, selectedPageId } from './runtime-context'
 import { selectedEntityIds, workspaceViewMode } from '../ui-state'
 import { getComponentView } from './component-page-factory'
@@ -94,19 +94,19 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
           label: 'Close Tab',
           accelerator: 'CmdOrCtrl+W',
           click: () => {
-            const frameId = selectedPageId()
-            if (!frameId) return
+            const pageId = selectedPageId()
+            if (!pageId) return
 
             const isBrowser = workspaceViewMode() === 'browser'
             let nextTabId: string | null = null
 
             if (isBrowser) {
-              const idx = pages.findIndex((p) => p.id === frameId)
+              const idx = pages.findIndex((p) => p.id === pageId)
               const next = pages[idx + 1] ?? pages[idx - 1] ?? null
               nextTabId = next?.id ?? null
             }
 
-            deleteFrames({ frameIds: [frameId] })
+            deletePages({ pageIds: [pageId] })
 
             if (isBrowser && nextTabId) {
               selectBrowserTab(nextTabId)
@@ -257,7 +257,7 @@ function toggleSelectedPageDevTools(): void {
     dialog.showMessageBox({
       type: 'info',
       title: 'DevTools',
-      message: 'Select a frame first to open its DevTools.',
+      message: 'Select a page first to open its DevTools.',
     })
     return
   }

@@ -1,5 +1,5 @@
 /**
- * Page cursor bridge — mirror the keyboard-target frame's `cursor-changed`
+ * Page cursor bridge — mirror the keyboard-target page's `cursor-changed`
  * events onto aboveView's `<body>` CSS cursor so the OS shows the right
  * pointer (hand on links, I-beam over text, etc).
  *
@@ -10,44 +10,44 @@
  * `document.body.cursor`.
  *
  * Reconciles per layout pass: compares the predicate-derived keyboard
- * target against the currently-attached frame and (de)attaches the
+ * target against the currently-attached page and (de)attaches the
  * `cursor-changed` listener accordingly. Called from `layoutAllViews()`
  * alongside `reconcileFocus()`.
  */
 
 import { findPageById } from './runtime-context'
-import { currentKeyboardTargetFrameId } from './selection-controller'
+import { currentKeyboardTargetPageId } from './selection-controller'
 import { aboveView } from './view-refs'
 import { safeSend } from './safe-send'
 
 type CursorChangeEvent = (event: Electron.Event, type: string) => void
 
-let attachedFrameId: string | null = null
+let attachedPageId: string | null = null
 let attachedListener: CursorChangeEvent | null = null
 
 function detach(): void {
-  if (!attachedFrameId || !attachedListener) {
-    attachedFrameId = null
+  if (!attachedPageId || !attachedListener) {
+    attachedPageId = null
     attachedListener = null
     return
   }
-  const page = findPageById(attachedFrameId)
+  const page = findPageById(attachedPageId)
   if (page && !page.pageView.webContents.isDestroyed()) {
     page.pageView.webContents.off('cursor-changed', attachedListener)
   }
-  attachedFrameId = null
+  attachedPageId = null
   attachedListener = null
 }
 
-function attach(frameId: string): void {
-  const page = findPageById(frameId)
+function attach(pageId: string): void {
+  const page = findPageById(pageId)
   if (!page || page.pageView.webContents.isDestroyed()) return
   const listener: CursorChangeEvent = (_event, type) => {
     if (!aboveView || aboveView.webContents.isDestroyed()) return
     safeSend(aboveView.webContents, 'aboveview-cursor-update', { type })
   }
   page.pageView.webContents.on('cursor-changed', listener)
-  attachedFrameId = frameId
+  attachedPageId = pageId
   attachedListener = listener
 }
 
@@ -57,8 +57,8 @@ function reset(): void {
 }
 
 export function reconcilePageCursorBridge(): void {
-  const target = currentKeyboardTargetFrameId()
-  if (target === attachedFrameId) return
+  const target = currentKeyboardTargetPageId()
+  if (target === attachedPageId) return
   detach()
   if (target) {
     attach(target)

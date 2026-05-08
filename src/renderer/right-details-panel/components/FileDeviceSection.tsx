@@ -2,7 +2,7 @@ import { ChevronDown, Monitor, Smartphone, Tablet } from 'lucide-react'
 import type { PanelFileEntityDetail } from '../../../shared/types'
 import { DEVICE_CATALOG } from '../../../shared/device-catalog'
 import { VIEWPORT_PRESETS } from '../../../shared/constants'
-import { FramePresetDropdown } from '../../shared/FramePresetDropdown'
+import { PagePresetDropdown } from '../../shared/PagePresetDropdown'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 
 function OrientationIcon({ category, size, className }: { category: string; size: number; className?: string }) {
@@ -46,7 +46,7 @@ export function FileDeviceSection({
   return (
     <section className={`border-t ${divider}`}>
       <div className="flex items-center gap-2 px-2 py-2">
-        <FramePresetDropdown
+        <PagePresetDropdown
           align="start"
           isDark={isDark}
           side="bottom"
@@ -95,7 +95,7 @@ export function FileDeviceSection({
             onChange={() => rightDetailsPanelApi.toggleFileDeviceShell(fileEntity.id)}
             className="accent-blue-500"
           />
-          Show device frame
+          Show device page
         </label>
       </div>
     </section>

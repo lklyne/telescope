@@ -1,11 +1,11 @@
 /**
  * Page input forwarding — translate window-space pointer/wheel events from
- * aboveView into Electron `sendInputEvent` calls on the target frame's page
+ * aboveView into Electron `sendInputEvent` calls on the target page's page
  * webContents. PoC for the "aboveView is the always-visible interactive
  * layer" endpoint (docs/plans/aboveview-interactive-layer-poc.md).
  *
  * Pure plumbing: caller gives us window-space coords (the same coordinate
- * frame the canvas-pointer-router already speaks); we resolve the target
+ * page the canvas-pointer-router already speaks); we resolve the target
  * page, subtract its content-rect origin, and dispatch the synthesized
  * Chromium input event.
  *
@@ -68,12 +68,12 @@ function modifiersFor(payload: {
   return out
 }
 
-function pageLocal(frameId: string): {
+function pageLocal(pageId: string): {
   x: number
   y: number
   webContents: Electron.WebContents
 } | null {
-  const page = findPageById(frameId)
+  const page = findPageById(pageId)
   if (!page) return null
   const wc = page.pageView.webContents
   if (wc.isDestroyed()) return null
@@ -81,13 +81,13 @@ function pageLocal(frameId: string): {
   return { x: bounds.x, y: bounds.y, webContents: wc }
 }
 
-export function forwardWheelToFrame(frameId: string, payload: ForwardWheelPayload): boolean {
-  const target = pageLocal(frameId)
+export function forwardWheelToPage(pageId: string, payload: ForwardWheelPayload): boolean {
+  const target = pageLocal(pageId)
   if (!target) return false
   const x = Math.round(payload.windowX - target.x)
   const y = Math.round(payload.windowY - target.y)
   // Out-of-bounds coords still scroll the document root in practice, but the
-  // router gates this on a frame-body hit so we'll be inside the rect anyway.
+  // router gates this on a page-body hit so we'll be inside the rect anyway.
   try {
     const wheelEvent: Electron.MouseWheelInputEvent = {
       type: 'mouseWheel',
@@ -111,8 +111,8 @@ export function forwardWheelToFrame(frameId: string, payload: ForwardWheelPayloa
   return true
 }
 
-export function forwardPointerToFrame(frameId: string, payload: ForwardPointerPayload): boolean {
-  const target = pageLocal(frameId)
+export function forwardPointerToPage(pageId: string, payload: ForwardPointerPayload): boolean {
+  const target = pageLocal(pageId)
   if (!target) return false
   const x = Math.round(payload.windowX - target.x)
   const y = Math.round(payload.windowY - target.y)

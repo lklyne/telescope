@@ -16,7 +16,7 @@ import type { CanvasSceneEntity } from './types'
 
 /** Kinds that the `resizeMultiSelection` IPC accepts. Groups own a separate
  *  selection overlay and are excluded from the multi-bbox gesture. */
-export type MultiResizableKind = 'frame' | 'text' | 'file' | 'drawing' | 'shape'
+export type MultiResizableKind = 'page' | 'text' | 'file' | 'drawing' | 'shape'
 import type { ResizeHandle } from './resize-accumulator'
 
 /** Bbox cannot collapse below this canvas-space size while resizing. */

@@ -10,7 +10,7 @@ const FOLLOWER_SETTLE_THRESHOLD_PX = 1
 const FOLLOWER_LERP = 0.22
 const FOLLOWER_MAX_STEP_PX = 96
 
-let scrollFrameRequested = false
+let scrollPageRequested = false
 let suppressScrollBroadcastUntil = 0
 let lastBroadcastScrollData: ScrollSyncData | null = null
 let followerTargetScrollTop: number | null = null
@@ -109,11 +109,11 @@ function hasMeaningfulScrollDelta(
 
 export function queueScrollSyncBroadcast(interactive: boolean): void {
   if (!interactive || Date.now() < suppressScrollBroadcastUntil) return
-  if (scrollFrameRequested) return
-  scrollFrameRequested = true
+  if (scrollPageRequested) return
+  scrollPageRequested = true
 
   window.requestAnimationFrame(() => {
-    scrollFrameRequested = false
+    scrollPageRequested = false
     if (!interactive || Date.now() < suppressScrollBroadcastUntil) return
     const nextData = createScrollSyncData()
     if (!hasMeaningfulScrollDelta(lastBroadcastScrollData, nextData)) return

@@ -50,7 +50,7 @@ export function registerPageChromeIpc(): void {
     },
   )
 
-  ipcMain.on('frame-hover', (event, hovered: boolean) => {
+  ipcMain.on('page-hover', (event, hovered: boolean) => {
     if (interactionBlocksPageHover()) return
     if (uiAnnotationMode() === 'region_select') return
     // Canvas mode: aboveView's gate is unconditionally open (gate-predicate.ts),
@@ -61,7 +61,7 @@ export function registerPageChromeIpc(): void {
     // needs this signal because the gate closes there.
     if (uiWorkspaceViewMode() === 'canvas') return
     const page = pages.find((candidate) => candidate.pageView.webContents === event.sender)
-    setHoverEntity(hovered && page ? { id: page.id, kind: 'frame' } : null)
+    setHoverEntity(hovered && page ? { id: page.id, kind: 'page' } : null)
   })
 
   ipcMain.on('page-scroll-changed', (event, data: ScrollSyncData) => {

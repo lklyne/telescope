@@ -79,33 +79,33 @@ const api: CanvasBgElectronAPI = {
   canvasClickAt: (screenX, screenY, modifiers) =>
     ipcRenderer.send('canvas-click-at', { screenX, screenY, modifiers }),
   clearAnnotateHover: () => ipcRenderer.send('canvas-clear-annotate-hover'),
-  selectFrame: (frameId, modifiers) =>
-    ipcRenderer.send('canvas-select-frame', { frameId, modifiers }),
-  selectBrowserTab: (frameId) => ipcRenderer.send('canvas-select-browser-tab', { frameId }),
-  addBrowserFrame: (presetIndex) => ipcRenderer.send('add-browser-frame', presetIndex),
-  navigateFrame: (frameId, url) => ipcRenderer.send('canvas-navigate-frame', { frameId, url }),
-  goBackFrame: (frameId) => ipcRenderer.send('canvas-back-frame', { frameId }),
-  goForwardFrame: (frameId) => ipcRenderer.send('canvas-forward-frame', { frameId }),
-  reloadFrame: (frameId) => ipcRenderer.send('canvas-reload-frame', { frameId }),
-  setFrameCustom: (frameId) => ipcRenderer.send('canvas-set-frame-custom', { frameId }),
-  setBrowserSizeMode: (frameId, mode) => ipcRenderer.send('canvas-set-browser-size-mode', { frameId, mode }),
-  updateFrameBounds: (frameId, patch) => ipcRenderer.send('canvas-update-frame-bounds', { frameId, patch }),
+  selectPage: (pageId, modifiers) =>
+    ipcRenderer.send('canvas-select-page', { pageId, modifiers }),
+  selectBrowserTab: (pageId) => ipcRenderer.send('canvas-select-browser-tab', { pageId }),
+  addBrowserPage: (presetIndex) => ipcRenderer.send('add-browser-page', presetIndex),
+  navigatePage: (pageId, url) => ipcRenderer.send('canvas-navigate-page', { pageId, url }),
+  goBackPage: (pageId) => ipcRenderer.send('canvas-back-page', { pageId }),
+  goForwardPage: (pageId) => ipcRenderer.send('canvas-forward-page', { pageId }),
+  reloadPage: (pageId) => ipcRenderer.send('canvas-reload-page', { pageId }),
+  setPageCustom: (pageId) => ipcRenderer.send('canvas-set-page-custom', { pageId }),
+  setBrowserSizeMode: (pageId, mode) => ipcRenderer.send('canvas-set-browser-size-mode', { pageId, mode }),
+  updatePageBounds: (pageId, patch) => ipcRenderer.send('canvas-update-page-bounds', { pageId, patch }),
   placePendingEntity: (canvasX, canvasY) =>
     ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY }),
   cancelPendingPlacement: () => ipcRenderer.send('cancel-pending-placement'),
   clearToolMode: () => ipcRenderer.send('toolbar-clear-tool-mode'),
-  startDragFrame: (frameId, selection) =>
-    ipcRenderer.send('canvas-drag-frame-start', { frameId, selection }),
-  dragFrame: (frameId, dx, dy) => ipcRenderer.send('canvas-drag-frame', { frameId, dx, dy }),
-  endDragFrame: () => ipcRenderer.send('canvas-drag-frame-end'),
-  dragCopyFrame: (frameId, canvasX, canvasY) =>
-    ipcRenderer.send('canvas-drag-copy-frame', { frameId, canvasX, canvasY }),
-  setFramePreset: (frameId, index) => ipcRenderer.send('canvas-set-frame-preset', { frameId, index }),
-  renameFrame: (frameId, name) => ipcRenderer.send('canvas-rename-frame', { frameId, name }),
-  duplicateFrame: (frameId) => ipcRenderer.send('canvas-duplicate-frame', { frameId }),
-  toggleLinkedFrame: (frameId) => ipcRenderer.send('canvas-toggle-linked-frame', { frameId }),
-  deleteFrame: (frameId) => ipcRenderer.send('canvas-delete-frame', { frameId }),
-  showFrameContextMenu: (frameId) => ipcRenderer.send('canvas-show-frame-context-menu', { frameId }),
+  startDragPage: (pageId, selection) =>
+    ipcRenderer.send('canvas-drag-page-start', { pageId, selection }),
+  dragPage: (pageId, dx, dy) => ipcRenderer.send('canvas-drag-page', { pageId, dx, dy }),
+  endDragPage: () => ipcRenderer.send('canvas-drag-page-end'),
+  dragCopyPage: (pageId, canvasX, canvasY) =>
+    ipcRenderer.send('canvas-drag-copy-page', { pageId, canvasX, canvasY }),
+  setPagePreset: (pageId, index) => ipcRenderer.send('canvas-set-page-preset', { pageId, index }),
+  renamePage: (pageId, name) => ipcRenderer.send('canvas-rename-page', { pageId, name }),
+  duplicatePage: (pageId) => ipcRenderer.send('canvas-duplicate-page', { pageId }),
+  toggleLinkedPage: (pageId) => ipcRenderer.send('canvas-toggle-linked-page', { pageId }),
+  deletePage: (pageId) => ipcRenderer.send('canvas-delete-page', { pageId }),
+  showPageContextMenu: (pageId) => ipcRenderer.send('canvas-show-page-context-menu', { pageId }),
   dropdownOpen: () => ipcRenderer.send('canvas-bg-dropdown-open'),
   dropdownClose: () => ipcRenderer.send('canvas-bg-dropdown-close'),
   copySelection: () => ipcRenderer.send('canvas-copy-selection'),
@@ -268,12 +268,12 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-delete-edge', { edgeId }),
   selectEdge: (edgeId: string | null) =>
     ipcRenderer.send('canvas-select-edge', { edgeId }),
-  hoverFrame: (frameId: string | null) =>
-    ipcRenderer.send('canvas-hover-frame', { frameId }),
-  forwardWheelToFrame: (frameId, payload) =>
-    ipcRenderer.send('canvas-forward-wheel', { frameId, payload }),
-  forwardPointerToFrame: (frameId, payload) =>
-    ipcRenderer.send('canvas-forward-pointer', { frameId, payload }),
+  hoverPage: (pageId: string | null) =>
+    ipcRenderer.send('canvas-hover-page', { pageId }),
+  forwardWheelToPage: (pageId, payload) =>
+    ipcRenderer.send('canvas-forward-wheel', { pageId, payload }),
+  forwardPointerToPage: (pageId, payload) =>
+    ipcRenderer.send('canvas-forward-pointer', { pageId, payload }),
   onPageCursorChange: (callback) => {
     const handler = (
       _event: Electron.IpcRendererEvent,

@@ -74,7 +74,7 @@ export function getCdpProxyDebug() {
   return get<{
     registrations: Array<{
       token: string
-      frameId: string
+      pageId: string
       sessionId: string | null
       status: string
       hasActiveClient: boolean
@@ -99,7 +99,7 @@ export function getWorkspace() {
 export function getSidebar() {
   return get<{
     items: Array<{
-      kind: 'frame' | 'text' | 'file' | 'group'
+      kind: 'page' | 'text' | 'file' | 'group'
       id: string
       label: string
       children?: unknown[]
@@ -108,27 +108,27 @@ export function getSidebar() {
   }>('/sidebar')
 }
 
-// --- Frames ---
+// --- Pages ---
 
-export function createFrames(frames: { url: string; presetIndex?: number; canvasX?: number; canvasY?: number }[]) {
-  return post<{ frameIds: string[] }>('/frames/create', { frames })
+export function createPages(pages: { url: string; presetIndex?: number; canvasX?: number; canvasY?: number }[]) {
+  return post<{ pageIds: string[] }>('/pages/create', { pages })
 }
 
-export function createFocusedFrame(input: {
-  sourceFrameId?: string
+export function createFocusedPage(input: {
+  sourcePageId?: string
   presetIndex?: number
   canvasX: number
   canvasY: number
 }) {
-  return post<{ frameId: string }>('/frames/create-at-position', input)
+  return post<{ pageId: string }>('/pages/create-at-position', input)
 }
 
-export function deleteFrames(frameIds: string[]) {
-  return post<{ deletedFrameIds: string[] }>('/frames/delete', { frameIds })
+export function deletePages(pageIds: string[]) {
+  return post<{ deletedPageIds: string[] }>('/pages/delete', { pageIds })
 }
 
-export function updateFrames(frames: Array<{ id: string; canvasX?: number; canvasY?: number; presetIndex?: number }>) {
-  return post<{ updated: string[] }>('/frames/update', { frames })
+export function updatePages(pages: Array<{ id: string; canvasX?: number; canvasY?: number; presetIndex?: number }>) {
+  return post<{ updated: string[] }>('/pages/update', { pages })
 }
 
 export function applyLayoutDirective(body: {
@@ -157,43 +157,43 @@ export function applyLayoutDirective(body: {
   }>('/layout/apply-directive', body)
 }
 
-export function takeScreenshot(frameId?: string) {
-  return post<{ base64: string; mimeType: string }>('/frames/screenshot', { frameId })
+export function takeScreenshot(pageId?: string) {
+  return post<{ base64: string; mimeType: string }>('/pages/screenshot', { pageId })
 }
 
-export function getFrameCdpTarget(frameId: string, sessionId?: string, clientName?: string) {
+export function getPageCdpTarget(pageId: string, sessionId?: string, clientName?: string) {
   return getWithSession<{
-    frameId: string
+    pageId: string
     targetId: string
     webSocketDebuggerUrl: string
     url: string
     title: string
-  }>(`/frames/${encodeURIComponent(frameId)}/cdp-target`, sessionId, clientName)
+  }>(`/pages/${encodeURIComponent(pageId)}/cdp-target`, sessionId, clientName)
 }
 
-export function takeSnapshot(frameId?: string) {
-  return post<{ snapshot: string }>('/frames/snapshot', { frameId })
+export function takeSnapshot(pageId?: string) {
+  return post<{ snapshot: string }>('/pages/snapshot', { pageId })
 }
 
-export function takeAgentSnapshot(frameId?: string) {
-  return post<{ snapshot: { frameId: string; url: string; title: string; nodes: Array<{
+export function takeAgentSnapshot(pageId?: string) {
+  return post<{ snapshot: { pageId: string; url: string; title: string; nodes: Array<{
     ref: string
     depth: number
     tagName: string
     interactive: boolean
     bounds: { x: number; y: number; width: number; height: number }
-  }> } }>('/frames/agent-snapshot', { frameId })
+  }> } }>('/pages/agent-snapshot', { pageId })
 }
 
 export function getPresence() {
   return get<{ cursors: Array<{
     sessionId: string
     clientName: string
-    surface?: 'canvas' | 'frame'
+    surface?: 'canvas' | 'page'
     activity?: 'traveling' | 'acting' | 'waiting' | 'thinking' | 'idle'
-    frameId?: string | null
-    frameX?: number | null
-    frameY?: number | null
+    pageId?: string | null
+    pageX?: number | null
+    pageY?: number | null
     labelKey?: string | null
     taskLabel?: string | null
     labelHint?: string | null
@@ -224,15 +224,15 @@ export function resetSmokeState() {
   return post<{ ok: true }>('/test/reset-state')
 }
 
-export function findFrameTarget(body: unknown) {
+export function findPageTarget(body: unknown) {
   return post<{ target: {
     targetRef?: string | null
     targetRefSource?: string | null
     targetName?: string | null
     targetRect: { x: number; y: number; width: number; height: number }
-    frameX: number
-    frameY: number
-  } }>('/frames/find-target', body)
+    pageX: number
+    pageY: number
+  } }>('/pages/find-target', body)
 }
 
 // --- Text entities ---
@@ -266,7 +266,7 @@ export function getSelection() {
 }
 
 export function getSelectionOverlayState() {
-  return get<{ pages: { frameId: string; interactive: boolean; multiSelected: boolean }[] }>('/selection/overlay-state')
+  return get<{ pages: { pageId: string; interactive: boolean; multiSelected: boolean }[] }>('/selection/overlay-state')
 }
 
 export function deselectSelection() {
@@ -280,7 +280,7 @@ export function selectPage(pageId: string) {
   )
 }
 
-export function selectEntity(entityId: string, entityKind: 'frame' | 'text' | 'file' | 'edge') {
+export function selectEntity(entityId: string, entityKind: 'page' | 'text' | 'file' | 'edge') {
   return post<{ ok: true; selection: { selectedEntityId?: string; selectedEntityIds?: string[]; selectedGroupId?: string } }>(
     '/selection/select-entity',
     { entityId, entityKind },
@@ -313,7 +313,7 @@ export function deleteGroups(groupIds: string[]) {
 
 // --- Camera ---
 
-export function focusCamera(targets: { frameIds?: string[]; bounds?: { x: number; y: number; width: number; height: number } }) {
+export function focusCamera(targets: { pageIds?: string[]; bounds?: { x: number; y: number; width: number; height: number } }) {
   return post('/camera/focus', targets)
 }
 

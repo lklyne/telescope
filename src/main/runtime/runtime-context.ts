@@ -80,13 +80,13 @@ export function setHoveringCanvasChrome(value: boolean): void {
 
 // --- Inspect state ---
 
-export let inspectActiveFrameId: string | null = null
+export let inspectActivePageId: string | null = null
 export let inspectHoveredTarget: InspectNodeDetail | null = null
 export let inspectSelectedTarget: InspectNodeDetail | null = null
-export const inspectSelectedNodeIdByFrame = new Map<string, string>()
+export const inspectSelectedNodeIdByPage = new Map<string, string>()
 
-export function setInspectActiveFrameId(value: string | null): void {
-  inspectActiveFrameId = value
+export function setInspectActivePageId(value: string | null): void {
+  inspectActivePageId = value
 }
 
 export function setInspectHoveredTarget(value: InspectNodeDetail | null): void {
@@ -117,7 +117,7 @@ export function decrementWorkspacePersistenceSuspendCount(): void {
 // --- MCP / DevTools state ---
 
 export let browserDevtoolsAttachGeneration = 0
-export const automationInteractiveFrameCounts = new Map<string, number>()
+export const automationInteractivePageCounts = new Map<string, number>()
 export let mcpConnectionStatus: NonNullable<
   NonNullable<DevtoolsPanelData['emptyState']>['status']
 > = {
@@ -134,21 +134,21 @@ export function incrementBrowserDevtoolsAttachGeneration(): number {
   return browserDevtoolsAttachGeneration
 }
 
-export function addAutomationInteractiveFrameId(frameId: string): void {
-  automationInteractiveFrameCounts.set(frameId, (automationInteractiveFrameCounts.get(frameId) ?? 0) + 1)
+export function addAutomationInteractivePageId(pageId: string): void {
+  automationInteractivePageCounts.set(pageId, (automationInteractivePageCounts.get(pageId) ?? 0) + 1)
 }
 
-export function removeAutomationInteractiveFrameId(frameId: string): void {
-  const current = automationInteractiveFrameCounts.get(frameId) ?? 0
+export function removeAutomationInteractivePageId(pageId: string): void {
+  const current = automationInteractivePageCounts.get(pageId) ?? 0
   if (current <= 1) {
-    automationInteractiveFrameCounts.delete(frameId)
+    automationInteractivePageCounts.delete(pageId)
     return
   }
-  automationInteractiveFrameCounts.set(frameId, current - 1)
+  automationInteractivePageCounts.set(pageId, current - 1)
 }
 
-export function clearAutomationInteractiveFrameIds(): void {
-  automationInteractiveFrameCounts.clear()
+export function clearAutomationInteractivePageIds(): void {
+  automationInteractivePageCounts.clear()
 }
 
 export function setMcpConnectionStatusState(

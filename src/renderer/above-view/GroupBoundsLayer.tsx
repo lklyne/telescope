@@ -1,6 +1,6 @@
 /**
  * GroupBoundsLayer — group bound rectangles. Mounted in aboveView so a
- * group containing a frame keeps its border visible above the page.
+ * group containing a page keeps its border visible above the page.
  *
  * Purely visual (`pointer-events: none` end-to-end) — selection / drag /
  * double-click-to-enter-group are all driven by `useCanvasPointerRouter`

@@ -105,7 +105,7 @@ function DragTrigger({
   const { isDark } = useContext(ChromeCtx)
   return (
     <div
-      data-frame-drag-trigger
+      data-page-drag-trigger
       className={`flex h-7 min-w-0 flex-1 cursor-grab items-center gap-1.5 rounded-[7px] border border-transparent px-1.5 text-xs select-none active:cursor-grabbing ${
         isDark ? 'text-zinc-300' : 'text-zinc-700'
       }`}

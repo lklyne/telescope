@@ -130,7 +130,7 @@ export function hydrateDocFromSnapshot(doc: Y.Doc, snapshot: WorkspaceSnapshot):
 
   if (snapshot.entities) {
     for (const [id, entity] of Object.entries(snapshot.entities)) {
-      if (entity.kind === 'frame') {
+      if (entity.kind === 'page') {
         if (!yPages.has(id)) {
           yPages.set(id, objectToYMap(entity as unknown as Record<string, unknown>))
         }

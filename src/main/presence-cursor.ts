@@ -32,9 +32,9 @@ export interface PresenceCursorEntry {
   canvasY: number
   surface: PresenceSurface
   activity: PresenceActivity
-  frameId?: string | null
-  frameX?: number | null
-  frameY?: number | null
+  pageId?: string | null
+  pageX?: number | null
+  pageY?: number | null
   labelKey: PresenceLabelKey | null
   taskLabel?: string | null
   labelHint?: string | null
@@ -55,9 +55,9 @@ export interface ActivePresenceTask {
   clientName: string
   taskLabel: string | null
   surface: PresenceSurface
-  frameId: string | null
-  frameX: number | null
-  frameY: number | null
+  pageId: string | null
+  pageX: number | null
+  pageY: number | null
   canvasX: number | null
   canvasY: number | null
   targetName: string | null
@@ -92,9 +92,9 @@ const PRESENCE_MOVE_LOGGING_ENABLED =
 const PRESENCE_LABEL_KEYS = new Set<PresenceLabelKey>([
   'scan_workspace',
   'find_placement',
-  'create_frame',
-  'select_frame',
-  'attach_frame',
+  'create_page',
+  'select_page',
+  'attach_page',
   'inspect_page',
   'find_target',
   'click_target',
@@ -117,7 +117,7 @@ const PRESENCE_ACTIVITIES = new Set<PresenceActivity>([
   'departing',
 ])
 
-const PRESENCE_SURFACES = new Set<PresenceSurface>(['canvas', 'frame'])
+const PRESENCE_SURFACES = new Set<PresenceSurface>(['canvas', 'page'])
 
 let thinkingTimer: NodeJS.Timeout | null = null
 export let activeScanId = 0
@@ -270,17 +270,17 @@ function coordSourceForLog(
   existing: PresenceCursorEntry | undefined,
   patch: {
     surface?: PresenceSurface
-    frameX?: number | null
-    frameY?: number | null
+    pageX?: number | null
+    pageY?: number | null
     targetRect?: PresenceTargetRect | null
     canvasX?: number
     canvasY?: number
   },
 ): string {
   const surface = patch.surface ?? existing?.surface ?? 'canvas'
-  if (surface !== 'frame') return 'canvas'
-  if (typeof patch.frameX === 'number' && typeof patch.frameY === 'number') {
-    return 'frame-point'
+  if (surface !== 'page') return 'canvas'
+  if (typeof patch.pageX === 'number' && typeof patch.pageY === 'number') {
+    return 'page-point'
   }
   if (patch.targetRect) return 'target-rect'
   if (typeof patch.canvasX === 'number' && typeof patch.canvasY === 'number') {
@@ -300,8 +300,8 @@ function logPresenceMove(
     body?: Record<string, unknown>
     canvasX?: number
     canvasY?: number
-    frameX?: number | null
-    frameY?: number | null
+    pageX?: number | null
+    pageY?: number | null
     targetRect?: PresenceTargetRect | null
   },
 ): void {
@@ -320,10 +320,10 @@ function logPresenceMove(
   const command = typeof body.command === 'string' ? body.command : null
   const coordSource = coordSourceForLog(existing, patch)
   const suspiciousCenterFallback =
-    next.surface === 'frame' &&
+    next.surface === 'page' &&
     coordSource === 'canvas-only' &&
-    typeof next.frameX !== 'number' &&
-    typeof next.frameY !== 'number' &&
+    typeof next.pageX !== 'number' &&
+    typeof next.pageY !== 'number' &&
     !next.targetRect
   const prevX = existing?.canvasX
   const prevY = existing?.canvasY
@@ -345,8 +345,8 @@ function logPresenceMove(
     `activity=${next.activity}`,
     `label=${next.labelKey ?? '-'}`,
     `coordSource=${coordSource}`,
-    `frame=${next.frameId ?? '-'}`,
-    `framePoint=(${formatCoord(next.frameX)},${formatCoord(next.frameY)})`,
+    `page=${next.pageId ?? '-'}`,
+    `pagePoint=(${formatCoord(next.pageX)},${formatCoord(next.pageY)})`,
     `targetRect=${formatTargetRect(next.targetRect)}`,
     `targetRef=${next.targetRef ?? '-'}`,
     `targetName=${JSON.stringify(next.targetName ?? '-')}`,
@@ -368,9 +368,9 @@ export function upsertPresenceCursor(
     canvasY?: number
     surface?: PresenceSurface
     activity?: PresenceActivity
-    frameId?: string | null
-    frameX?: number | null
-    frameY?: number | null
+    pageId?: string | null
+    pageX?: number | null
+    pageY?: number | null
     labelKey?: PresenceLabelKey | null
     taskLabel?: string | null
     labelHint?: string | null
@@ -407,18 +407,18 @@ export function upsertPresenceCursor(
     canvasY: resolvedCanvasY,
     surface: patch.surface ?? existing?.surface ?? 'canvas',
     activity: patch.activity ?? existing?.activity ?? 'acting',
-    frameId:
-      patch.frameId === undefined
-        ? existing?.frameId ?? null
-        : patch.frameId,
-    frameX:
-      patch.frameX === undefined
-        ? existing?.frameX ?? null
-        : patch.frameX,
-    frameY:
-      patch.frameY === undefined
-        ? existing?.frameY ?? null
-        : patch.frameY,
+    pageId:
+      patch.pageId === undefined
+        ? existing?.pageId ?? null
+        : patch.pageId,
+    pageX:
+      patch.pageX === undefined
+        ? existing?.pageX ?? null
+        : patch.pageX,
+    pageY:
+      patch.pageY === undefined
+        ? existing?.pageY ?? null
+        : patch.pageY,
     labelKey:
       patch.labelKey === undefined
         ? existing?.labelKey ?? null
@@ -476,9 +476,9 @@ export function upsertActivePresenceTask(
     body?: Record<string, unknown>
     taskLabel?: string | null
     surface?: PresenceSurface
-    frameId?: string | null
-    frameX?: number | null
-    frameY?: number | null
+    pageId?: string | null
+    pageX?: number | null
+    pageY?: number | null
     canvasX?: number | null
     canvasY?: number | null
     targetName?: string | null
@@ -498,18 +498,18 @@ export function upsertActivePresenceTask(
         ? existing?.taskLabel ?? null
         : patch.taskLabel,
     surface: patch.surface ?? existing?.surface ?? 'canvas',
-    frameId:
-      patch.frameId === undefined
-        ? existing?.frameId ?? null
-        : patch.frameId,
-    frameX:
-      patch.frameX === undefined
-        ? existing?.frameX ?? null
-        : patch.frameX,
-    frameY:
-      patch.frameY === undefined
-        ? existing?.frameY ?? null
-        : patch.frameY,
+    pageId:
+      patch.pageId === undefined
+        ? existing?.pageId ?? null
+        : patch.pageId,
+    pageX:
+      patch.pageX === undefined
+        ? existing?.pageX ?? null
+        : patch.pageX,
+    pageY:
+      patch.pageY === undefined
+        ? existing?.pageY ?? null
+        : patch.pageY,
     canvasX:
       patch.canvasX === undefined
         ? existing?.canvasX ?? null
@@ -588,7 +588,7 @@ export function allEntityPositions(): Array<{ x: number; y: number }> {
   return positions
 }
 
-/** Look up the canvas position of any entity by id — frame, text, file, or
+/** Look up the canvas position of any entity by id — page, text, file, or
  * group. Returns null if the id doesn't match anything. */
 export function findEntityPosition(id: string): { x: number; y: number } | null {
   const page = pages.find((p) => p.id === id)

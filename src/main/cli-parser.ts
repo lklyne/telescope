@@ -18,10 +18,10 @@ export interface ParsedArgs {
 }
 
 const CLI_VALUE_FLAGS = new Set([
-  '--frame', '-f',
+  '--page', '-f',
   '--preset', '--presets', '--at', '--width', '--height',
   '--anchor', '--label', '--color', '--layout', '--gap',
-  '--status', '--url', '--frame-id',
+  '--status', '--url', '--page-id',
   '--reason', '--text',
   '--output', '--fps', '--quality',
   '--min-idle', '--speed-factor',

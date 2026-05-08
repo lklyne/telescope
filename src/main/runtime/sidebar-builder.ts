@@ -7,7 +7,7 @@ import type {
   SidebarCanvasItem,
   SidebarDrawingItem,
   SidebarFileItem,
-  SidebarFrameItem,
+  SidebarPageItem,
   SidebarShapeItem,
   SidebarTextItem,
   WorkspaceBounds,
@@ -30,12 +30,12 @@ import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntitiesForUi } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
-import { frameDisplayLabel } from './runtime-serialization'
+import { pageDisplayLabel } from './runtime-serialization'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
 
 type SidebarLeafItem =
-  | SidebarFrameItem
+  | SidebarPageItem
   | SidebarTextItem
   | SidebarFileItem
   | SidebarDrawingItem
@@ -69,9 +69,9 @@ function buildSidebarLeafItem(entityId: string): (SidebarLeafItem & { sortKey: S
   const page = findPageById(entityId)
   if (page) {
     return {
-      kind: 'frame',
+      kind: 'page',
       id: entityId,
-      label: frameDisplayLabel(page),
+      label: pageDisplayLabel(page),
       faviconUrl: page.faviconUrl ?? null,
       width: page.peekWidth,
       height: page.peekHeight,
@@ -242,7 +242,7 @@ export function buildLeftSidebarData(): LeftSidebarData {
     tabs: workspaceTabSummaries(),
     activeTabId: activeWorkspaceTabId,
     viewMode: uiWorkspaceViewMode(),
-    hasFrames: pages.length > 0,
+    hasPages: pages.length > 0,
     items: buildSidebarItems(),
   }
 }

@@ -6,14 +6,14 @@ import {
 } from '../../src/shared/canvas-pointer-actions'
 import type {
   CanvasSceneEntity,
-  CanvasSceneFrameEntity,
+  CanvasScenePageEntity,
   CanvasSceneTextEntity,
 } from '../../src/shared/types'
 
-function frame(over: Partial<CanvasSceneFrameEntity> = {}): CanvasSceneFrameEntity {
+function page(over: Partial<CanvasScenePageEntity> = {}): CanvasScenePageEntity {
   return {
     id: 'f1',
-    kind: 'frame',
+    kind: 'page',
     canvasX: 0,
     canvasY: 0,
     width: 800,
@@ -25,7 +25,7 @@ function frame(over: Partial<CanvasSceneFrameEntity> = {}): CanvasSceneFrameEnti
     presetIndex: 0,
     rendererTag: 'web',
     ...over,
-  } as CanvasSceneFrameEntity
+  } as CanvasScenePageEntity
 }
 
 function text(over: Partial<CanvasSceneTextEntity> = {}): CanvasSceneTextEntity {
@@ -58,22 +58,22 @@ const baseCtx: CanvasPointerContext = {
 }
 
 describe('routePointerDown', () => {
-  it('frame body pointerdown → frame-body-press', () => {
-    const f = frame()
+  it('page body pointerdown → page-body-press', () => {
+    const f = page()
     const target = hitTest(inputs([f]), { x: 500, y: 400 })
     const action = routePointerDown(target, baseCtx)
-    expect(action).toEqual({ kind: 'frame-body-press', entityId: 'f1', preserveSelection: false })
+    expect(action).toEqual({ kind: 'page-body-press', entityId: 'f1', preserveSelection: false })
   })
 
-  it('frame body pointerdown on single-selected frame → forward-pointer-down', () => {
-    const f = frame()
+  it('page body pointerdown on single-selected page → forward-pointer-down', () => {
+    const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
     const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['f1'] })
     expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'left' })
   })
 
-  it('right-click on single-selected frame body → forward-pointer-down (right)', () => {
-    const f = frame()
+  it('right-click on single-selected page body → forward-pointer-down (right)', () => {
+    const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
     const action = routePointerDown(target, {
       ...baseCtx,
@@ -84,30 +84,30 @@ describe('routePointerDown', () => {
     expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'right' })
   })
 
-  it('frame body pointerdown when frame is in multi-selection → frame-body-press (drag)', () => {
-    const f = frame()
+  it('page body pointerdown when page is in multi-selection → page-body-press (drag)', () => {
+    const f = page()
     const t = text()
     const target = hitTest(inputs([f, t], ['f1', 't1']), { x: 500, y: 400 })
     const action = routePointerDown(target, {
       ...baseCtx,
       selectedEntityIds: ['f1', 't1'],
     })
-    expect(action).toMatchObject({ kind: 'frame-body-press', entityId: 'f1' })
+    expect(action).toMatchObject({ kind: 'page-body-press', entityId: 'f1' })
   })
 
-  it('shift-click on single-selected frame body → toggle-select (extends selection, does not forward)', () => {
-    const f = frame()
+  it('shift-click on single-selected page body → toggle-select (extends selection, does not forward)', () => {
+    const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
     const action = routePointerDown(target, {
       ...baseCtx,
       selectedEntityIds: ['f1'],
       modifiers: { shift: true, meta: false, ctrl: false },
     })
-    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'frame' })
+    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'page' })
   })
 
-  it('cmd-click on unselected frame body → toggle-select (extends selection)', () => {
-    const f = frame()
+  it('cmd-click on unselected page body → toggle-select (extends selection)', () => {
+    const f = page()
     const t = text()
     const target = hitTest(inputs([f, t], ['t1']), { x: 500, y: 400 })
     const action = routePointerDown(target, {
@@ -115,11 +115,11 @@ describe('routePointerDown', () => {
       selectedEntityIds: ['t1'],
       modifiers: { shift: false, meta: true, ctrl: false },
     })
-    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'frame' })
+    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'page' })
   })
 
-  it('shift-click on multi-selected frame body → toggle-select (drops it from selection)', () => {
-    const f = frame()
+  it('shift-click on multi-selected page body → toggle-select (drops it from selection)', () => {
+    const f = page()
     const t = text()
     const target = hitTest(inputs([f, t], ['f1', 't1']), { x: 500, y: 400 })
     const action = routePointerDown(target, {
@@ -127,32 +127,32 @@ describe('routePointerDown', () => {
       selectedEntityIds: ['f1', 't1'],
       modifiers: { shift: true, meta: false, ctrl: false },
     })
-    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'frame' })
+    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'page' })
   })
 
-  it('chrome click on frame → begin-entity-drag', () => {
-    const f = frame()
+  it('chrome click on page → begin-entity-drag', () => {
+    const f = page()
     // Chrome is the 36px strip above screenY.
     const target = hitTest(inputs([f]), { x: 500, y: f.screenY - 10 })
     const action = routePointerDown(target, baseCtx)
-    expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'f1', entityKind: 'frame' })
+    expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'f1', entityKind: 'page' })
   })
 
   it('shift-click chrome → toggle-select (no drag)', () => {
-    const f = frame()
+    const f = page()
     const target = hitTest(inputs([f]), { x: 500, y: f.screenY - 10 })
     const action = routePointerDown(target, {
       ...baseCtx,
       modifiers: { shift: true, meta: false, ctrl: false },
     })
-    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'frame' })
+    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'page' })
   })
 
   it('anchor click → begin-edge-drag', () => {
-    const f = frame()
+    const f = page()
     const target = hitTest(
       inputs([f], ['f1']),
-      // Right-side anchor sits past the resize edge strip (frames extend the
+      // Right-side anchor sits past the resize edge strip (pages extend the
       // resize hit band to entity.right + 12 for the outline padding).
       { x: f.screenX + f.screenWidth + 20, y: f.screenY + f.screenHeight / 2 },
     )
@@ -161,7 +161,7 @@ describe('routePointerDown', () => {
   })
 
   it('resize handle (selected entity) → begin-resize', () => {
-    const f = frame()
+    const f = page()
     const target = hitTest(
       inputs([f], ['f1']),
       { x: f.screenX, y: f.screenY }, // nw handle
@@ -219,11 +219,11 @@ describe('routePointerDown', () => {
   // --- Issue #41 regression: chrome wins over anchor in their overlap zone ---
   it('issue #41: click at the chrome/top-anchor overlap zone goes to chrome, not anchor', () => {
     // Chrome strip is the 36px band above screenY: x=[100,900], y=[64,100].
-    // Top anchor (when selected) is centred above the frame midpoint, with a
+    // Top anchor (when selected) is centred above the page midpoint, with a
     // 4px gap. At zoom=1 it's 56×24, centred at (500, 84): x=[472,528],
     // y=[72,96]. The anchor's hit ring dips into the chrome y-range — that's
     // the #41 bug class. Per ADR 0001's priority table, chrome wins.
-    const f = frame()
+    const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 84 })
     expect(target.payload.kind).toBe('chrome')
     const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['f1'] })

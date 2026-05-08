@@ -12,14 +12,14 @@ import type {
   Annotation,
   AnnotationMode,
   CanvasSceneEntity,
-  CanvasSceneFrameEntity,
+  CanvasScenePageEntity,
   CanvasSceneGroupEntity,
   ComponentTreeNode,
   LayoutUpdateData,
   PendingPlacement,
   ToolbarSelectionData,
 } from '../../shared/types'
-import { resolvePresenceFramePoint } from '../../shared/presence-targeting'
+import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import { isUnresolved } from '../../shared/annotation-utils'
 import {
   aboveView,
@@ -41,7 +41,7 @@ import {
 } from './runtime-context'
 import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
 import {
-  activeBrowserFrameId as uiActiveBrowserFrameId,
+  activeBrowserPageId as uiActiveBrowserPageId,
   annotationMode as uiAnnotationMode,
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsWidth as uiDevtoolsWidth,
@@ -53,7 +53,7 @@ import {
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
-import { currentKeyboardTargetFrameId } from './selection-controller'
+import { currentKeyboardTargetPageId } from './selection-controller'
 import {
   pageContentSize,
   boundEffectivePageContentSize as effectivePageContentSize,
@@ -62,7 +62,7 @@ import {
   boundFillBrowserViewportSize as localFillBrowserViewportSize,
   boundScreenBoundsForPage as screenBoundsForPage,
 } from './runtime-geometry'
-import { frameDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
+import { pageDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
 import {
   textEntities,
   buildTextEntitySceneEntity,
@@ -70,8 +70,8 @@ import {
   DEFAULT_TEXT_HEIGHT,
 } from './text-entity-state'
 import {
-  frameUsesCustomSize,
-  frameBrowserSizeModeFromMetadata,
+  pageUsesCustomSize,
+  pageBrowserSizeModeFromMetadata,
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
@@ -110,9 +110,9 @@ function mainWindowContentBounds(): {
 
 // --- Exported data builders ---
 
-export function backgroundFrameOverlays(): CanvasSceneFrameEntity[] {
+export function backgroundPageOverlays(): CanvasScenePageEntity[] {
   const viewMode = uiWorkspaceViewMode()
-  const activeBrowserPageId = viewMode === 'browser' ? uiActiveBrowserFrameId() : null
+  const activeBrowserPageId = viewMode === 'browser' ? uiActiveBrowserPageId() : null
   return pages.map((page) => {
     const { width, height } = effectivePageContentSize(page)
     const bounds = screenBoundsForPage(page)
@@ -121,16 +121,16 @@ export function backgroundFrameOverlays(): CanvasSceneFrameEntity[] {
     const showShell = showDeviceFrameFromMetadata(page.metadata)
       && (viewMode === 'canvas' || page.id === activeBrowserPageId)
     return {
-      kind: 'frame' as const,
+      kind: 'page' as const,
       id: page.id,
-      label: frameDisplayLabel(page),
+      label: pageDisplayLabel(page),
       faviconUrl: page.faviconUrl ?? null,
       url: page.url,
       canGoBack: page.pageView.webContents.canGoBack(),
       canGoForward: page.pageView.webContents.canGoForward(),
       isLoading: page.pageView.webContents.isLoading(),
-      isCustomSize: frameUsesCustomSize(page.metadata),
-      browserSizeMode: viewMode === 'canvas' ? 'device' : frameBrowserSizeModeFromMetadata(page.metadata),
+      isCustomSize: pageUsesCustomSize(page.metadata),
+      browserSizeMode: viewMode === 'canvas' ? 'device' : pageBrowserSizeModeFromMetadata(page.metadata),
       canvasX: page.canvasX,
       canvasY: page.canvasY,
       width,
@@ -160,7 +160,7 @@ function buildLiveBrowserTabSummaries() {
     const { width, height } = pageContentSize(page)
     return {
       id: page.id,
-      label: frameDisplayLabel(page),
+      label: pageDisplayLabel(page),
       name: page.name?.trim() || undefined,
       url: page.url,
       presetIndex: page.presetIndex,
@@ -172,16 +172,16 @@ function buildLiveBrowserTabSummaries() {
 }
 
 export function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
-  const selectedFrameIds = uiSelectedEntityIds()
-  const targets = selectedFrameIds
+  const selectedPageIds = uiSelectedEntityIds()
+  const targets = selectedPageIds
     .map((id) => findPageById(id))
     .filter((p): p is Page => p !== undefined)
   const page = selectedPage() ?? targets[0] ?? null
   if (!page) return null
   const vp = viewportPresetForIndex(page.presetIndex)
   return {
-    entityRef: { kind: 'frame', id: page.id },
-    label: frameDisplayLabel(page),
+    entityRef: { kind: 'page', id: page.id },
+    label: pageDisplayLabel(page),
     width: page.peekWidth ?? vp.width,
     height: page.peekHeight ?? vp.height,
     presetIndex: page.presetIndex,
@@ -203,14 +203,14 @@ function canonicalAnnotationUrl(value: string | undefined | null): string | null
   }
 }
 
-export function annotationsForPage(frameId: string): Annotation[] {
-  const page = findPageById(frameId)
+export function annotationsForPage(pageId: string): Annotation[] {
+  const page = findPageById(pageId)
   const currentPageUrl = canonicalAnnotationUrl(page?.pageView.webContents.getURL() ?? null)
   return workspaceAnnotations.filter((annotation) => {
     if (!isUnresolved(annotation.status)) return false
     if (annotation.anchor.type === 'canvas') return false
     if (annotation.anchor.type === 'region') return false
-    if (annotation.anchor.frameId !== frameId) return false
+    if (annotation.anchor.pageId !== pageId) return false
     const annotationPageUrl = canonicalAnnotationUrl(annotation.metadata?.pageUrl)
     if (!annotationPageUrl || !currentPageUrl) return true
     return annotationPageUrl === currentPageUrl
@@ -229,21 +229,21 @@ export function pageAnnotationsKey(annotations: Annotation[]): string {
 }
 
 export function selectedComponentTreePayload():
-  | { frameId: string; tree: ComponentTreeNode[] }
+  | { pageId: string; tree: ComponentTreeNode[] }
   | null {
-  const selectedFrameIds = uiSelectedEntityIds()
-  if (selectedFrameIds.length !== 1) return null
-  const frameId = selectedFrameIds[0]
-  const page = findPageById(frameId)
+  const selectedPageIds = uiSelectedEntityIds()
+  if (selectedPageIds.length !== 1) return null
+  const pageId = selectedPageIds[0]
+  const page = findPageById(pageId)
   if (!page) return null
-  return { frameId, tree: page.componentTree ?? [] }
+  return { pageId, tree: page.componentTree ?? [] }
 }
 
 export function sendAnnotationLayoutUpdate(data: {
-  frames: CanvasSceneFrameEntity[]
+  pages: CanvasScenePageEntity[]
   activeSelection: ActiveCanvasEntitySelection | null
 }): void {
-  const payload = buildCanvasLayoutData(data.frames, data.activeSelection)
+  const payload = buildCanvasLayoutData(data.pages, data.activeSelection)
   if (aboveView) safeSend(aboveView.webContents, 'layout-update', payload)
   if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed()) {
     safeSend(cursorOverlayWindow.webContents, 'layout-update', payload)
@@ -251,12 +251,12 @@ export function sendAnnotationLayoutUpdate(data: {
 }
 
 export function buildFloatingUiUpdatePayload(input: {
-  frames: CanvasSceneFrameEntity[]
+  pages: CanvasScenePageEntity[]
   activeSelection: ActiveCanvasEntitySelection | null
   surfaceOrigin: { x: number; y: number }
 }) {
   return {
-    layoutData: buildCanvasLayoutData(input.frames, input.activeSelection),
+    layoutData: buildCanvasLayoutData(input.pages, input.activeSelection),
     surfaceOrigin: input.surfaceOrigin,
   }
 }
@@ -279,7 +279,7 @@ function buildUserGroupSceneEntities(
 }
 
 export function buildCanvasLayoutData(
-  frames: CanvasSceneFrameEntity[],
+  pages: CanvasScenePageEntity[],
   activeSelection: ActiveCanvasEntitySelection | null,
 ): LayoutUpdateData {
   const fillViewport = localFillBrowserViewportSize()
@@ -292,7 +292,7 @@ export function buildCanvasLayoutData(
           const isText = pending.entityKind === 'text'
           const isFile = pending.entityKind === 'file'
           const isShape = pending.entityKind === 'shape'
-          const sourcePage = pending.sourceFrameId ? findPageById(pending.sourceFrameId) : null
+          const sourcePage = pending.sourcePageId ? findPageById(pending.sourcePageId) : null
           const preset = (isText || isFile || isShape) ? null : viewportPresetForIndex(pending.presetIndex ?? 0)
           const customSize = sourcePage ? pageContentSize(sourcePage) : localFillBrowserViewportSize()
           const contentBounds = mainWindowContentBounds()
@@ -346,7 +346,7 @@ export function buildCanvasLayoutData(
     canvasOrigin: origin,
     leftChromeWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
     entities: [
-      ...frames,
+      ...pages,
       ...textEntities.map((te) =>
         buildTextEntitySceneEntity(te, zoom, pan, origin)
       ),
@@ -374,7 +374,7 @@ export function buildCanvasLayoutData(
       viewMode === 'browser'
         ? selectedPageId()
         : null,
-    activeBrowserFrameId: uiActiveBrowserFrameId(),
+    activeBrowserPageId: uiActiveBrowserPageId(),
     selectedGroupId: uiSelectedGroupId(),
     hover: hoverTarget,
     interaction: interactionState,
@@ -385,47 +385,47 @@ export function buildCanvasLayoutData(
     groups: groupEntities,
     presenceCursors: getPresenceCursors()
     .filter((c) => {
-      // In browser mode, hide cursors that explicitly target a different frame.
+      // In browser mode, hide cursors that explicitly target a different page.
       if (viewMode !== 'browser') return true
-      const activeFrameId = uiActiveBrowserFrameId()
-      if (c.surface === 'frame' && c.frameId && c.frameId !== activeFrameId) return false
+      const activePageId = uiActiveBrowserPageId()
+      if (c.surface === 'page' && c.pageId && c.pageId !== activePageId) return false
       return true
     })
     .map((c): AgentPresenceCursor => ({
       ...(function resolvePresencePosition() {
-        if (c.surface === 'frame' && c.frameId) {
-          const frame = frames.find((candidate) => candidate.id === c.frameId)
-          if (frame) {
-            const point = resolvePresenceFramePoint({
-              frameX: c.frameX,
-              frameY: c.frameY,
+        if (c.surface === 'page' && c.pageId) {
+          const page = pages.find((candidate) => candidate.id === c.pageId)
+          if (page) {
+            const point = resolvePresencePagePoint({
+              pageX: c.pageX,
+              pageY: c.pageY,
               targetRect: c.targetRect ?? null,
-              fallbackX: frame.width / 2,
-              fallbackY: frame.height / 2,
+              fallbackX: page.width / 2,
+              fallbackY: page.height / 2,
             })
-            // Clamp to the frame's visible area so the cursor doesn't
-            // render outside the frame when targeting off-screen elements.
-            const clampedX = Math.max(0, Math.min(point.x, frame.width))
-            const clampedY = Math.max(0, Math.min(point.y, frame.height))
-            const page = findPageById(frame.id)
-            const chromeHeight = page?.chromeHeight ?? 0
+            // Clamp to the page's visible area so the cursor doesn't
+            // render outside the page when targeting off-screen elements.
+            const clampedX = Math.max(0, Math.min(point.x, page.width))
+            const clampedY = Math.max(0, Math.min(point.y, page.height))
+            const pageWcv = findPageById(page.id)
+            const chromeHeight = pageWcv?.chromeHeight ?? 0
             return {
-              canvasX: frame.canvasX + clampedX,
-              canvasY: frame.canvasY + chromeHeight + clampedY,
+              canvasX: page.canvasX + clampedX,
+              canvasY: page.canvasY + chromeHeight + clampedY,
             }
           }
         }
-        // In browser mode, place canvas-surface cursors on the active frame
+        // In browser mode, place canvas-surface cursors on the active page
         // so they remain visible instead of mapping to off-screen canvas coords.
         if (viewMode === 'browser') {
-          const activeFrameId = uiActiveBrowserFrameId()
-          const frame = activeFrameId
-            ? frames.find((candidate) => candidate.id === activeFrameId)
+          const activePageId = uiActiveBrowserPageId()
+          const page = activePageId
+            ? pages.find((candidate) => candidate.id === activePageId)
             : null
-          if (frame) {
+          if (page) {
             return {
-              canvasX: frame.canvasX + frame.width / 2,
-              canvasY: frame.canvasY + frame.height / 2,
+              canvasX: page.canvasX + page.width / 2,
+              canvasY: page.canvasY + page.height / 2,
             }
           }
         }
@@ -436,9 +436,9 @@ export function buildCanvasLayoutData(
       color: c.color,
       surface: c.surface,
       activity: c.activity,
-      frameId: c.frameId,
-      frameX: c.frameX,
-      frameY: c.frameY,
+      pageId: c.pageId,
+      pageX: c.pageX,
+      pageY: c.pageY,
       labelKey: c.labelKey,
       taskLabel: c.taskLabel,
       labelHint: c.labelHint,
@@ -449,39 +449,39 @@ export function buildCanvasLayoutData(
       targetRect: c.targetRect,
       updatedAt: c.updatedAt,
     })),
-    keyboardTargetFrameId: currentKeyboardTargetFrameId(),
+    keyboardTargetPageId: currentKeyboardTargetPageId(),
   } as LayoutUpdateData
 }
 
 export function getCanvasLayoutData(): LayoutUpdateData {
-  return buildCanvasLayoutData(backgroundFrameOverlays(), activeCanvasSelection())
+  return buildCanvasLayoutData(backgroundPageOverlays(), activeCanvasSelection())
 }
 
 // Re-export sidebar builders from their dedicated module
 export { buildLeftSidebarData, getLeftSidebarData, notifyLeftSidebarData } from './sidebar-builder'
 
 export function toolbarSelectionData(): ToolbarSelectionData {
-  const selectedFrameIds = uiSelectedEntityIds()
-  const targets = selectedFrameIds
+  const selectedPageIds = uiSelectedEntityIds()
+  const targets = selectedPageIds
     .map((id) => findPageById(id))
     .filter((p): p is Page => p !== undefined)
   const activePage = selectedPage() ?? targets[0] ?? null
-  const availableFrameCount = pages.length
+  const availablePageCount = pages.length
   const activeTabName =
     workspaceTabSummaries().find((t) => t.isActive)?.name ?? null
 
   if (!targets.length || !activePage) {
     return {
-      activeFrameId: null,
+      activePageId: null,
       selectedEntityIds: [],
       selectionCount: 0,
-      availableFrameCount,
+      availablePageCount,
       displayUrl: '',
       placeholder: '',
       canGoBack: false,
       canGoForward: false,
-      isLoadingActiveFrame: false,
-      loadingFrameCount: 0,
+      isLoadingActivePage: false,
+      loadingPageCount: 0,
       isLoadingAnySelected: false,
       loadingPhase: 'idle',
       activeTabId: activeWorkspaceTabId,
@@ -493,30 +493,30 @@ export function toolbarSelectionData(): ToolbarSelectionData {
 
   const distinctUrls = [...new Set(targets.map((page) => page.pageView.webContents.getURL()))]
   const selectionCount = targets.length
-  const loadingFrameCount = targets.filter((page) => page.pageView.webContents.isLoadingMainFrame()).length
-  const isLoadingAnySelected = loadingFrameCount > 0
-  const isLoadingActiveFrame = activePage.pageView.webContents.isLoadingMainFrame()
+  const loadingPageCount = targets.filter((page) => page.pageView.webContents.isLoadingMainFrame()).length
+  const isLoadingAnySelected = loadingPageCount > 0
+  const isLoadingActivePage = activePage.pageView.webContents.isLoadingMainFrame()
   const isWaitingForResponse =
     typeof activePage.pageView.webContents.isWaitingForResponse === 'function' &&
     activePage.pageView.webContents.isWaitingForResponse()
-  const loadingPhase: ToolbarSelectionData['loadingPhase'] = isLoadingActiveFrame
+  const loadingPhase: ToolbarSelectionData['loadingPhase'] = isLoadingActivePage
     ? isWaitingForResponse
       ? 'waiting-response'
       : 'loading'
     : 'idle'
 
   return {
-    activeFrameId: activePage.id,
+    activePageId: activePage.id,
     selectedEntityIds: targets.map((page) => page.id),
     selectionCount,
-    availableFrameCount,
+    availablePageCount,
     displayUrl: distinctUrls.length === 1 ? distinctUrls[0] ?? '' : '',
     placeholder:
-      selectionCount > 1 ? `${selectionCount} frames selected` : 'Enter URL',
+      selectionCount > 1 ? `${selectionCount} pages selected` : 'Enter URL',
     canGoBack: targets.some((page) => page.pageView.webContents.navigationHistory.canGoBack()),
     canGoForward: targets.some((page) => page.pageView.webContents.navigationHistory.canGoForward()),
-    isLoadingActiveFrame,
-    loadingFrameCount,
+    isLoadingActivePage,
+    loadingPageCount,
     isLoadingAnySelected,
     loadingPhase,
     activeTabId: activeWorkspaceTabId,

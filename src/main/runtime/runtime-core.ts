@@ -72,7 +72,7 @@ export {
   createWorkspaceTab,
   deleteWorkspaceTab,
   duplicateWorkspaceTab,
-  renameWorkspaceFrame,
+  renameWorkspacePage,
   renameWorkspaceGroup,
   renameWorkspaceTab,
   setActiveWorkspaceTab,
@@ -159,7 +159,7 @@ export function setSelectedGroupId(value: string | null): void {
 
 function selectedPages(): Page[] {
   return uiSelectedEntityIds()
-    .map((frameId) => findPageById(frameId))
+    .map((pageId) => findPageById(pageId))
     .filter((page): page is Page => page !== undefined)
 }
 function ensureDevtoolsView(page: Page): WebContentsView | null {
@@ -206,21 +206,21 @@ function selectionDebug(event: string, details?: Record<string, unknown>): void 
   })
 }
 
-function collapseSelectionForBrowserMode(frameId?: string): boolean {
-  const selectedFrameIds = uiSelectedEntityIds()
-  const targetId = frameId ?? selectedPageId() ?? selectedFrameIds[0] ?? pages[0]?.id ?? null
+function collapseSelectionForBrowserMode(pageId?: string): boolean {
+  const selectedPageIds = uiSelectedEntityIds()
+  const targetId = pageId ?? selectedPageId() ?? selectedPageIds[0] ?? pages[0]?.id ?? null
   if (!targetId) return false
   const page = findPageById(targetId)
   if (!page) return false
   if (selectedPageId() !== targetId) {
     selectPageById(targetId)
-  } else if (selectedFrameIds.length !== 1 || selectedFrameIds[0] !== targetId) {
+  } else if (selectedPageIds.length !== 1 || selectedPageIds[0] !== targetId) {
     commitSelectPageById(targetId)
   }
   return true
 }
-export function selectBrowserTab(frameId: string): boolean {
-  return setBrowserMode(frameId)
+export function selectBrowserTab(pageId: string): boolean {
+  return setBrowserMode(pageId)
 }
 export function selectPageById(id: string): boolean {
   return commitSelectPageById(id)
@@ -230,8 +230,8 @@ export function selectEntity(entityId: string, entityKind: string): void {
   commitSelectEntity(entityId, entityKind as import('../../shared/types').CanvasEntityKind)
 }
 
-export function setHoveredFrame(frameId: string | null): void {
-  const nextHoverTarget = frameId ? { id: frameId, kind: 'frame' as const } : null
+export function setHoveredPage(pageId: string | null): void {
+  const nextHoverTarget = pageId ? { id: pageId, kind: 'page' as const } : null
   if (hoverTarget?.id === nextHoverTarget?.id && hoverTarget?.kind === nextHoverTarget?.kind) return
   setHoverTarget(nextHoverTarget)
   markDirty('canvas')

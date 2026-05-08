@@ -31,9 +31,9 @@ import { textEntities } from './text-entity-state'
 import { breadcrumb } from '../sentry-context'
 import { descendantEntityIdsForGroup } from './group-descendants'
 import {
-  shouldFocusSelectedFrame,
+  shouldFocusSelectedPage,
   type FocusSelectionInput,
-} from '../../shared/should-focus-selected-frame'
+} from '../../shared/should-focus-selected-page'
 import type { InteractionMode } from '../../shared/interaction-types'
 import type { CanvasInteractionState } from '../../shared/types'
 
@@ -83,13 +83,13 @@ function predicateInteractionKind(
 }
 
 /**
- * Predicate-derived "which frame should hold keyboard + receive forwarded
+ * Predicate-derived "which page should hold keyboard + receive forwarded
  * input." Single source of truth for the focus reconciler, page cursor
- * bridge, and Escape handling. See `shouldFocusSelectedFrame`.
+ * bridge, and Escape handling. See `shouldFocusSelectedPage`.
  */
-export function currentKeyboardTargetFrameId(): string | null {
+export function currentKeyboardTargetPageId(): string | null {
   const ui = getUiState()
-  return shouldFocusSelectedFrame({
+  return shouldFocusSelectedPage({
     selection: predicateSelectionInput(ui.selection),
     interactionKind: predicateInteractionKind(interactionState),
     toolMode: ui.toolMode,
@@ -107,25 +107,25 @@ function selectionEquals(a: UiState['selection'], b: SelectionCommand): boolean 
     if (a.entityIds.length !== b.entityIds.length) return false
     return a.entityIds.every((id, index) => {
       if (b.entityIds[index] !== id) return false
-      return (a.entityKindsById[id] ?? 'frame') === (b.entityKindsById[id] ?? 'frame')
+      return (a.entityKindsById[id] ?? 'page') === (b.entityKindsById[id] ?? 'page')
     })
   }
   return false
 }
 
 export function resolveEntityKind(entityId: string): CanvasEntityKind {
-  if (findPageById(entityId)) return 'frame'
+  if (findPageById(entityId)) return 'page'
   if (textEntities.some((entity) => entity.id === entityId)) return 'text'
   if (fileEntities.some((entity) => entity.id === entityId)) return 'file'
   if (drawingEntities.some((entity) => entity.id === entityId)) return 'drawing'
   if (shapeEntities.some((entity) => entity.id === entityId)) return 'shape'
   if (workspaceGroups.some((group) => group.id === entityId)) return 'group'
   if (workspaceEdges.some((edge) => edge.id === entityId)) return 'edge'
-  return 'frame'
+  return 'page'
 }
 
 function browserSelectionAllowed(nextSelection: SelectionCommand): boolean {
-  return nextSelection.kind === 'single-entity' && nextSelection.entityKind === 'frame'
+  return nextSelection.kind === 'single-entity' && nextSelection.entityKind === 'page'
 }
 
 function describeSelection(selection: SelectionCommand): Record<string, unknown> | undefined {
@@ -223,7 +223,7 @@ export function selectPageById(
   const page = findPageById(pageId)
   if (!page) return false
   return commitSelection(
-    { kind: 'single-entity', entityId: page.id, entityKind: 'frame' },
+    { kind: 'single-entity', entityId: page.id, entityKind: 'page' },
     options,
   )
 }
@@ -241,7 +241,7 @@ export function selectEntity(
   entityKind: CanvasEntityKind,
   options?: CommitOptions,
 ): boolean {
-  if (entityKind === 'frame') {
+  if (entityKind === 'page') {
     return selectPageById(entityId, options)
   }
   return commitSelection(
@@ -262,18 +262,18 @@ export function selectEntities(
   return commitSelection(nextSelection, { clearInspect: true, ...options })
 }
 
-export function selectFrames(
-  frameIds: string[],
+export function selectPages(
+  pageIds: string[],
   options?: CommitOptions,
 ): boolean {
-  const nextFrameIds = [...new Set(frameIds)].filter((frameId) => Boolean(findPageById(frameId)))
-  if (!nextFrameIds.length) return selectNone(options)
-  if (nextFrameIds.length === 1) return selectPageById(nextFrameIds[0], options)
+  const nextPageIds = [...new Set(pageIds)].filter((pageId) => Boolean(findPageById(pageId)))
+  if (!nextPageIds.length) return selectNone(options)
+  if (nextPageIds.length === 1) return selectPageById(nextPageIds[0], options)
   return commitSelection(
     {
       kind: 'multi-entity',
-      entityIds: nextFrameIds,
-      entityKindsById: Object.fromEntries(nextFrameIds.map((id) => [id, 'frame' as const])),
+      entityIds: nextPageIds,
+      entityKindsById: Object.fromEntries(nextPageIds.map((id) => [id, 'page' as const])),
     },
     { clearInspect: true, ...options },
   )

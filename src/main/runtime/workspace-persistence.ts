@@ -7,12 +7,12 @@ import type {
   DevtoolsPanelTab,
   LegacyPersistedWorkspaceStore,
   PersistedCanvasEntity,
-  PersistedFrameEntity,
+  PersistedPageEntity,
   PersistedWorkspaceRecord,
   PersistedWorkspaceStore,
   PersistedWorkspaceTab,
   WorkspaceEdge,
-  WorkspaceFrameSource,
+  WorkspacePageSource,
   WorkspaceGroup,
   WorkspacePageSnapshot,
   WorkspaceSnapshot,
@@ -22,11 +22,11 @@ import type {
 import {
   cloneAnnotationsForPersistence,
   cloneWorkspaceSnapshot,
-  frameDisplayLabel,
+  pageDisplayLabel,
   normalizePresetIndex,
   viewportPresetForIndex,
 } from './runtime-serialization'
-import { frameCustomSizeFromMetadata } from './runtime-entities'
+import { pageCustomSizeFromMetadata } from './runtime-entities'
 
 const WORKSPACE_STORE_FILE = 'workspace-store.json'
 export const WORKSPACE_STORE_VERSION = 2 as const
@@ -44,7 +44,7 @@ type PersistablePageSnapshotInput = {
   canvasX: number
   canvasY: number
   linked: boolean
-  source?: WorkspaceFrameSource
+  source?: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
@@ -74,13 +74,13 @@ export function buildWorkspaceTabSummary(
     name: tab.name,
     expanded: tab.expanded ?? true,
     isActive: tab.id === activeWorkspaceTabId,
-    frameCount: tab.snapshot.pages.length,
-    frames: tab.snapshot.pages.map((page) => {
+    pageCount: tab.snapshot.pages.length,
+    pages: tab.snapshot.pages.map((page) => {
       const preset = viewportPresetForIndex(page.presetIndex)
-      const customSize = frameCustomSizeFromMetadata(page.metadata)
+      const customSize = pageCustomSizeFromMetadata(page.metadata)
       return {
         id: page.id ?? '',
-        label: frameDisplayLabel(page),
+        label: pageDisplayLabel(page),
         name: page.name?.trim() || undefined,
         url: page.url,
         presetIndex: normalizePresetIndex(page.presetIndex),
@@ -213,14 +213,14 @@ export function makeEmptyWorkspaceSnapshot(params: {
     entities: {},
     entityOrder: [],
     selectedPageIndex: null,
-    selectedFrameIds: [],
-    selectedFrameId: null,
+    selectedPageIds: [],
+    selectedPageId: null,
     selectedGroupId: null,
     leftSidebarOpen: params.leftSidebarOpen,
     devtoolsOpen: false,
     devtoolsPanelTab: params.devtoolsPanelTab,
     devtoolsWidth: params.devtoolsWidth,
-    browserTabMode: 'frame',
+    browserTabMode: 'page',
     groups: [],
     edges: [],
   }
@@ -246,9 +246,9 @@ export function buildPageSnapshot(
 
 // --- Entity <-> Page Conversion ---
 
-export function pageSnapshotToEntity(page: WorkspacePageSnapshot): PersistedFrameEntity {
+export function pageSnapshotToEntity(page: WorkspacePageSnapshot): PersistedPageEntity {
   return {
-    kind: 'frame',
+    kind: 'page',
     id: page.id ?? '',
     name: page.name,
     url: page.url,
@@ -264,7 +264,7 @@ export function pageSnapshotToEntity(page: WorkspacePageSnapshot): PersistedFram
 }
 
 export function entityToPageSnapshot(entity: PersistedCanvasEntity): WorkspacePageSnapshot | null {
-  if (entity.kind !== 'frame') return null
+  if (entity.kind !== 'page') return null
   return {
     id: entity.id,
     name: entity.name,
@@ -315,7 +315,7 @@ export function cloneWorkspaceGroupsForSnapshot(
 ): WorkspaceGroup[] {
   return groups.map((group) => ({
     ...group,
-    frameIds: group.frameIds ? [...group.frameIds] : undefined,
+    pageIds: group.pageIds ? [...group.pageIds] : undefined,
     entityIds: group.entityIds ? [...group.entityIds] : undefined,
     metadata: group.metadata ? { ...group.metadata } : undefined,
   }))
@@ -335,8 +335,8 @@ export function buildWorkspaceSnapshot(params: {
   pan: { x: number; y: number }
   pages: WorkspacePageSnapshot[]
   selectedPageIndex: number | null
-  selectedFrameId: string | null
-  selectedFrameIds: string[]
+  selectedPageId: string | null
+  selectedPageIds: string[]
   selectedGroupId: string | null
   leftSidebarOpen: boolean
   devtoolsOpen: boolean
@@ -354,8 +354,8 @@ export function buildWorkspaceSnapshot(params: {
     entities,
     entityOrder,
     selectedPageIndex: params.selectedPageIndex,
-    selectedFrameId: params.selectedFrameId,
-    selectedFrameIds: params.selectedFrameIds,
+    selectedPageId: params.selectedPageId,
+    selectedPageIds: params.selectedPageIds,
     selectedGroupId: params.selectedGroupId,
     leftSidebarOpen: params.leftSidebarOpen,
     devtoolsOpen: params.devtoolsOpen,

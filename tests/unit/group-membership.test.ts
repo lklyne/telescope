@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CanvasSceneGroupEntity, LayoutUpdateData } from '../../src/shared/types'
 import {
   descendantIdsForGroup,
-  selectedGroupHasDescendantFrame,
+  selectedGroupHasDescendantPage,
   selectedGroupDragTargetId,
 } from '../../src/renderer/canvas-bg/groupMembership'
 
@@ -33,18 +33,18 @@ function group(
 describe('groupMembership', () => {
   it('collects direct and nested group descendants', () => {
     const groups = [
-      group('parent', ['frame-1', 'child']),
+      group('parent', ['page-1', 'child']),
       group('child', ['text-1'], 'parent'),
     ]
 
     expect(descendantIdsForGroup(groups, 'parent')).toEqual(
-      new Set(['frame-1', 'child', 'text-1']),
+      new Set(['page-1', 'child', 'text-1']),
     )
   })
 
   it('resolves a selected group drag target for descendants', () => {
     const groups = [
-      group('parent', ['frame-1', 'child']),
+      group('parent', ['page-1', 'child']),
       group('child', ['file-1'], 'parent'),
     ]
 
@@ -55,23 +55,23 @@ describe('groupMembership', () => {
     expect(selectedGroupDragTargetId({ groups, selectedGroupId: null }, 'file-1')).toBeNull()
   })
 
-  it('detects when the selected group owns frame content', () => {
+  it('detects when the selected group owns page content', () => {
     const groups = [
       group('parent', ['child']),
-      group('child', ['frame-1'], 'parent'),
+      group('child', ['page-1'], 'parent'),
     ]
     const entities = [
-      { kind: 'frame', id: 'frame-1' },
+      { kind: 'page', id: 'page-1' },
       { kind: 'text', id: 'text-1' },
     ] as LayoutUpdateData['entities']
 
-    expect(selectedGroupHasDescendantFrame({ entities, groups, selectedGroupId: 'parent' })).toBe(
+    expect(selectedGroupHasDescendantPage({ entities, groups, selectedGroupId: 'parent' })).toBe(
       true,
     )
-    expect(selectedGroupHasDescendantFrame({ entities, groups, selectedGroupId: 'child' })).toBe(
+    expect(selectedGroupHasDescendantPage({ entities, groups, selectedGroupId: 'child' })).toBe(
       true,
     )
-    expect(selectedGroupHasDescendantFrame({ entities, groups, selectedGroupId: null })).toBe(
+    expect(selectedGroupHasDescendantPage({ entities, groups, selectedGroupId: null })).toBe(
       false,
     )
   })

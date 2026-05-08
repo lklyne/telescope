@@ -16,7 +16,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import type {
   Annotation,
-  DevtoolsPanelFrameSummary,
+  DevtoolsPanelPageSummary,
   DevtoolsPanelSelectionSummary,
   FixProgressEntry,
   InspectPanelState,
@@ -24,7 +24,7 @@ import type {
 import { DEVICE_CATALOG } from '../../../shared/device-catalog'
 import { VIEWPORT_PRESETS } from '../../../shared/constants'
 import { normalizeUserUrl } from '../../../shared/url'
-import { FramePresetDropdown } from '../../shared/FramePresetDropdown'
+import { PagePresetDropdown } from '../../shared/PagePresetDropdown'
 import {
   dividerClass,
   isUnresolved,
@@ -34,7 +34,7 @@ import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import {
   buildUnresolvedCountsByNodeId,
   getInspectDetailState,
-  resolveFrameDimensions,
+  resolvePageDimensions,
 } from '../rightDetailsPanelSelectors'
 import { useClearInspectHoverOnLeave } from '../useClearInspectHoverOnLeave'
 import { useElementCommentDraft } from '../useElementCommentDraft'
@@ -46,32 +46,32 @@ import { InspectTree } from './InspectTree'
 import { PaneHeader } from './PaneHeader'
 import { InfoIcon } from '../../shared/PanelIcons'
 
-export function FramePane({
+export function PagePane({
   inspect,
   isDark,
   annotations,
   selection,
-  frames,
+  pages,
   fixProgress,
 }: {
   inspect: InspectPanelState
   isDark: boolean
   annotations: Annotation[]
   selection?: DevtoolsPanelSelectionSummary
-  frames: DevtoolsPanelFrameSummary[]
+  pages: DevtoolsPanelPageSummary[]
   fixProgress: Record<string, FixProgressEntry>
 }) {
   const muted = mutedClass(isDark)
   const divider = dividerClass(isDark)
   const elementsSectionRef = useRef<HTMLElement>(null)
-  const activeFrame = inspect.activeFrameId
-    ? frames.find((frame) => frame.id === inspect.activeFrameId)
+  const activePage = inspect.activePageId
+    ? pages.find((page) => page.id === inspect.activePageId)
     : undefined
-  const activeFrameDimensions = activeFrame ? resolveFrameDimensions(activeFrame) : {}
+  const activePageDimensions = activePage ? resolvePageDimensions(activePage) : {}
   const { activeDetail, hoveredDetail, selectedDetail } = getInspectDetailState(inspect)
   const unresolvedCountsByNodeId = buildUnresolvedCountsByNodeId(
     annotations,
-    inspect.activeFrameId,
+    inspect.activePageId,
   )
   const { expanded, registerNodeElement, setExpanded } = useInspectTreeState(inspect)
   const {
@@ -87,12 +87,12 @@ export function FramePane({
 
   const clearInspectListState = (clearHover: boolean) => {
     rightDetailsPanelApi.clearInspectSelection()
-    if (clearHover && inspect.activeFrameId) {
-      rightDetailsPanelApi.setInspectHoverNode(inspect.activeFrameId, null)
+    if (clearHover && inspect.activePageId) {
+      rightDetailsPanelApi.setInspectHoverNode(inspect.activePageId, null)
     }
   }
 
-  useClearInspectHoverOnLeave(inspect.activeFrameId ?? null, inspect.selectedNodeId ?? null)
+  useClearInspectHoverOnLeave(inspect.activePageId ?? null, inspect.selectedNodeId ?? null)
 
   const collapsiblePanelClass =
     'h-[var(--collapsible-panel-height)] overflow-hidden transition-all ease-out data-[ending-style]:h-0 data-[starting-style]:h-0 duration-150 [&[hidden]:not([hidden=\'until-found\'])]:hidden'
@@ -112,15 +112,15 @@ export function FramePane({
       }}
     >
       <div className="thin-scrollbar min-h-0 flex-1 overflow-auto [&>section:first-of-type]:border-t-0">
-        {/* Frame header */}
-        {inspect.activeFrameId ? (
+        {/* Page header */}
+        {inspect.activePageId ? (
           <PaneHeader
-            icon={<FrameFavicon faviconUrl={activeFrame?.faviconUrl} label={activeFrame?.label} width={activeFrameDimensions.width} />}
-            label={activeFrame?.label ?? 'Frame'}
+            icon={<PageFavicon faviconUrl={activePage?.faviconUrl} label={activePage?.label} width={activePageDimensions.width} />}
+            label={activePage?.label ?? 'Page'}
             actions={
-              <FrameHeaderActions
-                frameId={inspect.activeFrameId!}
-                linked={activeFrame?.linked ?? false}
+              <PageHeaderActions
+                pageId={inspect.activePageId!}
+                linked={activePage?.linked ?? false}
                 isDark={isDark}
               />
             }
@@ -128,32 +128,32 @@ export function FramePane({
         ) : (
           <PaneHeader
             icon={<Laptop size={14} className="shrink-0 text-zinc-500" />}
-            label="Waiting for frame data…"
+            label="Waiting for page data…"
           />
         )}
 
-        {/* Navigation & frame actions */}
-        {activeFrame ? (
-          <FrameNavigationSection
-            frame={activeFrame}
+        {/* Navigation & page actions */}
+        {activePage ? (
+          <PageNavigationSection
+            page={activePage}
             isDark={isDark}
             divider={divider}
           />
         ) : null}
 
-        {/* Dimensions & device frame */}
-        {activeFrame ? (
+        {/* Dimensions & device page */}
+        {activePage ? (
           <DeviceFrameSection
-            frame={activeFrame}
+            page={activePage}
             isDark={isDark}
             divider={divider}
           />
         ) : null}
 
-        {/* Frame comments (collapsible, only when there are unresolved comments) */}
-        <FrameCommentsSection
+        {/* Page comments (collapsible, only when there are unresolved comments) */}
+        <PageCommentsSection
           annotations={annotations}
-          activeFrameId={inspect.activeFrameId}
+          activePageId={inspect.activePageId}
           isDark={isDark}
           divider={divider}
           muted={muted}
@@ -188,7 +188,7 @@ export function FramePane({
                       : 'border-zinc-300 bg-zinc-50 text-zinc-700'
                   }`}
                 >
-                  <div>Mode: {inspect.mode === 'frame_locked' ? 'Frame locked' : 'Global target'}</div>
+                  <div>Mode: {inspect.mode === 'page_locked' ? 'Page locked' : 'Global target'}</div>
                   {inspect.diagnostics ? (
                     <>
                       <div>Collector: {inspect.diagnostics.collector}</div>
@@ -207,9 +207,9 @@ export function FramePane({
               <div
                 className="thin-scrollbar pb-2"
                 onMouseLeave={() => {
-                  if (inspect.activeFrameId) {
+                  if (inspect.activePageId) {
                     rightDetailsPanelApi.setInspectHoverNode(
-                      inspect.activeFrameId,
+                      inspect.activePageId,
                       inspect.selectedNodeId,
                     )
                   }
@@ -218,7 +218,7 @@ export function FramePane({
                 {inspect.treeRootIds.length ? (
                   <InspectTree
                     treeRootIds={inspect.treeRootIds}
-                    activeFrameId={inspect.activeFrameId!}
+                    activePageId={inspect.activePageId!}
                     nodesById={inspect.nodesById}
                     unresolvedCountsByNodeId={unresolvedCountsByNodeId}
                     expanded={expanded}
@@ -277,28 +277,28 @@ export function FramePane({
   )
 }
 
-// --- Frame Comments (unresolved comments anchored to the active frame) ---
+// --- Page Comments (unresolved comments anchored to the active page) ---
 
-function unresolvedCommentsForFrame(
+function unresolvedCommentsForPage(
   annotations: Annotation[],
-  activeFrameId: string | null,
+  activePageId: string | null,
 ): Annotation[] {
-  if (!activeFrameId) return []
+  if (!activePageId) return []
   return annotations.filter((a) => {
     if (!isUnresolved(a.status)) return false
     if (a.anchor.type === 'canvas') return false
     if (a.anchor.type === 'region') {
       return a.metadata?.regionComponents?.some(
-        (rc) => rc.frameId === activeFrameId,
+        (rc) => rc.pageId === activePageId,
       ) ?? false
     }
-    return a.anchor.frameId === activeFrameId
+    return a.anchor.pageId === activePageId
   })
 }
 
-function FrameCommentsSection({
+function PageCommentsSection({
   annotations,
-  activeFrameId,
+  activePageId,
   isDark,
   divider,
   muted,
@@ -306,15 +306,15 @@ function FrameCommentsSection({
   fixProgress,
 }: {
   annotations: Annotation[]
-  activeFrameId: string | null
+  activePageId: string | null
   isDark: boolean
   divider: string
   muted: string
   collapsiblePanelClass: string
   fixProgress: Record<string, FixProgressEntry>
 }) {
-  const frameComments = unresolvedCommentsForFrame(annotations, activeFrameId)
-  if (!frameComments.length) return null
+  const pageComments = unresolvedCommentsForPage(annotations, activePageId)
+  if (!pageComments.length) return null
   return (
     <section className={`border-t ${divider}`}>
       <Collapsible.Root defaultOpen>
@@ -325,12 +325,12 @@ function FrameCommentsSection({
           <ChevronRight size={12} className="block group-data-[panel-open]:hidden" />
           Comments
           <span className={`text-[10px] font-normal ${muted}`}>
-            ({frameComments.length})
+            ({pageComments.length})
           </span>
         </Collapsible.Trigger>
         <Collapsible.Panel className={collapsiblePanelClass}>
           <div className="space-y-2 px-2 pb-2">
-            {frameComments.map((annotation) => (
+            {pageComments.map((annotation) => (
               <CommentRow
                 key={annotation.id}
                 annotation={annotation}
@@ -349,14 +349,14 @@ function FrameCommentsSection({
   )
 }
 
-// --- Frame Header Actions (inline with PaneHeader) ---
+// --- Page Header Actions (inline with PaneHeader) ---
 
-function FrameHeaderActions({
-  frameId,
+function PageHeaderActions({
+  pageId,
   linked,
   isDark,
 }: {
-  frameId: string
+  pageId: string
   linked: boolean
   isDark: boolean
 }) {
@@ -369,15 +369,15 @@ function FrameHeaderActions({
 
   return (
     <div className="flex items-center gap-0.5">
-      <button type="button" className={btnClass} aria-label="Duplicate" title="Duplicate" onClick={() => rightDetailsPanelApi.duplicateFrame(frameId)}>
+      <button type="button" className={btnClass} aria-label="Duplicate" title="Duplicate" onClick={() => rightDetailsPanelApi.duplicatePage(pageId)}>
         <Copy size={13} />
       </button>
       <button
         type="button"
         className={btnClass}
-        aria-label={linked ? 'Unlink Frame' : 'Link Frame'}
-        title={linked ? 'Unlink Frame' : 'Link Frame'}
-        onClick={() => rightDetailsPanelApi.toggleLinkedFrame(frameId)}
+        aria-label={linked ? 'Unlink Page' : 'Link Page'}
+        title={linked ? 'Unlink Page' : 'Link Page'}
+        onClick={() => rightDetailsPanelApi.toggleLinkedPage(pageId)}
         style={linked ? { color: isDark ? '#60a5fa' : '#2563eb' } : undefined}
       >
         <Link2 size={13} />
@@ -385,31 +385,31 @@ function FrameHeaderActions({
       <button type="button" className={btnClass} aria-label="Open DevTools" title="Open DevTools" onClick={() => rightDetailsPanelApi.openBrowserDevTools()}>
         <Wrench size={13} />
       </button>
-      <button type="button" className={deleteBtnClass} aria-label="Delete Frame" title="Delete Frame" onClick={() => rightDetailsPanelApi.deleteFrame(frameId)}>
+      <button type="button" className={deleteBtnClass} aria-label="Delete Page" title="Delete Page" onClick={() => rightDetailsPanelApi.deletePage(pageId)}>
         <Trash2 size={13} />
       </button>
     </div>
   )
 }
 
-// --- Frame Navigation & Actions ---
+// --- Page Navigation & Actions ---
 
-function FrameNavigationSection({
-  frame,
+function PageNavigationSection({
+  page,
   isDark,
   divider,
 }: {
-  frame: DevtoolsPanelFrameSummary
+  page: DevtoolsPanelPageSummary
   isDark: boolean
   divider: string
 }) {
-  const [urlValue, setUrlValue] = useState(frame.url)
+  const [urlValue, setUrlValue] = useState(page.url)
   const [isEditingUrl, setIsEditingUrl] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setUrlValue(frame.url)
-  }, [frame.url])
+    setUrlValue(page.url)
+  }, [page.url])
 
   useEffect(() => {
     if (isEditingUrl) {
@@ -420,8 +420,8 @@ function FrameNavigationSection({
 
   const handleCommitUrl = () => {
     const value = urlValue.trim()
-    if (value && value !== frame.url) {
-      rightDetailsPanelApi.navigateFrame(frame.id, normalizeUserUrl(value))
+    if (value && value !== page.url) {
+      rightDetailsPanelApi.navigatePage(page.id, normalizeUserUrl(value))
     }
     setIsEditingUrl(false)
   }
@@ -441,28 +441,28 @@ function FrameNavigationSection({
         <button
           type="button"
           className={navBtnClass}
-          disabled={!frame.canGoBack}
+          disabled={!page.canGoBack}
           title="Back"
-          onClick={() => rightDetailsPanelApi.goBackFrame(frame.id)}
+          onClick={() => rightDetailsPanelApi.goBackPage(page.id)}
         >
           <ChevronLeft size={14} />
         </button>
         <button
           type="button"
           className={navBtnClass}
-          disabled={!frame.canGoForward}
+          disabled={!page.canGoForward}
           title="Forward"
-          onClick={() => rightDetailsPanelApi.goForwardFrame(frame.id)}
+          onClick={() => rightDetailsPanelApi.goForwardPage(page.id)}
         >
           <ChevronRight size={14} />
         </button>
         <button
           type="button"
           className={navBtnClass}
-          title={frame.isLoading ? 'Loading' : 'Reload'}
-          onClick={() => rightDetailsPanelApi.reloadFrame(frame.id)}
+          title={page.isLoading ? 'Loading' : 'Reload'}
+          onClick={() => rightDetailsPanelApi.reloadPage(page.id)}
         >
-          <RotateCw size={13} className={frame.isLoading ? 'animate-spin' : ''} />
+          <RotateCw size={13} className={page.isLoading ? 'animate-spin' : ''} />
         </button>
 
         {/* URL bar */}
@@ -476,7 +476,7 @@ function FrameNavigationSection({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCommitUrl()
                 if (e.key === 'Escape') {
-                  setUrlValue(frame.url)
+                  setUrlValue(page.url)
                   setIsEditingUrl(false)
                 }
               }}
@@ -492,9 +492,9 @@ function FrameNavigationSection({
                 isDark ? 'text-zinc-400' : 'text-zinc-500'
               }`}
               onClick={() => setIsEditingUrl(true)}
-              title={frame.url}
+              title={page.url}
             >
-              {frame.url}
+              {page.url}
             </span>
           )}
         </div>
@@ -504,7 +504,7 @@ function FrameNavigationSection({
   )
 }
 
-// --- Frame Dimensions & Device Controls ---
+// --- Page Dimensions & Device Controls ---
 
 function OrientationIcon({
   category,
@@ -530,22 +530,22 @@ function OrientationIcon({
 }
 
 function DeviceFrameSection({
-  frame,
+  page,
   isDark,
   divider,
 }: {
-  frame: DevtoolsPanelFrameSummary
+  page: DevtoolsPanelPageSummary
   isDark: boolean
   divider: string
 }) {
-  const orientation = frame.deviceOrientation ?? 'portrait'
-  const showShell = frame.showDeviceFrame ?? false
-  const deviceId = frame.deviceId ?? null
+  const orientation = page.deviceOrientation ?? 'portrait'
+  const showShell = page.showDeviceFrame ?? false
+  const deviceId = page.deviceId ?? null
   const dev = deviceId ? DEVICE_CATALOG.get(deviceId) : null
   const supportsOrientation = !!dev
 
-  const preset = VIEWPORT_PRESETS[frame.presetIndex]
-  const isCustom = !preset || frame.width !== preset.width || frame.height !== preset.height
+  const preset = VIEWPORT_PRESETS[page.presetIndex]
+  const isCustom = !preset || page.width !== preset.width || page.height !== preset.height
   const triggerLabel = isCustom ? 'Custom' : `${preset.label} (${preset.width}\u00d7${preset.height})`
 
   const triggerClassName =
@@ -562,14 +562,14 @@ function DeviceFrameSection({
   return (
     <section className={`border-t ${divider}`}>
       <div className="flex items-center gap-2 px-2 py-2">
-        {/* Dimensions dropdown — same options as inline frame menu */}
-        <FramePresetDropdown
+        {/* Dimensions dropdown — same options as inline page menu */}
+        <PagePresetDropdown
           align="start"
           isDark={isDark}
           side="bottom"
           sideOffset={4}
-          onSelectPreset={(index) => rightDetailsPanelApi.setFramePreset(frame.id, index)}
-          onSelectCustom={() => rightDetailsPanelApi.setFrameCustom(frame.id)}
+          onSelectPreset={(index) => rightDetailsPanelApi.setPagePreset(page.id, index)}
+          onSelectCustom={() => rightDetailsPanelApi.setPageCustom(page.id)}
           trigger={
             <button type="button" className={triggerClassName}>
               <span className="min-w-0 truncate">{triggerLabel}</span>
@@ -587,7 +587,7 @@ function DeviceFrameSection({
                 orientation === 'portrait' ? tabActive : tabInactive
               }`}
               title="Portrait"
-              onClick={() => rightDetailsPanelApi.setDeviceOrientation(frame.id, 'portrait')}
+              onClick={() => rightDetailsPanelApi.setDeviceOrientation(page.id, 'portrait')}
             >
               <OrientationIcon category={dev!.category} orientation="portrait" size={14} />
             </button>
@@ -597,7 +597,7 @@ function DeviceFrameSection({
                 orientation === 'landscape' ? tabActive : tabInactive
               }`}
               title="Landscape"
-              onClick={() => rightDetailsPanelApi.setDeviceOrientation(frame.id, 'landscape')}
+              onClick={() => rightDetailsPanelApi.setDeviceOrientation(page.id, 'landscape')}
             >
               <OrientationIcon category={dev!.category} orientation="landscape" size={14} />
             </button>
@@ -605,24 +605,24 @@ function DeviceFrameSection({
         ) : null}
       </div>
 
-      {/* Show device frame checkbox */}
+      {/* Show device page checkbox */}
       <div className="flex flex-col gap-1 px-2 pb-2">
         <label className="flex items-center gap-1.5 text-[11px]">
           <input
             type="checkbox"
             checked={showShell}
-            onChange={() => rightDetailsPanelApi.toggleDeviceShell(frame.id)}
+            onChange={() => rightDetailsPanelApi.toggleDeviceShell(page.id)}
             className="accent-blue-500"
           />
-          Show device frame
+          Show device page
         </label>
         {/* SVG device shell toggle (experimental, hidden for now)
         {showShell && (
           <label className="flex items-center gap-1.5 text-[11px]">
             <input
               type="checkbox"
-              checked={frame.useSvgDeviceShell ?? false}
-              onChange={() => rightDetailsPanelApi.toggleSvgDeviceShell(frame.id)}
+              checked={page.useSvgDeviceShell ?? false}
+              onChange={() => rightDetailsPanelApi.toggleSvgDeviceShell(page.id)}
               className="accent-blue-500"
             />
             SVG device shell
@@ -634,7 +634,7 @@ function DeviceFrameSection({
   )
 }
 
-function FrameFavicon({
+function PageFavicon({
   faviconUrl,
   label,
   width,

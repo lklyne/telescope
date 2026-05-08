@@ -7,7 +7,7 @@ import { DocumentPane } from './components/DocumentPane'
 import { DrawingEntityPane } from './components/DrawingEntityPane'
 import { EdgeEntityPane } from './components/EdgeEntityPane'
 import { FileEntityPane } from './components/FileEntityPane'
-import { FramePane } from './components/FramePane'
+import { PagePane } from './components/PagePane'
 import { GroupEntityPane } from './components/GroupEntityPane'
 import { MultiEntityPane } from './components/MultiEntityPane'
 import { PaneHeader } from './components/PaneHeader'
@@ -27,16 +27,16 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   })
   useReportTextEditing(rightDetailsPanelApi.setTextEditing)
 
-  const frameClass = isDark
+  const pageClass = isDark
     ? 'h-screen w-screen overflow-hidden border-l border-[var(--surface-panel-border)] bg-[var(--surface-panel)] text-zinc-100'
     : 'h-screen w-screen overflow-hidden border-l border-[var(--surface-panel-border)] bg-[var(--surface-panel)] text-zinc-900'
-  const frames = panelData.frames ?? []
+  const pages = panelData.pages ?? []
   const annotations = panelData.annotations ?? []
   const { panelMode } = panelData
 
   if (panelData.activeTab === 'browser-devtools') {
     return (
-      <div className={frameClass}>
+      <div className={pageClass}>
         <PaneHeader
           icon={
             <svg className="h-3.5 w-3.5 shrink-0 opacity-50" viewBox="0 0 16 16" fill="currentColor">
@@ -64,14 +64,14 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
 
   function renderPane() {
     switch (panelMode.kind) {
-      case 'frame':
+      case 'page':
         return panelData.inspect ? (
-          <FramePane
+          <PagePane
             inspect={panelData.inspect}
             isDark={isDark}
             annotations={annotations}
             selection={panelData.selection}
-            frames={frames}
+            pages={pages}
             fixProgress={panelData.fixProgress ?? {}}
           />
         ) : null
@@ -117,7 +117,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           <DocumentPane
             isDark={isDark}
             annotations={annotations}
-            frames={frames}
+            pages={pages}
             focusedAnnotationId={panelData.focusedAnnotationId}
             annotateEnabled={Boolean(panelData.annotateEnabled)}
             annotateAvailable={Boolean(panelData.annotateAvailable)}
@@ -131,7 +131,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   }
 
   return (
-    <div className={frameClass}>
+    <div className={pageClass}>
       <div className="flex h-full min-h-0 flex-col">
         {renderPane()}
       </div>

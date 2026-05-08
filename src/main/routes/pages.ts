@@ -1,26 +1,26 @@
 import { randomUUID } from 'crypto'
 import { nativeImage } from 'electron'
 import type { Route } from './types'
-import type { CreateFramesRequest, DeleteFramesRequest } from '../../shared/types'
-import { createFrames } from '../workspace-frames'
-import { deleteFrames } from '../workspace-entities'
+import type { CreatePagesRequest, DeletePagesRequest } from '../../shared/types'
+import { createPages } from '../workspace-pages'
+import { deletePages } from '../workspace-entities'
 import { focusTargets } from '../workspace-groups'
-import { createFrameAtPosition, setFramePreset, setDeviceOrientation } from '../runtime/document-commands'
+import { createPageAtPosition, setPagePreset, setDeviceOrientation } from '../runtime/document-commands'
 import { showDeviceFrameFromMetadata, setShowDeviceFrameMetadata } from '../runtime/runtime-entities'
-import { navigateFramePage } from '../navigation-sync'
+import { navigatePage } from '../navigation-sync'
 import { findPageById } from '../runtime/runtime-context'
 import {
-  takeFrameAgentSnapshot,
-  takeFrameScreenshot,
-  takeFrameSnapshot,
-  queryFrameElements,
+  takePageAgentSnapshot,
+  takePageScreenshot,
+  takePageSnapshot,
+  queryPageElements,
 } from '../runtime/page-runtime'
 import { cacheAgentSnapshot } from '../runtime/agent-snapshot-cache'
 import { captureFrameComposited } from '../runtime/frame-compositor'
 import { win } from '../runtime/window-shell'
 import {
-  resolveFrameCdpConnection,
-  registerFrameCdpProxy,
+  resolvePageCdpConnection,
+  registerPageCdpProxy,
   cdpProxyRegistrations,
   pruneExpiredCdpProxyRegistrations,
   summarizeCdpProxyRegistration,
@@ -36,28 +36,28 @@ import {
 } from '../presence-manager'
 import { writeJson, getServerAddress } from '../app-control-server'
 
-export const frameRoutes: Route[] = [
+export const pageRoutes: Route[] = [
   {
     method: 'GET',
-    pattern: /^\/frames\/([^/]+)\/cdp-target$/,
+    pattern: /^\/pages\/([^/]+)\/cdp-target$/,
     async handler({ request, response, params }) {
       try {
-        const connection = await resolveFrameCdpConnection(decodeURIComponent(params[0]))
+        const connection = await resolvePageCdpConnection(decodeURIComponent(params[0]))
         const address = getServerAddress()
         if (!address || typeof address === 'string') {
           throw new Error('CDP proxy server is unavailable')
         }
         const resolved = resolveSession(request)
-        writeJson(response, 200, registerFrameCdpProxy(connection, address.port, {
+        writeJson(response, 200, registerPageCdpProxy(connection, address.port, {
           sessionId: resolved?.sessionId ?? null,
           clientName: resolved?.session.clientName ?? null,
         }))
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unable to resolve CDP target'
         const status =
-          message === 'Frame not found'
+          message === 'Page not found'
             ? 404
-            : message === 'CDP target not found for frame' || message === 'CDP browser target not found'
+            : message === 'CDP target not found for page' || message === 'CDP browser target not found'
               ? 404
             : 502
         writeJson(response, status, { error: message })
@@ -77,33 +77,33 @@ export const frameRoutes: Route[] = [
   },
   {
     method: 'POST',
-    pattern: '/frames/create',
+    pattern: '/pages/create',
     async handler({ request, response, body }) {
-      const payload = body as CreateFramesRequest
-      const frames = payload.frames ?? []
-      if (frames.length <= 1) {
-        const frame = frames[0]
-        if (frame) movePresenceCursorTo(request, frame.canvasX, frame.canvasY, 'create_frame')
-        writeJson(response, 200, createFrames(payload))
+      const payload = body as CreatePagesRequest
+      const pages = payload.pages ?? []
+      if (pages.length <= 1) {
+        const page = pages[0]
+        if (page) movePresenceCursorTo(request, page.canvasX, page.canvasY, 'create_page')
+        writeJson(response, 200, createPages(payload))
         return
       }
-      const frameIds = frames.map((f) => f.id ?? `frame_${randomUUID()}`)
-      frames.forEach((f, i) => { f.id = frameIds[i] })
-      writeJson(response, 200, { frameIds })
+      const pageIds = pages.map((f) => f.id ?? `page_${randomUUID()}`)
+      pages.forEach((f, i) => { f.id = pageIds[i] })
+      writeJson(response, 200, { pageIds })
       staggerOperation(
         request,
-        frames.map((f) => ({ x: f.canvasX, y: f.canvasY })),
-        'create_frame',
-        (i) => createFrames({ frames: [frames[i]] }),
+        pages.map((f) => ({ x: f.canvasX, y: f.canvasY })),
+        'create_page',
+        (i) => createPages({ pages: [pages[i]] }),
       )
     },
   },
   {
     method: 'POST',
-    pattern: '/frames/update',
+    pattern: '/pages/update',
     async handler({ request, response, body }) {
       const payload = body as {
-        frames: Array<{
+        pages: Array<{
           id: string
           presetIndex?: number
           orientation?: 'portrait' | 'landscape'
@@ -115,11 +115,11 @@ export const frameRoutes: Route[] = [
       }
       const updated: string[] = []
       const positions: Array<{ x: number; y: number }> = []
-      for (const f of payload.frames) {
+      for (const f of payload.pages) {
         const page = findPageById(f.id)
         if (!page) continue
         positions.push({ x: page.canvasX, y: page.canvasY })
-        if (f.presetIndex !== undefined) setFramePreset(page.id, f.presetIndex)
+        if (f.presetIndex !== undefined) setPagePreset(page.id, f.presetIndex)
         if (f.orientation !== undefined) setDeviceOrientation(page.id, f.orientation)
         if (f.showDeviceFrame !== undefined) {
           const current = showDeviceFrameFromMetadata(page.metadata)
@@ -128,7 +128,7 @@ export const frameRoutes: Route[] = [
           }
         }
         if (f.url !== undefined && f.url !== page.url) {
-          navigateFramePage(page, { type: 'load-url', url: f.url })
+          navigatePage(page, { type: 'load-url', url: f.url })
         }
         if (f.canvasX !== undefined) page.canvasX = f.canvasX
         if (f.canvasY !== undefined) page.canvasY = f.canvasY
@@ -141,10 +141,10 @@ export const frameRoutes: Route[] = [
   },
   {
     method: 'POST',
-    pattern: '/frames/create-at-position',
+    pattern: '/pages/create-at-position',
     async handler({ request, response, body }) {
       const payload = body as {
-        sourceFrameId?: string
+        sourcePageId?: string
         presetIndex?: number
         canvasX?: number
         canvasY?: number
@@ -153,12 +153,12 @@ export const frameRoutes: Route[] = [
         writeJson(response, 400, { error: 'canvasX and canvasY are required numbers' })
         return
       }
-      movePresenceCursorTo(request, payload.canvasX, payload.canvasY, 'create_frame')
+      movePresenceCursorTo(request, payload.canvasX, payload.canvasY, 'create_page')
       writeJson(
         response,
         200,
-        createFrameAtPosition({
-          sourceFrameId: payload.sourceFrameId,
+        createPageAtPosition({
+          sourcePageId: payload.sourcePageId,
           presetIndex: payload.presetIndex ?? 0,
           canvasX: payload.canvasX,
           canvasY: payload.canvasY,
@@ -170,73 +170,73 @@ export const frameRoutes: Route[] = [
   },
   {
     method: 'POST',
-    pattern: '/frames/delete',
+    pattern: '/pages/delete',
     async handler({ request, response, body }) {
-      const payload = body as DeleteFramesRequest
-      const frameIds = payload.frameIds ?? []
-      if (frameIds.length <= 1) {
-        const id = frameIds[0]
+      const payload = body as DeletePagesRequest
+      const pageIds = payload.pageIds ?? []
+      if (pageIds.length <= 1) {
+        const id = pageIds[0]
         if (id) {
           const page = findPageById(id)
           if (page) movePresenceCursorTo(request, page.canvasX, page.canvasY, null)
         }
-        writeJson(response, 200, deleteFrames(payload))
+        writeJson(response, 200, deletePages(payload))
         return
       }
-      const itemsToDelete = frameIds
+      const itemsToDelete = pageIds
         .map((id) => { const p = findPageById(id); return p ? { id, x: p.canvasX, y: p.canvasY } : null })
         .filter((p): p is NonNullable<typeof p> => p !== null)
-      writeJson(response, 200, { deletedFrameIds: frameIds, deletedEdgeIds: [], deletedGroupIds: [], missingFrameIds: [], warnings: [] })
-      staggerOperation(request, itemsToDelete, null, (i) => deleteFrames({ frameIds: [itemsToDelete[i].id] }))
+      writeJson(response, 200, { deletedPageIds: pageIds, deletedEdgeIds: [], deletedGroupIds: [], missingPageIds: [], warnings: [] })
+      staggerOperation(request, itemsToDelete, null, (i) => deletePages({ pageIds: [itemsToDelete[i].id] }))
     },
   },
   {
     method: 'POST',
-    pattern: '/frames/snapshot',
+    pattern: '/pages/snapshot',
     async handler({ response, body }) {
-      const payload = body as { frameId?: string; maxDepth?: number }
-      const snapshot = await takeFrameSnapshot(payload.frameId, payload.maxDepth)
+      const payload = body as { pageId?: string; maxDepth?: number }
+      const snapshot = await takePageSnapshot(payload.pageId, payload.maxDepth)
       writeJson(response, 200, { snapshot })
     },
   },
   {
     method: 'POST',
-    pattern: '/frames/agent-snapshot',
+    pattern: '/pages/agent-snapshot',
     async handler({ response, body }) {
-      const payload = body as { frameId?: string; maxDepth?: number }
-      const frameId = typeof payload.frameId === 'string' ? payload.frameId : undefined
-      if (!frameId) {
-        writeJson(response, 400, { error: 'frameId is required' })
+      const payload = body as { pageId?: string; maxDepth?: number }
+      const pageId = typeof payload.pageId === 'string' ? payload.pageId : undefined
+      if (!pageId) {
+        writeJson(response, 400, { error: 'pageId is required' })
         return
       }
-      const rawSnapshot = await takeFrameAgentSnapshot(frameId, payload.maxDepth)
-      const snapshot = normalizeAgentSnapshot(frameId, rawSnapshot)
+      const rawSnapshot = await takePageAgentSnapshot(pageId, payload.maxDepth)
+      const snapshot = normalizeAgentSnapshot(pageId, rawSnapshot)
       cacheAgentSnapshot(snapshot)
       writeJson(response, 200, { snapshot })
     },
   },
   {
     method: 'POST',
-    pattern: '/frames/screenshot',
+    pattern: '/pages/screenshot',
     async handler({ response, body }) {
-      const payload = body as { frameId?: string }
-      const base64 = await takeFrameScreenshot(payload.frameId)
+      const payload = body as { pageId?: string }
+      const base64 = await takePageScreenshot(payload.pageId)
       writeJson(response, 200, { base64, mimeType: 'image/png' })
     },
   },
   {
     method: 'POST',
-    pattern: '/frames/screenshot-composite',
+    pattern: '/pages/screenshot-composite',
     async handler({ response, body }) {
-      const payload = body as { frameId?: string; padding?: number }
-      const frameId = payload.frameId
-      if (!frameId) {
-        writeJson(response, 400, { error: 'frameId is required' })
+      const payload = body as { pageId?: string; padding?: number }
+      const pageId = payload.pageId
+      if (!pageId) {
+        writeJson(response, 400, { error: 'pageId is required' })
         return
       }
-      const page = findPageById(frameId)
+      const page = findPageById(pageId)
       if (!page) {
-        writeJson(response, 404, { error: `Frame not found: ${frameId}` })
+        writeJson(response, 404, { error: `Page not found: ${pageId}` })
         return
       }
       if (!win || win.isDestroyed()) {
@@ -244,12 +244,12 @@ export const frameRoutes: Route[] = [
         return
       }
       try {
-        focusTargets({ frameIds: [frameId] })
+        focusTargets({ pageIds: [pageId] })
         await new Promise((r) => setTimeout(r, 400))
 
         const result = await captureFrameComposited(page)
         if (!result) {
-          writeJson(response, 500, { error: 'Frame capture failed (destroyed or empty)' })
+          writeJson(response, 500, { error: 'Page capture failed (destroyed or empty)' })
           return
         }
 
@@ -263,19 +263,19 @@ export const frameRoutes: Route[] = [
   },
   {
     method: 'POST',
-    pattern: '/frames/query-elements',
+    pattern: '/pages/query-elements',
     async handler({ response, body }) {
-      const payload = body as { frameId?: string; selector?: string; maxResults?: number }
-      const elements = await queryFrameElements(payload.frameId, payload.selector, payload.maxResults)
+      const payload = body as { pageId?: string; selector?: string; maxResults?: number }
+      const elements = await queryPageElements(payload.pageId, payload.selector, payload.maxResults)
       writeJson(response, 200, { elements })
     },
   },
   {
     method: 'POST',
-    pattern: '/frames/find-target',
+    pattern: '/pages/find-target',
     async handler({ response, body }) {
       const payload = body as {
-        frameId?: string
+        pageId?: string
         selector?: string
         name?: string
         text?: string
@@ -284,11 +284,11 @@ export const frameRoutes: Route[] = [
         interactiveOnly?: boolean
         maxResults?: number
       }
-      if (!payload.frameId) {
-        writeJson(response, 400, { error: 'frameId is required' })
+      if (!payload.pageId) {
+        writeJson(response, 400, { error: 'pageId is required' })
         return
       }
-      const target = await findPresenceTarget(payload.frameId, {
+      const target = await findPresenceTarget(payload.pageId, {
         selector: typeof payload.selector === 'string' ? payload.selector : null,
         name: typeof payload.name === 'string' ? payload.name : null,
         text: typeof payload.text === 'string' ? payload.text : null,

@@ -81,11 +81,11 @@ describe('canvas verbs', () => {
     expect(mockCallApp).toHaveBeenCalledWith('/selection')
   })
 
-  it('focus calls POST /camera/focus with frameIds', async () => {
-    await dispatch(['focus', 'frame-1', 'frame-2'])
+  it('focus calls POST /camera/focus with pageIds', async () => {
+    await dispatch(['focus', 'page-1', 'page-2'])
     expect(mockCallApp).toHaveBeenCalledWith('/camera/focus', {
       method: 'POST',
-      body: JSON.stringify({ frameIds: ['frame-1', 'frame-2'] }),
+      body: JSON.stringify({ pageIds: ['page-1', 'page-2'] }),
     })
   })
 
@@ -96,11 +96,11 @@ describe('canvas verbs', () => {
   })
 
   it('delete calls POST /entities/delete with ids and inferred kinds', async () => {
-    await dispatch(['delete', 'frame_a', 'text_b', 'group_c'])
+    await dispatch(['delete', 'page_a', 'text_b', 'group_c'])
     expect(mockCallApp).toHaveBeenCalledWith('/entities/delete', {
       method: 'POST',
       body: JSON.stringify({ items: [
-        { id: 'frame_a', kind: 'frame' },
+        { id: 'page_a', kind: 'page' },
         { id: 'text_b', kind: 'text' },
         { id: 'group_c', kind: 'group' },
       ] }),
@@ -137,24 +137,24 @@ describe('canvas verbs', () => {
 // ---------------------------------------------------------------------------
 
 describe('create verb', () => {
-  it('create frame <url> defaults to preset 6', async () => {
-    await dispatch(['create', 'frame', 'https://example.com'])
+  it('create page <url> defaults to preset 6', async () => {
+    await dispatch(['create', 'page', 'https://example.com'])
     expect(mockUpsertEntities).toHaveBeenCalledWith([
-      expect.objectContaining({ kind: 'frame', url: 'https://example.com', presetIndex: 6 }),
+      expect.objectContaining({ kind: 'page', url: 'https://example.com', presetIndex: 6 }),
     ])
   })
 
-  it('create frame with --preset and --at skips auto-placement', async () => {
-    await dispatch(['create', 'frame', 'https://example.com', '--preset', '7', '--at', '100,200'])
+  it('create page with --preset and --at skips auto-placement', async () => {
+    await dispatch(['create', 'page', 'https://example.com', '--preset', '7', '--at', '100,200'])
     expect(mockUpsertEntities).toHaveBeenCalledWith([
-      expect.objectContaining({ kind: 'frame', url: 'https://example.com', presetIndex: 7, canvasX: 100, canvasY: 200 }),
+      expect.objectContaining({ kind: 'page', url: 'https://example.com', presetIndex: 7, canvasX: 100, canvasY: 200 }),
     ])
   })
 
-  it('create frame with --landscape auto-places', async () => {
-    await dispatch(['create', 'frame', 'https://example.com', '--landscape'])
+  it('create page with --landscape auto-places', async () => {
+    await dispatch(['create', 'page', 'https://example.com', '--landscape'])
     expect(mockUpsertEntities).toHaveBeenCalledWith([
-      expect.objectContaining({ kind: 'frame', url: 'https://example.com', orientation: 'landscape', presetIndex: 6 }),
+      expect.objectContaining({ kind: 'page', url: 'https://example.com', orientation: 'landscape', presetIndex: 6 }),
     ])
   })
 
@@ -171,24 +171,24 @@ describe('create verb', () => {
     expect(mockPrintError).toHaveBeenCalled()
   })
 
-  it('create frame with no url returns 1', async () => {
-    const code = await dispatch(['create', 'frame'])
+  it('create page with no url returns 1', async () => {
+    const code = await dispatch(['create', 'page'])
     expect(code).toBe(1)
   })
 })
 
 describe('update verb', () => {
-  it('update frame_ id with --preset infers kind from id', async () => {
-    await dispatch(['update', 'frame_abc', '--preset', '3'])
+  it('update page_ id with --preset infers kind from id', async () => {
+    await dispatch(['update', 'page_abc', '--preset', '3'])
     expect(mockUpsertEntities).toHaveBeenCalledWith([
-      { kind: 'frame', id: 'frame_abc', presetIndex: 3 },
+      { kind: 'page', id: 'page_abc', presetIndex: 3 },
     ])
   })
 
   it('update with --at coordinates', async () => {
-    await dispatch(['update', 'frame_abc', '--at', '800,400'])
+    await dispatch(['update', 'page_abc', '--at', '800,400'])
     expect(mockUpsertEntities).toHaveBeenCalledWith([
-      { kind: 'frame', id: 'frame_abc', canvasX: 800, canvasY: 400 },
+      { kind: 'page', id: 'page_abc', canvasX: 800, canvasY: 400 },
     ])
   })
 
@@ -227,15 +227,15 @@ describe('browser shortcut verbs', () => {
   it('snapshot -i reconstructs command', async () => {
     await dispatch(['snapshot', '-i'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'snapshot -i',
     })
   })
 
-  it('snapshot with --frame passes frame_id', async () => {
-    await dispatch(['snapshot', '-i', '--frame', 'f-123'])
+  it('snapshot with --page passes page_id', async () => {
+    await dispatch(['snapshot', '-i', '--page', 'f-123'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: 'f-123',
+      page_id: 'f-123',
       command: 'snapshot -i',
     })
   })
@@ -243,7 +243,7 @@ describe('browser shortcut verbs', () => {
   it('snapshot with -s selector', async () => {
     await dispatch(['snapshot', '-i', '-s', '#main'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'snapshot -i -s "#main"',
     })
   })
@@ -251,7 +251,7 @@ describe('browser shortcut verbs', () => {
   it('click @e5 reconstructs command', async () => {
     await dispatch(['click', '@e5'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'click @e5',
     })
   })
@@ -259,7 +259,7 @@ describe('browser shortcut verbs', () => {
   it('fill @e3 hello world reconstructs command', async () => {
     await dispatch(['fill', '@e3', 'hello', 'world'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'fill @e3 "hello world"',
     })
   })
@@ -267,7 +267,7 @@ describe('browser shortcut verbs', () => {
   it('type @e3 text reconstructs command', async () => {
     await dispatch(['type', '@e3', 'some text'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'type @e3 "some text"',
     })
   })
@@ -275,7 +275,7 @@ describe('browser shortcut verbs', () => {
   it('select @e3 value reconstructs command', async () => {
     await dispatch(['select', '@e3', 'option-a'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'select @e3 "option-a"',
     })
   })
@@ -283,7 +283,7 @@ describe('browser shortcut verbs', () => {
   it('screenshot reconstructs command', async () => {
     await dispatch(['screenshot'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'screenshot',
     })
   })
@@ -291,7 +291,7 @@ describe('browser shortcut verbs', () => {
   it('screenshot --annotate reconstructs command', async () => {
     await dispatch(['screenshot', '--annotate'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'screenshot --annotate',
     })
   })
@@ -299,7 +299,7 @@ describe('browser shortcut verbs', () => {
   it('scroll down reconstructs command', async () => {
     await dispatch(['scroll', 'down'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'scroll down',
     })
   })
@@ -323,7 +323,7 @@ describe('passthrough verbs', () => {
   it('unknown verb falls through to browsePassthrough', async () => {
     await dispatch(['eval', 'document.title'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'eval document.title',
     })
   })
@@ -331,31 +331,31 @@ describe('passthrough verbs', () => {
   it('explicitly listed passthrough verbs route to handleBrowse', async () => {
     await dispatch(['get', 'url'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: undefined,
+      page_id: undefined,
       command: 'get url',
     })
   })
 
-  it('passthrough with --frame strips flag from command', async () => {
-    await dispatch(['get', 'text', '--frame', 'frame_abc'])
+  it('passthrough with --page strips flag from command', async () => {
+    await dispatch(['get', 'text', '--page', 'page_abc'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: 'frame_abc',
+      page_id: 'page_abc',
       command: 'get text',
     })
   })
 
   it('passthrough with -f strips flag from command', async () => {
-    await dispatch(['console', '-f', 'frame_abc'])
+    await dispatch(['console', '-f', 'page_abc'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: 'frame_abc',
+      page_id: 'page_abc',
       command: 'console',
     })
   })
 
-  it('passthrough preserves agent-browser flags while stripping --frame', async () => {
-    await dispatch(['get', 'text', '-s', 'main', '--frame', 'frame_abc'])
+  it('passthrough preserves agent-browser flags while stripping --page', async () => {
+    await dispatch(['get', 'text', '-s', 'main', '--page', 'page_abc'])
     expect(mockHandleBrowse).toHaveBeenCalledWith({
-      frame_id: 'frame_abc',
+      page_id: 'page_abc',
       command: 'get text -s main',
     })
   })
@@ -371,7 +371,7 @@ describe('annotation verbs', () => {
     expect(mockGetAnnotationsSlim).toHaveBeenCalledWith({
       status: 'pending',
       url: undefined,
-      frame_id: undefined,
+      page_id: undefined,
     })
   })
 
@@ -396,14 +396,14 @@ describe('annotation verbs', () => {
     })
   })
 
-  it('annotate with --frame-id uses frame anchor', async () => {
-    await dispatch(['annotate', 'Bug found', '--frame-id', 'frame_abc'])
+  it('annotate with --page-id uses page anchor', async () => {
+    await dispatch(['annotate', 'Bug found', '--page-id', 'page_abc'])
     expect(mockCallApp).toHaveBeenCalledWith('/annotations', {
       method: 'POST',
       body: JSON.stringify({
         text: 'Bug found',
         kind: undefined,
-        anchor: { type: 'frame', frameId: 'frame_abc' },
+        anchor: { type: 'page', pageId: 'page_abc' },
         author: 'agent',
       }),
     })
@@ -448,11 +448,11 @@ describe('annotation verbs', () => {
 
 describe('record verb', () => {
   it('record start calls /recording/start', async () => {
-    await dispatch(['record', 'start', 'frame-1', '--output', '/tmp/video.webm'])
+    await dispatch(['record', 'start', 'page-1', '--output', '/tmp/video.webm'])
     expect(mockCallApp).toHaveBeenCalledWith('/recording/start', {
       method: 'POST',
       body: JSON.stringify({
-        frameId: 'frame-1',
+        pageId: 'page-1',
         outputPath: '/tmp/video.webm',
         fps: undefined,
         quality: undefined,

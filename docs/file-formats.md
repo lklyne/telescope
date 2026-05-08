@@ -68,7 +68,7 @@ by other tools. Specular adds:
 
 **On link nodes:**
 - `presetIndex` — viewport preset (device catalog index)
-- `linked` — whether this frame is linked to others for sync
+- `linked` — whether this page is linked to others for sync
 - `label` — display name
 - `parentGroupId` — group membership
 - `metadata` — open-ended key-value store
@@ -85,7 +85,7 @@ by other tools. Specular adds:
 **On group nodes:**
 - `groupKind` — type of group (e.g., breakpoint set)
 - `layoutMode` — auto-layout algorithm
-- `entityIds` / `frameIds` — member references
+- `entityIds` / `pageIds` — member references
 - `managedLayout` — whether the group controls child positions
 
 **On all nodes:**

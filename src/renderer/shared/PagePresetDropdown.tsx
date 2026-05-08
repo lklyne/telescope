@@ -2,7 +2,7 @@ import { type ReactElement, useState } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 
-export function FramePresetDropdown({
+export function PagePresetDropdown({
   align = 'center',
   isDark,
   onOpenChange,

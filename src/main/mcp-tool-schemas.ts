@@ -14,7 +14,7 @@ export const toolSchemas = [
   },
   {
     name: 'get_selection',
-    description: 'Return the current frame or group selection.',
+    description: 'Return the current page or group selection.',
     inputSchema: {
       type: 'object',
       properties: {},
@@ -63,16 +63,16 @@ export const toolSchemas = [
   },
   {
     name: 'upsert_entities',
-    description: `Create or update canvas entities (frames, text notes, file attachments) in a single call.
+    description: `Create or update canvas entities (pages, text notes, file attachments) in a single call.
 If id matches an existing entity → update. No id → create.
 
 Kind-specific fields:
-  frame — url, presetIndex, canvasX, canvasY, orientation, showDeviceFrame (default true), linked, groupId
+  page — url, presetIndex, canvasX, canvasY, orientation, showDeviceFrame (default true), linked, groupId
   text  — text (Markdown), color (hex "#RRGGBB" or preset 1-6: red/orange/yellow/green/cyan/purple), canvasX, canvasY, width, height
   file  — file (absolute path), subpath, canvasX, canvasY, width, height
          Files ending in .wireframe.json render as interactive wireframe editors (see SKILL.md for schema).
 
-Frame presets (presetIndex → device):
+Page presets (presetIndex → device):
   0: iPhone SE (375×667, mobile)     3: iPad Mini (744×1133)       6: Laptop (1280×800)
   1: iPhone 14 Pro (393×852, mobile) 4: iPad Pro 11 (834×1194)     7: Desktop (1440×900)
   2: iPhone 14 Pro Max (430×932)     5: iPad Pro 12.9 (1024×1366)  8: Desktop XL (1920×1080)
@@ -85,18 +85,18 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
           items: {
             type: 'object',
             properties: {
-              kind: { type: 'string', enum: ['frame', 'text', 'file'], description: 'Entity type.' },
+              kind: { type: 'string', enum: ['page', 'text', 'file'], description: 'Entity type.' },
               id: { type: 'string', description: 'Entity ID. Present = update, absent = create.' },
               canvasX: { type: 'number' },
               canvasY: { type: 'number' },
               width: { type: 'number' },
               height: { type: 'number' },
-              // Frame
+              // Page
               url: { type: 'string' },
               presetIndex: { type: 'number', description: 'Device preset index (0-8).' },
               orientation: { type: 'string', enum: ['portrait', 'landscape'] },
-              showDeviceFrame: { type: 'boolean', description: 'Show device bezel. Default true for new frames.' },
-              linked: { type: 'boolean', description: 'Sync navigation across same-URL frames. Default false.' },
+              showDeviceFrame: { type: 'boolean', description: 'Show device bezel. Default true for new pages.' },
+              linked: { type: 'boolean', description: 'Sync navigation across same-URL pages. Default false.' },
               groupId: { type: 'string' },
               // Text
               text: { type: 'string', description: 'Markdown content (text entity).' },
@@ -115,8 +115,8 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
     },
   },
   {
-    name: 'link_frames',
-    description: 'Create edges (connections) between any canvas entities (frames, text blocks, file blocks).',
+    name: 'link_pages',
+    description: 'Create edges (connections) between any canvas entities (pages, text blocks, file blocks).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -140,7 +140,7 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
     },
   },
   {
-    name: 'unlink_frames',
+    name: 'unlink_pages',
     description: 'Delete semantic links by edge ID.',
     inputSchema: {
       type: 'object',
@@ -155,12 +155,12 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
     },
   },
   {
-    name: 'focus_frames',
-    description: 'Focus the canvas camera on frames, groups, or explicit bounds.',
+    name: 'focus_pages',
+    description: 'Focus the canvas camera on pages, groups, or explicit bounds.',
     inputSchema: {
       type: 'object',
       properties: {
-        frameIds: {
+        pageIds: {
           type: 'array',
           items: { type: 'string' },
         },
@@ -213,7 +213,7 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
   },
   {
     name: 'delete_groups',
-    description: 'Delete groups and optionally all member frames.',
+    description: 'Delete groups and optionally all member pages.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -221,7 +221,7 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
           type: 'array',
           items: { type: 'string' },
         },
-        delete_member_frames: { type: 'boolean' },
+        delete_member_pages: { type: 'boolean' },
         focus_after: { type: 'boolean' },
       },
       required: ['group_ids'],
@@ -256,7 +256,7 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
   {
     name: 'layout_component_states',
     description:
-      'Create a frame grid showing different states for a design system component.',
+      'Create a page grid showing different states for a design system component.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -293,13 +293,13 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
   {
     name: 'browse',
     description:
-      'Run an agent-browser command inside a frame. Handles CDP connection, presence animation, and per-frame serialization automatically.\n\nCommon commands:\n- "snapshot" / "snapshot -i" — accessibility tree with element refs (@eN)\n- "snapshot -s \\"#main\\"" — scope snapshot to a CSS selector\n- "click @eN" — click an element\n- "fill @eN text" — fill an input\n- "type @eN text" — type into an element\n- "select @eN value" — select a dropdown option\n- "scroll down" / "scroll up" — scroll the page\n- "wait --load networkidle" — wait for page to settle\n- "get text" / "get url" — read page content\n- "screenshot" — capture a PNG image\n- "screenshot --annotate" — labeled screenshot with ref overlay (snapshot + screenshot in one)\n- "diff snapshot" — show changes since last snapshot (+/- format)\n- "find text \\"Sign In\\" click" — semantic locators (no refs needed)\n- "console" / "errors" — page diagnostics\n- "query-elements selector" — find elements by CSS selector\n\nCommand chaining: use "cmd1 && cmd2 && cmd3" to run multiple commands in a single call with shared element refs. Example: "snapshot -i && click @e3 && get url".\n\nMutation commands (click, fill, type, select) automatically return the current URL.\n\nAfter mutations, re-snapshot to get fresh refs — element refs are per-snapshot and become stale after DOM changes.',
+      'Run an agent-browser command inside a page. Handles CDP connection, presence animation, and per-page serialization automatically.\n\nCommon commands:\n- "snapshot" / "snapshot -i" — accessibility tree with element refs (@eN)\n- "snapshot -s \\"#main\\"" — scope snapshot to a CSS selector\n- "click @eN" — click an element\n- "fill @eN text" — fill an input\n- "type @eN text" — type into an element\n- "select @eN value" — select a dropdown option\n- "scroll down" / "scroll up" — scroll the page\n- "wait --load networkidle" — wait for page to settle\n- "get text" / "get url" — read page content\n- "screenshot" — capture a PNG image\n- "screenshot --annotate" — labeled screenshot with ref overlay (snapshot + screenshot in one)\n- "diff snapshot" — show changes since last snapshot (+/- format)\n- "find text \\"Sign In\\" click" — semantic locators (no refs needed)\n- "console" / "errors" — page diagnostics\n- "query-elements selector" — find elements by CSS selector\n\nCommand chaining: use "cmd1 && cmd2 && cmd3" to run multiple commands in a single call with shared element refs. Example: "snapshot -i && click @e3 && get url".\n\nMutation commands (click, fill, type, select) automatically return the current URL.\n\nAfter mutations, re-snapshot to get fresh refs — element refs are per-snapshot and become stale after DOM changes.',
     inputSchema: {
       type: 'object',
       properties: {
-        frame_id: {
+        page_id: {
           type: 'string',
-          description: 'Frame to interact with. Defaults to the selected frame.',
+          description: 'Page to interact with. Defaults to the selected page.',
         },
         command: {
           type: 'string',
@@ -326,7 +326,7 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
           type: 'object',
           additionalProperties: true,
           description:
-            "Annotation anchor. Examples: { type: 'canvas', canvasX, canvasY }, { type: 'frame', frameId, offsetX, offsetY }, { type: 'element', frameId, selector, elementPath?, boundingBox? }",
+            "Annotation anchor. Examples: { type: 'canvas', canvasX, canvasY }, { type: 'page', pageId, offsetX, offsetY }, { type: 'element', pageId, selector, elementPath?, boundingBox? }",
         },
         metadata: {
           type: 'object',
@@ -353,9 +353,9 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
           type: 'string',
           description: 'Filter annotations by canonical page URL.',
         },
-        frame_id: {
+        page_id: {
           type: 'string',
-          description: 'Filter annotations by frame id.',
+          description: 'Filter annotations by page id.',
         },
       },
       additionalProperties: false,
@@ -457,27 +457,27 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
   {
     name: 'start_recording',
     description:
-      'Start a composite video recording of a frame. Captures the page content with agent cursor overlay composited on top. Output is a VP9 WebM file.',
+      'Start a composite video recording of a page. Captures the page content with agent cursor overlay composited on top. Output is a VP9 WebM file.',
     inputSchema: {
       type: 'object',
       properties: {
-        frame_id: { type: 'string', description: 'Frame to record.' },
+        page_id: { type: 'string', description: 'Page to record.' },
         output_path: { type: 'string', description: 'Optional output file path. Defaults to a temp directory.' },
-        fps: { type: 'number', description: 'Capture frame rate (default 30, max 60).' },
+        fps: { type: 'number', description: 'Capture page rate (default 30, max 60).' },
         quality: {
           type: 'string',
           enum: ['high', 'medium', 'compact'],
           description: 'Quality preset. high=60fps/crf20, medium=30fps/crf30, compact=30fps/crf40.',
         },
       },
-      required: ['frame_id'],
+      required: ['page_id'],
       additionalProperties: false,
     },
   },
   {
     name: 'stop_recording',
     description:
-      'Stop the current composite video recording. Returns the output path, duration, frame count, and activity segments.',
+      'Stop the current composite video recording. Returns the output path, duration, page count, and activity segments.',
     inputSchema: {
       type: 'object',
       properties: {},
@@ -487,7 +487,7 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
   {
     name: 'get_recording_status',
     description:
-      'Get the current recording state (idle or recording), including elapsed time and frame count.',
+      'Get the current recording state (idle or recording), including elapsed time and page count.',
     inputSchema: {
       type: 'object',
       properties: {},
@@ -513,7 +513,7 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
   {
     name: 'delete_entities',
     description:
-      'Delete a batch of mixed canvas entities (frames, text notes, file attachments) in a single call. Items are removed sequentially with animated cursor movement.',
+      'Delete a batch of mixed canvas entities (pages, text notes, file attachments) in a single call. Items are removed sequentially with animated cursor movement.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -523,7 +523,7 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
           items: {
             type: 'object',
             properties: {
-              kind: { type: 'string', enum: ['frame', 'text', 'file'], description: 'Entity type' },
+              kind: { type: 'string', enum: ['page', 'text', 'file'], description: 'Entity type' },
               id: { type: 'string', description: 'Entity ID to delete' },
             },
             required: ['kind', 'id'],

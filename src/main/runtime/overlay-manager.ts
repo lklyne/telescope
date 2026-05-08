@@ -11,10 +11,10 @@ import {
 import { layoutCache } from './layout-cache'
 import { setBoundsIfChanged } from './layout-engine'
 import {
-  automationInteractiveFrameCounts,
+  automationInteractivePageCounts,
   pages,
-  removeAutomationInteractiveFrameId,
-  addAutomationInteractiveFrameId,
+  removeAutomationInteractivePageId,
+  addAutomationInteractivePageId,
   setSelectionOverlayActive,
 } from './runtime-context'
 import { workspaceGroups } from './workspace-model'
@@ -30,20 +30,20 @@ import { requestLayout } from './viewport-control'
 import { safeSend } from './safe-send'
 
 export function pageSelectionOverlayStates(): Array<{
-  frameId: string
+  pageId: string
   interactive: boolean
   multiSelected: boolean
 }> {
   const ui = getUiState()
-  const multiSelectedFrameIds = new Set<string>()
-  let interactiveFrameId: string | null = null
+  const multiSelectedPageIds = new Set<string>()
+  let interactivePageId: string | null = null
 
-  if (ui.selection.kind === 'single-entity' && ui.selection.entityKind === 'frame') {
-    interactiveFrameId = ui.selection.entityId
+  if (ui.selection.kind === 'single-entity' && ui.selection.entityKind === 'page') {
+    interactivePageId = ui.selection.entityId
   } else if (ui.selection.kind === 'multi-entity') {
     for (const entityId of ui.selection.entityIds) {
       if (pages.some((page) => page.id === entityId)) {
-        multiSelectedFrameIds.add(entityId)
+        multiSelectedPageIds.add(entityId)
       }
     }
   } else if (ui.selection.kind === 'single-entity' && ui.selection.entityKind === 'group') {
@@ -52,7 +52,7 @@ export function pageSelectionOverlayStates(): Array<{
       let currentParentId = page.parentGroupId
       while (currentParentId) {
         if (currentParentId === groupId) {
-          multiSelectedFrameIds.add(page.id)
+          multiSelectedPageIds.add(page.id)
           break
         }
         currentParentId = workspaceGroups.find((candidate) => candidate.id === currentParentId)?.parentGroupId
@@ -61,12 +61,12 @@ export function pageSelectionOverlayStates(): Array<{
   }
 
   return pages.map((page) => ({
-    frameId: page.id,
-    interactive: interactiveFrameId === page.id || automationInteractiveFrameCounts.has(page.id),
+    pageId: page.id,
+    interactive: interactivePageId === page.id || automationInteractivePageCounts.has(page.id),
     multiSelected:
-      interactiveFrameId !== page.id &&
-      !automationInteractiveFrameCounts.has(page.id) &&
-      multiSelectedFrameIds.has(page.id),
+      interactivePageId !== page.id &&
+      !automationInteractivePageCounts.has(page.id) &&
+      multiSelectedPageIds.has(page.id),
   }))
 }
 
@@ -91,16 +91,16 @@ export function sendInteractiveState(): void {
 /** Off-screen position for automation views that aren't visible on the canvas. */
 const AUTOMATION_OFFSCREEN_ORIGIN = -10_000
 
-export function beginAutomationInteractiveFrame(frameId: string): void {
-  addAutomationInteractiveFrameId(frameId)
+export function beginAutomationInteractivePage(pageId: string): void {
+  addAutomationInteractivePageId(pageId)
   sendInteractiveState()
 
-  const page = pages.find((p) => p.id === frameId)
+  const page = pages.find((p) => p.id === pageId)
   if (!page || page.pageView.webContents.isDestroyed()) return
 
   // Ensure the view has non-zero bounds so Chromium has a real viewport.
-  // If the frame is off-screen (culled to 0×0 by layoutAllViews), park it
-  // off-screen with proper dimensions. This lets agents work frames that
+  // If the page is off-screen (culled to 0×0 by layoutAllViews), park it
+  // off-screen with proper dimensions. This lets agents work pages that
   // aren't visible on the canvas.
   const currentBounds = page.pageView.getBounds()
   if (currentBounds.width === 0 || currentBounds.height === 0) {
@@ -114,12 +114,12 @@ export function beginAutomationInteractiveFrame(frameId: string): void {
   }
 }
 
-export function endAutomationInteractiveFrame(frameId: string): void {
-  if (!automationInteractiveFrameCounts.has(frameId)) return
-  removeAutomationInteractiveFrameId(frameId)
+export function endAutomationInteractivePage(pageId: string): void {
+  if (!automationInteractivePageCounts.has(pageId)) return
+  removeAutomationInteractivePageId(pageId)
   sendInteractiveState()
   // Invalidate bounds key so layoutAllViews restores viewport culling.
-  const page = pages.find((p) => p.id === frameId)
+  const page = pages.find((p) => p.id === pageId)
   if (page) {
     page.lastPageBoundsKey = undefined
   }

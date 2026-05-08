@@ -23,8 +23,8 @@ import type {
   PanelTextEntityDetail,
   SourceLocation,
 } from '../../shared/types'
-import { frameDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
-import { requestNodeDetail, takePendingDetailRequest } from './frame-ipc'
+import { pageDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
+import { requestNodeDetail, takePendingDetailRequest } from './page-ipc'
 import { safeSend } from './safe-send'
 import type { Page } from './runtime-entities'
 import {
@@ -43,14 +43,14 @@ import { getInFlightCountByOrigin } from '../agent-fix/fix-tracker'
 import { getFixProgress } from '../agent-fix/fix-progress'
 import {
   findPageById,
-  inspectActiveFrameId,
+  inspectActivePageId,
   inspectHoveredTarget,
-  inspectSelectedNodeIdByFrame,
+  inspectSelectedNodeIdByPage,
   inspectSelectedTarget,
   pages,
   selectedPage,
   selectedPageId,
-  setInspectActiveFrameId,
+  setInspectActivePageId,
   setInspectHoveredTarget as setInspectHoveredTargetState,
   setInspectSelectedTarget as setInspectSelectedTargetState,
 } from './runtime-context'
@@ -80,17 +80,17 @@ import { devtoolsPanelDebug } from './runtime-constants'
 export function clearInspectTargets(): void {
   setInspectHoveredTargetState(null)
   setInspectSelectedTargetState(null)
-  setInspectActiveFrameId(null)
+  setInspectActivePageId(null)
 }
 
-export function restorePersistedInspectSelection(frameId: string): void {
-  const nodeId = inspectSelectedNodeIdByFrame.get(frameId)
+export function restorePersistedInspectSelection(pageId: string): void {
+  const nodeId = inspectSelectedNodeIdByPage.get(pageId)
   if (!nodeId) return
-  setSelectedInspectNodeById(frameId, nodeId)
+  setSelectedInspectNodeById(pageId, nodeId)
 }
 
 export function currentInspectMode(): InspectMode {
-  return uiSelectedEntityIds().length === 1 ? 'frame_locked' : 'global_target'
+  return uiSelectedEntityIds().length === 1 ? 'page_locked' : 'global_target'
 }
 
 function effectiveInspectionPageIds(): Set<string> {
@@ -99,7 +99,7 @@ function effectiveInspectionPageIds(): Set<string> {
   if (mode === 'global_target') {
     return new Set(pages.map((page) => page.id))
   }
-  const activeId = selectedPageId() ?? inspectActiveFrameId
+  const activeId = selectedPageId() ?? inspectActivePageId
   return activeId ? new Set([activeId]) : new Set()
 }
 
@@ -132,30 +132,30 @@ export function notifyAnnotateStateChanged(): void {
 // --- Helpers ---
 
 function normalizedInspectDetail(
-  frameId: string,
+  pageId: string,
   target: DevtoolsPanelDomTarget | null | undefined,
 ): InspectNodeDetail | null {
   if (!target) return null
   const nodeId = (target as { nodeId?: string }).nodeId || target.id
   const sourceLocation =
     (target as { sourceLocation?: SourceLocation }).sourceLocation ??
-    getComponentSourceLocationByNodeId(frameId, nodeId)
+    getComponentSourceLocationByNodeId(pageId, nodeId)
   return {
     ...target,
-    frameId,
+    pageId,
     nodeId,
     sourceLocation,
     id: nodeId,
   }
 }
 
-function getActiveInspectFrameId(): string | null {
-  if (inspectSelectedTarget?.frameId) return inspectSelectedTarget.frameId
+function getActiveInspectPageId(): string | null {
+  if (inspectSelectedTarget?.pageId) return inspectSelectedTarget.pageId
   // Prefer the explicitly selected page over a stale hover target
   const selected = selectedPageId()
   if (selected) return selected
-  if (inspectHoveredTarget?.frameId) return inspectHoveredTarget.frameId
-  if (inspectActiveFrameId) return inspectActiveFrameId
+  if (inspectHoveredTarget?.pageId) return inspectHoveredTarget.pageId
+  if (inspectActivePageId) return inspectActivePageId
   return uiSelectedEntityIds()[0] ?? null
 }
 
@@ -165,7 +165,7 @@ function componentNodeSource(id: string): InspectNodeSummary['source'] {
 }
 
 function flattenTree(
-  frameId: string,
+  pageId: string,
   tree: ComponentTreeNode[],
   parentId: string | undefined,
   roots: string[],
@@ -176,24 +176,24 @@ function flattenTree(
     nodesById[node.id] = {
       id: node.id,
       parentId,
-      frameId,
+      pageId,
       name: node.componentName,
       source: componentNodeSource(node.id),
       dsComponentName: node.dsComponentName,
       hasSource: node.hasSource,
       childrenIds: node.children.map((child) => child.id),
     }
-    flattenTree(frameId, node.children, node.id, roots, nodesById)
+    flattenTree(pageId, node.children, node.id, roots, nodesById)
   }
 }
 
 function buildInspectPanelState(): InspectPanelState {
-  const frameId = getActiveInspectFrameId()
-  const page = frameId ? findPageById(frameId) : undefined
+  const pageId = getActiveInspectPageId()
+  const page = pageId ? findPageById(pageId) : undefined
   const roots: string[] = []
   const nodesById: Record<string, InspectNodeSummary> = {}
   if (page?.componentTree?.length) {
-    flattenTree(frameId!, page.componentTree, undefined, roots, nodesById)
+    flattenTree(pageId!, page.componentTree, undefined, roots, nodesById)
   }
   const detailById: Record<string, InspectNodeDetail> = {}
   if (page?.inspectDetailsByNodeId) {
@@ -219,7 +219,7 @@ function buildInspectPanelState(): InspectPanelState {
     available: pages.length > 0,
     enabled: uiInspectEnabled(),
     mode: currentInspectMode(),
-    activeFrameId: frameId ?? null,
+    activePageId: pageId ?? null,
     hoveredNodeId: inspectHoveredTarget?.nodeId ?? null,
     selectedNodeId: inspectSelectedTarget?.nodeId ?? null,
     treeRootIds: roots,
@@ -259,7 +259,7 @@ function selectedPageSummary(): DevtoolsPanelSelectionSummary | undefined {
   if (!page) return undefined
   const vp = viewportPresetForIndex(page.presetIndex)
   return {
-    frameId: page.id,
+    pageId: page.id,
     url: page.pageView.webContents.getURL() || 'about:blank',
     pageTitle: page.pageView.webContents.getTitle() || '',
     viewportLabel: vp.label,
@@ -375,7 +375,7 @@ function buildGroupEntityDetail(entityId: string): PanelGroupEntityDetail | unde
 
 function resolveEntityLabel(entityId: string): string {
   const page = findPageById(entityId)
-  if (page) return frameDisplayLabel(page)
+  if (page) return pageDisplayLabel(page)
   const text = textEntities.find((e) => e.id === entityId)
   if (text) return text.text.slice(0, 30) || 'Text'
   const file = fileEntities.find((e) => e.id === entityId)
@@ -394,7 +394,7 @@ function buildMultiEntitySummaries(entityIds: string[]): PanelMultiEntitySummary
   const kindsById = selection.kind === 'multi-entity' ? selection.entityKindsById : {}
   return entityIds.map((id) => ({
     id,
-    kind: kindsById[id] ?? 'frame',
+    kind: kindsById[id] ?? 'page',
     label: resolveEntityLabel(id),
   }))
 }
@@ -425,9 +425,9 @@ export function notifyDevtoolsPanelData(): void {
   const start = Date.now()
   const inspect = buildInspectPanelState()
   const panelMode = derivePanelMode()
-  const frames = pages.map((page) => ({
+  const pageSummaries = pages.map((page) => ({
     id: page.id,
-    label: frameDisplayLabel(page),
+    label: pageDisplayLabel(page),
     url: page.pageView.webContents.getURL(),
     faviconUrl: page.faviconUrl ?? null,
     width: viewportPresetForIndex(page.presetIndex)?.width,
@@ -451,7 +451,7 @@ export function notifyDevtoolsPanelData(): void {
     selection: selectedPageSummary(),
     inspect,
     annotations: [...workspaceAnnotations],
-    frames,
+    pages: pageSummaries,
     originBindings: getOriginBindings(),
     fixInProgress: getInFlightCountByOrigin(),
     fixProgress: getFixProgress(),
@@ -463,9 +463,9 @@ export function notifyDevtoolsPanelData(): void {
     durationMs: Date.now() - start,
     panelMode: panelMode.kind,
     activeTab: uiDevtoolsPanelTab(),
-    frameCount: frames.length,
+    pageCount: pages.length,
     inspectNodeCount: inspect.diagnostics?.nodeCount ?? 0,
-    selectedFrameId: selectedPageSummary()?.frameId ?? null,
+    selectedPageId: selectedPageSummary()?.pageId ?? null,
   })
 }
 
@@ -492,49 +492,49 @@ export function setHoveredInspectTarget(target: DevtoolsPanelDomTarget | null): 
     notifyDevtoolsPanelData()
     return
   }
-  const normalized = normalizedInspectDetail(target.frameId, target)
+  const normalized = normalizedInspectDetail(target.pageId, target)
   if (!normalized) return
-  const page = findPageById(target.frameId)
-  // Bail if the frame is gone or its backing webContents has been closed —
+  const page = findPageById(target.pageId)
+  // Bail if the page is gone or its backing webContents has been closed —
   // a late hover event on a destroyed page can wedge stale state that the
   // next GC sweep then crashes on.
   if (!page || page.pageView.webContents.isDestroyed()) return
   page.inspectDetailsByNodeId ??= {}
   page.inspectDetailsByNodeId[normalized.nodeId] = normalized
-  setInspectActiveFrameId(target.frameId)
+  setInspectActivePageId(target.pageId)
   setInspectHoveredTargetState(normalized)
   notifyDevtoolsPanelData()
 }
 
 export function setSelectedInspectTarget(target: DevtoolsPanelDomTarget | null): void {
   if (!target) {
-    if (inspectSelectedTarget?.frameId) {
-      inspectSelectedNodeIdByFrame.delete(inspectSelectedTarget.frameId)
+    if (inspectSelectedTarget?.pageId) {
+      inspectSelectedNodeIdByPage.delete(inspectSelectedTarget.pageId)
     }
     setInspectSelectedTargetState(null)
     notifyDevtoolsPanelData()
     return
   }
-  const normalized = normalizedInspectDetail(target.frameId, target)
+  const normalized = normalizedInspectDetail(target.pageId, target)
   if (!normalized) return
-  const page = findPageById(target.frameId)
+  const page = findPageById(target.pageId)
   if (page) {
     page.inspectDetailsByNodeId ??= {}
     page.inspectDetailsByNodeId[normalized.nodeId] = normalized
   }
-  setInspectActiveFrameId(target.frameId)
+  setInspectActivePageId(target.pageId)
   setInspectSelectedTargetState(normalized)
-  inspectSelectedNodeIdByFrame.set(target.frameId, normalized.nodeId)
+  inspectSelectedNodeIdByPage.set(target.pageId, normalized.nodeId)
   notifyDevtoolsPanelData()
-  requestNodeDetail(target.frameId, normalized.nodeId)
+  requestNodeDetail(target.pageId, normalized.nodeId)
 }
 
 export function setInspectNodeFromPanel(
-  frameId: string,
+  pageId: string,
   nodeId: string | null,
   pin: boolean,
 ): void {
-  const page = findPageById(frameId)
+  const page = findPageById(pageId)
   if (!page || page.pageView.webContents.isDestroyed()) return
   page.pageView.webContents.send('inspect-focus-node', {
     nodeId,
@@ -544,10 +544,10 @@ export function setInspectNodeFromPanel(
 }
 
 export function getComponentAncestryByNodeId(
-  frameId: string,
+  pageId: string,
   nodeId: string,
 ): string[] {
-  const page = findPageById(frameId)
+  const page = findPageById(pageId)
   if (!page?.componentTree?.length) return []
 
   const stack: Array<{ node: ComponentTreeNode; chain: string[] }> = []
@@ -576,21 +576,21 @@ export function getComponentAncestryByNodeId(
 }
 
 export function getComponentSourceLocationByNodeId(
-  frameId: string,
+  pageId: string,
   nodeId: string,
 ): SourceLocation | undefined {
-  return findPageById(frameId)?.inspectDetailsByNodeId?.[nodeId]?.sourceLocation
+  return findPageById(pageId)?.inspectDetailsByNodeId?.[nodeId]?.sourceLocation
 }
 
 export function setSelectedInspectNodeById(
-  frameId: string,
+  pageId: string,
   nodeId: string | null,
 ): void {
   if (!nodeId) {
     setInspectSelectedTargetState(null)
     return
   }
-  const page = findPageById(frameId)
+  const page = findPageById(pageId)
   if (!page) return
   const existing = page.inspectDetailsByNodeId?.[nodeId]
   if (existing) {
@@ -602,7 +602,7 @@ export function setSelectedInspectNodeById(
   const fallback: InspectNodeDetail = {
     id: nodeId,
     nodeId,
-    frameId,
+    pageId,
     timestamp: Date.now(),
     tagName: node?.componentName ?? 'element',
     name: node?.componentName ?? nodeId,
@@ -615,7 +615,7 @@ export function setSelectedInspectNodeById(
     computedStyles: [],
   }
   setInspectSelectedTargetState(fallback)
-  requestNodeDetail(frameId, nodeId)
+  requestNodeDetail(pageId, nodeId)
 }
 
 export function handleNodeDetailResponse(payload: {
@@ -625,7 +625,7 @@ export function handleNodeDetailResponse(payload: {
 }): void {
   const request = takePendingDetailRequest(payload.requestId)
   if (!request || !payload.detail) return
-  const page = findPageById(request.frameId)
+  const page = findPageById(request.pageId)
   if (!page) return
 
   page.inspectDetailsByNodeId ??= {}
@@ -633,7 +633,7 @@ export function handleNodeDetailResponse(payload: {
   const merged: InspectNodeDetail = {
     ...(existing ?? {
       id: request.nodeId,
-      frameId: request.frameId,
+      pageId: request.pageId,
       timestamp: Date.now(),
       tagName: 'element',
       name: request.nodeId,
@@ -646,7 +646,7 @@ export function handleNodeDetailResponse(payload: {
       computedStyles: [],
     }),
     nodeId: request.nodeId,
-    frameId: request.frameId,
+    pageId: request.pageId,
     props: payload.detail.props,
     tokens: payload.detail.tokens,
     dsComponentName: payload.detail.dsComponentName,

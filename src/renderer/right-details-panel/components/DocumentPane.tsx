@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, FolderOpen, Loader2, Play, Settings, Zap } f
 import { useMemo, useState } from 'react'
 import type {
   Annotation,
-  DevtoolsPanelFrameSummary,
+  DevtoolsPanelPageSummary,
   FixConfig,
   FixModel,
   FixPermissions,
@@ -21,7 +21,7 @@ import { PaneHeader } from './PaneHeader'
 export function DocumentPane({
   isDark,
   annotations,
-  frames,
+  pages,
   focusedAnnotationId,
   annotateEnabled,
   annotateAvailable,
@@ -32,7 +32,7 @@ export function DocumentPane({
 }: {
   isDark: boolean
   annotations: Annotation[]
-  frames: DevtoolsPanelFrameSummary[]
+  pages: DevtoolsPanelPageSummary[]
   focusedAnnotationId?: string | null
   annotateEnabled: boolean
   annotateAvailable: boolean
@@ -72,7 +72,7 @@ export function DocumentPane({
           <CommentsPane
             isDark={isDark}
             annotations={annotations}
-            frames={frames}
+            pages={pages}
             focusedAnnotationId={focusedAnnotationId}
             annotateEnabled={annotateEnabled}
             annotateAvailable={annotateAvailable}

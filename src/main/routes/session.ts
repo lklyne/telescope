@@ -10,7 +10,7 @@ import {
   coercePresenceActivity,
   coercePresenceSurface,
   coercePresenceTargetRefSource,
-  resolveCanvasPointForFrame,
+  resolveCanvasPointForPage,
   resolvePresenceTargetRect,
   findPresenceTarget,
   upsertPresenceCursor,
@@ -23,7 +23,7 @@ import {
 } from '../presence-manager'
 import { cdpProxyRegistrations, resetCdpProxyState } from '../cdp-proxy'
 import {
-  clearAutomationInteractiveFrameIds,
+  clearAutomationInteractivePageIds,
 } from '../runtime/runtime-context'
 import { selectNone as clearSelection } from '../runtime/selection-controller'
 import { sendInteractiveState } from '../runtime/overlay-manager'
@@ -33,7 +33,7 @@ import { writeJson, notifyStatusListeners } from '../app-control-server'
 function resetSmokeTestState(): void {
   resetPresenceState()
   resetCdpProxyState()
-  clearAutomationInteractiveFrameIds()
+  clearAutomationInteractivePageIds()
   clearSelection()
   setUiCanvasMode()
   sendInteractiveState()
@@ -75,11 +75,11 @@ export const sessionRoutes: Route[] = [
         payload.coordinates && typeof payload.coordinates === 'object'
           ? (payload.coordinates as Record<string, unknown>)
           : {}
-      const frameId = typeof payload.frameId === 'string' ? payload.frameId : null
+      const pageId = typeof payload.pageId === 'string' ? payload.pageId : null
       const targetRef = typeof payload.targetRef === 'string' ? payload.targetRef : null
       const targetRefSource = coercePresenceTargetRefSource(payload.targetRefSource)
-      const frameX = typeof coordinates.frameX === 'number' ? coordinates.frameX : null
-      const frameY = typeof coordinates.frameY === 'number' ? coordinates.frameY : null
+      const pageX = typeof coordinates.pageX === 'number' ? coordinates.pageX : null
+      const pageY = typeof coordinates.pageY === 'number' ? coordinates.pageY : null
       const explicitTargetRect =
         coordinates.targetRect &&
         typeof coordinates.targetRect === 'object' &&
@@ -89,10 +89,10 @@ export const sessionRoutes: Route[] = [
         typeof (coordinates.targetRect as Record<string, unknown>).height === 'number'
           ? (coordinates.targetRect as PresenceTargetRect)
           : null
-      const targetRect = resolvePresenceTargetRect(frameId, targetRef, targetRefSource, explicitTargetRect)
-      const framePosition =
-        surface === 'frame' && frameId
-          ? resolveCanvasPointForFrame(frameId, { frameX, frameY, targetRect })
+      const targetRect = resolvePresenceTargetRect(pageId, targetRef, targetRefSource, explicitTargetRect)
+      const pagePosition =
+        surface === 'page' && pageId
+          ? resolveCanvasPointForPage(pageId, { pageX, pageY, targetRect })
           : null
       const taskLabel = typeof payload.taskLabel === 'string' ? payload.taskLabel : null
       const labelHint = typeof payload.labelHint === 'string' ? payload.labelHint.trim().slice(0, 48) : null
@@ -101,17 +101,17 @@ export const sessionRoutes: Route[] = [
           body: payload,
           taskLabel,
           surface,
-          frameId,
-          frameX,
-          frameY,
+          pageId,
+          pageX,
+          pageY,
           canvasX:
             typeof coordinates.canvasX === 'number'
               ? coordinates.canvasX
-              : framePosition?.canvasX ?? null,
+              : pagePosition?.canvasX ?? null,
           canvasY:
             typeof coordinates.canvasY === 'number'
               ? coordinates.canvasY
-              : framePosition?.canvasY ?? null,
+              : pagePosition?.canvasY ?? null,
           targetName: typeof payload.targetName === 'string' ? payload.targetName : null,
           targetRect,
           labelHint,
@@ -122,16 +122,16 @@ export const sessionRoutes: Route[] = [
         canvasX:
           typeof coordinates.canvasX === 'number'
             ? coordinates.canvasX
-            : framePosition?.canvasX,
+            : pagePosition?.canvasX,
         canvasY:
           typeof coordinates.canvasY === 'number'
             ? coordinates.canvasY
-            : framePosition?.canvasY,
+            : pagePosition?.canvasY,
         surface,
         activity: eventType === 'think' ? 'thinking' : activity,
-        frameId,
-        frameX,
-        frameY,
+        pageId,
+        pageX,
+        pageY,
         labelKey:
           eventType === 'think'
             ? 'thinking'
@@ -147,8 +147,8 @@ export const sessionRoutes: Route[] = [
         targetName: typeof payload.targetName === 'string' ? payload.targetName : null,
         targetRect,
       })
-      if (frameId && targetRef && ['click_target', 'type_text', 'wait_page'].includes(String(payload.labelKey))) {
-        invalidateAgentSnapshot(frameId)
+      if (pageId && targetRef && ['click_target', 'type_text', 'wait_page'].includes(String(payload.labelKey))) {
+        invalidateAgentSnapshot(pageId)
       }
       scheduleThinkingState(request)
       writeJson(response, 200, { ok: true })
@@ -166,11 +166,11 @@ export const sessionRoutes: Route[] = [
       }
       const labelKey = coercePresenceLabelKey(payload.labelKey)
       const command = typeof payload.command === 'string' ? payload.command : null
-      let frameId = typeof payload.frameId === 'string' ? payload.frameId : null
-      if (!frameId) {
+      let pageId = typeof payload.pageId === 'string' ? payload.pageId : null
+      if (!pageId) {
         for (const reg of cdpProxyRegistrations.values()) {
           if (reg.sessionId === resolved.sessionId) {
-            frameId = reg.frameId
+            pageId = reg.pageId
             break
           }
         }
@@ -191,7 +191,7 @@ export const sessionRoutes: Route[] = [
       const expiryTimer = setTimeout(() => pendingIntents.delete(resolved.sessionId), PENDING_INTENT_TTL_MS)
       pendingIntents.set(resolved.sessionId, {
         labelKey,
-        frameId,
+        pageId,
         targetRef,
         targetRefSource,
         command,
@@ -199,39 +199,39 @@ export const sessionRoutes: Route[] = [
         expiryTimer,
       })
 
-      const targetRect = resolvePresenceTargetRect(frameId, targetRef, targetRefSource, null)
+      const targetRect = resolvePresenceTargetRect(pageId, targetRef, targetRefSource, null)
       const observationCommands = new Set(['snapshot', 'wait', 'get'])
       const isObservation = observationCommands.has(command)
       const currentCursor = getPresenceCursors().find(
         (cursor) => cursor.sessionId === resolved.sessionId,
       )
-      // When we're issuing an intent for the same frame the cursor is already
+      // When we're issuing an intent for the same page the cursor is already
       // in and can't resolve a targetRect (e.g. mutation intents whose ref is
       // agent-browser-opaque, or observations like snapshot/wait/get), preserve
-      // the cursor's existing position. Nulling frameX/frameY here causes
-      // buildCanvasLayoutData to fall back to frame center and the renderer
-      // visibly hops between real interactions in the same frame.
-      const preserveSameFramePosition =
-        frameId !== null &&
+      // the cursor's existing position. Nulling pageX/pageY here causes
+      // buildCanvasLayoutData to fall back to page center and the renderer
+      // visibly hops between real interactions in the same page.
+      const preserveSamePagePosition =
+        pageId !== null &&
         !targetRect &&
-        currentCursor?.surface === 'frame' &&
-        currentCursor.frameId === frameId
-      const framePosition = preserveSameFramePosition
+        currentCursor?.surface === 'page' &&
+        currentCursor.pageId === pageId
+      const pagePosition = preserveSamePagePosition
         ? {
             canvasX: currentCursor.canvasX,
             canvasY: currentCursor.canvasY,
           }
-        : frameId && (targetRect || isObservation)
-          ? resolveCanvasPointForFrame(frameId, { targetRect })
+        : pageId && (targetRect || isObservation)
+          ? resolveCanvasPointForPage(pageId, { targetRect })
           : null
 
       upsertActivePresenceTask(request, {
         body: payload,
         taskLabel,
-        surface: frameId ? 'frame' : 'canvas',
-        frameId,
-        canvasX: framePosition?.canvasX,
-        canvasY: framePosition?.canvasY,
+        surface: pageId ? 'page' : 'canvas',
+        pageId,
+        canvasX: pagePosition?.canvasX,
+        canvasY: pagePosition?.canvasY,
         targetName,
         targetRect,
         labelHint,
@@ -239,13 +239,13 @@ export const sessionRoutes: Route[] = [
 
       upsertPresenceCursor(request, {
         body: payload,
-        canvasX: framePosition?.canvasX,
-        canvasY: framePosition?.canvasY,
-        surface: frameId ? 'frame' : 'canvas',
+        canvasX: pagePosition?.canvasX,
+        canvasY: pagePosition?.canvasY,
+        surface: pageId ? 'page' : 'canvas',
         activity: 'traveling',
-        frameId,
-        frameX: preserveSameFramePosition ? undefined : null,
-        frameY: preserveSameFramePosition ? undefined : null,
+        pageId,
+        pageX: preserveSamePagePosition ? undefined : null,
+        pageY: preserveSamePagePosition ? undefined : null,
         labelKey,
         taskLabel,
         labelHint,

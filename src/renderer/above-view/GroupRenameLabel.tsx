@@ -67,7 +67,7 @@ function GroupRenameItem({
   // coordinate space; subtract canvasOrigin.y to drop into overlay coords.
   const left = group.screenX
   const top = group.screenY - layoutData.canvasOrigin.y
-  // Suppress per-frame React thinks-unused warning by referencing the resolved
+  // Suppress per-page React thinks-unused warning by referencing the resolved
   // colour for future styling extension; today we lean on existing tokens.
   void resolveCanvasColor
 

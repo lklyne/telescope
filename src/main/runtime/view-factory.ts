@@ -5,7 +5,7 @@
  * `addChildView` so WCVs don't flash opaque white during creation.
  *
  * Default is '#00000000' (transparent) for overlay surfaces. Callers that
- * intentionally want an opaque background (e.g. page frames, devtools
+ * intentionally want an opaque background (e.g. page pages, devtools
  * background) pass `backgroundColor` explicitly.
  *
  * Today only the factory is documented; call sites will migrate over in

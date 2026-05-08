@@ -18,7 +18,7 @@ export {
   duplicateWorkspaceTab,
   renameWorkspaceDrawingEntity,
   renameWorkspaceFileEntity,
-  renameWorkspaceFrame,
+  renameWorkspacePage,
   renameWorkspaceGroup,
   renameWorkspaceTab,
   renameWorkspaceTextEntity,

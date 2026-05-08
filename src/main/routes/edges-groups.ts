@@ -91,11 +91,11 @@ export const edgesGroupsRoutes: Route[] = [
     pattern: '/camera/focus',
     async handler({ request, response, body }) {
       const payload = body as {
-        frameIds?: string[]
+        pageIds?: string[]
         groupIds?: string[]
         bounds?: { x: number; y: number; width: number; height: number }
       }
-      const firstId = payload.frameIds?.[0] ?? payload.groupIds?.[0]
+      const firstId = payload.pageIds?.[0] ?? payload.groupIds?.[0]
       if (firstId) {
         const pos = findEntityPosition(firstId)
         if (pos) movePresenceCursorTo(request, pos.x, pos.y, null)

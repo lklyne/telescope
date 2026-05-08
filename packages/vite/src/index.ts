@@ -1,6 +1,6 @@
 /**
  * @specular/vite — Vite plugin that lets Specular render a single React
- * component from your repo as a live frame on its canvas.
+ * component from your repo as a live page on its canvas.
  *
  * Usage:
  *   // vite.config.ts

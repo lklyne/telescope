@@ -18,7 +18,7 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │  ├─ canvas, toolbar, sidebar, inspector, chrome, etc.       │
 │                                                              │
 │  HTTP API (src/main/routes/)                                │
-│  ├─ /workspace, /frames, /entities, /selection, etc.        │
+│  ├─ /workspace, /pages, /entities, /selection, etc.         │
 │                                                              │
 │  Persistence                                                 │
 │  └─ .canvas files on disk (autosave, 350ms debounce)        │
@@ -45,7 +45,7 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │                    the main window, not a WCV — see         │
 │                    docs/interaction-layer.md §3.1.          │
 │  toolbar/          Zoom, tool modes, navigation             │
-│  left-sidebar/     Workspace tree (canvases, frames)        │
+│  left-sidebar/     Workspace tree (canvases, pages)         │
 │  right-details-panel/  Inspector (properties, settings)     │
 │  devtools-resize-handle/  Devtools panel splitter           │
 └─────────────────────────────────────────────────────────────┘
@@ -92,7 +92,7 @@ All canvas content is a **node** (following the JSON Canvas spec):
 
 | Node type | Internal kind | Description |
 |-----------|--------------|-------------|
-| `link` | `frame` | Live web page in an Electron webview |
+| `link` | `page` | Live web page in an Electron webview |
 | `text` | `text` | Text/markdown note |
 | `file` | `file` | Reference to a local file (image, etc.) |
 | `group` | `group` | Visual container for other nodes |
@@ -120,7 +120,7 @@ Each entity type has:
 | `workspace-undo.ts` | UndoManager setup, undo/redo API |
 | `workspace-tab-operations.ts` | Tab CRUD and switching |
 | `selection-controller.ts` | Selection mutations |
-| `page-factory.ts` | Frame (webview) creation and deletion |
+| `page-factory.ts` | Page (webview) creation and deletion |
 | `layout-engine.ts` | View z-order and layout dispatch |
 | `json-canvas-serializer.ts` | JSON Canvas <-> internal format conversion |
 
@@ -131,7 +131,7 @@ renderer surface (canvas, toolbar, sidebar, inspector, chrome, etc.).
 
 ### src/main/routes/
 
-HTTP API endpoints grouped by domain: workspace, frames, entities, selection,
+HTTP API endpoints grouped by domain: workspace, pages, entities, selection,
 layout, camera, inspector, presence. Used by CLI, tests, and automation.
 
 ### src/renderer/canvas-bg/
@@ -139,7 +139,7 @@ layout, camera, inspector, presence. Used by CLI, tests, and automation.
 The main spatial surface. Key components:
 - `CanvasGridSurface` — SVG canvas with pan/zoom
 - `SelectableEntityShell` — draggable/resizable node wrapper
-- `FrameBorderLayer`, `TextBlockLayer`, `FileBlockLayer` — node rendering
+- `PageBorderLayer`, `TextBlockLayer`, `FileBlockLayer` — node rendering
 - `EdgeLayer` — connector lines
 - `GroupBoundsLayer` — group outlines
 - `AgentCursorLayer` — agent presence cursors (rendered in the `agent-layer` child window, not in canvas-bg itself)
@@ -167,15 +167,15 @@ following commitments are load-bearing and costly to unwind later.
 **Three WCVs in the canvas region.** `bgView` below pages, 0–N live page
 views in the middle, one merged `aboveView` on top. Post-aboveView
 migration (2026-05-06), `bgView` carries only the canvas grid + camera
-transform plus a small amount of frame chrome (frame borders, device
+transform plus a small amount of page chrome (page borders, device
 shells); every entity body (sticky, shape, file/markdown/wireframe/
 component/image/video), every edge, every selection outline / resize
 handle / hover indicator, every group bound, the keyboard-target focus
 ring, and the agent-active halo render in `aboveView`. `aboveView` is
 also the canvas-mode keyboard owner — `FocusReconciler`'s default is
 `{ kind: 'aboveView' }` and the only other keyboard target is a page
-WCV during forwarded frame interaction (driven by the
-`shouldFocusSelectedFrame` predicate). Adding a new transparent
+WCV during forwarded page interaction (driven by the
+`shouldFocusSelectedPage` predicate). Adding a new transparent
 overlay WCV is almost always wrong — compose into `aboveView` as a
 React layer instead.
 
@@ -219,6 +219,6 @@ and I8 (currently as warnings — legacy sites pending cleanup).
 
 Browser mode and Canvas mode share the same .canvas data:
 - **Canvas mode** — freeform spatial layout; all nodes visible
-- **Browser mode** — traditional tab-based navigation between link nodes
+- **Browser mode** — traditional tab-based navigation between pages
 
 The view mode is UI-level state, not a data distinction.

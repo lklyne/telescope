@@ -1,8 +1,8 @@
 /**
- * Captures a composited screenshot of a canvas region spanning multiple frames.
+ * Captures a composited screenshot of a canvas region spanning multiple pages.
  *
- * For each frame intersecting the bounding box, captures via captureFrameComposited(),
- * then composites all frame captures onto a canvas-background-colored buffer.
+ * For each page intersecting the bounding box, captures via captureFrameComposited(),
+ * then composites all page captures onto a canvas-background-colored buffer.
  */
 
 import { nativeImage, screen as electronScreen } from 'electron'
@@ -45,7 +45,7 @@ interface RegionCaptureResult {
 }
 
 export interface RegionCaptureOptions {
-  /** Capture the canvas background view (text notes, frame chrome, grid). */
+  /** Capture the canvas background view (text notes, page chrome, grid). */
   includeBgView?: boolean
 }
 
@@ -53,7 +53,7 @@ export interface RegionCaptureOptions {
  * Capture a composited screenshot of a canvas region.
  *
  * Returns the composited PNG base64 and the list of pages that intersected the region.
- * When `includeBgView` is true, the canvas background (text notes, frame chrome, grid)
+ * When `includeBgView` is true, the canvas background (text notes, page chrome, grid)
  * is used as the base layer instead of a solid fill.
  */
 export async function captureRegion(
@@ -69,7 +69,7 @@ export async function captureRegion(
 
   setRendererCaptureMode(true)
   try {
-    // Allow renderers one frame to hide transient UI (selection outlines,
+    // Allow renderers one page to hide transient UI (selection outlines,
     // marquee, region composer, etc.) before capture.
     await new Promise((r) => setTimeout(r, 32))
     return await captureRegionInternal(canvasRect, opts, dpr)
@@ -127,20 +127,20 @@ async function captureRegionInternal(
     }
   }
 
-  // Capture each intersecting frame and blit into output buffer.
+  // Capture each intersecting page and blit into output buffer.
   for (const page of intersectingPages) {
     const capture = await captureFrameComposited(page, { dpr })
     if (!capture) continue
 
-    const frameBounds = pageCanvasBounds(page)
+    const pageBounds = pageCanvasBounds(page)
 
-    // `page.canvasY` is the top of the frame's chrome band, not the page
+    // `page.canvasY` is the top of the page's chrome band, not the page
     // content; content sits `chromeHeight` below (computeScreenBoundsForPage).
-    const contentCanvasY = frameBounds.y + page.chromeHeight
-    const offsetX = Math.round((frameBounds.x - canvasRect.x) * zoom * dpr)
+    const contentCanvasY = pageBounds.y + page.chromeHeight
+    const offsetX = Math.round((pageBounds.x - canvasRect.x) * zoom * dpr)
     const offsetY = Math.round((contentCanvasY - canvasRect.y) * zoom * dpr)
 
-    // Blit the frame capture into the output buffer.
+    // Blit the page capture into the output buffer.
     const srcW = capture.width
     const srcH = capture.height
     const src = capture.bitmap
@@ -153,7 +153,7 @@ async function captureRegionInternal(
 
     // Corner radius mask — WebContentsView's setBorderRadius clips the view
     // visually, but capturePage returns the unclipped rectangular bitmap.
-    // Skip pixels outside the rounded rect so device-framed frames render
+    // Skip pixels outside the rounded rect so device-framed pages render
     // with their rounded interior.
     const radius = pageCornerRadiusPx(page, dpr)
     const rMax = Math.min(radius, Math.floor(Math.min(srcW, srcH) / 2))

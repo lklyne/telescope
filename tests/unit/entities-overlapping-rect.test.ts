@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { entitiesOverlappingRect } from '../../src/shared/gesture-utils'
-import type { CanvasSceneEntity, CanvasSceneFrameEntity } from '../../src/shared/types'
+import type { CanvasSceneEntity, CanvasScenePageEntity } from '../../src/shared/types'
 
-function frame(over: Partial<CanvasSceneFrameEntity> & { id: string }): CanvasSceneFrameEntity {
+function page(over: Partial<CanvasScenePageEntity> & { id: string }): CanvasScenePageEntity {
   return {
     id: over.id,
-    kind: 'frame',
+    kind: 'page',
     canvasX: 0,
     canvasY: 0,
     width: over.screenWidth ?? 100,
@@ -17,14 +17,14 @@ function frame(over: Partial<CanvasSceneFrameEntity> & { id: string }): CanvasSc
     presetIndex: 0,
     rendererTag: 'web',
     ...over,
-  } as CanvasSceneFrameEntity
+  } as CanvasScenePageEntity
 }
 
 describe('entitiesOverlappingRect', () => {
   const entities: CanvasSceneEntity[] = [
-    frame({ id: 'a', screenX: 0, screenY: 0, screenWidth: 100, screenHeight: 100 }),
-    frame({ id: 'b', screenX: 200, screenY: 0, screenWidth: 100, screenHeight: 100 }),
-    frame({ id: 'c', screenX: 50, screenY: 50, screenWidth: 100, screenHeight: 100 }),
+    page({ id: 'a', screenX: 0, screenY: 0, screenWidth: 100, screenHeight: 100 }),
+    page({ id: 'b', screenX: 200, screenY: 0, screenWidth: 100, screenHeight: 100 }),
+    page({ id: 'c', screenX: 50, screenY: 50, screenWidth: 100, screenHeight: 100 }),
   ]
 
   it('returns ids of entities the rect overlaps', () => {
@@ -43,7 +43,7 @@ describe('entitiesOverlappingRect', () => {
   })
 
   it('treats edge-touching as non-overlap (matches old marquee preview)', () => {
-    // Frame a sits at [0,100) × [0,100). A rect starting exactly at x=100 must miss.
+    // Page a sits at [0,100) × [0,100). A rect starting exactly at x=100 must miss.
     const ids = entitiesOverlappingRect([entities[0]], { left: 100, top: 0, width: 50, height: 50 })
     expect(ids).toEqual([])
   })

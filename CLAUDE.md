@@ -67,7 +67,7 @@ workspace-*          Persistence, tabs, model, Y.Doc, undo, autosave
 runtime-core.ts      High-level state mutations
 runtime-context.ts   Ephemeral state (zoom, pan, interaction, views)
 selection-*          Selection state and mutations
-page-*.ts            Frame (webview) creation and lifecycle
+page-*.ts            Page (webview) creation and lifecycle
 layout-*.ts          View positioning, z-order, dirty tracking
 *-entity-state.ts    Per-entity-kind mutations (text, file, group, drawing)
 ```
@@ -112,7 +112,7 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 Browser and Canvas are different views of the same data:
 
 - **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between frames
+- **Browser mode** — traditional tab navigation between pages
 
 Both operate on the same underlying .canvas data and share primitives.
 Maximize overlap between modes.
@@ -139,7 +139,7 @@ When a UI pattern is shared across entity types (chrome headers, inline menus, s
 These are the patterns users gravitate toward. The app supports them through
 primitives and tools, not dedicated workflow features:
 
-- **Multi-breakpoint iteration** — linked frames at different viewport presets
+- **Multi-breakpoint iteration** — linked pages at different viewport presets
 - **Live site annotation** — annotating running pages to iterate on fixes
 - **Research & spatial organization** — collecting and arranging web references
 - **Wireframing & broad strokes** — rough spatial layouts before implementation
@@ -159,7 +159,7 @@ The HTTP API (src/main/routes/) remains available for runtime interaction.
 
 ## Specular CLI
 
-- Always pass full URLs (including scheme and host) to `specular create frame`. The canvas can contain frames from different origins, so bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
+- Always pass full URLs (including scheme and host) to `specular create page`. The canvas can contain pages from different origins, so bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
 
 ## Skill files
 

@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
-  framePointMatchesTargetRect,
-  resolvePresenceFramePoint,
+  pagePointMatchesTargetRect,
+  resolvePresencePagePoint,
 } from '../../src/shared/presence-targeting'
 
 describe('presence targeting', () => {
-  it('prefers frame coordinates over target rect centers', () => {
+  it('prefers page coordinates over target rect centers', () => {
     expect(
-      resolvePresenceFramePoint({
-        frameX: 18,
-        frameY: 24,
+      resolvePresencePagePoint({
+        pageX: 18,
+        pageY: 24,
         targetRect: { x: 100, y: 200, width: 50, height: 20 },
         fallbackX: 0,
         fallbackY: 0,
@@ -19,10 +19,10 @@ describe('presence targeting', () => {
 
   it('hides halos when a rect no longer matches the live cursor point', () => {
     expect(
-      framePointMatchesTargetRect(18, 24, { x: 100, y: 200, width: 50, height: 20 }),
+      pagePointMatchesTargetRect(18, 24, { x: 100, y: 200, width: 50, height: 20 }),
     ).toBe(false)
     expect(
-      framePointMatchesTargetRect(112, 208, { x: 100, y: 200, width: 50, height: 20 }),
+      pagePointMatchesTargetRect(112, 208, { x: 100, y: 200, width: 50, height: 20 }),
     ).toBe(true)
   })
 })

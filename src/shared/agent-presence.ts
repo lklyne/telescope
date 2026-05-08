@@ -9,12 +9,12 @@ function labelForKey(
       return 'Scanning workspace'
     case 'find_placement':
       return 'Finding placement'
-    case 'create_frame':
-      return 'Creating frame'
-    case 'select_frame':
-      return 'Selecting frame'
-    case 'attach_frame':
-      return 'Attaching to frame'
+    case 'create_page':
+      return 'Creating page'
+    case 'select_page':
+      return 'Selecting page'
+    case 'attach_page':
+      return 'Attaching to page'
     case 'inspect_page':
       return 'Inspecting page'
     case 'find_target':
@@ -66,5 +66,5 @@ export function summarizePresenceCursor(
 ): string | null {
   const label = applyHint(labelForKey(cursor.labelKey, cursor.targetName), cursor.labelHint, cursor.taskLabel)
   if (!label) return null
-  return cursor.surface === 'frame' ? `${label} in frame` : `${label} on canvas`
+  return cursor.surface === 'page' ? `${label} in page` : `${label} on canvas`
 }

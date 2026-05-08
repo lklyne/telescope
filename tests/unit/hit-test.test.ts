@@ -2,22 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { hitTest, type HitInputs } from '../../src/shared/hit-test'
 import type {
   CanvasSceneEntity,
-  CanvasSceneFrameEntity,
+  CanvasScenePageEntity,
   CanvasSceneTextEntity,
   CanvasSceneGroupEntity,
 } from '../../src/shared/types'
 
 // --- Fixtures ---
 
-function frame(overrides: Partial<CanvasSceneFrameEntity> & { id: string }): CanvasSceneFrameEntity {
+function page(overrides: Partial<CanvasScenePageEntity> & { id: string }): CanvasScenePageEntity {
   const screenX = overrides.screenX ?? 200
   const screenY = overrides.screenY ?? 200
   const screenWidth = overrides.screenWidth ?? 400
   const screenHeight = overrides.screenHeight ?? 300
   return {
-    kind: 'frame',
+    kind: 'page',
     id: overrides.id,
-    label: overrides.label ?? 'frame',
+    label: overrides.label ?? 'page',
     url: overrides.url ?? 'https://example.com',
     canGoBack: false,
     canGoForward: false,
@@ -81,13 +81,13 @@ function inputs(entities: CanvasSceneEntity[], selectedEntityIds: string[] = [])
 // --- Collision class tests ---
 
 describe('hit-test — issue #41 anchor near chrome', () => {
-  // Frame at screen (200,200), 400×300. Chrome strip is 36px above the frame
+  // Page at screen (200,200), 400×300. Chrome strip is 36px above the page
   // body, occupying y ∈ [164, 200). The top anchor's hit rect sits 4px
-  // above the frame top, height 24px → y ∈ [172, 196). Heavy overlap with
+  // above the page top, height 24px → y ∈ [172, 196). Heavy overlap with
   // chrome y ∈ [164, 200). The bug: anchor wins. The fix: chrome wins.
-  const f = frame({ id: 'f1', screenX: 200, screenY: 200 })
+  const f = page({ id: 'f1', screenX: 200, screenY: 200 })
 
-  it('chrome wins over top anchor when frame is selected', () => {
+  it('chrome wins over top anchor when page is selected', () => {
     const result = hitTest(inputs([f], ['f1']), { x: 400, y: 185 })
     expect(result.layer).toBe('chrome')
     expect(result.payload).toMatchObject({ kind: 'chrome', entityId: 'f1' })
@@ -102,18 +102,18 @@ describe('hit-test — issue #41 anchor near chrome', () => {
 })
 
 describe('hit-test — resize handles vs body', () => {
-  // Frame selected, resize handle at NE corner = (600, 200). Click on the
+  // Page selected, resize handle at NE corner = (600, 200). Click on the
   // corner should resize, not enter focus.
-  const f = frame({ id: 'f1', screenX: 200, screenY: 200 })
+  const f = page({ id: 'f1', screenX: 200, screenY: 200 })
 
-  it('resize handle wins over frame body at the corner', () => {
+  it('resize handle wins over page body at the corner', () => {
     const result = hitTest(inputs([f], ['f1']), { x: 600, y: 200 })
     expect(result.layer).toBe('resize-handles')
     expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'ne' })
   })
 
-  it('clicking on the visible NE handle (offset by frame outline padding) resizes', () => {
-    // Frame outline pads the NE corner outward by 6px; the visible 8×8
+  it('clicking on the visible NE handle (offset by page outline padding) resizes', () => {
+    // Page outline pads the NE corner outward by 6px; the visible 8×8
     // white handle is centered there, so a real user click typically lands
     // a few pixels past the entity edge. Pre-fix this fell through to
     // background → marquee.
@@ -134,15 +134,15 @@ describe('hit-test — resize handles vs body', () => {
   it('clicking deep in the body without selection enters focus', () => {
     const result = hitTest(inputs([f], []), { x: 400, y: 350 })
     expect(result.layer).toBe('body')
-    expect(result.payload).toMatchObject({ kind: 'frame-body', entityId: 'f1' })
+    expect(result.payload).toMatchObject({ kind: 'page-body', entityId: 'f1' })
   })
 })
 
 describe('hit-test — body kind dispatches', () => {
-  it('frame body returns frame-body intent (focus)', () => {
-    const f = frame({ id: 'f1' })
+  it('page body returns page-body intent (focus)', () => {
+    const f = page({ id: 'f1' })
     const result = hitTest(inputs([f]), { x: 400, y: 350 })
-    expect(result.payload).toEqual({ kind: 'frame-body', entityId: 'f1' })
+    expect(result.payload).toEqual({ kind: 'page-body', entityId: 'f1' })
   })
 
   it('text body returns entity-body intent (select)', () => {
@@ -172,7 +172,7 @@ describe('hit-test — group containment', () => {
 
 describe('hit-test — background fallback', () => {
   it('returns background when no entity is hit', () => {
-    const result = hitTest(inputs([frame({ id: 'f1' })]), { x: 10, y: 10 })
+    const result = hitTest(inputs([page({ id: 'f1' })]), { x: 10, y: 10 })
     expect(result.payload).toEqual({ kind: 'background' })
     expect(result.layer).toBe('background')
   })
@@ -190,16 +190,16 @@ describe('hit-test — chrome only on chrome-bearing entities', () => {
 describe('hit-test — body z-order (front-to-back)', () => {
   // entityOrder semantics: array order is back-to-front (paint order — the
   // last item paints on top, matching JSON Canvas v1.0). The hit-test must
-  // walk the body layer front-to-back so a sticky painted over a frame
-  // resolves to the sticky, not the frame body underneath.
+  // walk the body layer front-to-back so a sticky painted over a page
+  // resolves to the sticky, not the page body underneath.
   //
-  // Frame body at (200,200), 400×300. Sticky at (300,300), 100×40.
-  // The sticky is fully inside the frame.
+  // Page body at (200,200), 400×300. Sticky at (300,300), 100×40.
+  // The sticky is fully inside the page.
 
-  it('sticky declared front (after frame in entities) wins over frame body', () => {
-    const f = frame({ id: 'f1', screenX: 200, screenY: 200 })
+  it('sticky declared front (after page in entities) wins over page body', () => {
+    const f = page({ id: 'f1', screenX: 200, screenY: 200 })
     const t = text('t1', 300, 300)
-    // Frame first (back), text after (front).
+    // Page first (back), text after (front).
     const result = hitTest(inputs([f, t]), { x: 320, y: 320 })
     expect(result.layer).toBe('body')
     expect(result.payload).toEqual({
@@ -209,13 +209,13 @@ describe('hit-test — body z-order (front-to-back)', () => {
     })
   })
 
-  it('reverse z-order (sticky behind frame) returns frame-body', () => {
-    const f = frame({ id: 'f1', screenX: 200, screenY: 200 })
+  it('reverse z-order (sticky behind page) returns page-body', () => {
+    const f = page({ id: 'f1', screenX: 200, screenY: 200 })
     const t = text('t1', 300, 300)
-    // Text first (back), frame after (front).
+    // Text first (back), page after (front).
     const result = hitTest(inputs([t, f]), { x: 320, y: 320 })
     expect(result.layer).toBe('body')
-    expect(result.payload).toEqual({ kind: 'frame-body', entityId: 'f1' })
+    expect(result.payload).toEqual({ kind: 'page-body', entityId: 'f1' })
   })
 
   it('two non-group entities — last in entities wins (front)', () => {

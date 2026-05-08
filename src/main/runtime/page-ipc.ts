@@ -2,10 +2,10 @@ import { randomUUID } from 'crypto'
 import { findPageById, selectedPage } from './runtime-context'
 import { safeSend } from './safe-send'
 
-const pendingFrameRequests = new Map<
+const pendingPageRequests = new Map<
   string,
   {
-    frameId: string
+    pageId: string
     channel: string
     resolve: (value: unknown) => void
     reject: (reason: unknown) => void
@@ -13,45 +13,45 @@ const pendingFrameRequests = new Map<
   }
 >()
 
-const pendingDetailRequests = new Map<string, { frameId: string; nodeId: string }>()
+const pendingDetailRequests = new Map<string, { pageId: string; nodeId: string }>()
 
-export function requestNodeDetail(frameId: string, nodeId: string): void {
-  const page = findPageById(frameId)
+export function requestNodeDetail(pageId: string, nodeId: string): void {
+  const page = findPageById(pageId)
   if (!page || page.pageView.webContents.isDestroyed()) return
   const requestId = randomUUID()
-  pendingDetailRequests.set(requestId, { frameId, nodeId })
+  pendingDetailRequests.set(requestId, { pageId, nodeId })
   safeSend(page.pageView.webContents, 'resolve-node-detail', { nodeId, requestId })
 }
 
 export function takePendingDetailRequest(
   requestId: string,
-): { frameId: string; nodeId: string } | undefined {
+): { pageId: string; nodeId: string } | undefined {
   const request = pendingDetailRequests.get(requestId)
   if (!request) return undefined
   pendingDetailRequests.delete(requestId)
   return request
 }
 
-export function sendFrameIpc(
-  frameId: string | undefined,
+export function sendPageIpc(
+  pageId: string | undefined,
   channel: string,
   payload: Record<string, unknown>,
 ): Promise<unknown> {
-  const page = frameId ? findPageById(frameId) : selectedPage()
+  const page = pageId ? findPageById(pageId) : selectedPage()
   if (!page || page.pageView.webContents.isDestroyed()) {
     return Promise.reject(
-      new Error(frameId ? `Frame not found: ${frameId}` : 'No frame selected'),
+      new Error(pageId ? `Page not found: ${pageId}` : 'No page selected'),
     )
   }
-  const resolvedFrameId = page.id
+  const resolvedPageId = page.id
   const requestId = randomUUID()
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      pendingFrameRequests.delete(requestId)
+      pendingPageRequests.delete(requestId)
       reject(new Error(`Timed out waiting for ${channel}-response`))
     }, 5_000)
-    pendingFrameRequests.set(requestId, {
-      frameId: resolvedFrameId,
+    pendingPageRequests.set(requestId, {
+      pageId: resolvedPageId,
       channel,
       resolve,
       reject,
@@ -61,29 +61,29 @@ export function sendFrameIpc(
   })
 }
 
-// Drop any pending requests tied to a frame that's being destroyed. Without
-// this, the 5s timer in sendFrameIpc keeps a closure over the doomed
+// Drop any pending requests tied to a page that's being destroyed. Without
+// this, the 5s timer in sendPageIpc keeps a closure over the doomed
 // WebContents alive; when it fires later, V8 GC may sweep the already-freed
 // native wrappable and segfault the main process.
-export function clearPendingRequestsForFrame(frameId: string): void {
-  for (const [requestId, pending] of pendingFrameRequests) {
-    if (pending.frameId !== frameId) continue
+export function clearPendingRequestsForPage(pageId: string): void {
+  for (const [requestId, pending] of pendingPageRequests) {
+    if (pending.pageId !== pageId) continue
     clearTimeout(pending.timer)
-    pendingFrameRequests.delete(requestId)
-    pending.reject(new Error(`Frame ${frameId} destroyed before ${pending.channel}-response`))
+    pendingPageRequests.delete(requestId)
+    pending.reject(new Error(`Page ${pageId} destroyed before ${pending.channel}-response`))
   }
   for (const [requestId, detail] of pendingDetailRequests) {
-    if (detail.frameId === frameId) pendingDetailRequests.delete(requestId)
+    if (detail.pageId === pageId) pendingDetailRequests.delete(requestId)
   }
 }
 
-export function handleFrameIpcResponse(payload: {
+export function handlePageIpcResponse(payload: {
   requestId: string
   data: unknown
 }): void {
-  const pending = pendingFrameRequests.get(payload.requestId)
+  const pending = pendingPageRequests.get(payload.requestId)
   if (!pending) return
-  pendingFrameRequests.delete(payload.requestId)
+  pendingPageRequests.delete(payload.requestId)
   clearTimeout(pending.timer)
   pending.resolve(payload.data)
 }

@@ -1,5 +1,5 @@
 /**
- * FrameChrome — per-frame chrome (URL bar, back/forward/reload/menu) rendered
+ * PageChrome — per-page chrome (URL bar, back/forward/reload/menu) rendered
  * in aboveView. Per ADR 0002 §2 every canvas-anchored chrome lives here so
  * the router yields via `data-overlay-ui` and the gate predicate can stay
  * default-open in canvas mode.
@@ -9,14 +9,14 @@ import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, EllipsisVertical, RotateCw, Search } from 'lucide-react'
 import type {
   CanvasBgElectronAPI,
-  CanvasSceneFrameEntity,
+  CanvasScenePageEntity,
   LayoutUpdateData,
 } from '../../shared/types'
 import { normalizeUserUrl } from '../../shared/url'
 import { CanvasItemChrome } from './CanvasItemChrome'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 
-export function FrameChromeOverlay({
+export function PageChromeOverlay({
   api,
   layoutData,
   isDark,
@@ -26,25 +26,25 @@ export function FrameChromeOverlay({
   isDark: boolean
 }) {
   if (layoutData.viewMode !== 'canvas') return null
-  const frames = layoutData.entities.filter(
-    (e): e is CanvasSceneFrameEntity => e.kind === 'frame',
+  const pages = layoutData.entities.filter(
+    (e): e is CanvasScenePageEntity => e.kind === 'page',
   )
   const isIdle = layoutData.interaction.kind === 'idle'
-  const selectedFrameId =
+  const selectedPageId =
     layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null
-  const hoveredFrameId = layoutData.hover?.id ?? null
+  const hoveredPageId = layoutData.hover?.id ?? null
   const dragEnabled = layoutData.annotationMode !== 'region_select'
   return (
     <>
-      {frames.map((frame) => (
-        <FrameChromeItem
-          key={frame.id}
+      {pages.map((page) => (
+        <PageChromeItem
+          key={page.id}
           api={api}
           layoutData={layoutData}
-          frame={frame}
+          page={page}
           isDark={isDark}
-          isSelected={frame.id === selectedFrameId && isIdle}
-          isActive={(frame.id === selectedFrameId && isIdle) || frame.id === hoveredFrameId}
+          isSelected={page.id === selectedPageId && isIdle}
+          isActive={(page.id === selectedPageId && isIdle) || page.id === hoveredPageId}
           dragEnabled={dragEnabled}
         />
       ))}
@@ -52,10 +52,10 @@ export function FrameChromeOverlay({
   )
 }
 
-function FrameChromeItem({
+function PageChromeItem({
   api,
   layoutData,
-  frame,
+  page,
   isDark,
   isSelected,
   isActive,
@@ -63,7 +63,7 @@ function FrameChromeItem({
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
-  frame: CanvasSceneFrameEntity
+  page: CanvasScenePageEntity
   isDark: boolean
   isSelected: boolean
   isActive: boolean
@@ -71,32 +71,32 @@ function FrameChromeItem({
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [pendingUrl, setPendingUrl] = useState<string | null>(null)
-  const isBlank = frame.url === 'about:blank' && !pendingUrl
+  const isBlank = page.url === 'about:blank' && !pendingUrl
 
   useEffect(() => {
     setPendingUrl(null)
-  }, [frame.url])
+  }, [page.url])
 
-  const editValue = isBlank ? '' : frame.url
-  const displayValue = isBlank ? 'Type a URL' : frame.label || pendingUrl || frame.url
+  const editValue = isBlank ? '' : page.url
+  const displayValue = isBlank ? 'Type a URL' : page.label || pendingUrl || page.url
 
   const handleCommitUrl = (next: string) => {
     const trimmed = next.trim()
-    if (trimmed && trimmed !== frame.url) {
+    if (trimmed && trimmed !== page.url) {
       const normalized = normalizeUserUrl(trimmed)
       setPendingUrl(normalized)
-      api.navigateFrame(frame.id, normalized)
+      api.navigatePage(page.id, normalized)
     }
     setIsEditing(false)
   }
 
   const faviconIcon = isBlank ? (
     <Search size={13} className="shrink-0 text-zinc-400" />
-  ) : frame.faviconUrl ? (
+  ) : page.faviconUrl ? (
     <img
       alt=""
       aria-hidden="true"
-      src={frame.faviconUrl}
+      src={page.faviconUrl}
       className="h-3.5 w-3.5 shrink-0 rounded-[3px]"
     />
   ) : null
@@ -104,7 +104,7 @@ function FrameChromeItem({
   const onPointerDown = !isEditing
     ? (event: React.PointerEvent) => {
         const target = event.target as HTMLElement
-        if (target.closest('[data-frame-context-menu]')) return
+        if (target.closest('[data-page-context-menu]')) return
         event.preventDefault()
         event.stopPropagation()
         const pointerId = event.pointerId
@@ -117,11 +117,11 @@ function FrameChromeItem({
         const additive = event.shiftKey || event.metaKey || event.ctrlKey
         const modifiers = { shift: event.shiftKey, meta: event.metaKey, ctrl: event.ctrlKey }
         if (additive) {
-          api.selectFrame(frame.id, modifiers)
+          api.selectPage(page.id, modifiers)
           return
         }
-        const preserve = layoutData.selectedEntityIds.includes(frame.id)
-        api.startDragFrame(frame.id, { entityKind: 'frame', preserveSelection: preserve })
+        const preserve = layoutData.selectedEntityIds.includes(page.id)
+        api.startDragPage(page.id, { entityKind: 'page', preserveSelection: preserve })
         let lastX = event.screenX
         let lastY = event.screenY
         const cleanup = () => {
@@ -139,7 +139,7 @@ function FrameChromeItem({
         }
         const finish = () => {
           cleanup()
-          api.endDragFrame()
+          api.endDragPage()
         }
         const onMove = (me: PointerEvent) => {
           if (me.pointerId !== pointerId) return
@@ -147,7 +147,7 @@ function FrameChromeItem({
           const dy = me.screenY - lastY
           lastX = me.screenX
           lastY = me.screenY
-          if (dx !== 0 || dy !== 0) api.dragFrame(frame.id, dx, dy)
+          if (dx !== 0 || dy !== 0) api.dragPage(page.id, dx, dy)
         }
         const onUp = (me: PointerEvent) => {
           if (me.pointerId !== pointerId) return
@@ -163,14 +163,14 @@ function FrameChromeItem({
 
   return (
     <CanvasItemChrome.Root
-      entityId={frame.id}
+      entityId={page.id}
       layout={layoutData}
       isDark={isDark}
       isActive={isActive}
       dragEnabled={dragEnabled}
       onPointerDown={onPointerDown}
-      onMouseEnter={() => api.hoverFrame(frame.id)}
-      onMouseLeave={() => api.hoverFrame(null)}
+      onMouseEnter={() => api.hoverPage(page.id)}
+      onMouseLeave={() => api.hoverPage(null)}
     >
       <CanvasItemChrome.DragTrigger
         onPointerDown={isEditing ? (e) => e.stopPropagation() : undefined}
@@ -185,7 +185,7 @@ function FrameChromeItem({
           onCancel={() => setIsEditing(false)}
           variant="canvas-chrome"
           isDark={isDark}
-          placeholder={isBlank ? 'Type a URL' : frame.url}
+          placeholder={isBlank ? 'Type a URL' : page.url}
           titleClassName={`min-w-0 truncate font-medium ${isBlank ? 'text-zinc-400' : ''}`}
           onTitleClick={isSelected ? () => setIsEditing(true) : undefined}
         />
@@ -195,29 +195,29 @@ function FrameChromeItem({
         <CanvasItemChrome.Actions>
           <CanvasItemChrome.Button
             title="Back"
-            disabled={!frame.canGoBack}
-            style={!frame.canGoBack ? { opacity: 0.3 } : undefined}
-            onClick={() => api.goBackFrame(frame.id)}
+            disabled={!page.canGoBack}
+            style={!page.canGoBack ? { opacity: 0.3 } : undefined}
+            onClick={() => api.goBackPage(page.id)}
           >
             <ChevronLeft size={13} />
           </CanvasItemChrome.Button>
           <CanvasItemChrome.Button
             title="Forward"
-            disabled={!frame.canGoForward}
-            style={!frame.canGoForward ? { opacity: 0.3 } : undefined}
-            onClick={() => api.goForwardFrame(frame.id)}
+            disabled={!page.canGoForward}
+            style={!page.canGoForward ? { opacity: 0.3 } : undefined}
+            onClick={() => api.goForwardPage(page.id)}
           >
             <ChevronRight size={13} />
           </CanvasItemChrome.Button>
           <CanvasItemChrome.Button
-            title={frame.isLoading ? 'Loading…' : 'Reload'}
-            onClick={() => api.reloadFrame(frame.id)}
+            title={page.isLoading ? 'Loading…' : 'Reload'}
+            onClick={() => api.reloadPage(page.id)}
           >
-            <RotateCw size={11} className={frame.isLoading ? 'animate-spin' : ''} />
+            <RotateCw size={11} className={page.isLoading ? 'animate-spin' : ''} />
           </CanvasItemChrome.Button>
           <CanvasItemChrome.Button
-            title="Frame actions"
-            onClick={() => api.showFrameContextMenu(frame.id)}
+            title="Page actions"
+            onClick={() => api.showPageContextMenu(page.id)}
           >
             <EllipsisVertical size={13} />
           </CanvasItemChrome.Button>

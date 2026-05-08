@@ -5,7 +5,7 @@ import type { Annotation } from '../../src/shared/types'
 function baseAnnotation(overrides: Partial<Annotation> = {}): Annotation {
   return {
     id: 'ann-1',
-    anchor: { type: 'frame', frameId: 'frame-a', offsetX: 0, offsetY: 0 },
+    anchor: { type: 'page', pageId: 'page-a', offsetX: 0, offsetY: 0 },
     author: 'user',
     text: 'Header padding is too big',
     status: 'pending',
@@ -13,14 +13,14 @@ function baseAnnotation(overrides: Partial<Annotation> = {}): Annotation {
     createdAt: new Date().toISOString(),
     metadata: {
       pageUrl: 'http://localhost:4321/garden',
-      frameName: 'Desktop 1280×800',
+      pageName: 'Desktop 1280×800',
     },
     ...overrides,
   }
 }
 
 describe('buildFixPrompt', () => {
-  it('includes page URL, frame name, and the thread', () => {
+  it('includes page URL, page name, and the thread', () => {
     const prompt = buildFixPrompt(baseAnnotation())
     expect(prompt).toContain('http://localhost:4321/garden')
     expect(prompt).toContain('Desktop 1280×800')
@@ -32,7 +32,7 @@ describe('buildFixPrompt', () => {
       baseAnnotation({
         anchor: {
           type: 'element',
-          frameId: 'frame-a',
+          pageId: 'page-a',
           selector: 'header.site-header',
           elementPath: 'body > header',
         },

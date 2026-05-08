@@ -130,28 +130,28 @@ const CDP_CACHE_TTL_MS = 60_000
 
 interface CdpResolution {
   wsUrl: string
-  /** The URL the frame is expected to be showing. */
+  /** The URL the page is expected to be showing. */
   pageUrl: string
 }
 
-async function resolveCdpUrl(frameId: string): Promise<CdpResolution> {
-  const cached = cdpUrlCache.get(frameId)
+async function resolveCdpUrl(pageId: string): Promise<CdpResolution> {
+  const cached = cdpUrlCache.get(pageId)
   if (cached && cached.expires > Date.now()) return { wsUrl: cached.wsUrl, pageUrl: cached.pageUrl }
   const result = await callApp<{ webSocketDebuggerUrl: string; url?: string }>(
-    `/frames/${frameId}/cdp-target`,
+    `/pages/${pageId}/cdp-target`,
   )
   const pageUrl = result.url ?? ''
-  cdpUrlCache.set(frameId, { wsUrl: result.webSocketDebuggerUrl, pageUrl, expires: Date.now() + CDP_CACHE_TTL_MS })
+  cdpUrlCache.set(pageId, { wsUrl: result.webSocketDebuggerUrl, pageUrl, expires: Date.now() + CDP_CACHE_TTL_MS })
   return { wsUrl: result.webSocketDebuggerUrl, pageUrl }
 }
 
-export function invalidateCdpCache(frameIds: string[]): void {
-  for (const id of frameIds) cdpUrlCache.delete(id)
+export function invalidateCdpCache(pageIds: string[]): void {
+  for (const id of pageIds) cdpUrlCache.delete(id)
 }
 
 /**
  * Check if a snapshot/screenshot output references a page URL that doesn't
- * match the frame's expected URL.  Returns a warning string, or null.
+ * match the page's expected URL.  Returns a warning string, or null.
  */
 function checkOriginMismatch(output: string, expectedPageUrl: string): string | null {
   if (!expectedPageUrl) return null
@@ -164,7 +164,7 @@ function checkOriginMismatch(output: string, expectedPageUrl: string): string | 
     const actual = new URL(actualOrigin).origin
     if (expected !== actual) {
       return `⚠ CDP target mismatch: expected ${expected} but connected to ${actual}. ` +
-        `The frame may not have loaded yet, or the webview resolved to a different target. ` +
+        `The page may not have loaded yet, or the webview resolved to a different target. ` +
         `Try re-running the command or use \`specular annotation <id>\` for annotation-based inspection.`
     }
   } catch {
@@ -174,16 +174,16 @@ function checkOriginMismatch(output: string, expectedPageUrl: string): string | 
 }
 
 // ---------------------------------------------------------------------------
-// Frame lock
+// Page lock
 // ---------------------------------------------------------------------------
 
-const frameLocks = new Map<string, Promise<void>>()
+const pageLocks = new Map<string, Promise<void>>()
 
-function withFrameLock<T>(frameId: string, fn: () => Promise<T>): Promise<T> {
-  const prev = frameLocks.get(frameId) ?? Promise.resolve()
+function withPageLock<T>(pageId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = pageLocks.get(pageId) ?? Promise.resolve()
   const next = prev.then(fn, fn)
   // Store the void chain so the next caller waits for this one
-  frameLocks.set(frameId, next.then(() => {}, () => {}))
+  pageLocks.set(pageId, next.then(() => {}, () => {}))
   return next
 }
 
@@ -217,8 +217,8 @@ export function spawnAsync(
     const child = spawn(cmd, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: opts.cwd,
-      // Auto-shutdown per-frame daemons after 60s of inactivity. We spin one
-      // daemon per frame (via --session <frameId>) so without an idle timeout
+      // Auto-shutdown per-page daemons after 60s of inactivity. We spin one
+      // daemon per page (via --session <pageId>) so without an idle timeout
       // they'd accumulate for the app's lifetime. User override still wins.
       env: {
         AGENT_BROWSER_IDLE_TIMEOUT_MS: '60000',
@@ -280,12 +280,12 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     | { type: 'image'; data: string; mimeType: string }
   >
 }> {
-  // Resolve frame — default to selected frame
-  let frameId = args.frame_id as string | undefined
-  if (!frameId) {
+  // Resolve page — default to selected page
+  let pageId = args.page_id as string | undefined
+  if (!pageId) {
     const sel = await callApp<{ selectedEntityId?: string; selectedEntityIds?: string[] }>('/selection')
-    frameId = sel.selectedEntityId ?? sel.selectedEntityIds?.[0]
-    if (!frameId) throw new Error('No frame specified and nothing is selected.')
+    pageId = sel.selectedEntityId ?? sel.selectedEntityIds?.[0]
+    if (!pageId) throw new Error('No page specified and nothing is selected.')
   }
 
   const rawCommand = (args.command as string).trim()
@@ -299,20 +299,20 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
   const clientName = getClientName()
 
-  return withFrameLock(frameId, async () => {
-    const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(frameId)
+  return withPageLock(pageId, async () => {
+    const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(pageId)
     const abPath = resolveAgentBrowserPath()
-    // One agent-browser daemon per frame. Without --session, a single daemon
+    // One agent-browser daemon per page. Without --session, a single daemon
     // pins the first --cdp URL it saw and silently ignores subsequent --cdp
     // values — upstream bug in agent-browser (CLI skips `launch` when daemon
     // is already running; daemon's relaunch check doesn't compare cdp_url).
-    // Keying by frameId sidesteps both gates.
-    const sessionFlags = ['--session', frameId]
+    // Keying by pageId sidesteps both gates.
+    const sessionFlags = ['--session', pageId]
 
-    // Fire presence intent (non-blocking). Include frameId so the cursor
-    // follows the frame we're actually driving — otherwise the server-side
+    // Fire presence intent (non-blocking). Include pageId so the cursor
+    // follows the page we're actually driving — otherwise the server-side
     // fallback picks the first CDP proxy registration for this session and
-    // the cursor sticks to whichever frame was driven first.
+    // the cursor sticks to whichever page was driven first.
     if (labelKey) {
       callApp('/session/presence/intent', {
         method: 'POST',
@@ -321,7 +321,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           clientName,
           command: verb,
           labelKey,
-          frameId,
+          pageId,
           labelHint: verb === 'fill' || verb === 'type' ? 'editing control' : null,
           targetRef: ref,
           targetRefSource: ref ? 'agent-browser' : null,

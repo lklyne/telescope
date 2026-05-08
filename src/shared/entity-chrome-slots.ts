@@ -36,7 +36,7 @@ export interface EntityLayout {
 /**
  * Returns the body sub-rect and chrome slots for an entity rect.
  *
- * Today only frame/file/group have a header slot. text/shape/drawing have
+ * Today only page/file/group have a header slot. text/shape/drawing have
  * no chrome — body equals the entity rect.
  *
  * Degenerate input (entity rect shorter than the chrome slot) collapses
@@ -62,5 +62,5 @@ export function entityChromeSlots(kind: CanvasEntityKind, entityRect: Rect): Ent
 }
 
 function kindHasHeaderChrome(kind: CanvasEntityKind): boolean {
-  return kind === 'frame' || kind === 'file' || kind === 'group'
+  return kind === 'page' || kind === 'file' || kind === 'group'
 }

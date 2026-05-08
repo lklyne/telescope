@@ -55,7 +55,7 @@ import { clearInspectTargets, syncInspectionState, notifyDevtoolsPanelData } fro
 import { sendInteractiveState } from './overlay-manager'
 
 function makePageId(): string {
-  return `frame_${randomUUID()}`
+  return `page_${randomUUID()}`
 }
 
 export function applyTabState(tab: PersistedWorkspaceTab): void {
@@ -65,8 +65,8 @@ export function applyTabState(tab: PersistedWorkspaceTab): void {
       selection: { kind: 'none' },
       toolMode: 'select',
       viewMode:
-        tab.snapshot.browserTabMode === 'frame' && tab.snapshot.selectedFrameId
-          ? { kind: 'browser', frameId: tab.snapshot.selectedFrameId }
+        tab.snapshot.browserTabMode === 'page' && tab.snapshot.selectedPageId
+          ? { kind: 'browser', pageId: tab.snapshot.selectedPageId }
           : { kind: 'canvas' },
       devtools: {
         ...getUiState().devtools,
@@ -135,8 +135,8 @@ export function renameWorkspaceTab(tabId: string, name: string): boolean {
   return true
 }
 
-export function renameWorkspaceFrame(frameId: string, name: string): boolean {
-  const page = findPageById(frameId)
+export function renameWorkspacePage(pageId: string, name: string): boolean {
+  const page = findPageById(pageId)
   const trimmed = name.trim()
   if (!page || !trimmed) return false
   page.name = trimmed
@@ -201,30 +201,30 @@ export function duplicateWorkspaceTab(tabId: string): string | null {
   const now = new Date().toISOString()
   const snapshot = cloneWorkspaceSnapshot(source.snapshot)
   snapshot.pages = snapshot.pages.map((page) => ({ ...page, id: makePageId() }))
-  const frameIdMap = new Map<string, string>()
+  const pageIdMap = new Map<string, string>()
   source.snapshot.pages.forEach((page, index) => {
     const nextId = snapshot.pages[index]?.id
-    if (page.id && nextId) frameIdMap.set(page.id, nextId)
+    if (page.id && nextId) pageIdMap.set(page.id, nextId)
   })
-  snapshot.selectedFrameId =
-    (snapshot.selectedFrameId && frameIdMap.get(snapshot.selectedFrameId)) ?? null
-  snapshot.selectedFrameIds = snapshot.selectedFrameIds
-    ?.map((frameId) => frameIdMap.get(frameId) ?? frameId)
+  snapshot.selectedPageId =
+    (snapshot.selectedPageId && pageIdMap.get(snapshot.selectedPageId)) ?? null
+  snapshot.selectedPageIds = snapshot.selectedPageIds
+    ?.map((pageId) => pageIdMap.get(pageId) ?? pageId)
     .filter(Boolean) as string[] | undefined
   snapshot.groups = snapshot.groups?.map((group) => ({
     ...group,
-    frameIds: group.frameIds?.map((frameId) => frameIdMap.get(frameId) ?? frameId),
+    pageIds: group.pageIds?.map((pageId) => pageIdMap.get(pageId) ?? pageId),
   }))
   snapshot.edges = snapshot.edges?.map((edge) => ({
     ...edge,
-    fromEntityId: frameIdMap.get(edge.fromEntityId) ?? edge.fromEntityId,
-    toEntityId: frameIdMap.get(edge.toEntityId) ?? edge.toEntityId,
+    fromEntityId: pageIdMap.get(edge.fromEntityId) ?? edge.fromEntityId,
+    toEntityId: pageIdMap.get(edge.toEntityId) ?? edge.toEntityId,
   }))
   const annotations = cloneAnnotationsForPersistence(source.annotations).map((annotation) => {
     const anchor =
       annotation.anchor.type === 'canvas' || annotation.anchor.type === 'region'
         ? annotation.anchor
-        : { ...annotation.anchor, frameId: frameIdMap.get(annotation.anchor.frameId) ?? annotation.anchor.frameId }
+        : { ...annotation.anchor, pageId: pageIdMap.get(annotation.anchor.pageId) ?? annotation.anchor.pageId }
     return { ...annotation, id: `annotation_${randomUUID()}`, anchor }
   })
   const duplicate: PersistedWorkspaceTab = {

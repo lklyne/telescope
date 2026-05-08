@@ -17,7 +17,7 @@ import { writeJson } from '../app-control-server'
 import type { IncomingMessage } from 'http'
 
 /** Resolve an annotation's anchor to a canvas position. Returns null for
- * frame/element anchors where the frame can't be found; those are rare
+ * page/element anchors where the page can't be found; those are rare
  * enough that a silent miss is fine. */
 function annotationAnchorPosition(
   anchor: AnnotationAnchor,
@@ -29,8 +29,8 @@ function annotationAnchorPosition(
       y: anchor.canvasRect.y + anchor.canvasRect.height / 2,
     }
   }
-  if (anchor.type === 'frame' || anchor.type === 'element') {
-    return findEntityPosition(anchor.frameId)
+  if (anchor.type === 'page' || anchor.type === 'element') {
+    return findEntityPosition(anchor.pageId)
   }
   return null
 }
@@ -50,7 +50,7 @@ export const annotationRoutes: Route[] = [
       const searchParams = new URL(url, 'http://localhost').searchParams
       const status = searchParams.get('status') as AnnotationStatusFilter | null
       const annotationUrl = searchParams.get('url') ?? undefined
-      const frameId = searchParams.get('frame_id') ?? undefined
+      const pageId = searchParams.get('page_id') ?? undefined
       const id = url.match(/^\/annotations\/([^/?]+)$/)?.[1]
       if (id) {
         const annotation = getAnnotationById(id)
@@ -68,7 +68,7 @@ export const annotationRoutes: Route[] = [
           annotations: getAnnotations({
             status: status ?? undefined,
             url: annotationUrl,
-            frameId,
+            pageId,
           }),
         },
       )

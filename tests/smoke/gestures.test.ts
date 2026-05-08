@@ -4,8 +4,8 @@ import {
   cancelActiveInteraction,
   cancelInteraction,
   commitInteraction,
-  createFrames,
-  deleteFrames,
+  createPages,
+  deletePages,
   getInteractionMode,
   resetInteraction,
   type CancelReason,
@@ -24,17 +24,17 @@ import {
  * `it.todo()` and flip as their owning phase lands.
  */
 
-const createdFrameIds: string[] = []
+const createdPageIds: string[] = []
 
-async function createFrame(): Promise<string> {
-  const result = await createFrames([{ url: 'https://example.com', canvasX: 120, canvasY: 120 }])
-  createdFrameIds.push(...result.frameIds)
-  return result.frameIds[0]
+async function createPage(): Promise<string> {
+  const result = await createPages([{ url: 'https://example.com', canvasX: 120, canvasY: 120 }])
+  createdPageIds.push(...result.pageIds)
+  return result.pageIds[0]
 }
 
-async function cleanupFrames() {
-  if (!createdFrameIds.length) return
-  await deleteFrames(createdFrameIds.splice(0))
+async function cleanupPages() {
+  if (!createdPageIds.length) return
+  await deletePages(createdPageIds.splice(0))
 }
 
 beforeEach(async () => {
@@ -43,7 +43,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await resetInteraction()
-  await cleanupFrames()
+  await cleanupPages()
 })
 
 const modes: Array<{ label: string; build: () => Promise<TryEnterInput> | TryEnterInput }> = [
@@ -51,21 +51,21 @@ const modes: Array<{ label: string; build: () => Promise<TryEnterInput> | TryEnt
   { label: 'marquee', build: () => ({ kind: 'marquee' }) },
   {
     label: 'dragging-entities',
-    build: async () => ({ kind: 'dragging-entities', entityIds: [await createFrame()] }),
+    build: async () => ({ kind: 'dragging-entities', entityIds: [await createPage()] }),
   },
   {
     label: 'resizing-entity',
-    build: async () => ({ kind: 'resizing-entity', target: { kind: 'frame', id: await createFrame() } }),
+    build: async () => ({ kind: 'resizing-entity', target: { kind: 'page', id: await createPage() } }),
   },
   {
     label: 'editing-text',
-    build: async () => ({ kind: 'editing-text', entityId: await createFrame() }),
+    build: async () => ({ kind: 'editing-text', entityId: await createPage() }),
   },
   {
     label: 'dragging-edge',
     build: async () => ({
       kind: 'dragging-edge',
-      from: { kind: 'frame', id: await createFrame() },
+      from: { kind: 'page', id: await createPage() },
       fromSide: 'right',
     }),
   },

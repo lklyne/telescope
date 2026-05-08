@@ -24,7 +24,7 @@ import {
 
 const MAX_POOL_SIZE = 8192
 const MAX_CURSORS = 8
-// Hardcoded dispatch ceiling. The actual emits-per-frame is a runtime uniform
+// Hardcoded dispatch ceiling. The actual emits-per-page is a runtime uniform
 // and may be anything in [2, EMIT_PER_FRAME_MAX].
 const EMIT_PER_FRAME_MAX = 16
 
@@ -67,7 +67,7 @@ interface Props {
   emitSpeedReferencePxPerSec?: number
   /** Power curve on the speed→emit mapping. >1 biases emission to the fast middle. */
   emitSpeedBias?: number
-  /** Max particles spawned per cursor per frame. Clamped to [2, 16]. */
+  /** Max particles spawned per cursor per page. Clamped to [2, 16]. */
   emitsPerFrame?: number
 }
 
@@ -168,7 +168,7 @@ function buildSystem(initial: {
   const cursorCount = uniform(0, 'uint')
   const writeHead = uniform(0, 'uint')
   // Track which cursor ids we've seen so we can snap prev=curr on first
-  // appearance (otherwise the first frame interpolates from (-10000,-10000)).
+  // appearance (otherwise the first page interpolates from (-10000,-10000)).
   const knownIds = new Set<string>()
   const holdU = uniform(initial.holdSeconds)
   const lifetimeU = uniform(initial.lifetimeSeconds)
@@ -354,8 +354,8 @@ function buildSystem(initial: {
     renderer.compute(simulateKernel)
     writeHeadJS = (writeHeadJS + emitPerFrameU.value * MAX_CURSORS) % activePoolSize
     writeHead.value = writeHeadJS
-    // After dispatch, current frame's cursor positions become "previous"
-    // for the next frame's segment interpolation.
+    // After dispatch, current page's cursor positions become "previous"
+    // for the next page's segment interpolation.
     for (let i = 0; i < cursorCount.value; i++) {
       cursorPrevPos.array[i].copy(cursorPos.array[i])
     }

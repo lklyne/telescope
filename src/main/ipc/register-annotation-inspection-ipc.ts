@@ -10,7 +10,7 @@ import {
   findPageById,
   findPageByPageView,
   getComponentSourceLocationByNodeId,
-  handleFrameIpcResponse,
+  handlePageIpcResponse,
   handleNodeDetailResponse,
   pages,
 } from '../runtime/page-runtime'
@@ -30,26 +30,26 @@ import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
 
 type ComponentPropOverridePayload = {
-  frameId: string
+  pageId: string
   componentId: string
   propPath: string[]
   value: unknown
 }
 
 type ComponentTokenOverridePayload = {
-  frameId: string
+  pageId: string
   componentId?: string
   token: string
   value: string
   selector?: string
 }
 
-function forwardOverrideToFrame(
-  frameId: string,
+function forwardOverrideToPage(
+  pageId: string,
   channel: 'override-props' | 'override-token',
   payload: Record<string, unknown>,
 ): void {
-  const page = pages.find((candidate) => candidate.id === frameId)
+  const page = pages.find((candidate) => candidate.id === pageId)
   if (!page || page.pageView.webContents.isDestroyed()) return
   page.pageView.webContents.send(channel, payload)
 }
@@ -70,7 +70,7 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
     case 'region':
       return anchor.canvasRect
     case 'element': {
-      const page = findPageById(anchor.frameId)
+      const page = findPageById(anchor.pageId)
       if (!page) return null
       if (anchor.boundingBox) {
         return {
@@ -82,8 +82,8 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
       }
       return pageCanvasBounds(page)
     }
-    case 'frame': {
-      const page = findPageById(anchor.frameId)
+    case 'page': {
+      const page = findPageById(anchor.pageId)
       if (!page) return null
       return pageCanvasBounds(page)
     }
@@ -113,7 +113,7 @@ export function registerAnnotationInspectionIpc(): void {
       const annotation = getAnnotationById(annotationId)
       if (!annotation) return
       if (annotation.anchor.type !== 'canvas' && annotation.anchor.type !== 'region') {
-        selectPageById(annotation.anchor.frameId)
+        selectPageById(annotation.anchor.pageId)
       }
       if (getZoom() < FOCUS_MIN_ZOOM) setZoom(1.0)
       const bounds = annotationCanvasBounds(annotation)
@@ -139,7 +139,7 @@ export function registerAnnotationInspectionIpc(): void {
     }
     setHoveredInspectTarget({
       ...payload,
-      frameId: page.id,
+      pageId: page.id,
     })
   })
 
@@ -154,7 +154,7 @@ export function registerAnnotationInspectionIpc(): void {
     openInspectPanel()
     setSelectedInspectTarget({
       ...payload,
-      frameId: page.id,
+      pageId: page.id,
     })
   })
 
@@ -169,7 +169,7 @@ export function registerAnnotationInspectionIpc(): void {
       ...(payload as Record<string, unknown>),
       nodeId,
       id: nodeId,
-      frameId: page.id,
+      pageId: page.id,
       sourceLocation: getComponentSourceLocationByNodeId(page.id, nodeId),
     } as NonNullable<typeof page.inspectDetailsByNodeId>[string]
   })
@@ -181,17 +181,17 @@ export function registerAnnotationInspectionIpc(): void {
 
   ipcMain.on('take-dom-snapshot-response', (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
-    handleFrameIpcResponse(payload as { requestId: string; data: unknown })
+    handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })
 
   ipcMain.on('query-dom-elements-response', (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
-    handleFrameIpcResponse(payload as { requestId: string; data: unknown })
+    handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })
 
   ipcMain.on('query-elements-in-rect-response', (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
-    handleFrameIpcResponse(payload as { requestId: string; data: unknown })
+    handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })
 
   ipcMain.on('inspect-tree-update', (event, payload) => {
@@ -202,7 +202,7 @@ export function registerAnnotationInspectionIpc(): void {
       const selectedIds = getSelectedEntityIds()
       if (selectedIds.length === 1 && selectedIds[0] === page.id) {
         bgView.webContents.send('component-tree-data', {
-          frameId: page.id,
+          pageId: page.id,
           tree: page.componentTree,
         })
       }
@@ -219,9 +219,9 @@ export function registerAnnotationInspectionIpc(): void {
     'canvas-edit-component-prop',
     (
       _event,
-      { frameId, componentId, propPath, value }: ComponentPropOverridePayload,
+      { pageId, componentId, propPath, value }: ComponentPropOverridePayload,
     ) => {
-      forwardOverrideToFrame(frameId, 'override-props', {
+      forwardOverrideToPage(pageId, 'override-props', {
         componentId,
         propPath,
         value,
@@ -233,9 +233,9 @@ export function registerAnnotationInspectionIpc(): void {
     'canvas-edit-component-token',
     (
       _event,
-      { frameId, componentId, token, value, selector }: ComponentTokenOverridePayload,
+      { pageId, componentId, token, value, selector }: ComponentTokenOverridePayload,
     ) => {
-      forwardOverrideToFrame(frameId, 'override-token', {
+      forwardOverrideToPage(pageId, 'override-token', {
         componentId,
         token,
         value,
@@ -256,7 +256,7 @@ export function registerAnnotationInspectionIpc(): void {
     layoutAllViews()
     if (aboveView && !aboveView.webContents.isDestroyed()) {
       aboveView.webContents.send('annotate-element-selected', {
-        frameId: page.id,
+        pageId: page.id,
         ...payload,
       })
     }

@@ -7,7 +7,7 @@ import type {
 } from '../shared/types'
 
 const api: LeftSidebarElectronAPI = {
-  revealFrame: (frameId) => ipcRenderer.send('canvas-reveal-frame', { frameId }),
+  revealPage: (pageId) => ipcRenderer.send('canvas-reveal-page', { pageId }),
   revealEntity: (entityId, entityKind) =>
     ipcRenderer.send('canvas-reveal-entity', { entityId, entityKind }),
   deleteEntity: (entityId, entityKind) =>
@@ -17,7 +17,7 @@ const api: LeftSidebarElectronAPI = {
   selectTab: (tabId) => ipcRenderer.send('canvas-select-tab', { tabId }),
   createTab: () => ipcRenderer.send('canvas-create-tab'),
   renameTab: (tabId, name) => ipcRenderer.send('canvas-rename-tab', { tabId, name }),
-  renameFrame: (frameId, name) => ipcRenderer.send('canvas-rename-frame', { frameId, name }),
+  renamePage: (pageId, name) => ipcRenderer.send('canvas-rename-page', { pageId, name }),
   renameGroup: (groupId, name) => ipcRenderer.send('canvas-rename-group', { groupId, name }),
   renameFileEntity: (entityId, name) =>
     ipcRenderer.send('canvas-rename-file-entity', { entityId, name }),
@@ -28,7 +28,7 @@ const api: LeftSidebarElectronAPI = {
   duplicateTab: (tabId) => ipcRenderer.send('canvas-duplicate-tab', { tabId }),
   deleteTab: (tabId) => ipcRenderer.send('canvas-delete-tab', { tabId }),
   reorderTab: (tabId, toIndex) => ipcRenderer.send('canvas-reorder-tab', { tabId, toIndex }),
-  deleteFrame: (frameId) => ipcRenderer.send('canvas-delete-frame', { frameId }),
+  deletePage: (pageId) => ipcRenderer.send('canvas-delete-page', { pageId }),
   setTabExpanded: (tabId, expanded) =>
     ipcRenderer.send('canvas-set-tab-expanded', { tabId, expanded }),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),

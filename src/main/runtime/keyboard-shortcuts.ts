@@ -9,7 +9,7 @@ import { undo, redo, canUndo, canRedo } from './workspace-undo'
 import { pendingPlacement as uiPendingPlacement } from '../ui-state'
 import { selectAdjacentPage } from './selection-state'
 import { layoutAllViews } from './layout-engine'
-import { currentKeyboardTargetFrameId, selectNone } from './selection-controller'
+import { currentKeyboardTargetPageId, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
 import { requestLayout } from './viewport-control'
 
@@ -119,7 +119,7 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
       return
     }
 
-    // Escape on the keyboard-target frame deselects it. The page is what
+    // Escape on the keyboard-target page deselects it. The page is what
     // routes the keystroke here; preventDefault so the page doesn't also
     // see the Escape. The selection commit triggers a layout pass which
     // re-runs the focus reconciler and moves keyboard back to aboveView.
@@ -130,7 +130,7 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
       !input.meta &&
       !input.control &&
       !input.alt &&
-      currentKeyboardTargetFrameId()
+      currentKeyboardTargetPageId()
     ) {
       event.preventDefault()
       selectNone()

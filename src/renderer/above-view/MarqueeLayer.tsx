@@ -27,6 +27,11 @@ export function MarqueeLayer({ overlay }: { overlay: SelectionOverlayPayload | n
           ? 'rgba(232, 180, 184, 0.22)'
           : 'rgba(59, 130, 246, 0.12)',
         pointerEvents: 'none',
+        // Body layers (file/sticky/shape) wrap their cards in a viewport
+        // div with `transform: scale`, which creates a stacking context.
+        // Without an explicit z-index the marquee paints under opaque
+        // bodies because it appears earlier in DOM order.
+        zIndex: 10,
       }}
     />
   )

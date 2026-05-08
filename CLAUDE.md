@@ -4,11 +4,14 @@ Specular is a spatial canvas for designers and frontend developers. Part browser
 part design iteration surface. Users pull live web content onto a freeform canvas
 to think, arrange, and iterate spatially.
 
+Read CONTEXT.md for the canonical glossary (canvas items, entities, tools, text styles, edges).
 Read docs/product.md for product philosophy and audience.
 Read docs/architecture.md for the full system map.
 Read docs/file-formats.md for .canvas spec and persistence details.
 Read docs/interaction-layer.md before adding gestures, overlays, focus
 handoffs, or drop targets — the invariants in §6 are load-bearing.
+
+When a domain term resolves during a session (rename, new concept, deprecation), update CONTEXT.md inline. If the decision is hard to reverse and surprising without context, add an ADR under docs/adr/ and link it from the relevant CONTEXT.md entry.
 
 ## Build & verify
 
@@ -95,19 +98,6 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 - `src/preload/` bridges IPC only — no business logic
 - `src/main/runtime/` is the single owner of workspace state
 - Renderer state is derived from IPC broadcasts, never authoritative
-
-## Terminology
-
-We follow the JSON Canvas spec (jsoncanvas.org) for our data model nouns:
-
-- **Node** — any entity on the canvas (text, link, file, group)
-- **Edge** — a connection between two nodes
-- **Canvas** — a single .canvas file; the spatial document
-- **Space** — a folder of canvases (like an Obsidian vault)
-- **Frame** — our current UI term for link nodes (live web pages). This may
-  align with the spec term "link" over time.
-
-See docs/file-formats.md for the full .canvas schema.
 
 ## File format principles
 

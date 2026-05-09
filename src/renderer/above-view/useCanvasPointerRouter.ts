@@ -445,7 +445,12 @@ function runEntityPress(
     api.requestEntityEdit(action.entityId)
   }
 
-  const onCancel = () => {
+  const onCancel = (ev: Event) => {
+    // Pre-threshold blur is a phantom: focus reconciliation routes focus
+    // aboveView → bgView on the next layout pass after a prior gesture
+    // ends. A second click landing inside that window would otherwise see
+    // the armed press torn down before pointerup, dropping the edit.
+    if (!dragging && ev.type === 'blur') return
     cleanup()
     if (dragging) api.endDragEntity()
   }

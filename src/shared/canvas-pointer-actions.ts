@@ -183,6 +183,7 @@ function routeByPayload(
       // renderers (image, component placeholder) drag normally.
       if (
         !context.altHeld &&
+        !context.spaceHeld &&
         context.editingEntityId === null &&
         isSingleSelected(context, payload.entityId) &&
         (payload.entityKind === 'text' ||

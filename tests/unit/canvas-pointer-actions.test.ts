@@ -327,6 +327,17 @@ describe('routePointerDown', () => {
       expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 't1' })
     })
 
+    it('space-click on solo-selected text → begin-entity-drag (hold-to-pan modifier preserves drag)', () => {
+      const t = text()
+      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const action = routePointerDown(target, {
+        ...baseCtx,
+        selectedEntityIds: ['t1'],
+        spaceHeld: true,
+      })
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 't1' })
+    })
+
     it('click on solo-selected text while another entity is editing → begin-entity-drag (deferral suppressed)', () => {
       const t = text()
       const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })

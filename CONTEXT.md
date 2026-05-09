@@ -103,7 +103,7 @@ Replaces three previously-parallel state machines: `pendingPlacement`, `Annotati
 
 ## Annotations
 
-Comments live on the canvas as a single user-facing concept ("comment") and a single runtime entity (`Annotation`). One tool — `comment` — produces all of them; the gesture decides the **anchor**:
+Comments live on the canvas as a single user-facing concept ("comment") and a single runtime entity (`Annotation`). One tool — `comment` — produces all of them; the gesture decides the **anchor** (per [ADR 0006](./docs/adr/0006-unified-comment-tool.md)):
 
 - **Click on a page element** → element anchor (DOM selector + bbox).
 - **Click anywhere else on the canvas** → canvas-point anchor (the click position).

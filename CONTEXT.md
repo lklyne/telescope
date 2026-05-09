@@ -111,8 +111,12 @@ Comments live on the canvas as a single user-facing concept ("comment") and a si
 
 Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Annotation.kind` field is redundant once the anchor is the source of truth.
 
-- **Comment pin** — the small circular marker rendered at every annotation's resting position. Element pin sits at the element's top-right corner (follows the page); canvas-point pin sits at the point; region pin sits at the rectangle's top-left corner *and* the rectangle still renders as a dashed rose outline. Same primitive in all three cases. Click selects the comment and opens its thread in the right panel.
-- **Pending composer** — single component that mounts after the gesture and before the comment is committed. Placement is a thin function over the anchor: above-right of the element bbox, adjacent to the click point, or above-right of the region rect. Esc cancels; click outside commits (if non-empty) or discards (if empty); only one pending composer exists at a time.
+**Resting visual on the canvas** is asymmetric and matches today's behavior:
+- Region anchor → dashed rose-400 rectangle, always visible (filtered only by `status`). Click opens the thread.
+- Element anchor → no resting visual; lives in the right panel and surfaces via composer (pending) or popover (opened from panel).
+- Canvas-point anchor → same as element — no resting visual; selection from the right panel reveals a temporary marker at the canvas point and opens the thread popover.
+
+**Pending composer** — single component that mounts after the gesture and before the comment is committed. Placement is a thin function over the anchor: above-right of the element bbox, adjacent to the click point, or above-right of the region rect. Esc cancels; click outside commits (if non-empty) or discards (if empty); only one pending composer exists at a time.
 
 ## UI copy voice
 

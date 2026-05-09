@@ -46,3 +46,27 @@ export function normalizeUserUrl(value: string): string {
 
   return new URL(withScheme).toString()
 }
+
+// A trimmed single-line string is treated as a URL when it either has an
+// explicit http(s) scheme or looks like a bare host (`host.tld[:port][/…]`,
+// `localhost[:port][/…]`). Other schemes (file:, mailto:, javascript:) are
+// rejected so pasting them into the canvas doesn't create a page.
+const BARE_HOST_PATTERN = /^[^\s:/?#]+(?:\.[^\s:/?#]+)+(?::\d+)?(?:[/?#].*)?$/i
+const LOCAL_HOST_PATTERN = /^(?:localhost|\[?::1\]?)(?::\d+)?(?:[/?#].*)?$/i
+const ANY_SCHEME_PREFIX = /^[a-z][a-z0-9+.-]*:/i
+
+export function looksLikeUrl(value: string): boolean {
+  const trimmed = value.trim()
+  if (!trimmed || /\s/.test(trimmed)) return false
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      new URL(trimmed)
+      return true
+    } catch {
+      return false
+    }
+  }
+  if (LOCAL_HOST_PATTERN.test(trimmed)) return true
+  if (ANY_SCHEME_PREFIX.test(trimmed)) return false
+  return BARE_HOST_PATTERN.test(trimmed)
+}

@@ -117,9 +117,6 @@ export const FULL_ROUTER_CONSUME = ALL_KINDS
 const GROUP_DRAG_THRESHOLD = 4
 const MARQUEE_DRAG_THRESHOLD = 4
 const PAGE_BODY_DRAG_THRESHOLD = 4
-/** Same magnitude as the other deferred-press thresholds — solo-selected
- *  text/sticky/shape uses the press-vs-drag pattern, so we reuse the
- *  existing constant rather than introducing a new one. */
 const ENTITY_PRESS_DRAG_THRESHOLD = GROUP_DRAG_THRESHOLD
 
 function capturePointer(event: PointerEvent): (() => void) | null {
@@ -393,13 +390,6 @@ function runEntityDrag(
   return true
 }
 
-/**
- * Click-on-solo-selected text/sticky/shape: defer until release or
- * threshold movement. A stationary release fires
- * `canvas-request-entity-edit` (the same IPC the dblclick fast-path uses);
- * crossing the drag threshold falls through to a normal entity drag. See
- * issue #49.
- */
 function runEntityPress(
   action: Extract<CanvasPointerAction, { kind: 'begin-entity-press' }>,
   api: CanvasBgElectronAPI,
@@ -452,8 +442,6 @@ function runEntityPress(
       api.endDragEntity()
       return
     }
-    // Stationary release on the already-solo-selected entity → enter edit
-    // via the same IPC the dblclick fast-path uses.
     api.requestEntityEdit(action.entityId)
   }
 

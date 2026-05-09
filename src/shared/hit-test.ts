@@ -45,11 +45,7 @@ export type HitPayload =
       kind: 'entity-body'
       entityId: string
       entityKind: CanvasEntityKind
-      /** Only meaningful for `entityKind === 'file'`: whether the resolved
-       *  renderer plugin has an inline-edit affordance. Used by the pointer
-       *  router to gate file entities into the dblclick / press-deferral →
-       *  edit paths. Undefined for non-file kinds (text/sticky/shape are
-       *  always editable; group/drawing have their own routing). */
+      /** Only set for files; gates the dblclick / press-deferral → edit paths. */
       rendererEditable?: boolean
     }
   | { kind: 'background' }

@@ -43,13 +43,9 @@ interface BaseRendererClaim {
    * order for tie-breaking.
    */
   priority?: number
-  /**
-   * Whether the renderer has a meaningful inline-edit affordance. Drives
-   * both the dblclick → `request-entity-edit` path and the click-on-solo-
-   * selected → press-deferral path. Plugins that ignore `canEdit` (image,
-   * component placeholder) declare `false` so the second click is a clean
-   * no-op rather than entering `editing-entity` state with no editor.
-   */
+  /** Whether the renderer has a meaningful inline-edit affordance. Drives
+   *  the dblclick and click-on-solo-selected → edit paths. Renderers that
+   *  ignore `canEdit` declare `false` so those gestures stay a clean no-op. */
   editable: boolean
 }
 
@@ -123,12 +119,6 @@ export function pickRenderer(entity: PersistedFileEntity): EntityRendererClaim |
 /** Convenience: tag broadcast to the renderer; null when no plugin claims. */
 export function getRendererTagFor(entity: PersistedFileEntity): EntityRendererTag | null {
   return pickRenderer(entity)?.rendererTag ?? null
-}
-
-/** Convenience: editability broadcast to the renderer; false when no
- *  plugin claims (the fallback renderer has no edit mode). */
-export function getRendererEditableFor(entity: PersistedFileEntity): boolean {
-  return pickRenderer(entity)?.editable ?? false
 }
 
 /** Snapshot for debugging; not part of any IPC contract. */

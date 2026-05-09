@@ -20,13 +20,10 @@ export type CanvasPointerContext = {
   modifiers: SelectionModifiers
   /** Hold-to-pan modifier (space). */
   spaceHeld: boolean
-  /** Alt held — excluded from the click-on-solo-selected → edit predicate
-   *  alongside shift/cmd/ctrl. */
+  /** Alt held — excludes the click-on-solo-selected → edit predicate. */
   altHeld: boolean
-  /** The entity currently in inline-edit mode, if any. The
-   *  click-on-solo-selected → edit predicate is suppressed while another
-   *  entity is editing — issue #48's commit-on-click-outside path handles
-   *  that case independently. */
+  /** Entity currently in inline-edit mode; suppresses the press-deferral
+   *  predicate while another entity is editing. */
   editingEntityId: string | null
 }
 
@@ -50,16 +47,10 @@ export type CanvasPointerAction =
   | { kind: 'forward-pointer-down'; entityId: string; button: 'left' | 'middle' | 'right' }
   /** Begin selecting + dragging an entity (page, file, text, shape). */
   | { kind: 'begin-entity-drag'; entityId: string; entityKind: CanvasEntityKind; preserveSelection: boolean }
-  /** Click-on-solo-selected text/sticky/shape (or an editable file body)
-   *  with no modifier → defer resolution: stationary release fires
-   *  `canvas-request-entity-edit`, threshold-crossing pointermove falls
-   *  through to entity drag. The router resolves the deferral; this
-   *  descriptor only carries the predicate result. File entities only
-   *  qualify when their resolved renderer declares `editable: true` in
-   *  the plugin registry — non-editable renderers (image, component
-   *  placeholder) get `begin-entity-drag` and the click is a clean no-op
-   *  on stationary release. See issue #49 / `docs/interaction-layer.md`
-   *  §4.2.1. */
+  /** Click-on-solo-selected → press deferral. Resolved by the router:
+   *  stationary release becomes `canvas-request-entity-edit`,
+   *  threshold-crossing pointermove falls through to entity drag.
+   *  See `docs/interaction-layer.md` §4.2.1. */
   | { kind: 'begin-entity-press'; entityId: string; entityKind: 'text' | 'shape' | 'file' }
   /** Begin selecting + dragging a group as a unit. */
   | { kind: 'begin-group-drag'; groupId: string; preserveSelection: boolean }
@@ -185,27 +176,23 @@ function routeByPayload(
         const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
         return { kind: 'begin-group-drag', groupId: payload.entityId, preserveSelection }
       }
-      // Click-on-solo-selected text/sticky/shape (or an editable file)
-      // with no modifier and no active inline edit → defer: a stationary
-      // release becomes `canvas-request-entity-edit`, threshold-crossing
-      // movement falls through to drag. The pure mapper only encodes the
-      // predicate; the hook resolves the deferral. File entities qualify
-      // when the hit-test payload carries `rendererEditable === true`
-      // (see `getRendererEditableFor` / plugin claims) so non-editable
-      // file renderers gracefully fall through to the normal drag path.
-      // Group/drawing/page keep their kind-specific routes.
-      const pressKindEligible =
-        (payload.entityKind === 'text' ||
-          payload.entityKind === 'shape' ||
-          (payload.entityKind === 'file' && payload.rendererEditable === true)) &&
+      // Click-on-solo-selected → defer to release-or-drag: stationary
+      // release fires `canvas-request-entity-edit`, threshold-crossing
+      // movement falls through to drag. File entities require their
+      // resolved renderer to declare `editable: true` so non-editable
+      // renderers (image, component placeholder) drag normally.
+      if (
         !context.altHeld &&
         context.editingEntityId === null &&
-        isSingleSelected(context, payload.entityId)
-      if (pressKindEligible) {
+        isSingleSelected(context, payload.entityId) &&
+        (payload.entityKind === 'text' ||
+          payload.entityKind === 'shape' ||
+          (payload.entityKind === 'file' && payload.rendererEditable === true))
+      ) {
         return {
           kind: 'begin-entity-press',
           entityId: payload.entityId,
-          entityKind: payload.entityKind as 'text' | 'shape' | 'file',
+          entityKind: payload.entityKind,
         }
       }
       const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
@@ -268,11 +255,6 @@ export function routePointerDoubleClick(
         case 'text':
           return { kind: 'request-entity-edit', entityId: target.payload.entityId }
         case 'file':
-          // File renderers opt into edit via the plugin registry's
-          // `editable` flag (broadcast as `rendererEditable` on the scene
-          // entity). Image / component placeholders declare false so a
-          // dblclick lands as a clean no-op rather than entering
-          // `editing-entity` state with no editor on screen.
           return target.payload.rendererEditable === true
             ? { kind: 'request-entity-edit', entityId: target.payload.entityId }
             : { kind: 'noop' }

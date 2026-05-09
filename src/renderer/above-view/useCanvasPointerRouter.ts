@@ -175,9 +175,13 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       const target = hitTest(inputs, { x: event.clientX, y: windowY })
 
       // Inline-edit outside-click (primary button) commits the active edit
-      // and swallows the click — per ADR 0001 precedent: the exit click
-      // does not double as the next interaction. Right/middle clicks fall
-      // through so context menus and middle-click pan still work.
+      // and falls through to normal routing, so the same click also acts
+      // (deselect on background, switch selection on another entity, etc.)
+      // — two clicks to enter edit, one click to exit. This differs from
+      // ADR 0001's frame-focus rule (two clicks to act after focus) because
+      // inline entity edits don't capture native input the way focused
+      // frames do. Right/middle clicks ignore edit mode entirely so context
+      // menus and middle-click pan keep working.
       const editingEntityId =
         layout.interaction.kind === 'editing-entity'
           ? layout.interaction.entityId
@@ -193,9 +197,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
             : null
         if (hitEntityId !== editingEntityId) {
           apiRef.current.commitEntityEdit()
-          event.preventDefault()
-          event.stopPropagation()
-          return
         }
       }
 

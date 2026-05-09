@@ -8,9 +8,9 @@ import type {
 } from './cursor-motion'
 import type { CursorTuningParams } from './cursor-tuning'
 import type { PresenceDebugEntry } from './presence-debug'
-import type { Tool } from './tool'
+import type { DrawingBrushType, Tool } from './tool'
 
-export type { Tool, ToolKind, ToolDuration } from './tool'
+export type { DrawingBrushType, Tool, ToolKind, ToolDuration } from './tool'
 
 // --- IPC Channel Types ---
 
@@ -1944,6 +1944,7 @@ export interface AnnotationDrawingStroke {
   color: string
   width: number
   points: AnnotationDrawingPoint[]
+  brushType?: DrawingBrushType
 }
 
 export interface AnnotationDrawing {

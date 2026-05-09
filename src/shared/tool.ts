@@ -3,6 +3,8 @@
 // Mirror of `ShapeKind` to avoid types.ts → tool.ts circular import.
 type ToolShapeKind = 'rectangle' | 'ellipse' | 'diamond'
 
+export type DrawingBrushType = 'pen' | 'highlight'
+
 export type Tool =
   | { kind: 'select' }
   | { kind: 'add-page'; presetIndex?: number; customSize?: boolean; sourcePageId?: string }
@@ -10,9 +12,17 @@ export type Tool =
   | { kind: 'add-document' }
   | { kind: 'add-shape'; shapeKind: ToolShapeKind }
   | { kind: 'comment' }
-  | { kind: 'draw' }
+  | { kind: 'draw'; brush?: DrawingBrushType }
   | { kind: 'region-select' }
   | { kind: 'inspect' }
+
+// Returns the active brush for a draw tool (defaulting to 'pen'), or null if
+// the tool isn't a draw tool. Use this everywhere instead of re-deriving the
+// `kind === 'draw' && brush === ...` discriminator inline.
+export function activeDrawBrush(tool: Tool): DrawingBrushType | null {
+  if (tool.kind !== 'draw') return null
+  return tool.brush ?? 'pen'
+}
 
 export type ToolKind = Tool['kind']
 

@@ -141,9 +141,24 @@ function ShapeBody({
   selected: boolean
 }) {
   const [localText, setLocalText] = useState(shape.text)
+  const localTextRef = useRef(localText)
+  localTextRef.current = localText
+  const onCommitTextRef = useRef(onCommitText)
+  onCommitTextRef.current = onCommitText
 
+  // When editing ends, flush any buffered text into the entity. The
+  // contentEditable's onBlur is the normal commit path, but the
+  // outside-click router (`useCanvasPointerRouter`) preventDefaults the
+  // pointerdown that would have caused the blur, so onBlur can be skipped
+  // entirely on external commits. Pushing on the editing transition
+  // catches that case without depending on focus-loss order.
   useEffect(() => {
-    if (!editing) setLocalText(shape.text)
+    if (editing) return
+    if (localTextRef.current !== shape.text) {
+      onCommitTextRef.current(localTextRef.current)
+    } else {
+      setLocalText(shape.text)
+    }
   }, [editing, shape.text])
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH

@@ -34,6 +34,21 @@ export let arrowNavigationLocked = false
 export let spaceModifierHeld = false
 export let hoveringCanvasChrome = false
 
+/**
+ * Single runtime variable for "which entity is currently being edited
+ * inline on the canvas." Derived from `interactionState` — populated
+ * while the controller is in `editing-entity` mode, null otherwise. The
+ * IPC layer uses `beginEditingEntity` / `commitEditingEntity` /
+ * `cancelEditingEntity` (see `editing-entity-runtime.ts`) to drive the
+ * mode transition; reads can use this getter or inspect the
+ * broadcast `interaction` field directly.
+ */
+export function getEditingEntityId(): string | null {
+  return interactionState.kind === 'editing-entity'
+    ? interactionState.entityId
+    : null
+}
+
 // Explicit focus intent consumed by FocusReconciler at end of the next
 // layout pass. Null means "derive from state". Cleared after reconcile.
 export let pendingFocus: FocusTarget | null = null

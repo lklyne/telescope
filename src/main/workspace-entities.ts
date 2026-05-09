@@ -44,6 +44,7 @@ import { boundsOverlap } from './runtime/runtime-geometry'
 import { cloneMetadata } from './workspace-utils'
 import { removeEdgesTouchingEntities } from './workspace-edges'
 import { occupiedRegions } from './workspace-placement'
+import { cancelEditingEntityIfMatches } from './runtime/editing-entity-runtime'
 
 // --- Bounds helpers ---
 
@@ -269,6 +270,7 @@ export function deletePages(input: DeletePagesRequest): DeletePagesResponse {
   const missingPageIds: string[] = []
 
   for (const pageId of input.pageIds) {
+    cancelEditingEntityIfMatches(pageId)
     const removed = removePageById(pageId)
     if (!removed) {
       missingPageIds.push(pageId)

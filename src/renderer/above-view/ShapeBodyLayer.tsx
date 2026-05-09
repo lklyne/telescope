@@ -53,8 +53,6 @@ function ShapeText({
   editing,
   textColor,
   onChange,
-  onStartEditing,
-  onStopEditing,
   onCommit,
   containerStyle,
 }: {
@@ -62,8 +60,6 @@ function ShapeText({
   editing: boolean
   textColor: string
   onChange: (value: string) => void
-  onStartEditing: () => void
-  onStopEditing: () => void
   onCommit: (value: string) => void
   containerStyle: React.CSSProperties
 }) {
@@ -99,15 +95,13 @@ function ShapeText({
         onInput={(e) => onChange((e.target as HTMLDivElement).textContent ?? '')}
         onMouseDown={(e) => { if (editing) e.stopPropagation() }}
         onPointerDown={(e) => { if (editing) e.stopPropagation() }}
-        onFocus={onStartEditing}
         onBlur={(e) => {
-          onStopEditing()
           onCommit((e.target as HTMLDivElement).textContent ?? '')
         }}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             e.preventDefault()
-            ;(e.target as HTMLDivElement).blur()
+            onCommit((e.target as HTMLDivElement).textContent ?? '')
           }
         }}
         style={{
@@ -134,43 +128,53 @@ function ShapeText({
 function ShapeBody({
   shape,
   isDark,
-  pendingFocus,
+  editing,
   onCommitText,
-  onTextEditingChange,
-  onPendingFocusConsumed,
-  canEdit,
+  onCommitEdit,
 }: {
   shape: CanvasSceneShapeEntity
   isDark: boolean
-  pendingFocus: boolean
+  /** True when this shape is the active edit-mode entity. */
+  editing: boolean
   onCommitText: (text: string) => void
-  onTextEditingChange: (active: boolean) => void
-  onPendingFocusConsumed: () => void
-  canEdit: boolean
+  onCommitEdit: () => void
   selected: boolean
 }) {
-  const [editing, setEditing] = useState(false)
   const [localText, setLocalText] = useState(shape.text)
-  const isFocusedRef = useRef(false)
+  const localTextRef = useRef(localText)
+  localTextRef.current = localText
+  const onCommitTextRef = useRef(onCommitText)
+  onCommitTextRef.current = onCommitText
+  const wasEditingRef = useRef(editing)
 
+  // Two responsibilities, split so external `shape.text` updates can't
+  // trigger a buffered-text flush:
+  //
+  // 1. On the editing → false TRANSITION, flush any unsaved local text.
+  //    The contentEditable's onBlur is the normal commit path, but the
+  //    outside-click router preventDefaults the pointerdown that would
+  //    have caused the blur, so onBlur can be skipped entirely on
+  //    external commits. This catches that case.
+  //
+  // 2. While not editing, mirror external `shape.text` changes (e.g.
+  //    Yjs undo) into local state. Previously, a single effect did both
+  //    and would re-commit `localText` whenever an external undo changed
+  //    `shape.text` — undoing the undo and corrupting the undo stack.
   useEffect(() => {
-    if (!isFocusedRef.current) setLocalText(shape.text)
-  }, [shape.text])
-
-  useEffect(() => {
-    if (pendingFocus && canEdit) {
-      setEditing(true)
-      onPendingFocusConsumed()
+    const wasEditing = wasEditingRef.current
+    wasEditingRef.current = editing
+    if (wasEditing && !editing) {
+      if (localTextRef.current !== shape.text) {
+        onCommitTextRef.current(localTextRef.current)
+      }
     }
-  }, [canEdit, onPendingFocusConsumed, pendingFocus])
+  }, [editing, shape.text])
 
   useEffect(() => {
-    if (!canEdit && editing) {
-      setEditing(false)
-      isFocusedRef.current = false
-      onTextEditingChange(false)
-    }
-  }, [canEdit, editing, onTextEditingChange])
+    if (editing) return
+    if (localTextRef.current === shape.text) return
+    setLocalText(shape.text)
+  }, [editing, shape.text])
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
   const resolvedColor = shape.color ? resolveCanvasColor(shape.color) : NEUTRAL_SLATE
@@ -221,18 +225,10 @@ function ShapeBody({
       textColor={textColor}
       containerStyle={textContainerStyle}
       onChange={setLocalText}
-      onStartEditing={() => {
-        isFocusedRef.current = true
-        onTextEditingChange(true)
-      }}
-      onStopEditing={() => {
-        isFocusedRef.current = false
-        onTextEditingChange(false)
-        setEditing(false)
-      }}
       onCommit={(value) => {
         setLocalText(value)
         onCommitText(value)
+        onCommitEdit()
       }}
     />
   )
@@ -292,8 +288,7 @@ const MemoShapeBody = memo(ShapeBody, (a, b) => {
     a.shape.width === b.shape.width &&
     a.shape.height === b.shape.height &&
     a.isDark === b.isDark &&
-    a.pendingFocus === b.pendingFocus &&
-    a.canEdit === b.canEdit &&
+    a.editing === b.editing &&
     a.selected === b.selected
   )
 })
@@ -339,20 +334,16 @@ function ShapeCard({
   shape,
   isDark,
   isSelected,
-  canEdit,
-  pendingFocus,
+  editing,
   onUpdateText,
-  onTextEditingChange,
-  onPendingFocusConsumed,
+  onCommitEdit,
 }: {
   shape: CanvasSceneShapeEntity
   isDark: boolean
   isSelected: boolean
-  canEdit: boolean
-  pendingFocus: boolean
+  editing: boolean
   onUpdateText: (id: string, text: string) => void
-  onTextEditingChange: (active: boolean) => void
-  onPendingFocusConsumed: () => void
+  onCommitEdit: () => void
 }) {
   return (
     <ShapeShell
@@ -365,12 +356,10 @@ function ShapeCard({
       <MemoShapeBody
         shape={shape}
         isDark={isDark}
-        canEdit={canEdit}
+        editing={editing}
         selected={isSelected}
-        pendingFocus={pendingFocus}
         onCommitText={(text) => onUpdateText(shape.id, text)}
-        onTextEditingChange={onTextEditingChange}
-        onPendingFocusConsumed={onPendingFocusConsumed}
+        onCommitEdit={onCommitEdit}
       />
     </ShapeShell>
   )
@@ -380,26 +369,24 @@ export function ShapeBodyLayer({
   entities,
   isDark,
   selectedEntityIdSet,
-  selectedEntityCount,
-  pendingEditEntityId,
+  editingEntityId,
   canvasOrigin,
   pan,
   zoom,
-  onPendingFocusConsumed,
   onUpdateText,
-  onTextEditingChange,
+  onCommitEdit,
 }: {
   entities: CanvasSceneShapeEntity[]
   isDark: boolean
   selectedEntityIdSet: Set<string>
-  selectedEntityCount: number
-  pendingEditEntityId: string | null
+  /** id of the entity currently in inline-edit mode (or null). Mounts the
+   *  contentEditable iff `editingEntityId === shape.id`. */
+  editingEntityId: string | null
   canvasOrigin: { x: number; y: number }
   pan: { x: number; y: number }
   zoom: number
-  onPendingFocusConsumed: () => void
   onUpdateText: (id: string, text: string) => void
-  onTextEditingChange: (active: boolean) => void
+  onCommitEdit: () => void
 }) {
   if (!entities.length) return null
   return (
@@ -410,11 +397,9 @@ export function ShapeBodyLayer({
           shape={shape}
           isDark={isDark}
           isSelected={selectedEntityIdSet.has(shape.id)}
-          canEdit={selectedEntityCount === 1 && selectedEntityIdSet.has(shape.id)}
-          pendingFocus={pendingEditEntityId === shape.id}
+          editing={editingEntityId === shape.id}
           onUpdateText={onUpdateText}
-          onTextEditingChange={onTextEditingChange}
-          onPendingFocusConsumed={onPendingFocusConsumed}
+          onCommitEdit={onCommitEdit}
         />
       ))}
     </ShapeViewportLayer>

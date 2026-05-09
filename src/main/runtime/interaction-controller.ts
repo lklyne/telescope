@@ -25,9 +25,9 @@ import {
   beginCanvasPan,
   beginDraggingEntities,
   beginEdgeDrag,
+  beginEntityEditing,
   beginEntityResize,
   beginMarqueeSelect,
-  beginTextEditing,
   clearInteractionState,
 } from './interaction-state'
 import type { CanvasSelectableTarget, EdgeSide } from '../../shared/types'
@@ -66,8 +66,8 @@ function snapshotMode(): InteractionMode {
       return { kind: 'dragging-entities', ids: [...s.entityIds], anchor: { x: 0, y: 0 } }
     case 'resizing-entity':
       return { kind: 'resizing-entity', id: s.entity.id, edge: 'se' }
-    case 'editing-text':
-      return { kind: 'editing-text', id: s.entityId }
+    case 'editing-entity':
+      return { kind: 'editing-entity', id: s.entityId }
     case 'dragging-edge':
       return {
         kind: 'dragging-edge',
@@ -97,7 +97,7 @@ export type TryEnterInput =
   | { kind: 'marquee' }
   | { kind: 'dragging-entities'; entityIds: string[] }
   | { kind: 'resizing-entity'; target: CanvasSelectableTarget }
-  | { kind: 'editing-text'; entityId: string }
+  | { kind: 'editing-entity'; entityId: string }
   | { kind: 'dragging-edge'; from: CanvasSelectableTarget; fromSide: EdgeSide }
 
 export function peek(): InteractionMode {
@@ -113,7 +113,7 @@ export function tryEnter(input: TryEnterInput): Token | InteractionRefused {
     case 'marquee': beginMarqueeSelect(); break
     case 'dragging-entities': beginDraggingEntities(input.entityIds); break
     case 'resizing-entity': beginEntityResize(input.target); break
-    case 'editing-text': beginTextEditing(input.entityId); break
+    case 'editing-entity': beginEntityEditing(input.entityId); break
     case 'dragging-edge': beginEdgeDrag(input.from, input.fromSide); break
   }
   const token: InternalToken = {

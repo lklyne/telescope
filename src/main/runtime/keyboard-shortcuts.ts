@@ -99,11 +99,22 @@ export function watchModifierKeys(webContents: WebContents, { handleShortcuts = 
       setSpaceModifierHeld(input.type === 'keyDown')
     }
 
-    // When a renderer-owned input or contenteditable is focused, let every
-    // keystroke pass through to it natively — including Cmd+Z/Cmd+Shift+Z
-    // (text undo), Cmd+1, arrows, and single-letter tool shortcuts.
+    // When a renderer-owned input or contenteditable is focused, let most
+    // keystrokes pass through to it natively (typing, arrows, Cmd+1, single-
+    // letter tool shortcuts).
+    //
+    // Cmd+Z / Cmd+Shift+Z are the exception: undo/redo is owned by the
+    // global Yjs UndoManager, not by per-editor history. We fall through to
+    // the canvas undo handler below so text and canvas edits share one
+    // unified stack — matching the pre-CodeMirror textarea behavior.
     if (isTextEditingActive()) {
-      return
+      const isUndoKey =
+        input.type === 'keyDown' &&
+        input.meta &&
+        input.key.toLowerCase() === 'z' &&
+        !input.control &&
+        !input.alt
+      if (!isUndoKey) return
     }
 
     if (

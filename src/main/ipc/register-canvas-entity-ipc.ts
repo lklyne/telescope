@@ -7,7 +7,8 @@ import type {
   ClipboardEntitySelectionPayload,
 } from '../../shared/types'
 import { pages } from '../runtime/page-runtime'
-import { aboveView, bgView } from '../runtime/view-refs'
+import { aboveView } from '../runtime/view-refs'
+import { beginEditingEntity } from '../runtime/editing-entity-runtime'
 import { setPendingFocus } from '../runtime/runtime-context'
 import { executeRegionSelect } from '../runtime/region-select'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
@@ -170,12 +171,7 @@ export function registerCanvasEntityIpc(): void {
             })
           : createShapeEntity({ canvasX, canvasY, shapeKind })
         selectEntity(created.id, 'shape')
-        if (bgView && !bgView.webContents.isDestroyed()) {
-          bgView.webContents.send('shape-begin-edit', { entityId: created.id })
-        }
-        if (aboveView && !aboveView.webContents.isDestroyed()) {
-          aboveView.webContents.send('shape-begin-edit', { entityId: created.id })
-        }
+        beginEditingEntity(created.id)
       } else if (tool.kind === 'add-page') {
         createPageAtPosition({
           sourcePageId: tool.sourcePageId,

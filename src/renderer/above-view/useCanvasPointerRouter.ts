@@ -174,6 +174,32 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       }
       const target = hitTest(inputs, { x: event.clientX, y: windowY })
 
+      // Inline-edit outside-click (primary button) commits the active edit
+      // and falls through to normal routing, so the same click also acts
+      // (deselect on background, switch selection on another entity, etc.)
+      // — two clicks to enter edit, one click to exit. This differs from
+      // ADR 0001's frame-focus rule (two clicks to act after focus) because
+      // inline entity edits don't capture native input the way focused
+      // frames do. Right/middle clicks ignore edit mode entirely so context
+      // menus and middle-click pan keep working.
+      const editingEntityId =
+        layout.interaction.kind === 'editing-entity'
+          ? layout.interaction.entityId
+          : null
+      if (editingEntityId !== null && event.button === 0) {
+        const hitEntityId =
+          target.payload.kind === 'entity-body' ||
+          target.payload.kind === 'page-body' ||
+          target.payload.kind === 'chrome' ||
+          target.payload.kind === 'resize-handle' ||
+          target.payload.kind === 'anchor'
+            ? target.payload.entityId
+            : null
+        if (hitEntityId !== editingEntityId) {
+          apiRef.current.commitEntityEdit()
+        }
+      }
+
       const modifiers: SelectionModifiers = {
         shift: event.shiftKey,
         meta: event.metaKey,
@@ -225,8 +251,8 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       switch (action.kind) {
         case 'noop':
           return
-        case 'enter-shape-edit':
-          apiRef.current.requestShapeEdit(action.entityId)
+        case 'request-entity-edit':
+          apiRef.current.requestEntityEdit(action.entityId)
           break
         case 'enter-group':
           apiRef.current.enterGroup(action.groupId)
@@ -237,9 +263,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
           // earlier — this branch only fires if the rename label is hit
           // through the chrome slot via hit-test).
           return
-        case 'request-text-edit':
-          apiRef.current.requestTextEdit(action.entityId)
-          break
       }
       event.preventDefault()
       event.stopPropagation()

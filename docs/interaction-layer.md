@@ -124,7 +124,7 @@ type InteractionMode =
   | { kind: 'dragging-entities', ids: string[], anchor: CanvasPoint }
   | { kind: 'resizing-entity', id: string, edge: ResizeEdge }
   | { kind: 'dragging-edge', from: EdgeEndpoint, target: EdgeEndpoint | null }
-  | { kind: 'editing-text', id: string }
+  | { kind: 'editing-entity', id: string }
 
 interface InteractionController {
   peek(): InteractionMode
@@ -158,6 +158,16 @@ Any other site that feels it needs `cancelActive` is almost certainly a gesture 
 
 **Why a controller, not a flag:** tokens prevent orphan state when a renderer crashes or a blur storm interrupts a drag. The controller holds the single truth; no one else derives it.
 
+**Inline editing (`editing-entity`).** Every editable canvas item — sticky/text bodies, shape labels, group rename labels — funnels through one mode and one IPC vocabulary:
+
+```
+canvas-request-entity-edit { entityId }   // dblclick / shortcut → enter
+canvas-commit-entity-edit                  // textarea blur, outside-click
+canvas-cancel-entity-edit                  // Escape inside the editor
+```
+
+Main is the sole token holder (`src/main/runtime/editing-entity-runtime.ts`). The runtime variable `editingEntityId` is derived from `interactionState` so it follows automatically when an external `cancelActive` (undo / tab-switch / blur) interrupts. Renderers mount the editable surface iff `editingEntityId === myId` — there is no "render textarea on selection" fallback; the read-only view shows otherwise. The pointer router commits on outside-click and **swallows the click** (per [ADR 0001](./adr/0001-click-to-enter-frame-focus.md) precedent: the exit click does not double as the next interaction); a drag attempt on the editing entity is refused silently because `editing-entity` is mutually exclusive with `dragging-entities`.
+
 ### 4.2 Input gate (`aboveView`)
 
 The input gate is not a separate WCV — it's a *behavior* of `aboveView`. When any canvas gesture is active or available, `aboveView` is `setVisible(true)` and captures all pointer events in the canvas region. When the user should interact with page content directly, `aboveView` is `setVisible(false)` and native page input works.
@@ -172,9 +182,10 @@ function shouldGateBeOpen(s: AppState): boolean {
   if (s.toolMode === 'inspect' || s.toolMode === 'annotate-comment') {
     return s.commentOverlayActive
   }
-  // Canvas mode: aboveView is always-on. Inline text/shape edit also runs
-  // in aboveView (the contenteditable lives there post-Phase C), so the
-  // gate stays open during `editing-text` rather than ducking to bgView.
+  // Canvas mode: aboveView is always-on. Inline edit (sticky / shape /
+  // group rename) also runs in aboveView (the contenteditable lives
+  // there post-Phase C), so the gate stays open during `editing-entity`
+  // rather than ducking to bgView.
   if (s.viewMode === 'canvas') return true
   return browserModeNeedsGate(s)
 }

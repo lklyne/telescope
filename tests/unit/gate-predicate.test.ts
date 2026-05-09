@@ -33,8 +33,8 @@ describe('shouldGateBeOpen — canvas mode (default-open per ADR 0002 Step 7)', 
     expect(shouldGateBeOpen({ ...base(), interactionKind: kind })).toBe(true)
   })
 
-  it('open while inline text is being edited (post-Phase-C: editor lives in aboveView)', () => {
-    expect(shouldGateBeOpen({ ...base(), interactionKind: 'editing-text' })).toBe(true)
+  it('open while inline entity is being edited (post-Phase-C: editor lives in aboveView)', () => {
+    expect(shouldGateBeOpen({ ...base(), interactionKind: 'editing-entity' })).toBe(true)
   })
 
   it.each<Tool>([{ kind: 'draw' }, { kind: 'region-select' }])(

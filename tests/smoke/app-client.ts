@@ -326,7 +326,7 @@ export type InteractionMode =
   | { kind: 'dragging-entities'; ids: string[]; anchor: { x: number; y: number } }
   | { kind: 'resizing-entity'; id: string; edge: string }
   | { kind: 'dragging-edge'; from: unknown; target: unknown }
-  | { kind: 'editing-text'; id: string }
+  | { kind: 'editing-entity'; id: string }
 
 export type InteractionToken = { id: string; mode: string }
 export type CancelReason = 'blur' | 'escape' | 'undo' | 'tab-switch' | 'external'
@@ -336,11 +336,13 @@ export type TryEnterInput =
   | { kind: 'marquee' }
   | { kind: 'dragging-entities'; entityIds: string[] }
   | { kind: 'resizing-entity'; target: { kind: string; id: string } }
-  | { kind: 'editing-text'; entityId: string }
+  | { kind: 'editing-entity'; entityId: string }
   | { kind: 'dragging-edge'; from: { kind: string; id: string }; fromSide: 'top' | 'right' | 'bottom' | 'left' }
 
 export function getInteractionMode() {
-  return get<{ mode: InteractionMode }>('/test/interaction/mode')
+  return get<{ mode: InteractionMode; editingEntityId: string | null }>(
+    '/test/interaction/mode',
+  )
 }
 
 export async function beginInteraction(input: TryEnterInput): Promise<InteractionToken | { refused: true; reason: string }> {

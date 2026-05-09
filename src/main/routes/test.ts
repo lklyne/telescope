@@ -17,6 +17,7 @@ import {
   __resetForTests as resetInteractionForTests,
   type TryEnterInput,
 } from '../runtime/interaction-controller'
+import { currentEditingEntityId } from '../runtime/editing-entity-runtime'
 import {
   consumeDragId,
   __resetForTests as resetDropOwnerForTests,
@@ -45,7 +46,10 @@ export const testRoutes: Route[] = [
     method: 'GET',
     pattern: '/test/interaction/mode',
     async handler({ response }) {
-      writeJson(response, 200, { mode: peekInteractionMode() })
+      writeJson(response, 200, {
+        mode: peekInteractionMode(),
+        editingEntityId: currentEditingEntityId(),
+      })
     },
   },
   {

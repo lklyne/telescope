@@ -11,7 +11,7 @@ export type InteractionMode =
   | { kind: 'dragging-entities'; ids: string[]; anchor: CanvasPoint }
   | { kind: 'resizing-entity'; id: string; edge: ResizeEdge }
   | { kind: 'dragging-edge'; from: EdgeEndpoint; target: EdgeEndpoint | null }
-  | { kind: 'editing-text'; id: string }
+  | { kind: 'editing-entity'; id: string }
 
 export type CancelReason = 'blur' | 'escape' | 'undo' | 'tab-switch' | 'external'
 

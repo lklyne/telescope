@@ -20,6 +20,7 @@ export function MarkdownEditor({
   onChange,
   onFocus,
   onBlur,
+  onEscape,
   isDark,
   autoFocus = false,
   onAutoFocusConsumed,
@@ -31,6 +32,8 @@ export function MarkdownEditor({
   onChange: (value: string) => void
   onFocus?: () => void
   onBlur?: () => void
+  /** Called when the user presses Escape inside the editor. */
+  onEscape?: () => void
   isDark: boolean
   autoFocus?: boolean
   onAutoFocusConsumed?: () => void
@@ -41,13 +44,16 @@ export function MarkdownEditor({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartmentRef = useRef<Compartment | null>(null)
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const onChangeRef = useRef(onChange)
   const onFocusRef = useRef(onFocus)
   const onBlurRef = useRef(onBlur)
+  const onEscapeRef = useRef(onEscape)
   onChangeRef.current = onChange
   onFocusRef.current = onFocus
   onBlurRef.current = onBlur
+  onEscapeRef.current = onEscape
 
   useEffect(() => {
     const container = containerRef.current
@@ -71,11 +77,28 @@ export function MarkdownEditor({
           return false
         },
         blur: () => {
-          onBlurRef.current?.()
+          // Defer one tick: an Electron WCV layout/focus-reconcile can
+          // briefly steal focus from contentDOM and immediately return
+          // it. Firing onBlur synchronously would commit on every
+          // spurious thrash.
+          if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+          blurTimerRef.current = setTimeout(() => {
+            blurTimerRef.current = null
+            if (viewRef.current?.hasFocus) return
+            onBlurRef.current?.()
+          }, 0)
           return false
         },
         mousedown: (event) => {
           event.stopPropagation()
+          return false
+        },
+        keydown: (event) => {
+          if (event.key === 'Escape' && onEscapeRef.current) {
+            event.preventDefault()
+            onEscapeRef.current()
+            return true
+          }
           return false
         },
       }),
@@ -98,6 +121,10 @@ export function MarkdownEditor({
     }
 
     return () => {
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current)
+        blurTimerRef.current = null
+      }
       view.destroy()
       viewRef.current = null
       themeCompartmentRef.current = null
@@ -115,11 +142,15 @@ export function MarkdownEditor({
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
-    if (view.hasFocus) return
     const current = view.state.doc.toString()
     if (current === value) return
+    // Apply external updates even while focused so Yjs-driven changes
+    // (e.g. cross-stack undo) reflect mid-edit. Cursor resets to end —
+    // acceptable for undo, same coarse behavior the textarea predecessor had.
+    const insertEnd = value.length
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: value },
+      selection: { anchor: insertEnd },
       annotations: externalUpdate.of(true),
     })
   }, [value])

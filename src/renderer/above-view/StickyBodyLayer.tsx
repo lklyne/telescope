@@ -120,47 +120,56 @@ function StickyCard({
   isDark,
   isSelected,
   canEdit,
-  shouldAutoFocus,
-  onAutoFocusConsumed,
   onUpdateText,
   onUpdateSize,
-  onTextEditingChange,
+  onCommitEdit,
 }: {
   note: CanvasSceneTextEntity
   isDark: boolean
   isSelected: boolean
   canEdit: boolean
-  shouldAutoFocus: boolean
-  onAutoFocusConsumed: () => void
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
-  onTextEditingChange: (active: boolean) => void
+  onCommitEdit: () => void
 }) {
   const [localText, setLocalText] = useState(note.text)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isFocusedRef = useRef(false)
+  // Tracks the most recent value we sent upstream. When an incoming
+  // `note.text` differs from this, we treat it as external (e.g. Yjs undo)
+  // and pull it into local state — even mid-edit. When it matches, the
+  // round-trip is just our own commit echoing back; ignore it so we don't
+  // clobber characters typed since the last commit.
+  const lastSentRef = useRef<string>(note.text)
   const shellRef = useRef<HTMLDivElement | null>(null)
   const lastReportedSizeRef = useRef<{ w: number; h: number } | null>(null)
 
-  // Sync from props when not actively editing
   useEffect(() => {
-    if (!isFocusedRef.current) {
+    if (!canEdit) {
+      lastSentRef.current = note.text
+      setLocalText(note.text)
+      return
+    }
+    if (note.text !== lastSentRef.current) {
+      lastSentRef.current = note.text
       setLocalText(note.text)
     }
-  }, [note.text])
+  }, [canEdit, note.text])
 
-  // Clear text editing state when edit mode is lost (e.g. multi-select or deletion)
-  useEffect(() => {
-    if (!canEdit && isFocusedRef.current) {
-      isFocusedRef.current = false
-      onTextEditingChange(false)
+  const commitNow = () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
     }
-  }, [canEdit, onTextEditingChange])
+    lastSentRef.current = localText
+    onUpdateText(note.id, localText)
+    onCommitEdit()
+  }
 
   const handleTextChange = (value: string) => {
     setLocalText(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
+      lastSentRef.current = value
       onUpdateText(note.id, value)
     }, 300)
   }
@@ -268,22 +277,10 @@ function StickyCard({
           <MarkdownEditor
             value={localText}
             onChange={handleTextChange}
-            onFocus={() => {
-              isFocusedRef.current = true
-              onTextEditingChange(true)
-            }}
-            onBlur={() => {
-              isFocusedRef.current = false
-              onTextEditingChange(false)
-              if (debounceRef.current) {
-                clearTimeout(debounceRef.current)
-                debounceRef.current = null
-              }
-              onUpdateText(note.id, localText)
-            }}
+            onBlur={commitNow}
+            onEscape={commitNow}
             isDark={editorIsDark}
-            autoFocus={shouldAutoFocus}
-            onAutoFocusConsumed={onAutoFocusConsumed}
+            autoFocus
             placeholder={placeholder}
             className={editorClassName}
             style={editorStyle}
@@ -310,8 +307,7 @@ const MemoStickyCard = memo(StickyCard, (prev, next) => {
     prev.note.height === next.note.height &&
     prev.isDark === next.isDark &&
     prev.isSelected === next.isSelected &&
-    prev.canEdit === next.canEdit &&
-    prev.shouldAutoFocus === next.shouldAutoFocus
+    prev.canEdit === next.canEdit
   )
 })
 
@@ -319,28 +315,26 @@ export function StickyBodyLayer({
   entities,
   isDark,
   selectedEntityIdSet,
-  selectedEntityCount,
-  pendingEditEntityId,
+  editingEntityId,
   canvasOrigin,
   pan,
   zoom,
-  onPendingFocusConsumed,
   onUpdateText,
   onUpdateSize,
-  onTextEditingChange,
+  onCommitEdit,
 }: {
   entities: CanvasSceneTextEntity[]
   isDark: boolean
   selectedEntityIdSet: Set<string>
-  selectedEntityCount: number
-  pendingEditEntityId: string | null
+  /** id of the entity currently in inline-edit mode (or null). Mounts the
+   *  editor iff `editingEntityId === note.id`. */
+  editingEntityId: string | null
   canvasOrigin: { x: number; y: number }
   pan: { x: number; y: number }
   zoom: number
-  onPendingFocusConsumed: () => void
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
-  onTextEditingChange: (active: boolean) => void
+  onCommitEdit: () => void
 }) {
   if (!entities.length) return null
   return (
@@ -351,12 +345,10 @@ export function StickyBodyLayer({
           note={note}
           isDark={isDark}
           isSelected={selectedEntityIdSet.has(note.id)}
-          canEdit={selectedEntityCount === 1 && selectedEntityIdSet.has(note.id)}
-          shouldAutoFocus={pendingEditEntityId === note.id}
-          onAutoFocusConsumed={onPendingFocusConsumed}
-          onTextEditingChange={onTextEditingChange}
+          canEdit={editingEntityId === note.id}
           onUpdateText={onUpdateText}
           onUpdateSize={onUpdateSize}
+          onCommitEdit={onCommitEdit}
         />
       ))}
     </StickyViewportLayer>

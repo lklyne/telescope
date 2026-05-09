@@ -29,15 +29,20 @@ export function bestElementName(element: Element): string {
   return text ? `${element.tagName.toLowerCase()} "${text}"` : element.tagName.toLowerCase()
 }
 
-function simpleElementSegment(element: Element): string {
-  const tagName = element.tagName.toLowerCase()
+export function elementSelectorParts(element: Element): { tag: string; remainder: string } {
+  const tag = element.tagName.toLowerCase()
   const id = element.getAttribute('id')
-  if (id) return `${tagName}#${id}`
+  if (id) return { tag, remainder: `#${id}` }
   const role = element.getAttribute('role')
-  if (role) return `${tagName}[role="${role}"]`
+  if (role) return { tag, remainder: `[role="${role}"]` }
   const classes = elementClasses(element)
-  if (classes.length) return `${tagName}.${classes.slice(0, 2).join('.')}`
-  return tagName
+  if (classes.length) return { tag, remainder: `.${classes.slice(0, 2).join('.')}` }
+  return { tag, remainder: '' }
+}
+
+function simpleElementSegment(element: Element): string {
+  const { tag, remainder } = elementSelectorParts(element)
+  return `${tag}${remainder}`
 }
 
 export function buildElementPath(element: Element, maxDepth: number): string {
@@ -101,10 +106,13 @@ function computedStyleLines(element: Element): string[] {
   return [
     `display=${styles.display}`,
     `position=${styles.position}`,
+    `font-family=${styles.fontFamily}`,
     `font-size=${styles.fontSize}`,
     `font-weight=${styles.fontWeight}`,
     `color=${styles.color}`,
     `background=${styles.backgroundColor}`,
+    `padding=${styles.padding}`,
+    `margin=${styles.margin}`,
   ]
 }
 

@@ -180,7 +180,7 @@ function PageChromeItem({
           value={editValue}
           displayValue={displayValue}
           isEditing={isEditing}
-          onStartEdit={isSelected ? () => setIsEditing(true) : undefined}
+          onStartEdit={() => setIsEditing(true)}
           onCommit={handleCommitUrl}
           onCancel={() => setIsEditing(false)}
           variant="canvas-chrome"

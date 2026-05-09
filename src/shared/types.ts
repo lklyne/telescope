@@ -163,6 +163,11 @@ export interface CanvasSceneFileEntity {
   objectFit?: FileObjectFit
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
   rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component'
+  /** Whether the resolved renderer has a meaningful inline-edit affordance.
+   *  Drives both the dblclick and click-on-solo-selected paths in the
+   *  pointer router. Undefined for unclaimed (fallback) entities — treated
+   *  as `false`. */
+  rendererEditable?: boolean
   /**
    * For component file entities: whether some connected repo claims this
    * file (i.e. resolveUrl will succeed). The renderer suppresses the

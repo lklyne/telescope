@@ -5,5 +5,6 @@ export const imageRenderPlugin: InlineRendererClaim = {
   id: 'specular.image',
   kind: 'inline',
   rendererTag: 'image',
+  editable: false,
   claims: (entity) => IMAGE_EXTENSIONS.test(entity.file),
 }

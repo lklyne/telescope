@@ -21,7 +21,7 @@ import {
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
-import { getRendererTagFor } from '../plugins/registry'
+import { pickRenderer } from '../plugins/registry'
 import { findRepoForPath } from './dev-server-manager'
 
 export type FileObjectFit = 'contain' | 'cover' | 'fill'
@@ -157,22 +157,31 @@ export function buildFileEntitySceneEntity(
     contentScreenY: showShell ? contentScreenY : undefined,
     contentScreenWidth: showShell ? contentScreenW : undefined,
     contentScreenHeight: showShell ? contentScreenH : undefined,
-    ...componentSceneFields(entity),
+    ...rendererSceneFields(entity),
   }
 }
 
-function componentSceneFields(entity: FileEntity): {
+function rendererSceneFields(entity: FileEntity): {
   rendererTag: CanvasSceneFileEntity['rendererTag']
+  rendererEditable: CanvasSceneFileEntity['rendererEditable']
   componentHasRepo: CanvasSceneFileEntity['componentHasRepo']
   componentInferredRepoPath: CanvasSceneFileEntity['componentInferredRepoPath']
 } {
-  const tag = getRendererTagFor(persistFileEntity(entity)) ?? undefined
+  const claim = pickRenderer(persistFileEntity(entity))
+  const tag = claim?.rendererTag ?? undefined
+  const rendererEditable = claim?.editable ?? false
   if (tag !== 'component') {
-    return { rendererTag: tag, componentHasRepo: undefined, componentInferredRepoPath: undefined }
+    return {
+      rendererTag: tag,
+      rendererEditable,
+      componentHasRepo: undefined,
+      componentInferredRepoPath: undefined,
+    }
   }
   const hasRepo = findRepoForPath(entity.file) !== null
   return {
     rendererTag: tag,
+    rendererEditable,
     componentHasRepo: hasRepo,
     componentInferredRepoPath: hasRepo ? undefined : inferRepoRoot(entity.file),
   }

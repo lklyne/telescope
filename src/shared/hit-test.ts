@@ -41,7 +41,17 @@ export type HitPayload =
   | { kind: 'chrome'; entityId: string; entityKind: CanvasEntityKind }
   | { kind: 'anchor'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
   | { kind: 'page-body'; entityId: string }
-  | { kind: 'entity-body'; entityId: string; entityKind: CanvasEntityKind }
+  | {
+      kind: 'entity-body'
+      entityId: string
+      entityKind: CanvasEntityKind
+      /** Only meaningful for `entityKind === 'file'`: whether the resolved
+       *  renderer plugin has an inline-edit affordance. Used by the pointer
+       *  router to gate file entities into the dblclick / press-deferral →
+       *  edit paths. Undefined for non-file kinds (text/sticky/shape are
+       *  always editable; group/drawing have their own routing). */
+      rendererEditable?: boolean
+    }
   | { kind: 'background' }
 
 export interface HitTarget {
@@ -271,7 +281,13 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
       payload:
         entity.kind === 'page'
           ? { kind: 'page-body', entityId: entity.id }
-          : { kind: 'entity-body', entityId: entity.id, entityKind: entity.kind },
+          : {
+              kind: 'entity-body',
+              entityId: entity.id,
+              entityKind: entity.kind,
+              rendererEditable:
+                entity.kind === 'file' ? entity.rendererEditable === true : undefined,
+            },
     }
     if (entity.kind === 'group') groups.push(target)
     else others.push(target)

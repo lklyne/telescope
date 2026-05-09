@@ -25,6 +25,10 @@ export const componentRenderPlugin: WcvPageRendererClaim = {
   id: 'specular.component-render',
   kind: 'wcv-page',
   rendererTag: 'component',
+  // The placeholder/WCV combo has no inline-edit affordance — clicking the
+  // selected entity again should be a no-op, not enter `editing-entity`
+  // state with no editor on screen.
+  editable: false,
   claims: (entity) => COMPONENT_EXTENSIONS.test(entity.file),
   resolveUrl: async (entity) => {
     const repo = findRepoForPath(entity.file)

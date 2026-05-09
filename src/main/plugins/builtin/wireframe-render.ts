@@ -8,5 +8,6 @@ export const wireframeRenderPlugin: InlineRendererClaim = {
   // `.wireframe.json` is more specific than a generic `.json` would be,
   // so claim ahead of any future plugin that matches by parent extension.
   priority: 10,
+  editable: true,
   claims: (entity) => WIREFRAME_EXTENSIONS.test(entity.file),
 }

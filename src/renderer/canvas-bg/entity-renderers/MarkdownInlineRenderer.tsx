@@ -115,6 +115,7 @@ export function MarkdownInlineRenderer({
           onFocus={handleFocus}
           onBlur={handleBlur}
           isDark={isDark}
+          autoFocus
           style={{ width: '100%', height: '100%', color: textColor }}
         />
       ) : (

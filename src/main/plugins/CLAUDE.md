@@ -35,6 +35,11 @@ Both kinds share one registry because the dispatch key — file extension — is
      id: 'specular.your-renderer',
      kind: 'inline',
      rendererTag: 'your-tag',
+     // True when the renderer reacts meaningfully to canEdit (markdown,
+     // wireframe, video). False when it ignores canEdit (image,
+     // placeholder). Drives whether dblclick / click-on-solo-selected
+     // route to `canvas-request-entity-edit` or fall through gracefully.
+     editable: true,
      claims: (entity) => /\.your-ext$/i.test(entity.file),
    }
    ```

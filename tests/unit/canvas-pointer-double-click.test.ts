@@ -41,10 +41,26 @@ describe('routePointerDoubleClick', () => {
     ).toEqual({ kind: 'noop' })
   })
 
-  it('file body → request-entity-edit', () => {
+  it('editable file body (markdown/wireframe/video) → request-entity-edit', () => {
     expect(
-      routePointerDoubleClick(target({ kind: 'entity-body', entityId: 'fi1', entityKind: 'file' })),
+      routePointerDoubleClick(
+        target({ kind: 'entity-body', entityId: 'fi1', entityKind: 'file', rendererEditable: true }),
+      ),
     ).toEqual({ kind: 'request-entity-edit', entityId: 'fi1' })
+  })
+
+  it('non-editable file body (image/component) → noop (graceful degradation)', () => {
+    expect(
+      routePointerDoubleClick(
+        target({ kind: 'entity-body', entityId: 'fi2', entityKind: 'file', rendererEditable: false }),
+      ),
+    ).toEqual({ kind: 'noop' })
+  })
+
+  it('file body with no rendererEditable signal (legacy / unclaimed) → noop', () => {
+    expect(
+      routePointerDoubleClick(target({ kind: 'entity-body', entityId: 'fi3', entityKind: 'file' })),
+    ).toEqual({ kind: 'noop' })
   })
 
   it('background → noop', () => {

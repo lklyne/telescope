@@ -6,6 +6,7 @@ import {
 } from '../../src/shared/canvas-pointer-actions'
 import type {
   CanvasSceneEntity,
+  CanvasSceneFileEntity,
   CanvasScenePageEntity,
   CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
@@ -76,6 +77,25 @@ function shape(over: Partial<CanvasSceneShapeEntity> = {}): CanvasSceneShapeEnti
     text: '',
     ...over,
   } as CanvasSceneShapeEntity
+}
+
+function file(over: Partial<CanvasSceneFileEntity> = {}): CanvasSceneFileEntity {
+  return {
+    id: 'fi1',
+    kind: 'file',
+    file: 'note.md',
+    canvasX: 0,
+    canvasY: 0,
+    width: 200,
+    height: 80,
+    screenX: 1700,
+    screenY: 100,
+    screenWidth: 200,
+    screenHeight: 80,
+    rendererTag: 'markdown',
+    rendererEditable: true,
+    ...over,
+  } as CanvasSceneFileEntity
 }
 
 describe('routePointerDown', () => {
@@ -328,6 +348,35 @@ describe('routePointerDown', () => {
         button: 'right',
       })
       expect(action).toEqual({ kind: 'noop' })
+    })
+
+    // Issue #49 follow-up: editable file renderers (markdown, wireframe,
+    // video) opt into the same press-deferral. Image / component
+    // placeholders gracefully fall through to drag.
+    it('click on solo-selected editable file body → begin-entity-press', () => {
+      const f = file({ rendererEditable: true })
+      const target = hitTest(inputs([f], ['fi1']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['fi1'] })
+      expect(action).toEqual({ kind: 'begin-entity-press', entityId: 'fi1', entityKind: 'file' })
+    })
+
+    it('click on solo-selected non-editable file body (image) → begin-entity-drag', () => {
+      const f = file({
+        id: 'img',
+        file: 'photo.png',
+        rendererTag: 'image',
+        rendererEditable: false,
+      })
+      const target = hitTest(inputs([f], ['img']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['img'] })
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'img' })
+    })
+
+    it('click on solo-selected file with missing rendererEditable (unclaimed) → begin-entity-drag', () => {
+      const f = file({ id: 'unk', file: 'foo.bin', rendererEditable: undefined })
+      const target = hitTest(inputs([f], ['unk']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['unk'] })
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'unk' })
     })
   })
 

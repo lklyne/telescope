@@ -38,12 +38,14 @@ describe('entity-renderer registry', () => {
       id: 'first',
       kind: 'inline',
       rendererTag: 'markdown',
+      editable: true,
       claims: (e) => /\.md$/i.test(e.file),
     }
     const second: EntityRendererClaim = {
       id: 'second',
       kind: 'inline',
       rendererTag: 'markdown',
+      editable: true,
       claims: (e) => /\.md$/i.test(e.file),
     }
     registerEntityRenderer(first)
@@ -56,6 +58,7 @@ describe('entity-renderer registry', () => {
       id: 'md',
       kind: 'inline',
       rendererTag: 'markdown',
+      editable: true,
       claims: (e) => /\.md$/i.test(e.file),
     })
     expect(getRendererTagFor(fileEntity({ file: 'a.md' }))).toBe('markdown')
@@ -66,6 +69,7 @@ describe('entity-renderer registry', () => {
       id: 'comp',
       kind: 'wcv-page',
       rendererTag: 'component',
+      editable: false,
       claims: (e) => /\.tsx$/i.test(e.file),
       resolveUrl: () => 'http://example.test',
     })
@@ -79,6 +83,7 @@ describe('entity-renderer registry', () => {
       id: 'tmp',
       kind: 'inline',
       rendererTag: 'markdown',
+      editable: true,
       claims: () => true,
     })
     expect(unregisterEntityRenderer('tmp')).toBe(true)
@@ -91,6 +96,7 @@ describe('entity-renderer registry', () => {
       id: 'dup',
       kind: 'inline',
       rendererTag: 'markdown',
+      editable: true,
       claims: () => true,
     }
     registerEntityRenderer(claim)
@@ -104,6 +110,7 @@ describe('entity-renderer registry', () => {
         id,
         kind: 'inline',
         rendererTag: 'markdown',
+        editable: true,
         claims: () => false,
       })
     }
@@ -115,6 +122,7 @@ describe('entity-renderer registry', () => {
       id: 'low',
       kind: 'inline',
       rendererTag: 'markdown',
+      editable: true,
       claims: (e) => /\.json$/i.test(e.file),
     })
     registerEntityRenderer({
@@ -122,6 +130,7 @@ describe('entity-renderer registry', () => {
       kind: 'inline',
       rendererTag: 'wireframe',
       priority: 10,
+      editable: true,
       claims: (e) => /\.wireframe\.json$/i.test(e.file),
     })
     expect(pickRenderer(fileEntity({ file: 'foo.wireframe.json' }))?.id).toBe('high')
@@ -133,12 +142,14 @@ describe('entity-renderer registry', () => {
       id: 'first',
       kind: 'inline',
       rendererTag: 'markdown',
+      editable: true,
       claims: (e) => /\.txt$/i.test(e.file),
     })
     registerEntityRenderer({
       id: 'second',
       kind: 'inline',
       rendererTag: 'image',
+      editable: false,
       claims: (e) => /\.txt$/i.test(e.file),
     })
     expect(pickRenderer(fileEntity({ file: 'a.txt' }))?.id).toBe('first')
@@ -150,6 +161,7 @@ describe('entity-renderer registry', () => {
       id: 'broken',
       kind: 'inline',
       rendererTag: 'markdown',
+      editable: true,
       claims: () => {
         throw new Error('boom')
       },
@@ -158,6 +170,7 @@ describe('entity-renderer registry', () => {
       id: 'healthy',
       kind: 'inline',
       rendererTag: 'image',
+      editable: false,
       claims: (e) => /\.png$/i.test(e.file),
     })
     const picked = pickRenderer(fileEntity({ file: 'photo.png' }))

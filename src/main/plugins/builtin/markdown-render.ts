@@ -5,5 +5,6 @@ export const markdownRenderPlugin: InlineRendererClaim = {
   id: 'specular.markdown',
   kind: 'inline',
   rendererTag: 'markdown',
+  editable: true,
   claims: (entity) => MARKDOWN_EXTENSIONS.test(entity.file),
 }

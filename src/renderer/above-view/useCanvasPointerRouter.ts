@@ -97,6 +97,7 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
   'page-body-press',
   'forward-pointer-down',
   'begin-entity-drag',
+  'begin-entity-press',
   'begin-group-drag',
   'begin-resize',
   'begin-multi-resize',
@@ -116,6 +117,7 @@ export const FULL_ROUTER_CONSUME = ALL_KINDS
 const GROUP_DRAG_THRESHOLD = 4
 const MARQUEE_DRAG_THRESHOLD = 4
 const PAGE_BODY_DRAG_THRESHOLD = 4
+const ENTITY_PRESS_DRAG_THRESHOLD = GROUP_DRAG_THRESHOLD
 
 function capturePointer(event: PointerEvent): (() => void) | null {
   const target = event.target
@@ -211,6 +213,8 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
         modifiers,
         spaceHeld: spaceHeldRef.current,
+        altHeld: event.altKey,
+        editingEntityId,
       }
 
       const action = routePointerDown(target, context)
@@ -317,6 +321,8 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return runBackgroundSelectionGesture(api, event, layoutRef)
     case 'begin-entity-drag':
       return runEntityDrag(action, api, event)
+    case 'begin-entity-press':
+      return runEntityPress(action, api, event)
     case 'begin-group-drag':
       return runGroupDrag(action, api, event)
     case 'begin-resize':
@@ -377,6 +383,78 @@ function runEntityDrag(
     finish()
   }
   const onCancel = () => finish()
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
+  window.addEventListener('blur', onCancel)
+  return true
+}
+
+function runEntityPress(
+  action: Extract<CanvasPointerAction, { kind: 'begin-entity-press' }>,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+): boolean {
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
+  const startScreenX = event.screenX
+  const startScreenY = event.screenY
+  let lastScreenX = event.screenX
+  let lastScreenY = event.screenY
+  let dragging = false
+
+  const cleanup = () => {
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener('blur', onCancel)
+  }
+
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    if (!dragging) {
+      const totalDx = ev.screenX - startScreenX
+      const totalDy = ev.screenY - startScreenY
+      if (
+        Math.abs(totalDx) < ENTITY_PRESS_DRAG_THRESHOLD &&
+        Math.abs(totalDy) < ENTITY_PRESS_DRAG_THRESHOLD
+      ) {
+        return
+      }
+      dragging = true
+      api.startDragEntity(action.entityId, {
+        entityKind: action.entityKind,
+        preserveSelection: true,
+      })
+    }
+    const dx = ev.screenX - lastScreenX
+    const dy = ev.screenY - lastScreenY
+    lastScreenX = ev.screenX
+    lastScreenY = ev.screenY
+    if (dx !== 0 || dy !== 0) api.dragEntity(action.entityId, dx, dy)
+  }
+
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    cleanup()
+    if (dragging) {
+      api.endDragEntity()
+      return
+    }
+    api.requestEntityEdit(action.entityId)
+  }
+
+  const onCancel = (ev: Event) => {
+    // Pre-threshold blur is a phantom: focus reconciliation routes focus
+    // aboveView → bgView on the next layout pass after a prior gesture
+    // ends. A second click landing inside that window would otherwise see
+    // the armed press torn down before pointerup, dropping the edit.
+    if (!dragging && ev.type === 'blur') return
+    cleanup()
+    if (dragging) api.endDragEntity()
+  }
+
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
   window.addEventListener('pointercancel', onCancel)

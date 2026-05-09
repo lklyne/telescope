@@ -6,7 +6,9 @@ import {
 } from '../../src/shared/canvas-pointer-actions'
 import type {
   CanvasSceneEntity,
+  CanvasSceneFileEntity,
   CanvasScenePageEntity,
+  CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
 } from '../../src/shared/types'
 
@@ -55,6 +57,45 @@ const baseCtx: CanvasPointerContext = {
   button: 'left',
   modifiers: { shift: false, meta: false, ctrl: false },
   spaceHeld: false,
+  altHeld: false,
+  editingEntityId: null,
+}
+
+function shape(over: Partial<CanvasSceneShapeEntity> = {}): CanvasSceneShapeEntity {
+  return {
+    id: 's1',
+    kind: 'shape',
+    canvasX: 0,
+    canvasY: 0,
+    width: 200,
+    height: 80,
+    screenX: 1400,
+    screenY: 100,
+    screenWidth: 200,
+    screenHeight: 80,
+    shapeKind: 'rect',
+    text: '',
+    ...over,
+  } as CanvasSceneShapeEntity
+}
+
+function file(over: Partial<CanvasSceneFileEntity> = {}): CanvasSceneFileEntity {
+  return {
+    id: 'fi1',
+    kind: 'file',
+    file: 'note.md',
+    canvasX: 0,
+    canvasY: 0,
+    width: 200,
+    height: 80,
+    screenX: 1700,
+    screenY: 100,
+    screenWidth: 200,
+    screenHeight: 80,
+    rendererTag: 'markdown',
+    rendererEditable: true,
+    ...over,
+  } as CanvasSceneFileEntity
 }
 
 describe('routePointerDown', () => {
@@ -214,6 +255,140 @@ describe('routePointerDown', () => {
       selectedEntityIds: ['t1', 't2'],
     })
     expect(action).toEqual({ kind: 'begin-multi-resize', handle: 'se' })
+  })
+
+  // --- Issue #49: click-on-solo-selected → begin-entity-press (deferred) ---
+  describe('begin-entity-press (issue #49)', () => {
+    it('click on solo-selected text body → begin-entity-press', () => {
+      const t = text()
+      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['t1'] })
+      expect(action).toEqual({ kind: 'begin-entity-press', entityId: 't1', entityKind: 'text' })
+    })
+
+    it('click on solo-selected shape body → begin-entity-press', () => {
+      const s = shape()
+      const target = hitTest(inputs([s], ['s1']), { x: s.screenX + 50, y: s.screenY + 30 })
+      const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['s1'] })
+      expect(action).toEqual({ kind: 'begin-entity-press', entityId: 's1', entityKind: 'shape' })
+    })
+
+    it('click on unselected text body → begin-entity-drag (no press deferral)', () => {
+      const t = text()
+      const target = hitTest(inputs([t]), { x: t.screenX + 50, y: t.screenY + 30 })
+      const action = routePointerDown(target, baseCtx)
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 't1' })
+    })
+
+    it('click on text in multi-selection → begin-entity-drag (no press deferral)', () => {
+      const t1 = text({ id: 't1' })
+      const t2 = text({ id: 't2', screenX: 1500 })
+      const target = hitTest(
+        inputs([t1, t2], ['t1', 't2']),
+        { x: t1.screenX + 50, y: t1.screenY + 30 },
+      )
+      const action = routePointerDown(target, {
+        ...baseCtx,
+        selectedEntityIds: ['t1', 't2'],
+      })
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 't1' })
+    })
+
+    it('shift-click on solo-selected text → toggle-select (no press deferral)', () => {
+      const t = text()
+      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const action = routePointerDown(target, {
+        ...baseCtx,
+        selectedEntityIds: ['t1'],
+        modifiers: { shift: true, meta: false, ctrl: false },
+      })
+      expect(action).toEqual({ kind: 'toggle-select', entityId: 't1', entityKind: 'text' })
+    })
+
+    it('cmd-click on solo-selected shape → toggle-select (no press deferral)', () => {
+      const s = shape()
+      const target = hitTest(inputs([s], ['s1']), { x: s.screenX + 50, y: s.screenY + 30 })
+      const action = routePointerDown(target, {
+        ...baseCtx,
+        selectedEntityIds: ['s1'],
+        modifiers: { shift: false, meta: true, ctrl: false },
+      })
+      expect(action).toEqual({ kind: 'toggle-select', entityId: 's1', entityKind: 'shape' })
+    })
+
+    it('alt-click on solo-selected text → begin-entity-drag (alt-clone semantics preserved)', () => {
+      const t = text()
+      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const action = routePointerDown(target, {
+        ...baseCtx,
+        selectedEntityIds: ['t1'],
+        altHeld: true,
+      })
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 't1' })
+    })
+
+    it('space-click on solo-selected text → begin-entity-drag (hold-to-pan modifier preserves drag)', () => {
+      const t = text()
+      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const action = routePointerDown(target, {
+        ...baseCtx,
+        selectedEntityIds: ['t1'],
+        spaceHeld: true,
+      })
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 't1' })
+    })
+
+    it('click on solo-selected text while another entity is editing → begin-entity-drag (deferral suppressed)', () => {
+      const t = text()
+      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const action = routePointerDown(target, {
+        ...baseCtx,
+        selectedEntityIds: ['t1'],
+        editingEntityId: 'other-entity',
+      })
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 't1' })
+    })
+
+    it('non-primary (right-click) on solo-selected text → noop (deferral is left-button only)', () => {
+      const t = text()
+      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const action = routePointerDown(target, {
+        ...baseCtx,
+        selectedEntityIds: ['t1'],
+        isPrimaryButton: false,
+        button: 'right',
+      })
+      expect(action).toEqual({ kind: 'noop' })
+    })
+
+    // Issue #49 follow-up: editable file renderers (markdown, wireframe,
+    // video) opt into the same press-deferral. Image / component
+    // placeholders gracefully fall through to drag.
+    it('click on solo-selected editable file body → begin-entity-press', () => {
+      const f = file({ rendererEditable: true })
+      const target = hitTest(inputs([f], ['fi1']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['fi1'] })
+      expect(action).toEqual({ kind: 'begin-entity-press', entityId: 'fi1', entityKind: 'file' })
+    })
+
+    it('click on solo-selected non-editable file body (image) → begin-entity-drag', () => {
+      const f = file({
+        id: 'img',
+        file: 'photo.png',
+        rendererTag: 'image',
+        rendererEditable: false,
+      })
+      const target = hitTest(inputs([f], ['img']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['img'] })
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'img' })
+    })
+
+    it('click on solo-selected file with missing rendererEditable (unclaimed) → begin-entity-drag', () => {
+      const f = file({ id: 'unk', file: 'foo.bin', rendererEditable: undefined })
+      const target = hitTest(inputs([f], ['unk']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['unk'] })
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'unk' })
+    })
   })
 
   // --- Issue #41 regression: chrome wins over anchor in their overlap zone ---

@@ -25,6 +25,7 @@ export const componentRenderPlugin: WcvPageRendererClaim = {
   id: 'specular.component-render',
   kind: 'wcv-page',
   rendererTag: 'component',
+  editable: false,
   claims: (entity) => COMPONENT_EXTENSIONS.test(entity.file),
   resolveUrl: async (entity) => {
     const repo = findRepoForPath(entity.file)

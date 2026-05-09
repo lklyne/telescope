@@ -43,6 +43,10 @@ interface BaseRendererClaim {
    * order for tie-breaking.
    */
   priority?: number
+  /** Whether the renderer has a meaningful inline-edit affordance. Drives
+   *  the dblclick and click-on-solo-selected → edit paths. Renderers that
+   *  ignore `canEdit` declare `false` so those gestures stay a clean no-op. */
+  editable: boolean
 }
 
 export interface InlineRendererClaim extends BaseRendererClaim {

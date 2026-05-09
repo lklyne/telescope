@@ -20,6 +20,11 @@ export type CanvasPointerContext = {
   modifiers: SelectionModifiers
   /** Hold-to-pan modifier (space). */
   spaceHeld: boolean
+  /** Alt held — excludes the click-on-solo-selected → edit predicate. */
+  altHeld: boolean
+  /** Entity currently in inline-edit mode; suppresses the press-deferral
+   *  predicate while another entity is editing. */
+  editingEntityId: string | null
 }
 
 /**
@@ -42,6 +47,11 @@ export type CanvasPointerAction =
   | { kind: 'forward-pointer-down'; entityId: string; button: 'left' | 'middle' | 'right' }
   /** Begin selecting + dragging an entity (page, file, text, shape). */
   | { kind: 'begin-entity-drag'; entityId: string; entityKind: CanvasEntityKind; preserveSelection: boolean }
+  /** Click-on-solo-selected → press deferral. Resolved by the router:
+   *  stationary release becomes `canvas-request-entity-edit`,
+   *  threshold-crossing pointermove falls through to entity drag.
+   *  See `docs/interaction-layer.md` §4.2.1. */
+  | { kind: 'begin-entity-press'; entityId: string; entityKind: 'text' | 'shape' | 'file' }
   /** Begin selecting + dragging a group as a unit. */
   | { kind: 'begin-group-drag'; groupId: string; preserveSelection: boolean }
   /** Begin a resize gesture from a handle. */
@@ -166,6 +176,26 @@ function routeByPayload(
         const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
         return { kind: 'begin-group-drag', groupId: payload.entityId, preserveSelection }
       }
+      // Click-on-solo-selected → defer to release-or-drag: stationary
+      // release fires `canvas-request-entity-edit`, threshold-crossing
+      // movement falls through to drag. File entities require their
+      // resolved renderer to declare `editable: true` so non-editable
+      // renderers (image, component placeholder) drag normally.
+      if (
+        !context.altHeld &&
+        !context.spaceHeld &&
+        context.editingEntityId === null &&
+        isSingleSelected(context, payload.entityId) &&
+        (payload.entityKind === 'text' ||
+          payload.entityKind === 'shape' ||
+          (payload.entityKind === 'file' && payload.rendererEditable === true))
+      ) {
+        return {
+          kind: 'begin-entity-press',
+          entityId: payload.entityId,
+          entityKind: payload.entityKind,
+        }
+      }
       const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
       return {
         kind: 'begin-entity-drag',
@@ -224,8 +254,11 @@ export function routePointerDoubleClick(
       switch (target.payload.entityKind) {
         case 'shape':
         case 'text':
-        case 'file':
           return { kind: 'request-entity-edit', entityId: target.payload.entityId }
+        case 'file':
+          return target.payload.rendererEditable === true
+            ? { kind: 'request-entity-edit', entityId: target.payload.entityId }
+            : { kind: 'noop' }
         case 'group':
           return { kind: 'enter-group', groupId: target.payload.entityId }
         default:

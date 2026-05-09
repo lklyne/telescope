@@ -35,6 +35,9 @@ Both kinds share one registry because the dispatch key — file extension — is
      id: 'specular.your-renderer',
      kind: 'inline',
      rendererTag: 'your-tag',
+     // True if the renderer reacts to canEdit (markdown, wireframe,
+     // video); false if it ignores it (image, placeholder).
+     editable: true,
      claims: (entity) => /\.your-ext$/i.test(entity.file),
    }
    ```

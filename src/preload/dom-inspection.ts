@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron'
 import {
   deepElementFromPoint,
-  elementClasses,
+  elementSelectorParts,
   inspectionPayload,
 } from './dom-element-utils'
 import { isPageOverlayTarget } from './gesture-forwarding'
@@ -17,9 +17,10 @@ let domInspectionPinnedTarget: Element | null = null
 // Chrome-style box model overlay: 4 strips for margin (orange, hashed),
 // 4 strips for padding (green, solid). Rendered as fixed-position divs.
 type Side = 'top' | 'right' | 'bottom' | 'left'
+type StripKind = 'margin' | 'padding'
 const SIDES: readonly Side[] = ['top', 'right', 'bottom', 'left'] as const
-let domInspectionMarginEls: Record<Side, HTMLDivElement> | null = null
-let domInspectionPaddingEls: Record<Side, HTMLDivElement> | null = null
+const STRIP_KINDS: readonly StripKind[] = ['margin', 'padding'] as const
+let domInspectionStripEls: Record<StripKind, Record<Side, HTMLDivElement>> | null = null
 
 const MARGIN_COLOR = 'rgba(246, 178, 107, 0.55)'
 const PADDING_COLOR = 'rgba(147, 196, 125, 0.55)'
@@ -79,44 +80,42 @@ export function ensureDomInspectionOverlay(): void {
     display: 'none',
   })
 
-  const makeStrip = (id: string, hashed: boolean) => {
+  const makeStrip = (kind: StripKind, side: Side) => {
     const strip = document.createElement('div')
-    strip.id = id
+    strip.id = `__canvas-dom-inspection-${kind}-${side}`
     Object.assign(strip.style, {
       position: 'fixed',
       zIndex: '2147483644',
       pointerEvents: 'none',
       display: 'none',
-      background: hashed ? MARGIN_HASH : PADDING_COLOR,
+      background: kind === 'margin' ? MARGIN_HASH : PADDING_COLOR,
     })
     return strip
   }
 
-  const margins = {} as Record<Side, HTMLDivElement>
-  const paddings = {} as Record<Side, HTMLDivElement>
-  for (const side of SIDES) {
-    margins[side] = makeStrip(`__canvas-dom-inspection-margin-${side}`, true)
-    paddings[side] = makeStrip(`__canvas-dom-inspection-padding-${side}`, false)
+  const strips = {} as Record<StripKind, Record<Side, HTMLDivElement>>
+  for (const kind of STRIP_KINDS) {
+    const sideMap = {} as Record<Side, HTMLDivElement>
+    for (const side of SIDES) {
+      sideMap[side] = makeStrip(kind, side)
+      document.documentElement.appendChild(sideMap[side])
+    }
+    strips[kind] = sideMap
   }
 
-  for (const side of SIDES) document.documentElement.appendChild(margins[side])
-  for (const side of SIDES) document.documentElement.appendChild(paddings[side])
   document.documentElement.appendChild(pinnedHighlight)
   document.documentElement.appendChild(highlight)
   document.documentElement.appendChild(label)
   domInspectionPinnedHighlightEl = pinnedHighlight
   domInspectionHighlightEl = highlight
   domInspectionLabelEl = label
-  domInspectionMarginEls = margins
-  domInspectionPaddingEls = paddings
+  domInspectionStripEls = strips
 }
 
 function hideBoxModelOverlay(): void {
-  if (domInspectionMarginEls) {
-    for (const side of SIDES) domInspectionMarginEls[side].style.display = 'none'
-  }
-  if (domInspectionPaddingEls) {
-    for (const side of SIDES) domInspectionPaddingEls[side].style.display = 'none'
+  if (!domInspectionStripEls) return
+  for (const kind of STRIP_KINDS) {
+    for (const side of SIDES) domInspectionStripEls[kind][side].style.display = 'none'
   }
 }
 
@@ -143,9 +142,8 @@ function parsePx(value: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
-function updateBoxModelOverlay(element: Element, rect: DOMRect): void {
-  if (!domInspectionMarginEls || !domInspectionPaddingEls) return
-  const styles = window.getComputedStyle(element)
+function updateBoxModelOverlay(rect: DOMRect, styles: CSSStyleDeclaration): void {
+  if (!domInspectionStripEls) return
   const mt = parsePx(styles.marginTop)
   const mr = parsePx(styles.marginRight)
   const mb = parsePx(styles.marginBottom)
@@ -159,28 +157,25 @@ function updateBoxModelOverlay(element: Element, rect: DOMRect): void {
   const bb = parsePx(styles.borderBottomWidth)
   const bl = parsePx(styles.borderLeftWidth)
 
-  // Margin strips lie OUTSIDE the border-box. Draw top/bottom full-width
-  // (extending across margin corners), and left/right between them.
-  setStripRect(domInspectionMarginEls.top, rect.left - ml, rect.top - mt, rect.width + ml + mr, mt)
-  setStripRect(domInspectionMarginEls.bottom, rect.left - ml, rect.bottom, rect.width + ml + mr, mb)
-  setStripRect(domInspectionMarginEls.left, rect.left - ml, rect.top, ml, rect.height)
-  setStripRect(domInspectionMarginEls.right, rect.right, rect.top, mr, rect.height)
+  const margins = domInspectionStripEls.margin
+  const paddings = domInspectionStripEls.padding
+
+  // Margin strips lie OUTSIDE the border-box. Top/bottom span full width
+  // (covering margin corners); left/right fit between them.
+  setStripRect(margins.top, rect.left - ml, rect.top - mt, rect.width + ml + mr, mt)
+  setStripRect(margins.bottom, rect.left - ml, rect.bottom, rect.width + ml + mr, mb)
+  setStripRect(margins.left, rect.left - ml, rect.top, ml, rect.height)
+  setStripRect(margins.right, rect.right, rect.top, mr, rect.height)
 
   // Padding strips lie INSIDE the border-box, between border and content.
   const padBoxX = rect.left + bl
   const padBoxY = rect.top + bt
   const padBoxW = Math.max(0, rect.width - bl - br)
   const padBoxH = Math.max(0, rect.height - bt - bb)
-  setStripRect(domInspectionPaddingEls.top, padBoxX, padBoxY, padBoxW, pt)
-  setStripRect(domInspectionPaddingEls.bottom, padBoxX, padBoxY + padBoxH - pb, padBoxW, pb)
-  setStripRect(domInspectionPaddingEls.left, padBoxX, padBoxY + pt, pl, Math.max(0, padBoxH - pt - pb))
-  setStripRect(
-    domInspectionPaddingEls.right,
-    padBoxX + padBoxW - pr,
-    padBoxY + pt,
-    pr,
-    Math.max(0, padBoxH - pt - pb),
-  )
+  setStripRect(paddings.top, padBoxX, padBoxY, padBoxW, pt)
+  setStripRect(paddings.bottom, padBoxX, padBoxY + padBoxH - pb, padBoxW, pb)
+  setStripRect(paddings.left, padBoxX, padBoxY + pt, pl, Math.max(0, padBoxH - pt - pb))
+  setStripRect(paddings.right, padBoxX + padBoxW - pr, padBoxY + pt, pr, Math.max(0, padBoxH - pt - pb))
 }
 
 function shortFontFamily(fontFamily: string): string {
@@ -190,11 +185,9 @@ function shortFontFamily(fontFamily: string): string {
   return first.replace(/^['"]|['"]$/g, '')
 }
 
-function buildLabelContent(label: HTMLDivElement, element: Element): void {
-  const styles = window.getComputedStyle(element)
+function buildLabelContent(label: HTMLDivElement, element: Element, styles: CSSStyleDeclaration): void {
   label.replaceChildren()
 
-  // Row 1: tag chip + name
   const headerRow = document.createElement('div')
   Object.assign(headerRow.style, {
     display: 'flex',
@@ -203,28 +196,20 @@ function buildLabelContent(label: HTMLDivElement, element: Element): void {
     minWidth: '0',
   })
 
-  const elementType = element.tagName.toLowerCase()
-  const idAttr = element.getAttribute('id')
-  const classes = elementClasses(element)
-  const selectorRemainder = idAttr
-    ? `#${idAttr}`
-    : classes.length
-      ? `.${classes.slice(0, 2).join('.')}`
-      : ''
+  const { tag, remainder } = elementSelectorParts(element)
 
   const chip = document.createElement('span')
   Object.assign(chip.style, {
-    display: 'inline-block',
     padding: '1px 5px',
     borderRadius: '4px',
     background: 'rgba(59, 130, 246, 0.95)',
     color: '#fff',
     flexShrink: '0',
   })
-  chip.textContent = elementType
+  chip.textContent = tag
   headerRow.appendChild(chip)
 
-  if (selectorRemainder) {
+  if (remainder) {
     const name = document.createElement('span')
     Object.assign(name.style, {
       whiteSpace: 'nowrap',
@@ -233,7 +218,7 @@ function buildLabelContent(label: HTMLDivElement, element: Element): void {
       minWidth: '0',
       opacity: '0.9',
     })
-    name.textContent = selectorRemainder
+    name.textContent = remainder
     headerRow.appendChild(name)
   }
 
@@ -279,7 +264,6 @@ function buildLabelContent(label: HTMLDivElement, element: Element): void {
     label.appendChild(fontRow)
   }
 
-  // Row 3: color swatches (text + background)
   const colorRow = document.createElement('div')
   Object.assign(colorRow.style, {
     display: 'flex',
@@ -365,11 +349,11 @@ export function updateDomInspectionOverlay(
   const rect = setHighlightRect(domInspectionHighlightEl, element)
   if (!rect) return
 
-  // Box-model overlay tracks the active (hovered) target.
-  updateBoxModelOverlay(element, rect)
+  const styles = window.getComputedStyle(element)
+  updateBoxModelOverlay(rect, styles)
 
   domInspectionLabelEl.style.display = 'block'
-  buildLabelContent(domInspectionLabelEl, element)
+  buildLabelContent(domInspectionLabelEl, element, styles)
   const outerPadding = 2
   const labelRect = domInspectionLabelEl.getBoundingClientRect()
   const maxLeft = Math.max(outerPadding, window.innerWidth - Math.ceil(labelRect.width) - outerPadding)

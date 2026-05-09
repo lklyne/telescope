@@ -205,6 +205,8 @@ The router consumes the full action set (`FULL_ROUTER_CONSUME`): `enter-frame-fo
 
 A sibling pure mapper, `routePointerDoubleClick`, classifies double-clicks; the router installs a window-level `dblclick` capture listener and dispatches `enter-shape-edit` / `enter-group` / `request-text-edit` (and yields `enter-group-rename` to the GroupRenameLabel's own DOM `onDoubleClick`). The text/shape branches use the `canvas-request-text-edit` / `canvas-request-shape-edit` IPC channels, which select the entity in main and signal bgView to focus its inline editor.
 
+**Click-on-solo-selected → edit (issue #49).** A click on a solo-selected text/sticky/shape body with no modifier and no active inline edit emits `begin-entity-press` rather than `begin-entity-drag`. The router defers resolution: a stationary release fires `canvas-request-entity-edit` (the same IPC the dblclick fast-path uses), and a pointermove that crosses the existing entity-press drag threshold falls through to a normal entity drag with `preserveSelection: true`. Excluded kinds — group, drawing, page, file — keep their previous click-on-selected behavior; group rename remains driven by `GroupRenameLabel`'s own `onDoubleClick`. Press-pending state lives as a hook-local ref inside `useCanvasPointerRouter`'s `runEntityPress`; no new `InteractionMode` is introduced (per §5.6 — payload changes suffice).
+
 **Gate responsibilities when visible:**
 1. Capture pointer events at the WCV boundary.
 2. Hit-test against the current canvas scene (via main-process coord math).

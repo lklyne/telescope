@@ -20,6 +20,14 @@ export type CanvasPointerContext = {
   modifiers: SelectionModifiers
   /** Hold-to-pan modifier (space). */
   spaceHeld: boolean
+  /** Alt held — excluded from the click-on-solo-selected → edit predicate
+   *  alongside shift/cmd/ctrl. */
+  altHeld: boolean
+  /** The entity currently in inline-edit mode, if any. The
+   *  click-on-solo-selected → edit predicate is suppressed while another
+   *  entity is editing — issue #48's commit-on-click-outside path handles
+   *  that case independently. */
+  editingEntityId: string | null
 }
 
 /**
@@ -42,6 +50,12 @@ export type CanvasPointerAction =
   | { kind: 'forward-pointer-down'; entityId: string; button: 'left' | 'middle' | 'right' }
   /** Begin selecting + dragging an entity (page, file, text, shape). */
   | { kind: 'begin-entity-drag'; entityId: string; entityKind: CanvasEntityKind; preserveSelection: boolean }
+  /** Click-on-solo-selected text/sticky/shape with no modifier → defer
+   *  resolution: stationary release fires `canvas-request-entity-edit`,
+   *  threshold-crossing pointermove falls through to entity drag. The
+   *  router resolves the deferral; this descriptor only carries the
+   *  predicate result. See issue #49 / `docs/interaction-layer.md` §4.2.1. */
+  | { kind: 'begin-entity-press'; entityId: string; entityKind: 'text' | 'shape' }
   /** Begin selecting + dragging a group as a unit. */
   | { kind: 'begin-group-drag'; groupId: string; preserveSelection: boolean }
   /** Begin a resize gesture from a handle. */
@@ -165,6 +179,24 @@ function routeByPayload(
       if (payload.entityKind === 'group') {
         const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
         return { kind: 'begin-group-drag', groupId: payload.entityId, preserveSelection }
+      }
+      // Click-on-solo-selected text/sticky/shape with no modifier and no
+      // active inline edit → defer: a stationary release becomes
+      // `canvas-request-entity-edit`, threshold-crossing movement falls
+      // through to drag. The pure mapper only encodes the predicate; the
+      // hook resolves the deferral. Excludes group/drawing/page/file per
+      // issue #49 design decision 2.
+      if (
+        (payload.entityKind === 'text' || payload.entityKind === 'shape') &&
+        !context.altHeld &&
+        context.editingEntityId === null &&
+        isSingleSelected(context, payload.entityId)
+      ) {
+        return {
+          kind: 'begin-entity-press',
+          entityId: payload.entityId,
+          entityKind: payload.entityKind,
+        }
       }
       const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
       return {

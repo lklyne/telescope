@@ -101,6 +101,19 @@ Replaces three previously-parallel state machines: `pendingPlacement`, `Annotati
 
 **Not a tool:** **View mode** (canvas vs browser). View mode answers "which surface am I looking at?", not "what does my next click do?" — it's structural, not transient. Stays in its own state.
 
+## Annotations
+
+Comments live on the canvas as a single user-facing concept ("comment") and a single runtime entity (`Annotation`). One tool — `comment` — produces all of them; the gesture decides the **anchor**:
+
+- **Click on a page element** → element anchor (DOM selector + bbox).
+- **Click anywhere else on the canvas** → canvas-point anchor (the click position).
+- **Drag a marquee** → region anchor (canvas-rect, may span pages).
+
+Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Annotation.kind` field is redundant once the anchor is the source of truth.
+
+- **Comment pin** — the small circular marker rendered at every annotation's resting position. Element pin sits at the element's top-right corner (follows the page); canvas-point pin sits at the point; region pin sits at the rectangle's top-left corner *and* the rectangle still renders as a dashed rose outline. Same primitive in all three cases. Click selects the comment and opens its thread in the right panel.
+- **Pending composer** — single component that mounts after the gesture and before the comment is committed. Placement is a thin function over the anchor: above-right of the element bbox, adjacent to the click point, or above-right of the region rect. Esc cancels; click outside commits (if non-empty) or discards (if empty); only one pending composer exists at a time.
+
 ## UI copy voice
 
 - **Sentence case** — capitalize the first word only. Default for menus, buttons, dialog text, chrome labels: "Reveal codebase in finder", "Delete project…", "Rename".

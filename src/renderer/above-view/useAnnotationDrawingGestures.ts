@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
 import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
+import { activeDrawBrush } from '../../shared/tool'
 import { isOverlayUiTarget, screenPointToCanvasPoint } from '../../shared/gesture-utils'
 import { drawingBounds, snapPointTo45Degrees, type DrawingSession } from './annotationMath'
 
@@ -94,11 +95,7 @@ export function useAnnotationDrawingGestures({
         setDrawingStrokeActive(true)
         closeThread()
         setPendingAnnotation(null)
-        const activeTool = layoutRef.current.activeTool
-        const brush: 'pen' | 'highlight' =
-          activeTool.kind === 'draw' && activeTool.brush === 'highlight'
-            ? 'highlight'
-            : 'pen'
+        const brush = activeDrawBrush(layoutRef.current.activeTool) ?? 'pen'
         const nextStrokes = [
           {
             id: strokeId,

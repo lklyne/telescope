@@ -6,6 +6,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { canvasToScreenX, canvasToScreenY } from '../../shared/gesture-utils'
+import { withAlpha } from '../../shared/canvas-colors'
 import { PERFECT_FREEHAND_ENABLED } from '../../shared/featureFlags'
 import { pathD } from './annotationMath'
 
@@ -35,35 +36,8 @@ function freehandPathD(
   return d + ' Z'
 }
 
-// Parse '#rgb' or '#rrggbb' to {r,g,b}. Returns null if not a hex color.
-function hexToRgb(color: string): { r: number; g: number; b: number } | null {
-  const m3 = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(color)
-  if (m3) {
-    return {
-      r: parseInt(m3[1] + m3[1], 16),
-      g: parseInt(m3[2] + m3[2], 16),
-      b: parseInt(m3[3] + m3[3], 16),
-    }
-  }
-  const m6 = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(color)
-  if (m6) {
-    return {
-      r: parseInt(m6[1], 16),
-      g: parseInt(m6[2], 16),
-      b: parseInt(m6[3], 16),
-    }
-  }
-  return null
-}
-
-function rgba(color: string, alpha: number): string {
-  const rgb = hexToRgb(color)
-  if (!rgb) return color
-  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`
-}
-
-// Stops mirror the agentation.com highlight: denser at the ends, lighter in the
-// middle, applied along the stroke's first→last direction.
+// Stops applied along the stroke's first→last direction: denser at the ends,
+// lighter in the middle, to mimic ink pooling at the start/end of a swipe.
 const HIGHLIGHT_ALPHA_STOPS: Array<{ offset: string; alpha: number }> = [
   { offset: '0%', alpha: 0.5 },
   { offset: '4%', alpha: 0.15 },
@@ -71,8 +45,7 @@ const HIGHLIGHT_ALPHA_STOPS: Array<{ offset: string; alpha: number }> = [
   { offset: '100%', alpha: 0.6 },
 ]
 
-// Future: try `mix-blend-mode: multiply` so crossing strokes darken naturally,
-// and a wider blurred under-pass for a paper-bleed look.
+const GRAIN_FILTER_ID = 'highlight-grain'
 
 function HighlightStroke({
   stroke,
@@ -119,7 +92,7 @@ function HighlightStroke({
           y2={y2}
         >
           {HIGHLIGHT_ALPHA_STOPS.map((s) => (
-            <stop key={s.offset} offset={s.offset} stopColor={rgba(stroke.color, s.alpha)} />
+            <stop key={s.offset} offset={s.offset} stopColor={withAlpha(stroke.color, s.alpha)} />
           ))}
         </linearGradient>
       </defs>
@@ -130,6 +103,52 @@ function HighlightStroke({
         opacity={active ? 1 : 0.95}
       />
     </>
+  )
+}
+
+function renderStrokeBody({
+  stroke,
+  points,
+  strokedD,
+  visibleWidth,
+  active,
+}: {
+  stroke: AnnotationDrawingStroke
+  points: { x: number; y: number }[]
+  strokedD: string
+  visibleWidth: number
+  active: boolean
+}) {
+  if (stroke.brushType === 'highlight') {
+    return (
+      <HighlightStroke
+        stroke={stroke}
+        points={points}
+        visibleWidth={visibleWidth}
+        active={active}
+        filterId={GRAIN_FILTER_ID}
+      />
+    )
+  }
+  if (PERFECT_FREEHAND_ENABLED) {
+    return (
+      <path
+        d={freehandPathD(points, visibleWidth)}
+        fill={stroke.color}
+        opacity={active ? 1 : 0.92}
+      />
+    )
+  }
+  return (
+    <path
+      d={strokedD}
+      fill="none"
+      stroke={stroke.color}
+      strokeWidth={visibleWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      opacity={active ? 1 : 0.92}
+    />
   )
 }
 
@@ -144,7 +163,6 @@ export function DrawingLayer({
   active?: boolean
   onSelect?: () => void
 }) {
-  const grainFilterId = 'highlight-grain'
   const hasHighlight = drawing.strokes.some((s) => s.brushType === 'highlight')
   return (
     <svg
@@ -165,7 +183,7 @@ export function DrawingLayer({
             space, the region is the SVG viewport so any stroke geometry works.
           */}
           <filter
-            id={grainFilterId}
+            id={GRAIN_FILTER_ID}
             x="0"
             y="0"
             width={window.innerWidth}
@@ -202,9 +220,6 @@ export function DrawingLayer({
         const visibleWidth = Math.max(1, stroke.width * layout.zoom)
         const hitWidth = Math.max(12, visibleWidth + 10)
         const strokedD = pathD(points)
-        const isHighlight = stroke.brushType === 'highlight'
-        const filledD =
-          PERFECT_FREEHAND_ENABLED && !isHighlight ? freehandPathD(points, visibleWidth) : ''
         return (
           <g key={stroke.id}>
             {onSelect ? (
@@ -224,31 +239,7 @@ export function DrawingLayer({
                 }}
               />
             ) : null}
-            {isHighlight ? (
-              <HighlightStroke
-                stroke={stroke}
-                points={points}
-                visibleWidth={visibleWidth}
-                active={active ?? false}
-                filterId={grainFilterId}
-              />
-            ) : PERFECT_FREEHAND_ENABLED ? (
-              <path
-                d={filledD}
-                fill={stroke.color}
-                opacity={active ? 1 : 0.92}
-              />
-            ) : (
-              <path
-                d={strokedD}
-                fill="none"
-                stroke={stroke.color}
-                strokeWidth={visibleWidth}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity={active ? 1 : 0.92}
-              />
-            )}
+            {renderStrokeBody({ stroke, points, strokedD, visibleWidth, active: active ?? false })}
           </g>
         )
       })}

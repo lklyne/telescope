@@ -34,6 +34,7 @@ import type {
   Tool,
   ToolbarSelectionData,
 } from '../../shared/types'
+import { activeDrawBrush } from '../../shared/tool'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { normalizeUserUrl } from '../../shared/url'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
@@ -303,17 +304,12 @@ export function CenterActions({
   const onClearToolMode = () => onSetTool({ kind: 'select' })
   const onToggleAnnotateMode = () =>
     onSetTool(activeTool.kind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
+  const drawBrush = activeDrawBrush(activeTool)
   const onToggleDrawMode = () =>
-    onSetTool(
-      activeTool.kind === 'draw' && activeTool.brush !== 'highlight'
-        ? { kind: 'select' }
-        : { kind: 'draw', brush: 'pen' },
-    )
+    onSetTool(drawBrush === 'pen' ? { kind: 'select' } : { kind: 'draw', brush: 'pen' })
   const onToggleHighlightMode = () =>
     onSetTool(
-      activeTool.kind === 'draw' && activeTool.brush === 'highlight'
-        ? { kind: 'select' }
-        : { kind: 'draw', brush: 'highlight' },
+      drawBrush === 'highlight' ? { kind: 'select' } : { kind: 'draw', brush: 'highlight' },
     )
   const onToggleRegionSelectMode = () =>
     onSetTool(activeTool.kind === 'region-select' ? { kind: 'select' } : { kind: 'region-select' })
@@ -384,7 +380,7 @@ export function CenterActions({
             <>
               <button
                 onClick={onToggleDrawMode}
-                className={`${activeTool.kind === 'draw' && activeTool.brush !== 'highlight' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+                className={`${drawBrush === 'pen' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
                 title="Draw"
                 disabled={!annotateAvailable}
                 type="button"
@@ -393,7 +389,7 @@ export function CenterActions({
               </button>
               <button
                 onClick={onToggleHighlightMode}
-                className={`${activeTool.kind === 'draw' && activeTool.brush === 'highlight' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+                className={`${drawBrush === 'highlight' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
                 title="Highlight"
                 disabled={!annotateAvailable}
                 type="button"

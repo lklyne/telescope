@@ -101,10 +101,13 @@ function computedStyleLines(element: Element): string[] {
   return [
     `display=${styles.display}`,
     `position=${styles.position}`,
+    `font-family=${styles.fontFamily}`,
     `font-size=${styles.fontSize}`,
     `font-weight=${styles.fontWeight}`,
     `color=${styles.color}`,
     `background=${styles.backgroundColor}`,
+    `padding=${styles.padding}`,
+    `margin=${styles.margin}`,
   ]
 }
 

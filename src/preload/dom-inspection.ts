@@ -233,40 +233,40 @@ function buildLabelContent(label: HTMLDivElement, element: Element, payload: Ret
   }
   label.appendChild(headerRow)
 
-  // Row 2: font preview (rendered in the actual font) + size/weight
+  // Row 2: font family rendered in the actual font, plus size/weight
   const fontFamily = shortFontFamily(styles.fontFamily)
   if (fontFamily) {
     const fontRow = document.createElement('div')
     Object.assign(fontRow.style, {
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'baseline',
       gap: '6px',
       marginTop: '4px',
+      minWidth: '0',
     })
 
-    const aa = document.createElement('span')
-    Object.assign(aa.style, {
+    const familyName = document.createElement('span')
+    Object.assign(familyName.style, {
       fontFamily: styles.fontFamily,
       fontWeight: styles.fontWeight,
       fontSize: '14px',
-      lineHeight: '1',
+      lineHeight: '1.1',
       color: '#fff',
-      flexShrink: '0',
-      minWidth: '18px',
-      textAlign: 'center',
-    })
-    aa.textContent = 'Aa'
-    fontRow.appendChild(aa)
-
-    const fontMeta = document.createElement('span')
-    Object.assign(fontMeta.style, {
       whiteSpace: 'nowrap',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       minWidth: '0',
-      opacity: '0.85',
     })
-    fontMeta.textContent = `${fontFamily} · ${styles.fontSize} · ${styles.fontWeight}`
+    familyName.textContent = fontFamily
+    fontRow.appendChild(familyName)
+
+    const fontMeta = document.createElement('span')
+    Object.assign(fontMeta.style, {
+      whiteSpace: 'nowrap',
+      opacity: '0.7',
+      flexShrink: '0',
+    })
+    fontMeta.textContent = `${styles.fontSize} · ${styles.fontWeight}`
     fontRow.appendChild(fontMeta)
     label.appendChild(fontRow)
   }

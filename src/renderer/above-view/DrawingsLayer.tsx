@@ -9,7 +9,11 @@ import { canvasToScreenX, canvasToScreenY } from '../../shared/gesture-utils'
 import { PERFECT_FREEHAND_ENABLED } from '../../shared/featureFlags'
 import { pathD } from './annotationMath'
 
-function freehandPathD(points: { x: number; y: number }[], size: number): string {
+function freehandPathD(
+  points: { x: number; y: number }[],
+  size: number,
+  cap: boolean = true,
+): string {
   const outline = getStroke(
     points.map((p) => [p.x, p.y]),
     {
@@ -19,6 +23,8 @@ function freehandPathD(points: { x: number; y: number }[], size: number): string
       streamline: 0.75,
       simulatePressure: false,
       last: true,
+      start: { cap, taper: 0 },
+      end: { cap, taper: 0 },
     },
   )
   if (!outline.length) return ''
@@ -82,10 +88,17 @@ function HighlightStroke({
   filterId: string
 }) {
   if (points.length === 0) return null
+  // Render as a perfect-freehand outline filled with the gradient instead of a
+  // stroked polyline. The streamline/smoothing params absorb pointer jitter at
+  // pointerdown/pointerup, which would otherwise show up as flag-shaped
+  // artifacts at the start/end of strokes (the butt cap is perpendicular to
+  // the first/last segment direction, so any micro-diagonal jitter there
+  // becomes a visible angled tail).
+  const filledD = freehandPathD(points, visibleWidth, false)
+  if (!filledD) return null
+
   const first = points[0]
   const last = points[points.length - 1]
-  // If the stroke is essentially a dot, nudge the gradient axis so it still
-  // renders something instead of degenerating to a point.
   const dx = last.x - first.x
   const dy = last.y - first.y
   const len = Math.hypot(dx, dy)
@@ -111,12 +124,8 @@ function HighlightStroke({
         </linearGradient>
       </defs>
       <path
-        d={pathD(points)}
-        fill="none"
-        stroke={`url(#${gradientId})`}
-        strokeWidth={visibleWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d={filledD}
+        fill={`url(#${gradientId})`}
         filter={`url(#${filterId})`}
         opacity={active ? 1 : 0.95}
       />
@@ -147,13 +156,21 @@ export function DrawingLayer({
     >
       {hasHighlight ? (
         <defs>
+          {/*
+            filterUnits="userSpaceOnUse" is load-bearing: the default
+            ("objectBoundingBox") sizes the filter region as a percentage of the
+            path's geometric bbox, which does NOT include strokeWidth. A purely
+            horizontal stroke has bbox height = 0 → filter region height = 0 →
+            the whole 22px-thick stroke gets clipped to nothing. With user
+            space, the region is the SVG viewport so any stroke geometry works.
+          */}
           <filter
             id={grainFilterId}
-            x="-5%"
-            y="-5%"
-            width="110%"
-            height="110%"
-            filterUnits="objectBoundingBox"
+            x="0"
+            y="0"
+            width={window.innerWidth}
+            height={window.innerHeight}
+            filterUnits="userSpaceOnUse"
             primitiveUnits="userSpaceOnUse"
           >
             <feTurbulence

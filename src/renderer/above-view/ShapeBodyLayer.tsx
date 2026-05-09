@@ -145,20 +145,35 @@ function ShapeBody({
   localTextRef.current = localText
   const onCommitTextRef = useRef(onCommitText)
   onCommitTextRef.current = onCommitText
+  const wasEditingRef = useRef(editing)
 
-  // When editing ends, flush any buffered text into the entity. The
-  // contentEditable's onBlur is the normal commit path, but the
-  // outside-click router (`useCanvasPointerRouter`) preventDefaults the
-  // pointerdown that would have caused the blur, so onBlur can be skipped
-  // entirely on external commits. Pushing on the editing transition
-  // catches that case without depending on focus-loss order.
+  // Two responsibilities, split so external `shape.text` updates can't
+  // trigger a buffered-text flush:
+  //
+  // 1. On the editing → false TRANSITION, flush any unsaved local text.
+  //    The contentEditable's onBlur is the normal commit path, but the
+  //    outside-click router preventDefaults the pointerdown that would
+  //    have caused the blur, so onBlur can be skipped entirely on
+  //    external commits. This catches that case.
+  //
+  // 2. While not editing, mirror external `shape.text` changes (e.g.
+  //    Yjs undo) into local state. Previously, a single effect did both
+  //    and would re-commit `localText` whenever an external undo changed
+  //    `shape.text` — undoing the undo and corrupting the undo stack.
+  useEffect(() => {
+    const wasEditing = wasEditingRef.current
+    wasEditingRef.current = editing
+    if (wasEditing && !editing) {
+      if (localTextRef.current !== shape.text) {
+        onCommitTextRef.current(localTextRef.current)
+      }
+    }
+  }, [editing, shape.text])
+
   useEffect(() => {
     if (editing) return
-    if (localTextRef.current !== shape.text) {
-      onCommitTextRef.current(localTextRef.current)
-    } else {
-      setLocalText(shape.text)
-    }
+    if (localTextRef.current === shape.text) return
+    setLocalText(shape.text)
   }, [editing, shape.text])
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH

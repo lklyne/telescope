@@ -134,11 +134,25 @@ function StickyCard({
 }) {
   const [localText, setLocalText] = useState(note.text)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Tracks the most recent value we sent upstream. When an incoming
+  // `note.text` differs from this, we treat it as external (e.g. Yjs undo)
+  // and pull it into local state — even mid-edit. When it matches, the
+  // round-trip is just our own commit echoing back; ignore it so we don't
+  // clobber characters typed since the last commit.
+  const lastSentRef = useRef<string>(note.text)
   const shellRef = useRef<HTMLDivElement | null>(null)
   const lastReportedSizeRef = useRef<{ w: number; h: number } | null>(null)
 
   useEffect(() => {
-    if (!canEdit) setLocalText(note.text)
+    if (!canEdit) {
+      lastSentRef.current = note.text
+      setLocalText(note.text)
+      return
+    }
+    if (note.text !== lastSentRef.current) {
+      lastSentRef.current = note.text
+      setLocalText(note.text)
+    }
   }, [canEdit, note.text])
 
   const commitNow = () => {
@@ -146,6 +160,7 @@ function StickyCard({
       clearTimeout(debounceRef.current)
       debounceRef.current = null
     }
+    lastSentRef.current = localText
     onUpdateText(note.id, localText)
     onCommitEdit()
   }
@@ -154,6 +169,7 @@ function StickyCard({
     setLocalText(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
+      lastSentRef.current = value
       onUpdateText(note.id, value)
     }, 300)
   }

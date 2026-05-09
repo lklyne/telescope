@@ -1,6 +1,6 @@
 import { Annotation, Compartment, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
@@ -83,8 +83,11 @@ export function createMarkdownExtensions(isDark: boolean): {
   const themeCompartment = new Compartment()
   return {
     extensions: [
-      history(),
-      keymap.of([...defaultKeymap, ...historyKeymap]),
+      // No `history()` extension: undo/redo is owned by the Yjs UndoManager
+      // in main, not by per-editor CodeMirror history. Cmd+Z falls through
+      // to the canvas keyboard handler so text and canvas edits share one
+      // unified undo stack.
+      keymap.of(defaultKeymap),
       markdown(),
       syntaxHighlighting(markdownHighlightStyle),
       EditorView.lineWrapping,

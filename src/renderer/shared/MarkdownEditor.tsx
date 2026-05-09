@@ -142,11 +142,15 @@ export function MarkdownEditor({
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
-    if (view.hasFocus) return
     const current = view.state.doc.toString()
     if (current === value) return
+    // Apply external updates even while focused so Yjs-driven changes
+    // (e.g. cross-stack undo) reflect mid-edit. Cursor resets to end —
+    // acceptable for undo, same coarse behavior the textarea predecessor had.
+    const insertEnd = value.length
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: value },
+      selection: { anchor: insertEnd },
       annotations: externalUpdate.of(true),
     })
   }, [value])

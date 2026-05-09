@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron'
 import {
   deepElementFromPoint,
+  elementClasses,
   inspectionPayload,
 } from './dom-element-utils'
 import { isPageOverlayTarget } from './gesture-forwarding'
@@ -189,7 +190,7 @@ function shortFontFamily(fontFamily: string): string {
   return first.replace(/^['"]|['"]$/g, '')
 }
 
-function buildLabelContent(label: HTMLDivElement, element: Element, payload: ReturnType<typeof inspectionPayload>): void {
+function buildLabelContent(label: HTMLDivElement, element: Element): void {
   const styles = window.getComputedStyle(element)
   label.replaceChildren()
 
@@ -202,10 +203,14 @@ function buildLabelContent(label: HTMLDivElement, element: Element, payload: Ret
     minWidth: '0',
   })
 
-  const labelText = payload.name.trim()
-  const labelMatch = /^([a-zA-Z][\w:-]*)(.*)$/.exec(labelText)
-  const elementType = labelMatch?.[1] ?? labelText
-  const remainder = labelMatch?.[2] ?? ''
+  const elementType = element.tagName.toLowerCase()
+  const idAttr = element.getAttribute('id')
+  const classes = elementClasses(element)
+  const selectorRemainder = idAttr
+    ? `#${idAttr}`
+    : classes.length
+      ? `.${classes.slice(0, 2).join('.')}`
+      : ''
 
   const chip = document.createElement('span')
   Object.assign(chip.style, {
@@ -219,7 +224,7 @@ function buildLabelContent(label: HTMLDivElement, element: Element, payload: Ret
   chip.textContent = elementType
   headerRow.appendChild(chip)
 
-  if (remainder.trim()) {
+  if (selectorRemainder) {
     const name = document.createElement('span')
     Object.assign(name.style, {
       whiteSpace: 'nowrap',
@@ -228,12 +233,12 @@ function buildLabelContent(label: HTMLDivElement, element: Element, payload: Ret
       minWidth: '0',
       opacity: '0.9',
     })
-    name.textContent = remainder.trim()
+    name.textContent = selectorRemainder
     headerRow.appendChild(name)
   }
+
   label.appendChild(headerRow)
 
-  // Row 2: font family rendered in the actual font, plus size/weight
   const fontFamily = shortFontFamily(styles.fontFamily)
   if (fontFamily) {
     const fontRow = document.createElement('div')
@@ -241,7 +246,8 @@ function buildLabelContent(label: HTMLDivElement, element: Element, payload: Ret
       display: 'flex',
       alignItems: 'baseline',
       gap: '6px',
-      marginTop: '4px',
+      marginTop: '6px',
+      whiteSpace: 'nowrap',
       minWidth: '0',
     })
 
@@ -249,10 +255,8 @@ function buildLabelContent(label: HTMLDivElement, element: Element, payload: Ret
     Object.assign(familyName.style, {
       fontFamily: styles.fontFamily,
       fontWeight: styles.fontWeight,
-      fontSize: '14px',
-      lineHeight: '1.1',
+      fontStyle: styles.fontStyle,
       color: '#fff',
-      whiteSpace: 'nowrap',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       minWidth: '0',
@@ -260,14 +264,18 @@ function buildLabelContent(label: HTMLDivElement, element: Element, payload: Ret
     familyName.textContent = fontFamily
     fontRow.appendChild(familyName)
 
-    const fontMeta = document.createElement('span')
-    Object.assign(fontMeta.style, {
-      whiteSpace: 'nowrap',
+    const metaParts = [styles.fontSize, styles.fontWeight]
+    if (styles.letterSpacing && styles.letterSpacing !== 'normal') {
+      metaParts.push(styles.letterSpacing)
+    }
+    const metaRest = document.createElement('span')
+    Object.assign(metaRest.style, {
       opacity: '0.7',
       flexShrink: '0',
     })
-    fontMeta.textContent = `${styles.fontSize} · ${styles.fontWeight}`
-    fontRow.appendChild(fontMeta)
+    metaRest.textContent = `· ${metaParts.join(' · ')}`
+    fontRow.appendChild(metaRest)
+
     label.appendChild(fontRow)
   }
 
@@ -277,7 +285,7 @@ function buildLabelContent(label: HTMLDivElement, element: Element, payload: Ret
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-    marginTop: '4px',
+    marginTop: '6px',
   })
 
   const addSwatch = (name: string, color: string) => {
@@ -361,7 +369,7 @@ export function updateDomInspectionOverlay(
   updateBoxModelOverlay(element, rect)
 
   domInspectionLabelEl.style.display = 'block'
-  buildLabelContent(domInspectionLabelEl, element, payload)
+  buildLabelContent(domInspectionLabelEl, element)
   const outerPadding = 2
   const labelRect = domInspectionLabelEl.getBoundingClientRect()
   const maxLeft = Math.max(outerPadding, window.innerWidth - Math.ceil(labelRect.width) - outerPadding)

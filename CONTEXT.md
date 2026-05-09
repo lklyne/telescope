@@ -87,16 +87,15 @@ type Tool =
   | { kind: 'add-text', style: 'plain' | 'sticky' }                          // one-shot
   | { kind: 'add-document' }                                                 // one-shot
   | { kind: 'add-shape', shapeKind: 'rectangle' | 'ellipse' | 'diamond' }    // one-shot
-  | { kind: 'comment' }                                                      // persistent
+  | { kind: 'comment' }                                                      // persistent — click for point/element comment, drag for region comment
   | { kind: 'draw' }                                                         // persistent — creates drawing entities
-  | { kind: 'region-select' }                                                // persistent
   | { kind: 'inspect' }                                                      // persistent
 ```
 
 - **One-shot tools** auto-revert to `select` after one placement.
 - **Persistent tools** stay active until toggled off, replaced, or Escape.
 - The toolbar does **not** visually distinguish one-shot from persistent — users learn the duration by use.
-- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `region-select` → "selecting region", `inspect` → "inspecting".
+- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `inspect` → "inspecting".
 
 Replaces three previously-parallel state machines: `pendingPlacement`, `AnnotationMode`, and the `inspect` boolean. The legacy term "annotation mode" no longer names a state — annotations themselves remain, but the *mode of being in the comment tool* is just a tool.
 

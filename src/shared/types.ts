@@ -1939,11 +1939,14 @@ export interface AnnotationDrawingPoint {
   y: number
 }
 
+export type DrawingBrushType = 'pen' | 'highlight'
+
 export interface AnnotationDrawingStroke {
   id: string
   color: string
   width: number
   points: AnnotationDrawingPoint[]
+  brushType?: DrawingBrushType
 }
 
 export interface AnnotationDrawing {

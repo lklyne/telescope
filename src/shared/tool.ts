@@ -10,7 +10,7 @@ export type Tool =
   | { kind: 'add-document' }
   | { kind: 'add-shape'; shapeKind: ToolShapeKind }
   | { kind: 'comment' }
-  | { kind: 'draw' }
+  | { kind: 'draw'; brush?: 'pen' | 'highlight' }
   | { kind: 'region-select' }
   | { kind: 'inspect' }
 

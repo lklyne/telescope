@@ -9,6 +9,7 @@ import {
   Circle,
   Diamond,
   Frame,
+  Highlighter,
   LayoutTemplate,
   MessageCircle,
   Moon,
@@ -303,7 +304,17 @@ export function CenterActions({
   const onToggleAnnotateMode = () =>
     onSetTool(activeTool.kind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
   const onToggleDrawMode = () =>
-    onSetTool(activeTool.kind === 'draw' ? { kind: 'select' } : { kind: 'draw' })
+    onSetTool(
+      activeTool.kind === 'draw' && activeTool.brush !== 'highlight'
+        ? { kind: 'select' }
+        : { kind: 'draw', brush: 'pen' },
+    )
+  const onToggleHighlightMode = () =>
+    onSetTool(
+      activeTool.kind === 'draw' && activeTool.brush === 'highlight'
+        ? { kind: 'select' }
+        : { kind: 'draw', brush: 'highlight' },
+    )
   const onToggleRegionSelectMode = () =>
     onSetTool(activeTool.kind === 'region-select' ? { kind: 'select' } : { kind: 'region-select' })
   const onToggleInspectMode = () =>
@@ -370,15 +381,26 @@ export function CenterActions({
           </button>
 
           {drawingEnabled ? (
-            <button
-              onClick={onToggleDrawMode}
-              className={`${activeTool.kind === 'draw' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
-              title="Draw Feedback"
-              disabled={!annotateAvailable}
-              type="button"
-            >
-              <PencilLine size={14} />
-            </button>
+            <>
+              <button
+                onClick={onToggleDrawMode}
+                className={`${activeTool.kind === 'draw' && activeTool.brush !== 'highlight' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+                title="Draw"
+                disabled={!annotateAvailable}
+                type="button"
+              >
+                <PencilLine size={14} />
+              </button>
+              <button
+                onClick={onToggleHighlightMode}
+                className={`${activeTool.kind === 'draw' && activeTool.brush === 'highlight' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+                title="Highlight"
+                disabled={!annotateAvailable}
+                type="button"
+              >
+                <Highlighter size={14} />
+              </button>
+            </>
           ) : null}
 
           <button

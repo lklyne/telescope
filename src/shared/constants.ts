@@ -1,7 +1,7 @@
 import type { PageConfig } from './types'
 
 // Device dimensions are defined in device-catalog.ts (single source of truth).
-export { VIEWPORT_PRESETS, LAPTOP_PRESET_INDEX } from './device-catalog'
+export { VIEWPORT_PRESETS, LAPTOP_PRESET_INDEX, DESKTOP_PRESET_INDEX } from './device-catalog'
 
 export const TOOLBAR_HEIGHT = 44
 export const GRID_SIZE = 20

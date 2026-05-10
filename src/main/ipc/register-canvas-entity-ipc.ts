@@ -1,5 +1,6 @@
 import { clipboard, ipcMain, Menu, shell } from 'electron'
-import { VIEWPORT_PRESETS } from '../../shared/constants'
+import { DESKTOP_PRESET_INDEX, VIEWPORT_PRESETS } from '../../shared/constants'
+import { looksLikeUrl, normalizeUserUrl } from '../../shared/url'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type {
   AnnotationCreateRequest,
@@ -478,12 +479,32 @@ export function registerCanvasEntityIpc(): void {
         return
       }
 
-      const payload = parseClipboardSelection(clipboard.readText())
-      if (!payload) return
-      if (payload.version === 2) {
-        pasteEntitiesFromClipboard({ payload, canvasX, canvasY })
-      } else {
-        pastePagesFromClipboard({ payload, canvasX, canvasY })
+      const text = clipboard.readText()
+      const payload = parseClipboardSelection(text)
+      if (payload) {
+        if (payload.version === 2) {
+          pasteEntitiesFromClipboard({ payload, canvasX, canvasY })
+        } else {
+          pastePagesFromClipboard({ payload, canvasX, canvasY })
+        }
+        return
+      }
+
+      const trimmed = text.trim()
+      if (trimmed && !trimmed.includes('\n') && looksLikeUrl(trimmed)) {
+        try {
+          const url = normalizeUserUrl(trimmed)
+          createPageAtPosition({
+            presetIndex: DESKTOP_PRESET_INDEX,
+            canvasX,
+            canvasY,
+            mode: 'paste_url',
+            focus: true,
+            url,
+          })
+        } catch {
+          // Not a valid URL after normalisation — ignore the paste.
+        }
       }
     },
   )

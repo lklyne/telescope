@@ -37,6 +37,7 @@ import { RegionSelectAnnotations } from './AnnotationsLayer'
 import {
   AnnotationThreadPopover,
   PendingAnnotationComposer,
+  PendingElementOutline,
 } from './CommentsLayer'
 import { MarqueeLayer } from './MarqueeLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
@@ -44,7 +45,7 @@ import { useAnnotationDraftState } from './useAnnotationDraftState'
 import { useAnnotationThreadState, annotationThreadPosition } from './useAnnotationThreadState'
 import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
 import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
-import { pendingElementComposerPosition } from './annotationMath'
+import { canvasRectToScreenRect, pendingElementComposerPosition } from './annotationMath'
 import {
   FULL_ROUTER_CONSUME,
   useCanvasPointerRouter,
@@ -321,16 +322,31 @@ export default function App({
   // ADR 0006 page-paints contract: while the comment tool is active,
   // broadcast pointer-state to main so each page can paint a hover preview
   // (single element under the pointer; outlines for elements intersecting
-  // the marquee while a region drag is in flight). Suppress while a pending
-  // composer is open — the user is reading/typing, not previewing.
+  // the marquee while a region drag is in flight). We keep the broadcast
+  // active during the pending region composer too so the contained-element
+  // outlines stay visible while the user types — only suppress for the
+  // single-target (element/canvas-point) composer where there's nothing to
+  // preview.
   const commentPreviewActive =
-    layoutData.activeTool.kind === 'comment' &&
-    !pendingAnnotation &&
-    !pendingRegionRect
+    layoutData.activeTool.kind === 'comment' && !pendingAnnotation
+  // Translate the pending region (in canvas coords) into window coords so
+  // the hook can hold it across the composer. The hook prefers the
+  // in-flight drag rect when both are set.
+  const heldRegionRect = useMemo(() => {
+    if (!pendingRegionRect) return null
+    const screen = canvasRectToScreenRect(layoutData, pendingRegionRect)
+    return {
+      x: screen.left,
+      y: screen.top,
+      width: screen.width,
+      height: screen.height,
+    }
+  }, [layoutData, pendingRegionRect])
   const commentPreview = useCommentToolPointerBroadcast({
     api,
     layoutRef,
     active: commentPreviewActive,
+    heldRegionRect,
   })
 
   const onDragMove = useCallback(
@@ -846,6 +862,12 @@ export default function App({
           />
 
           {drawingSession ? <DrawingLayer drawing={{ version: 1, ...drawingSession }} layout={layoutData} active /> : null}
+
+          <PendingElementOutline
+            pending={pendingAnnotation}
+            layoutData={layoutData}
+            liveBboxes={liveBboxes}
+          />
 
           <PendingAnnotationComposer
             clearDraft={clearDraft}

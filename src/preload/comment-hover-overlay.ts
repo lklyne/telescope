@@ -6,25 +6,29 @@
  * in the page's own DOM so they align pixel-perfectly with content and cost
  * zero IPC per frame:
  *
- *   - `regionRect` set → outline for every salient element whose viewport
- *     bbox intersects the rect (multi-page marquee falls out automatically;
- *     each page paints its own contained elements).
- *   - `regionRect` null + `pointer` set → outline for the single deepest
- *     element under the pointer.
+ *   - `regionRect` set → outline for every visible element whose bbox
+ *     intersects the rect (multi-page marquee falls out automatically; each
+ *     page paints its own contained elements).
+ *   - `regionRect` null + `pointer` set → the inspect-tool overlay (blue
+ *     highlight + box-model strips + label) for the deepest element under
+ *     the pointer. Routed through `updateDomInspectionOverlay` so the
+ *     comment tool's hover affordance stays visually identical to inspect.
  *   - `active === false` → clear all overlays.
- *
- * Outlines render in a top-level overlay layer with `pointer-events: none`
- * so they never interfere with the comment tool's gate-closed input
- * routing.
  */
 
-import { deepElementFromPoint, isInteractiveForSnapshot, isVisibleForSnapshot } from './dom-element-utils'
+import {
+  ensureDomInspectionOverlay,
+  hideDomInspectionOverlay,
+  updateDomInspectionOverlay,
+} from './dom-inspection'
+import { inspectionPayload, isVisibleForSnapshot } from './dom-element-utils'
+import { isPageOverlayTarget } from './gesture-forwarding'
 import type { CommentToolPagePreviewState } from '../shared/types'
 
 const OVERLAY_LAYER_ID = '__canvas-comment-preview-layer'
 const OUTLINE_CLASS = '__canvas-comment-preview-outline'
 
-const REGION_ELEMENT_LIMIT = 60
+const REGION_ELEMENT_LIMIT = 200
 
 let overlayLayerEl: HTMLDivElement | null = null
 let lastState: CommentToolPagePreviewState = {
@@ -42,14 +46,17 @@ function ensureOverlayLayer(): HTMLDivElement {
     position: 'fixed',
     inset: '0',
     pointerEvents: 'none',
-    zIndex: '2147483645',
+    // Above the page-content `__canvas-blocking-overlay` (z-index
+    // 2147483646) so our marquee item outlines aren't painted underneath it
+    // while the comment tool keeps the page non-interactive.
+    zIndex: '2147483647',
   })
   document.documentElement.appendChild(layer)
   overlayLayerEl = layer
   return layer
 }
 
-function clearOverlay(): void {
+function clearMarqueeLayer(): void {
   if (!overlayLayerEl) return
   overlayLayerEl.replaceChildren()
 }
@@ -63,28 +70,64 @@ function buildOutline(rect: DOMRect | { left: number; top: number; width: number
     top: `${Math.round(rect.top)}px`,
     width: `${Math.max(1, Math.round(rect.width))}px`,
     height: `${Math.max(1, Math.round(rect.height))}px`,
-    border: '1px dashed rgba(244, 63, 94, 0.95)',
-    background: 'rgba(244, 63, 94, 0.08)',
-    boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.18) inset',
+    // Match the inspect-tool hover highlight (see updateDomInspectionOverlay)
+    // so every item in the marquee reads like a hovered item.
+    border: '1px dashed rgba(59, 130, 246, 0.95)',
+    background: 'rgba(59, 130, 246, 0.14)',
+    boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.22) inset',
     pointerEvents: 'none',
     boxSizing: 'border-box',
   })
   return outline
 }
 
+function isCommentPreviewOverlay(el: Element): boolean {
+  if (el.id === OVERLAY_LAYER_ID) return true
+  if ((el as HTMLElement).classList?.contains(OUTLINE_CLASS)) return true
+  // Inspect tool overlay (we render through it, so its own elements should
+  // never be considered hit targets either).
+  if (typeof el.id === 'string' && el.id.startsWith('__canvas-dom-inspection-')) return true
+  return false
+}
+
+/**
+ * Pick the deepest *content* element under (x, y), drilling past Specular's
+ * own page-injected overlays (the blocking overlay that suppresses native
+ * input while the page is non-interactive, comment badges, the inspect
+ * overlay we paint, etc.). Without this we'd always hit
+ * `#__canvas-blocking-overlay` because the comment tool keeps the page
+ * non-interactive (gate-closed).
+ */
+function pickHoverTarget(x: number, y: number): Element | null {
+  const stack = document.elementsFromPoint(x, y)
+  for (const el of stack) {
+    if (isPageOverlayTarget(el)) continue
+    if (isCommentPreviewOverlay(el)) continue
+    // Drill into shadow roots from the topmost non-overlay match.
+    let current: Element = el
+    while (current.shadowRoot) {
+      const nested = current.shadowRoot.elementFromPoint(x, y)
+      if (!nested || nested === current) break
+      current = nested
+    }
+    return current
+  }
+  return null
+}
+
 function paintPointerElement(x: number, y: number): void {
-  const layer = ensureOverlayLayer()
-  layer.replaceChildren()
-  const target = deepElementFromPoint(x, y)
-  if (!target) return
-  // Don't outline the overlay itself (or any of our painted children).
-  if (target.id === OVERLAY_LAYER_ID || target.closest(`.${OUTLINE_CLASS}`)) return
-  const rect = target.getBoundingClientRect()
-  if (rect.width <= 0 || rect.height <= 0) return
-  layer.appendChild(buildOutline(rect))
+  clearMarqueeLayer()
+  const target = pickHoverTarget(x, y)
+  if (!target) {
+    hideDomInspectionOverlay()
+    return
+  }
+  ensureDomInspectionOverlay()
+  updateDomInspectionOverlay(target, inspectionPayload(target))
 }
 
 function paintRegionIntersection(region: { x: number; y: number; width: number; height: number }): void {
+  hideDomInspectionOverlay()
   const layer = ensureOverlayLayer()
   layer.replaceChildren()
   const right = region.x + region.width
@@ -94,17 +137,22 @@ function paintRegionIntersection(region: { x: number; y: number; width: number; 
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
     acceptNode(node) {
       const el = node as Element
-      if (el.id === OVERLAY_LAYER_ID) return NodeFilter.FILTER_REJECT
-      if ((el as HTMLElement).classList?.contains(OUTLINE_CLASS)) return NodeFilter.FILTER_REJECT
-      if (!isVisibleForSnapshot(el)) return NodeFilter.FILTER_REJECT
+      // Skip Specular's own page-injected UI: the blocking overlay (full
+      // viewport, would dominate the marquee), comment badges, the inspect
+      // overlay we paint, and our own preview layer/outlines.
+      if (isPageOverlayTarget(el)) return NodeFilter.FILTER_REJECT
+      if (isCommentPreviewOverlay(el)) return NodeFilter.FILTER_REJECT
+      // FILTER_SKIP (not REJECT) for invisibility: a `display: contents`
+      // wrapper has a 0×0 bbox while its children render normally, so we
+      // need to keep walking into the subtree. REJECT here would prune the
+      // entire subtree the moment we hit such a wrapper — which is what
+      // happened to the page body of modern React/Astro sites.
+      if (!isVisibleForSnapshot(el)) return NodeFilter.FILTER_SKIP
       const box = el.getBoundingClientRect()
       if (box.right < region.x || box.left > right || box.bottom < region.y || box.top > bottom) {
         return NodeFilter.FILTER_SKIP
       }
-      // Match `query-elements-in-rect`'s "interactive" filter. This keeps the
-      // preview from drowning the page in outlines for layout containers.
-      if (isInteractiveForSnapshot(el)) return NodeFilter.FILTER_ACCEPT
-      return NodeFilter.FILTER_SKIP
+      return NodeFilter.FILTER_ACCEPT
     },
   })
 
@@ -122,7 +170,8 @@ function paintRegionIntersection(region: { x: number; y: number; width: number; 
 
 function refresh(state: CommentToolPagePreviewState): void {
   if (!state.active) {
-    clearOverlay()
+    clearMarqueeLayer()
+    hideDomInspectionOverlay()
     return
   }
   if (state.regionRect) {
@@ -133,7 +182,8 @@ function refresh(state: CommentToolPagePreviewState): void {
     paintPointerElement(state.pointer.x, state.pointer.y)
     return
   }
-  clearOverlay()
+  clearMarqueeLayer()
+  hideDomInspectionOverlay()
 }
 
 /**
@@ -166,5 +216,6 @@ export function clearCommentHoverOverlay(): void {
     pendingRefresh = 0
   }
   lastState = { active: false, pointer: null, regionRect: null }
-  clearOverlay()
+  clearMarqueeLayer()
+  hideDomInspectionOverlay()
 }

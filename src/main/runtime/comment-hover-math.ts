@@ -16,8 +16,16 @@ export interface Rect {
  * Intersect a window-coord rect with a page's window-coord screen rect and
  * return the result in page-local coords (origin at the page's top-left).
  * Returns `null` when the rects don't overlap or the page has no area.
+ *
+ * `cssScale` scales the local result. Use `1 / displayZoom` when the caller
+ * needs CSS pixels (which is what `elementFromPoint` operates on); the
+ * default `1` returns host pixels.
  */
-export function intersectRegionWithPage(region: Rect, pageBounds: Rect): Rect | null {
+export function intersectRegionWithPage(
+  region: Rect,
+  pageBounds: Rect,
+  cssScale = 1,
+): Rect | null {
   if (pageBounds.width <= 0 || pageBounds.height <= 0) return null
   const left = Math.max(region.x, pageBounds.x)
   const top = Math.max(region.y, pageBounds.y)
@@ -25,21 +33,24 @@ export function intersectRegionWithPage(region: Rect, pageBounds: Rect): Rect | 
   const bottom = Math.min(region.y + region.height, pageBounds.y + pageBounds.height)
   if (right <= left || bottom <= top) return null
   return {
-    x: Math.round(left - pageBounds.x),
-    y: Math.round(top - pageBounds.y),
-    width: Math.round(right - left),
-    height: Math.round(bottom - top),
+    x: Math.round((left - pageBounds.x) * cssScale),
+    y: Math.round((top - pageBounds.y) * cssScale),
+    width: Math.round((right - left) * cssScale),
+    height: Math.round((bottom - top) * cssScale),
   }
 }
 
 /**
  * Map a window-coord pointer onto a page's local coordinate space, or
  * `null` when the pointer falls outside the page's screen rect.
+ *
+ * `cssScale` — see `intersectRegionWithPage`. Defaults to `1` (host pixels).
  */
 export function pointerInPage(
   windowX: number,
   windowY: number,
   pageBounds: Rect,
+  cssScale = 1,
 ): { x: number; y: number } | null {
   if (pageBounds.width <= 0 || pageBounds.height <= 0) return null
   if (
@@ -51,7 +62,7 @@ export function pointerInPage(
     return null
   }
   return {
-    x: Math.round(windowX - pageBounds.x),
-    y: Math.round(windowY - pageBounds.y),
+    x: Math.round((windowX - pageBounds.x) * cssScale),
+    y: Math.round((windowY - pageBounds.y) * cssScale),
   }
 }

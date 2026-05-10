@@ -225,6 +225,45 @@ const PENDING_COMPOSER_MARGIN = 8
 const PENDING_COMPOSER_MIN_HEIGHT = 52
 
 /**
+ * Translate a pending element annotation's bbox into an overlay-coord rect.
+ * Prefers the live bbox the page reports on scroll (ADR 0006); falls back to
+ * the click-time `anchor.boundingBox`. Returns null when neither is
+ * available or the page isn't on the canvas anymore.
+ */
+export function pendingElementScreenRect(
+  pending: PendingAnnotation,
+  layout: LayoutUpdateData,
+  liveBboxes?: AnnotationLiveBboxLookup,
+): { left: number; top: number; width: number; height: number } | null {
+  const anchor = pending.request.anchor
+  if (anchor.type !== 'element') return null
+  const bbox = liveBboxes?.get(pending.draftId) ?? anchor.boundingBox
+  if (!bbox) return null
+  const page = layout.entities.find((candidate) => candidate.id === anchor.pageId)
+  if (!page) return null
+  const contentScreenX =
+    'contentScreenX' in page && page.contentScreenX != null ? page.contentScreenX : page.screenX
+  const contentScreenY =
+    'contentScreenY' in page && page.contentScreenY != null ? page.contentScreenY : page.screenY
+  const contentScreenWidth =
+    'contentScreenWidth' in page && page.contentScreenWidth != null
+      ? page.contentScreenWidth
+      : page.screenWidth
+  const contentScreenHeight =
+    'contentScreenHeight' in page && page.contentScreenHeight != null
+      ? page.contentScreenHeight
+      : page.screenHeight
+  const scaleX = contentScreenWidth / page.width
+  const scaleY = contentScreenHeight / page.height
+  return {
+    left: contentScreenX + bbox.x * scaleX,
+    top: toOverlayY(layout, contentScreenY + bbox.y * scaleY),
+    width: bbox.width * scaleX,
+    height: bbox.height * scaleY,
+  }
+}
+
+/**
  * Render-time positioner for an element-anchored pending composer. The
  * stored `composerX/Y/Width` on `PendingAnnotation` is the click-time
  * fallback; we prefer the live bbox the page reports on scroll so the
@@ -245,32 +284,17 @@ export function pendingElementComposerPosition(
   const liveBbox = liveBboxes?.get(pending.draftId)
   if (!liveBbox) return fallback
 
+  const elementRect = pendingElementScreenRect(pending, layout, liveBboxes)
+  if (!elementRect) return fallback
   const page = layout.entities.find((candidate) => candidate.id === anchor.pageId)
   if (!page) return fallback
-  const contentScreenX =
-    'contentScreenX' in page && page.contentScreenX != null ? page.contentScreenX : page.screenX
-  const contentScreenY =
-    'contentScreenY' in page && page.contentScreenY != null ? page.contentScreenY : page.screenY
-  const contentScreenWidth =
-    'contentScreenWidth' in page && page.contentScreenWidth != null
-      ? page.contentScreenWidth
-      : page.screenWidth
-  const contentScreenHeight =
-    'contentScreenHeight' in page && page.contentScreenHeight != null
-      ? page.contentScreenHeight
-      : page.screenHeight
-  const scaleX = contentScreenWidth / page.width
-  const scaleY = contentScreenHeight / page.height
-  const elementLeft = contentScreenX + liveBbox.x * scaleX
-  const elementTop = toOverlayY(layout, contentScreenY + liveBbox.y * scaleY)
-  const elementHeight = liveBbox.height * scaleY
   const pageBottomOverlay = toOverlayY(layout, page.screenY + page.screenHeight)
   const pageTopOverlay = toOverlayY(layout, page.screenY)
-  const elementBottom = Math.max(elementTop + elementHeight, pageBottomOverlay)
-  const elementTopAnchor = Math.min(elementTop, pageTopOverlay)
+  const elementBottom = Math.max(elementRect.top + elementRect.height, pageBottomOverlay)
+  const elementTopAnchor = Math.min(elementRect.top, pageTopOverlay)
   const composerWidth = pending.composerWidth
   const composerX = Math.min(
-    Math.max(elementLeft, PENDING_VIEWPORT_PADDING),
+    Math.max(elementRect.left, PENDING_VIEWPORT_PADDING),
     window.innerWidth - composerWidth - PENDING_VIEWPORT_PADDING,
   )
   const canRenderBelow =

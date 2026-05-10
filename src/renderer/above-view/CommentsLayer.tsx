@@ -1,5 +1,10 @@
 import type { Annotation, FixProgressEntry, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
-import { canvasRectToScreenRect, type PendingAnnotation } from './annotationMath'
+import {
+  canvasRectToScreenRect,
+  pendingElementScreenRect,
+  type AnnotationLiveBboxLookup,
+  type PendingAnnotation,
+} from './annotationMath'
 import { CircleCheckIcon, MoreVerticalIcon, TrashIcon } from '../shared/PanelIcons'
 import { CommentBubble, CommentInput } from '../shared/CommentPrimitives'
 import { FixEventList, fixStatusLabel } from '../shared/FixEventList'
@@ -74,7 +79,7 @@ export function PendingAnnotationComposer({
     return (
       <>
         <div
-          className="pointer-events-none absolute rounded border-2 border-dashed border-rose-400/80 bg-rose-400/10"
+          className="pointer-events-none absolute rounded border-2 border-dashed border-blue-500/90 bg-blue-500/10"
           style={{ left: screen.left, top: overlayTop, width: screen.width, height: screen.height }}
         />
         <ComposerBox
@@ -139,6 +144,44 @@ function ComposerBox({
         />
       </div>
     </div>
+  )
+}
+
+/**
+ * Outline drawn around the element targeted by a pending element-anchored
+ * comment. Single-click element selection through the comment tool sets a
+ * `pendingAnnotation`, which suppresses the page-paints hover preview — so
+ * without this outline the user has no visual confirmation of what they
+ * just selected. The region case keeps its outlines because each page
+ * paints them from the held marquee rect.
+ */
+export function PendingElementOutline({
+  pending,
+  layoutData,
+  liveBboxes,
+}: {
+  pending: PendingAnnotation | null
+  layoutData: LayoutUpdateData
+  liveBboxes: AnnotationLiveBboxLookup
+}) {
+  if (!pending) return null
+  const rect = pendingElementScreenRect(pending, layoutData, liveBboxes)
+  if (!rect) return null
+  return (
+    <div
+      className="pointer-events-none absolute"
+      style={{
+        left: rect.left,
+        top: rect.top,
+        width: Math.max(1, rect.width),
+        height: Math.max(1, rect.height),
+        border: '1px dashed rgba(59, 130, 246, 0.95)',
+        background: 'rgba(59, 130, 246, 0.14)',
+        boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.22) inset',
+        boxSizing: 'border-box',
+        zIndex: 40,
+      }}
+    />
   )
 }
 

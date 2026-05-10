@@ -23,7 +23,7 @@ import type { AnnotationBboxSubscription, AnnotationLiveBboxUpdate } from '../..
 import { aboveView } from '../runtime/view-refs'
 import { pages } from '../runtime/page-runtime'
 import { findPageByPageView } from '../runtime/runtime-context'
-import { boundScreenBoundsForPage } from '../runtime/runtime-geometry'
+import { boundEffectivePageContentSize, boundScreenBoundsForPage } from '../runtime/runtime-geometry'
 import { intersectRegionWithPage, pointerInPage } from '../runtime/comment-hover-math'
 import { safeSend } from '../runtime/safe-send'
 
@@ -72,9 +72,16 @@ function broadcastPointerState(state: PointerStateInput): void {
       })
       continue
     }
-    const pointer = pointerInPage(state.windowX, state.windowY, screen)
+    // Page is rendered at `displayZoom` (canvas zoom, or 1 in fill-browser
+    // mode). The page's CSS coordinate space — what `elementFromPoint`
+    // operates on — is the host rect divided by displayZoom. Derive the
+    // ratio from the rendered rect so we don't need to know which mode
+    // we're in.
+    const cssWidth = boundEffectivePageContentSize(page).width
+    const cssScale = cssWidth > 0 ? cssWidth / screen.width : 1
+    const pointer = pointerInPage(state.windowX, state.windowY, screen, cssScale)
     const regionRect = state.regionRect
-      ? intersectRegionWithPage(state.regionRect, screen)
+      ? intersectRegionWithPage(state.regionRect, screen, cssScale)
       : null
     safeSend(page.pageView.webContents, 'comment-tool-page-preview', {
       active: true,

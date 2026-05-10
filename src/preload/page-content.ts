@@ -1,5 +1,10 @@
 import { ipcRenderer } from 'electron'
-import type { Annotation, ScrollSyncData } from '../shared/types'
+import type {
+  Annotation,
+  AnnotationBboxSubscription,
+  CommentToolPagePreviewState,
+  ScrollSyncData,
+} from '../shared/types'
 import { PRESENCE_SCROLL_ANIMATION_MS } from '../shared/presence-timing'
 
 // The page-content preload still consumes the legacy `set-annotate-mode`
@@ -21,6 +26,15 @@ import {
   renderCommentBadges,
   setPageAnnotations,
 } from './comment-badges'
+import {
+  applyCommentHoverOverlay,
+  clearCommentHoverOverlay,
+  queueRefreshCommentHoverOverlay,
+} from './comment-hover-overlay'
+import {
+  queueRecomputeAnnotationBboxes,
+  setAnnotationBboxSubscriptions,
+} from './annotation-bbox-tracker'
 import {
   buildElementPath,
   buildStructuredDomSnapshot,
@@ -324,6 +338,33 @@ ipcRenderer.on('annotate-clear-hover', () => {
   hideDomInspectionOverlay()
 })
 
+// ADR 0006 — page-paints contract for the unified comment tool. Main fans
+// out the latest pointer state (per-page coords; region rect intersected
+// with this page's viewport) to every page on the canvas. The page paints
+// outlines directly in its own DOM so they align pixel-perfectly with
+// content and cost no IPC per frame. `active === false` clears.
+ipcRenderer.on(
+  'comment-tool-page-preview',
+  (_event, payload: CommentToolPagePreviewState | null | undefined) => {
+    if (!payload || !payload.active) {
+      clearCommentHoverOverlay()
+      return
+    }
+    applyCommentHoverOverlay(payload)
+  },
+)
+
+// ADR 0006 — live-bbox subscriptions for element-anchored annotation
+// popovers. The renderer pushes the full per-page subscription set whenever
+// it changes; the page resolves selectors against the live DOM and reports
+// bboxes back via `annotation-bbox-update`.
+ipcRenderer.on(
+  'annotation-bbox-subscriptions',
+  (_event, payload: { subscriptions?: AnnotationBboxSubscription[] } | undefined) => {
+    setAnnotationBboxSubscriptions(payload?.subscriptions ?? [])
+  },
+)
+
 ipcRenderer.on(
   'page-annotations-update',
   (_event, payload: { annotations?: Annotation[] } | undefined) => {
@@ -619,6 +660,8 @@ window.addEventListener(
     queueScrollSyncBroadcast(interactive)
     queueRenderCommentBadges()
     queueRefreshDomInspectionOverlay()
+    queueRefreshCommentHoverOverlay()
+    queueRecomputeAnnotationBboxes()
   },
   { passive: true, capture: true }
 )
@@ -626,6 +669,8 @@ window.addEventListener(
 window.addEventListener('resize', () => {
   queueRenderCommentBadges()
   queueRefreshDomInspectionOverlay()
+  queueRefreshCommentHoverOverlay()
+  queueRecomputeAnnotationBboxes()
 })
 
 window.addEventListener(

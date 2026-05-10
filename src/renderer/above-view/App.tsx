@@ -41,7 +41,10 @@ import {
 import { MarqueeLayer } from './MarqueeLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
-import { useAnnotationThreadState } from './useAnnotationThreadState'
+import { useAnnotationThreadState, annotationThreadPosition } from './useAnnotationThreadState'
+import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
+import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
+import { pendingElementComposerPosition } from './annotationMath'
 import {
   FULL_ROUTER_CONSUME,
   useCanvasPointerRouter,
@@ -194,12 +197,50 @@ export default function App({
     setOpenThreadMenu,
     setReplyText,
     submitThreadReply,
-    threadPosition,
   } = useAnnotationThreadState({
     api,
     layoutData,
     threadInputRef,
   })
+
+  // ADR 0006 — element-anchored popovers re-query their bbox via the page on
+  // every scroll/resize so they don't freeze at their creation rect. Collect
+  // the active subscriptions (open thread + pending element composer), hand
+  // them to the live-bbox hook, then pass the resulting lookup down to the
+  // popover positioners below.
+  const liveBboxSubscriptions = useMemo(() => {
+    const subs: Array<{ pageId: string; annotationId: string; selector: string }> = []
+    if (
+      pendingAnnotation &&
+      pendingAnnotation.request.anchor.type === 'element'
+    ) {
+      const anchor = pendingAnnotation.request.anchor
+      subs.push({
+        pageId: anchor.pageId,
+        annotationId: pendingAnnotation.draftId,
+        selector: anchor.selector,
+      })
+    }
+    if (openThread && openThread.anchor.type === 'element') {
+      subs.push({
+        pageId: openThread.anchor.pageId,
+        annotationId: openThread.id,
+        selector: openThread.anchor.selector,
+      })
+    }
+    return subs
+  }, [openThread, pendingAnnotation])
+
+  const liveBboxes = useLiveAnnotationBboxes({ api, subscriptions: liveBboxSubscriptions })
+
+  const threadPosition = useMemo(
+    () => annotationThreadPosition(openThread, layoutData, liveBboxes),
+    [layoutData, liveBboxes, openThread],
+  )
+  const pendingComposerPosition = useMemo(
+    () => (pendingAnnotation ? pendingElementComposerPosition(pendingAnnotation, layoutData, liveBboxes) : null),
+    [layoutData, liveBboxes, pendingAnnotation],
+  )
   const drawInteractionEnabled = layoutData.activeTool.kind === 'draw' && !openThreadId
   const selectedEdgeIds = useMemo(() => {
     const ids = new Set<string>()
@@ -277,6 +318,21 @@ export default function App({
     deleteSelection: api.deleteSelection,
   })
 
+  // ADR 0006 page-paints contract: while the comment tool is active,
+  // broadcast pointer-state to main so each page can paint a hover preview
+  // (single element under the pointer; outlines for elements intersecting
+  // the marquee while a region drag is in flight). Suppress while a pending
+  // composer is open — the user is reading/typing, not previewing.
+  const commentPreviewActive =
+    layoutData.activeTool.kind === 'comment' &&
+    !pendingAnnotation &&
+    !pendingRegionRect
+  const commentPreview = useCommentToolPointerBroadcast({
+    api,
+    layoutRef,
+    active: commentPreviewActive,
+  })
+
   const onDragMove = useCallback(
     (startX: number, startY: number, endX: number, endY: number) => {
       const layout = layoutRef.current
@@ -291,8 +347,18 @@ export default function App({
         },
         variant: 'region-select',
       })
+      // Forward the marquee rect to the per-page hover preview so each page
+      // can outline the elements its bbox intersects. Use window coords
+      // (matching the pointer broadcast); main intersects with each page's
+      // screen bounds and converts to page-local before forwarding.
+      commentPreview.setRegionRect({
+        x: rect.left,
+        y: rect.top + layout.canvasOrigin.y,
+        width: rect.width,
+        height: rect.height,
+      })
     },
-    [api, layoutRef],
+    [api, commentPreview, layoutRef],
   )
 
   const onDragEnd = useCallback(
@@ -300,6 +366,7 @@ export default function App({
       const layout = layoutRef.current
       const rect = normalizeRect(startX, startY, endX, endY)
       api.setSelectionOverlayRect(null)
+      commentPreview.setRegionRect(null)
       if (rect.width < 4 || rect.height < 4) return
       // Overlay clientY is relative to the overlay top (canvasOrigin.y),
       // but clientX is already window-relative (overlay starts at x=0).
@@ -786,6 +853,7 @@ export default function App({
             commentText={commentText}
             layoutData={layoutData}
             pendingAnnotation={pendingAnnotation}
+            pendingPosition={pendingComposerPosition}
             pendingRegionRect={pendingRegionRect}
             resizeCommentInput={resizeCommentInput}
             setCommentText={setCommentText}

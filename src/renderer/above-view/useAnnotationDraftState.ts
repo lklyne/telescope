@@ -254,6 +254,7 @@ function buildPendingAnnotation(
     boundingBox: payload.boundingBox,
   }
   return {
+    draftId: makeDraftId(),
     request: {
       anchor,
       text: '',
@@ -265,6 +266,10 @@ function buildPendingAnnotation(
     composerY,
     composerWidth,
   }
+}
+
+function makeDraftId(): string {
+  return `draft:${Math.random().toString(36).slice(2, 10)}:${Date.now().toString(36)}`
 }
 
 function buildCanvasPointPendingAnnotation(
@@ -289,6 +294,7 @@ function buildCanvasPointPendingAnnotation(
     window.innerHeight - COMPOSER_MIN_HEIGHT - VIEWPORT_PADDING,
   )
   return {
+    draftId: makeDraftId(),
     request: {
       anchor: { type: 'canvas', canvasX, canvasY },
       text: '',

@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
+  AnnotationBboxSubscription,
   AnnotationCreateRequest,
+  AnnotationLiveBboxUpdate,
   CanvasBgElectronAPI,
   EdgeSide,
   LayoutUpdateData,
@@ -227,6 +229,28 @@ const api: CanvasBgElectronAPI = {
       callback(data)
     ipcRenderer.on('comment-canvas-point-committed', handler)
     return () => ipcRenderer.removeListener('comment-canvas-point-committed', handler)
+  },
+  setCommentToolPointerState: (state) =>
+    ipcRenderer.send(
+      'comment-tool-pointer-state',
+      state
+        ? {
+            windowX: state.windowX,
+            windowY: state.windowY,
+            regionRect: state.regionRect,
+          }
+        : null,
+    ),
+  setAnnotationBboxSubscriptions: (
+    pageId: string,
+    subscriptions: AnnotationBboxSubscription[],
+  ) =>
+    ipcRenderer.send('comment-tool-bbox-subscriptions', { pageId, subscriptions }),
+  onAnnotationLiveBbox: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, update: AnnotationLiveBboxUpdate) =>
+      callback(update)
+    ipcRenderer.on('annotation-live-bbox', handler)
+    return () => ipcRenderer.removeListener('annotation-live-bbox', handler)
   },
   createRegionAnnotation: (canvasRect, text) =>
     ipcRenderer.send('canvas-create-region-annotation', { canvasRect, text }),

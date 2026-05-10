@@ -14,6 +14,10 @@ const REGION_COMPOSER_MARGIN = 12
  * point, or above-right of the region rect. Element/canvas-point drafts
  * arrive via `pendingAnnotation`; region drafts arrive via
  * `pendingRegionRect`. Only one is set at a time.
+ *
+ * `pendingPosition` is computed at render time by the caller — for element
+ * pendings it consults the live bbox the page reports on scroll so the
+ * composer follows page content (ADR 0006).
  */
 export function PendingAnnotationComposer({
   clearDraft,
@@ -21,6 +25,7 @@ export function PendingAnnotationComposer({
   commentText,
   layoutData,
   pendingAnnotation,
+  pendingPosition,
   pendingRegionRect,
   resizeCommentInput,
   setCommentText,
@@ -32,6 +37,7 @@ export function PendingAnnotationComposer({
   commentText: string
   layoutData: LayoutUpdateData
   pendingAnnotation: PendingAnnotation | null
+  pendingPosition: { left: number; top: number; width: number } | null
   pendingRegionRect: WorkspaceBounds | null
   resizeCommentInput: () => void
   setCommentText: React.Dispatch<React.SetStateAction<string>>
@@ -39,14 +45,17 @@ export function PendingAnnotationComposer({
   submitRegionAnnotation: () => void
 }) {
   if (pendingAnnotation) {
+    const left = pendingPosition?.left ?? pendingAnnotation.composerX
+    const top = pendingPosition?.top ?? pendingAnnotation.composerY
+    const width = pendingPosition?.width ?? pendingAnnotation.composerWidth
     return (
       <ComposerBox
         clearDraft={clearDraft}
         commentInputRef={commentInputRef}
         commentText={commentText}
-        left={pendingAnnotation.composerX}
-        top={pendingAnnotation.composerY}
-        width={pendingAnnotation.composerWidth}
+        left={left}
+        top={top}
+        width={width}
         resizeCommentInput={resizeCommentInput}
         setCommentText={setCommentText}
         submit={submitPendingAnnotation}

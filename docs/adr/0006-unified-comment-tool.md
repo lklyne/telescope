@@ -1,6 +1,13 @@
 # ADR 0006 — Unified comment tool (subsumes region-select)
 
-**Status:** Proposed
+**Status:** Accepted
+**Implementation:** Mostly landed (commit `241de87` on `claude/unify-annotation-comments-EB2Uo`). The Tool union, gate predicate, toolbar, CLI (`specular annotate` no longer accepts `--kind`), MCP `create_annotation` schema, both Specular SKILL.md copies, and `Annotation.kind` retirement all ship with this PR. The renderer overlay does click-vs-drag arbitration: pointerup-without-drag fires a new `canvas-comment-click-at` IPC; main resolves the page via a new `pageAtWindowPoint` helper (`src/main/runtime/window-coords.ts`) and a new page-side `query-element-at-point` IPC, then routes to either `annotate-element-selected` (existing channel, element anchor) or `comment-canvas-point-committed` (new channel, canvas-point anchor). Drag past threshold reuses the existing `commitRegionSelect` flow. `PendingCommentComposer` + `RegionSelectComposer` collapse into a single `PendingAnnotationComposer`. Region annotations always paint their resting dashed-rose rectangle (status-filtered only). The page-side `handleAnnotateClick` self-firing path is retired. Gate predicate, tool-union, and should-focus-selected-page tests are updated; 472/472 unit tests pass.
+
+**Deferred to a follow-up PR (originally scoped in §Decision but not in this commit):**
+- The page-paints contract — main broadcasting `comment-tool-pointer-state` to every page, with each page painting an outline on the element under its local cursor (or per-element outlines inside the marquee). Today the user clicks "blind"; the click still resolves to the right element via `query-element-at-point`, but there's no in-page hover preview before the click. Needs a throttled main → all-pages broadcast, a page-side outline renderer, and cleanup hooks on tool change.
+- The live-bbox round-trip for element-anchored popovers — pages reporting live bboxes for displayed selectors so popovers track page scroll. This was the long-standing scroll-sync bug the ADR scoped in as a side effect; it's still present after this PR. Element popovers continue to freeze at their creation bbox until this lands.
+- Smoke-test coverage for the new comment-tool gestures (click-on-element, click-off-page, drag-makes-region, threshold-crossing-from-page). Existing smoke tests still pass; the new gestures need page-DOM fixtures we don't have helpers for yet.
+
 **Date:** 2026-05-09
 **Amends:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). Removes `{ kind: 'region-select' }` from the `Tool` union; the comment tool now covers both element/point clicks and region drags.
 **Related:** [ADR 0001 — Click-to-enter page focus](./0001-click-to-enter-frame-focus.md) (gate predicate); [ADR 0002 — Canvas-anchored overlay UI](./0002-canvas-anchored-overlay-ui.md) (where the composer renders).
@@ -115,32 +122,34 @@ ADR 0005's `{ kind: 'inspect' }` remains. The mechanical overlap with comment ho
 
 **Out of scope (follow-up issues):**
 
+- **Page-paints contract for hover preview** (originally scoped in §Decision; deferred from the implementation PR). Main broadcasts `comment-tool-pointer-state { canvasPoint, regionRect | null }` to every visible page; each page paints an outline on the element under its local cursor (or per-element outlines inside the marquee). Without it, comment-tool clicks resolve correctly but there's no in-page hover preview before the click. Needs a throttled main → all-pages broadcast, a page-side outline renderer, and cleanup hooks on tool change.
+- **Live-bbox round-trip for element popovers / scroll-sync** (originally scoped in §Decision; deferred). Pages report live bboxes for displayed selectors on layout tick / scroll; the overlay uses them to position popovers. Until this lands, element-anchored popovers continue to freeze at their creation bbox when the page scrolls (the long-standing bug this ADR was meant to fix as a side effect).
+- **Smoke coverage for the new comment gestures** — click-on-element, click-on-empty-canvas, drag-makes-region, threshold-crossing-from-page. Needs new page-DOM fixtures in `tests/smoke/`.
 - Region anchors that track page scroll (alternative F above).
 - "Stale anchor" UI treatment when an element selector no longer resolves — minimal indicator in the popover; full design is a follow-up.
 - `specular delete <annotation_id> silently lies` — pre-existing bug noted in `resources/skills/specular/SKILL.md:210`.
 
 ## Migration
 
-The next agent picks up here. Ordered to keep the working tree compilable at every step.
+Status legend: ✅ landed in commit `241de87`; ⏳ deferred to a follow-up PR. Ordered to keep the working tree compilable at every step.
 
-1. **Tool union & glossary already updated.** `src/shared/tool.ts` removes `region-select` from the union; `CONTEXT.md` is already updated to match. Verify and adjust call sites.
-2. **Gate predicate.** `src/main/runtime/gate-predicate.ts` — comment-tool-active closes the gate (currently it stays open; region-select closes it). Update the predicate and its tests.
-3. **Preload IPC.** Add `inspectAtPoint(x, y)` to `src/preload/page-content.ts` (or a dedicated preload module). Reuse `inspectionPayload()`. Add a subscription handler for `comment-tool-pointer-state` that paints element outlines into the page DOM — single hover element when no rect, intersecting elements when a rect is present.
-4. **Live bbox broadcast.** Extend the `comment-tool-pointer-state` broadcast (or a sibling channel) to carry currently-displayed popover selectors; pages return live bbox on layout tick / scroll. Wire the result into `annotationMath.ts` so popover/composer positions use the live bbox.
-5. **Retire `handleAnnotateClick`.** Stop the page's pointerdown listener from self-firing the annotate IPC. Either remove or repurpose as a no-op when the comment tool is active.
-6. **Pointer router.** `src/renderer/above-view/useCanvasPointerRouter.ts` — when `activeTool.kind === 'comment'`, capture pointerdown in the overlay, track movement, branch on threshold:
-   - Below threshold on pointerup → call `inspectAtPoint(x, y)`; if it returns an element, draft an element anchor; if not, draft a canvas-point anchor.
-   - Above threshold → render marquee in canvas coords, draft a region anchor on pointerup.
-7. **Composers.** Collapse `PendingCommentComposer` + `RegionSelectComposer` in `src/renderer/above-view/CommentsLayer.tsx` into a single `PendingAnnotationComposer`. Placement function reads `anchor.type`. Esc / click-outside / submit behaviors are unified.
-8. **Annotation type.** `src/shared/types.ts` — remove `Annotation.kind` from the interface. Sweep the codebase for `kind === 'region_select'` / `kind === 'comment'` reads; replace with `anchor.type`-based checks.
-9. **Toolbar.** `src/renderer/toolbar/toolbarSections.tsx:384-392` — delete the Region Select button.
-10. **CLI.** `src/main/cli-commands.ts:289-306` — drop the `--kind` flag from `specular annotate`. The route ignores it; the help text drops it.
-11. **MCP schemas.** `src/main/mcp-tool-schemas.ts:321-330` — remove the `kind` enum from `create_annotation`. Update the `anchor` description string to include the `region` example: `{ type: 'region', canvasRect: { x, y, width, height } }`.
-12. **Skill files.** Update both `resources/skills/specular/SKILL.md` and `.claude/skills/specular/SKILL.md` (per `CLAUDE.md`'s skill-files note) — clarify that `specular annotate` always creates a comment, list the four anchor types (`element | canvas | page | region`), drop any reference to `region_select` as a separate concept.
-13. **Smoke tests.** Tests that called `setTool({ kind: 'region-select' })` switch to `setTool({ kind: 'comment' })` plus a drag gesture. Add coverage for click-on-element, click-on-empty-canvas, drag-makes-region, and threshold-crossing-from-page.
+1. ✅ **Tool union & glossary already updated.** `src/shared/tool.ts` removes `region-select` from the union; `CONTEXT.md` is updated to match. Call sites swept (the renderer's region-drag branch is now keyed on `comment`).
+2. ✅ **Gate predicate.** `src/main/runtime/gate-predicate.ts` — comment-tool-active now opens the gate (aboveView captures the gesture); inspect stays closed so the eyedropper receives mousemove. Tests updated to match.
+3. ⚠️ **Preload IPC.** Element resolution landed via a new `query-element-at-point` page IPC, invoked from main on pointerup-without-drag through the new `canvas-comment-click-at` channel (`src/main/runtime/window-coords.ts` resolves the page; `src/main/runtime/page-queries.ts` carries the helper). The `comment-tool-pointer-state` page-paints broadcast — element outline previews painted in the page DOM — is **deferred**.
+4. ⏳ **Live bbox broadcast.** Deferred. Element popovers still freeze at their creation bbox on page scroll (the long-standing bug this ADR was meant to fix as a side effect).
+5. ✅ **Retire `handleAnnotateClick`.** The page-side mousedown / mousemove / click / mouseleave listeners are removed; `applyAnnotateState` is a no-op kept for shape compatibility.
+6. ✅ **Pointer router.** The aboveView overlay's existing region-drag handler is now the unified comment-tool gesture: captures pointerdown when `activeTool.kind === 'comment'`, branches on a 4px threshold — below → `commitCommentClickAt(windowX, windowY)`, above → marquee → existing `commitRegionSelect` flow.
+7. ✅ **Composers.** `PendingCommentComposer` + `RegionSelectComposer` collapse into a single `PendingAnnotationComposer` in `src/renderer/above-view/CommentsLayer.tsx`. `useAnnotationDraftState` adds a canvas-point composer-placement helper and an `onCommentCanvasPointCommitted` listener.
+8. ✅ **Annotation type.** `Annotation.kind` and `AnnotationKind` removed from `src/shared/types.ts`; the lone reader in `src/main/shared/entity-ops.ts` swept to `anchor.type === 'region'`. `workspace-annotations.ts` no longer writes the field.
+9. ✅ **Toolbar.** Region Select button + `SquareDashedMousePointer` import removed from `toolbarSections.tsx`.
+10. ✅ **CLI.** `specular annotate` no longer reads or forwards `--kind`.
+11. ✅ **MCP schemas.** `create_annotation` drops the `kind` enum; `anchor` description gains the region example.
+12. ✅ **Skill files.** Both `resources/skills/specular/SKILL.md` and `.claude/skills/specular/SKILL.md` document the unified comment tool, the four anchor types, and the absence of `--kind`.
+13. ⏳ **Smoke tests.** No existing tests called `setTool({ kind: 'region-select' })`, so nothing breaks; new gesture coverage (click-on-element, click-on-empty-canvas, drag-makes-region, threshold-crossing) is **deferred** — needs page-DOM fixtures we don't have helpers for. Existing 472 unit tests pass.
 
 ## Tests
 
-- **Unit:** click-vs-drag arbitration at the threshold; `Annotation.kind` no longer set on new annotations; `anchor.type === 'canvas'` is producible from the comment tool; popover position recomputes when a `live-bbox` IPC arrives.
-- **Smoke:** activate comment tool → click empty canvas → canvas-point composer mounts at click; activate comment tool → click DOM element → element composer mounts at element bbox; activate comment tool → drag from inside a page across empty canvas → region composer mounts at marquee; activate comment tool → page input is suppressed (no `:hover` styles fire); element popover stays over its element after page scroll.
-- **Manual / agent:** existing `.canvas` files containing `kind: 'region_select'` annotations open and render the dashed rectangle correctly; `specular annotations` lists them; `specular annotate "..."` from the CLI creates a viewport-anchored comment without `--kind`.
+- **Unit (landed):** `tests/unit/tool.test.ts` and `tests/unit/should-focus-selected-page.test.ts` swept clean of `region-select`; `tests/unit/gate-predicate.test.ts` pivots to the new contract (comment-tool opens the gate, inspect closes it). `tests/unit/workspace-annotations.test.ts` no longer fixtures a `kind` field. 472/472 pass.
+- **Unit (deferred):** click-vs-drag arbitration at the threshold and popover position recomputing on a `live-bbox` IPC — both belong to the deferred page-paints / live-bbox infra.
+- **Smoke (deferred):** activate comment tool → click empty canvas → canvas-point composer mounts at click; click DOM element → element composer mounts at element bbox; drag inside a page across empty canvas → region composer mounts at marquee; element popover stays over its element after page scroll. Needs page-DOM fixtures.
+- **Manual / agent:** existing `.canvas` files containing `kind: 'region_select'` annotations open and render the dashed rectangle correctly (the field is now ignored, not written); `specular annotations` lists them; `specular annotate "..."` from the CLI creates a viewport-anchored comment without `--kind`.

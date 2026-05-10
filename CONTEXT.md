@@ -69,34 +69,52 @@ Conventions:
 
 ## Overlay UI in aboveView
 
-Per [ADR 0002](./docs/adr/0002-canvas-anchored-overlay-ui.md). All canvas-anchored UI renders in aboveView's React tree, marked `data-overlay-ui` so the pointer router yields.
+Per [ADR 0002](./docs/adr/0002-canvas-anchored-overlay-ui.md) and [ADR 0006](./docs/adr/0006-unified-canvas-item-popup.md). All canvas-anchored UI renders in aboveView's React tree, marked `data-overlay-ui` so the pointer router yields.
 
-- **`CanvasItemChrome`** — persistent overlay UI rendered while an entity exists. Examples: page URL bar / nav buttons, file chrome buttons, group rename label.
-- **`CanvasItemPopup`** — selection-state-driven overlay UI. Mounts when an entity is in a particular selection sub-state, unmounts when it leaves. Right-click context menus are out of scope.
+- **`CanvasItemChrome`** — persistent overlay UI for **identity** rendered while an entity exists. Per ADR 0006 §"File chrome", chrome carries identity affordances only (favicon + URL/filename + drag handle); all *actions* move into the popup. Examples: page favicon + URL display, file filename label.
+- **`CanvasItemPopup`** — the unified popup for "configure this kind". One component, two anchor modes:
+  - **Entity-anchored (selection mode)** — mounts when one entity (or a same-kind multi-selection) is selected, idle, after a 150 ms delay. Hidden during drag/marquee/resize/edit. Reads/writes that entity's fields.
+  - **Viewport-anchored (tool mode)** — mounts under the toolbar, centered, when a creation tool with options is active (`add-text`, `add-shape`, `draw`). Reads/writes per-tool defaults in app settings; the next item created uses those defaults.
+  - When a non-`select` tool with options is active, the tool popup wins; the selection popup is suppressed. Tools without options (`region-select`, `inspect`, `comment`, `add-page`, `add-document`) fall through to the selection popup.
+  - Right-click context menus are out of scope.
 - **`useAnchoredPosition(entityId, slot)`** — pure positioning hook. Reads the layout broadcast aboveView already receives, returns screen-space coords for the entity's chrome slot.
 - **`EntityChrome` compound** — the `Root / DragTrigger / Title / Actions / Button` primitives composed inside `CanvasItemChrome` consumers. Style once, compose differently per consumer.
 
+## Tool defaults
+
+Per-tool, persistent app settings (not per-canvas, not in `.canvas`). Read by creation tools when stamping new entities; written by the tool-mode popup. Stored in user app settings (`~/Library/Application Support/Specular/...`) so each tool remembers its last-picked configuration across sessions and canvases.
+
+| Tool | Defaults keys |
+|---|---|
+| `add-text` (plain) | `color` |
+| `add-text` (sticky) | `color` |
+| `add-shape` | `shapeKind`, `color`, `strokeWidth` |
+| `draw` | `brushType`, `color`, `strokeWidth` |
+
+Tool defaults never participate in undo/redo and never round-trip through Y.Doc — they're user preferences, not document data. See [ADR 0006](./docs/adr/0006-unified-canvas-item-popup.md) §"Tool defaults".
+
 ## Tools
 
-A **Tool** is the single representation of "what does my next click/gesture do?" There is exactly one active tool at any moment. Tools are mutually exclusive; you switch by toolbar click, keyboard shortcut, or Escape (which returns to `select`). See [ADR 0005](./docs/adr/0005-unified-tool-concept.md).
+A **Tool** is the single representation of "what does my next click/gesture do?" There is exactly one active tool at any moment. Tools are mutually exclusive; you switch by toolbar click, keyboard shortcut, or Escape (which returns to `select`). See [ADR 0005](./docs/adr/0005-unified-tool-concept.md), refined by [ADR 0007](./docs/adr/0007-tool-variants-in-popup-state.md).
 
 ```ts
 type Tool =
-  | { kind: 'select' }                                                       // default
-  | { kind: 'add-page' }                                                     // one-shot
-  | { kind: 'add-text', style: 'plain' | 'sticky' }                          // one-shot
-  | { kind: 'add-document' }                                                 // one-shot
-  | { kind: 'add-shape', shapeKind: 'rectangle' | 'ellipse' | 'diamond' }    // one-shot
-  | { kind: 'comment' }                                                      // persistent
-  | { kind: 'draw' }                                                         // persistent — creates drawing entities
-  | { kind: 'region-select' }                                                // persistent
-  | { kind: 'inspect' }                                                      // persistent
+  | { kind: 'select' }                              // default
+  | { kind: 'add-page' }                            // one-shot
+  | { kind: 'add-text', style: 'plain' | 'sticky' } // one-shot
+  | { kind: 'add-document' }                        // one-shot
+  | { kind: 'add-shape' }                           // one-shot — shapeKind in tool defaults
+  | { kind: 'comment' }                             // persistent
+  | { kind: 'draw' }                                // persistent — brushType in tool defaults
+  | { kind: 'region-select' }                       // persistent
+  | { kind: 'inspect' }                             // persistent
 ```
 
 - **One-shot tools** auto-revert to `select` after one placement.
 - **Persistent tools** stay active until toggled off, replaced, or Escape.
 - The toolbar does **not** visually distinguish one-shot from persistent — users learn the duration by use.
 - Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `region-select` → "selecting region", `inspect` → "inspecting".
+- **Variants live in tool defaults, not in the union.** `add-shape` no longer carries `shapeKind`; `draw` no longer encodes `brushType` via implicit Tool state. Both are picked from the tool-mode popup and persisted to app settings (per ADR 0007). `add-text` is the deliberate exception — `style` stays in the union because plain vs sticky has been a long-established two-button affordance ([ADR 0004](./docs/adr/0004-text-affordances-and-spec-extensions.md)).
 
 Replaces three previously-parallel state machines: `pendingPlacement`, `AnnotationMode`, and the `inspect` boolean. The legacy term "annotation mode" no longer names a state — annotations themselves remain, but the *mode of being in the comment tool* is just a tool.
 

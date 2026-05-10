@@ -1681,6 +1681,11 @@ export interface CanvasBgElectronAPI {
   beginResize: (entityId: string, entityKind: CanvasEntityKind) => void
   endResize: () => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
+  /** Comment tool click below the drag threshold. Main resolves the page +
+   *  element under the window-coord point and either fires
+   *  `annotate-element-selected` (element anchor) or
+   *  `comment-canvas-point-committed` (no page hit / no element). ADR 0006. */
+  commitCommentClickAt: (windowX: number, windowY: number) => void
   createAnnotation: (request: AnnotationCreateRequest) => void
   createDrawing: (input: { canvasX: number; canvasY: number; width: number; height: number; strokes: AnnotationDrawingStroke[] }) => void
   selectEntities: (entityIds: string[]) => void
@@ -1698,6 +1703,12 @@ export interface CanvasBgElectronAPI {
   ) => () => void
   onRegionSelectCommitted: (
     callback: (data: { canvasRect: WorkspaceBounds }) => void,
+  ) => () => void
+  /** Comment-tool click that landed off-page (or in a page slot with no DOM
+   *  element). Renderer mounts a canvas-point pending composer at the given
+   *  canvas coordinates. ADR 0006. */
+  onCommentCanvasPointCommitted: (
+    callback: (data: { canvasX: number; canvasY: number }) => void,
   ) => () => void
   createRegionAnnotation: (canvasRect: WorkspaceBounds, text: string) => void
   onAnnotationThreadOpen: (
@@ -1926,7 +1937,6 @@ export type AnnotationAnchor =
 
 export type AnnotationStatus = 'pending' | 'acknowledged' | 'resolved' | 'dismissed'
 export type AnnotationStatusFilter = AnnotationStatus | 'unresolved' | 'all'
-export type AnnotationKind = 'comment' | 'region_select'
 
 export interface AnnotationReply {
   author: 'user' | 'agent'
@@ -2074,7 +2084,6 @@ export interface Annotation {
   anchor: AnnotationAnchor
   author: 'user' | 'agent'
   text: string
-  kind?: AnnotationKind
   status: AnnotationStatus
   replies: AnnotationReply[]
   createdAt: string
@@ -2085,7 +2094,6 @@ export interface AnnotationCreateRequest {
   anchor: AnnotationAnchor
   author?: 'user' | 'agent'
   text: string
-  kind?: AnnotationKind
   metadata?: AnnotationMetadata
 }
 

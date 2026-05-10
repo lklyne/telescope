@@ -1,38 +1,119 @@
-import { useRef } from 'react'
 import type { Annotation, FixProgressEntry, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
 import { canvasRectToScreenRect, type PendingAnnotation } from './annotationMath'
 import { CircleCheckIcon, MoreVerticalIcon, TrashIcon } from '../shared/PanelIcons'
 import { CommentBubble, CommentInput } from '../shared/CommentPrimitives'
 import { FixEventList, fixStatusLabel } from '../shared/FixEventList'
 
-export function PendingCommentComposer({
+const REGION_COMPOSER_WIDTH = 320
+const REGION_COMPOSER_MARGIN = 12
+
+/**
+ * Single pending-annotation composer (ADR 0006). One component handles all
+ * three anchor types — element, canvas-point, region — with placement keyed
+ * off the anchor: above-right of the element bbox, adjacent to the click
+ * point, or above-right of the region rect. Element/canvas-point drafts
+ * arrive via `pendingAnnotation`; region drafts arrive via
+ * `pendingRegionRect`. Only one is set at a time.
+ */
+export function PendingAnnotationComposer({
   clearDraft,
   commentInputRef,
   commentText,
+  layoutData,
   pendingAnnotation,
+  pendingRegionRect,
   resizeCommentInput,
   setCommentText,
   submitPendingAnnotation,
+  submitRegionAnnotation,
 }: {
   clearDraft: () => void
   commentInputRef: React.RefObject<HTMLTextAreaElement | null>
   commentText: string
+  layoutData: LayoutUpdateData
   pendingAnnotation: PendingAnnotation | null
+  pendingRegionRect: WorkspaceBounds | null
   resizeCommentInput: () => void
   setCommentText: React.Dispatch<React.SetStateAction<string>>
   submitPendingAnnotation: () => void
+  submitRegionAnnotation: () => void
 }) {
-  if (!pendingAnnotation) return null
+  if (pendingAnnotation) {
+    return (
+      <ComposerBox
+        clearDraft={clearDraft}
+        commentInputRef={commentInputRef}
+        commentText={commentText}
+        left={pendingAnnotation.composerX}
+        top={pendingAnnotation.composerY}
+        width={pendingAnnotation.composerWidth}
+        resizeCommentInput={resizeCommentInput}
+        setCommentText={setCommentText}
+        submit={submitPendingAnnotation}
+        submitLabel="Submit comment"
+      />
+    )
+  }
+  if (pendingRegionRect) {
+    const screen = canvasRectToScreenRect(layoutData, pendingRegionRect)
+    const overlayTop = screen.top - layoutData.canvasOrigin.y
+    const composerX = Math.min(
+      Math.max(screen.left, 8),
+      window.innerWidth - REGION_COMPOSER_WIDTH - 8,
+    )
+    const composerY = overlayTop + screen.height + REGION_COMPOSER_MARGIN
+    return (
+      <>
+        <div
+          className="pointer-events-none absolute rounded border-2 border-dashed border-rose-400/80 bg-rose-400/10"
+          style={{ left: screen.left, top: overlayTop, width: screen.width, height: screen.height }}
+        />
+        <ComposerBox
+          clearDraft={clearDraft}
+          commentInputRef={commentInputRef}
+          commentText={commentText}
+          left={composerX}
+          top={composerY}
+          width={REGION_COMPOSER_WIDTH}
+          resizeCommentInput={resizeCommentInput}
+          setCommentText={setCommentText}
+          submit={submitRegionAnnotation}
+          submitLabel="Submit region annotation"
+        />
+      </>
+    )
+  }
+  return null
+}
 
+function ComposerBox({
+  clearDraft,
+  commentInputRef,
+  commentText,
+  left,
+  top,
+  width,
+  resizeCommentInput,
+  setCommentText,
+  submit,
+  submitLabel,
+}: {
+  clearDraft: () => void
+  commentInputRef: React.RefObject<HTMLTextAreaElement | null>
+  commentText: string
+  left: number
+  top: number
+  width: number
+  resizeCommentInput: () => void
+  setCommentText: React.Dispatch<React.SetStateAction<string>>
+  submit: () => void
+  submitLabel?: string
+}) {
   return (
     <div
       className="pointer-events-auto absolute z-50"
       data-overlay-ui
-      style={{
-        left: pendingAnnotation.composerX,
-        top: pendingAnnotation.composerY,
-        width: pendingAnnotation.composerWidth,
-      }}
+      style={{ left, top, width }}
     >
       <div className="flex items-center gap-2 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1.5 pl-3 pr-2 shadow-lg">
         <CommentInput
@@ -40,7 +121,8 @@ export function PendingCommentComposer({
           autoFocus
           value={commentText}
           onChange={(value) => { setCommentText(value); resizeCommentInput() }}
-          onSubmit={submitPendingAnnotation}
+          onSubmit={submit}
+          submitLabel={submitLabel}
           onKeyDown={(event) => {
             if (event.key === 'Escape') { event.preventDefault(); clearDraft() }
             event.stopPropagation()
@@ -48,67 +130,6 @@ export function PendingCommentComposer({
         />
       </div>
     </div>
-  )
-}
-
-const REGION_COMPOSER_WIDTH = 320
-const REGION_COMPOSER_MARGIN = 12
-
-export function RegionSelectComposer({
-  canvasRect,
-  clearDraft,
-  commentInputRef,
-  commentText,
-  layoutData,
-  resizeCommentInput,
-  setCommentText,
-  submitRegionAnnotation,
-}: {
-  canvasRect: WorkspaceBounds
-  clearDraft: () => void
-  commentInputRef: React.RefObject<HTMLTextAreaElement | null>
-  commentText: string
-  layoutData: LayoutUpdateData
-  resizeCommentInput: () => void
-  setCommentText: React.Dispatch<React.SetStateAction<string>>
-  submitRegionAnnotation: () => void
-}) {
-  const screen = canvasRectToScreenRect(layoutData, canvasRect)
-  const overlayTop = screen.top - layoutData.canvasOrigin.y
-
-  const composerX = Math.min(
-    Math.max(screen.left, 8),
-    window.innerWidth - REGION_COMPOSER_WIDTH - 8,
-  )
-  const composerY = overlayTop + screen.height + REGION_COMPOSER_MARGIN
-
-  return (
-    <>
-      <div
-        className="pointer-events-none absolute rounded border-2 border-dashed border-rose-400/80 bg-rose-400/10"
-        style={{ left: screen.left, top: overlayTop, width: screen.width, height: screen.height }}
-      />
-      <div
-        className="pointer-events-auto absolute z-50"
-        data-overlay-ui
-        style={{ left: composerX, top: composerY, width: REGION_COMPOSER_WIDTH }}
-      >
-        <div className="flex items-center gap-2 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1.5 pl-3 pr-2 shadow-lg">
-          <CommentInput
-            inputRef={commentInputRef}
-            autoFocus
-            value={commentText}
-            onChange={(value) => { setCommentText(value); resizeCommentInput() }}
-            onSubmit={submitRegionAnnotation}
-            submitLabel="Submit region annotation"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') { event.preventDefault(); clearDraft() }
-              event.stopPropagation()
-            }}
-          />
-        </div>
-      </div>
-    </>
   )
 }
 

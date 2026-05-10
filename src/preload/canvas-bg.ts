@@ -181,6 +181,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-resize-begin', { entityId, entityKind }),
   endResize: () => ipcRenderer.send('canvas-resize-end'),
   commitRegionSelect: (canvasRect) => ipcRenderer.send('canvas-commit-region-select', canvasRect),
+  commitCommentClickAt: (windowX, windowY) =>
+    ipcRenderer.send('canvas-comment-click-at', { windowX, windowY }),
   createAnnotation: (request: AnnotationCreateRequest) =>
     ipcRenderer.send('canvas-create-annotation', request),
   createDrawing: (input) =>
@@ -219,6 +221,12 @@ const api: CanvasBgElectronAPI = {
       callback(data)
     ipcRenderer.on('region-select-committed', handler)
     return () => ipcRenderer.removeListener('region-select-committed', handler)
+  },
+  onCommentCanvasPointCommitted: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
+      callback(data)
+    ipcRenderer.on('comment-canvas-point-committed', handler)
+    return () => ipcRenderer.removeListener('comment-canvas-point-committed', handler)
   },
   createRegionAnnotation: (canvasRect, text) =>
     ipcRenderer.send('canvas-create-region-annotation', { canvasRect, text }),

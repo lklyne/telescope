@@ -103,7 +103,6 @@ describe('shouldFocusSelectedPage — tools other than select exclude', () => {
     { kind: 'inspect' },
     { kind: 'comment' },
     { kind: 'draw' },
-    { kind: 'region-select' },
     { kind: 'add-page' },
     { kind: 'add-text', style: 'plain' },
     { kind: 'add-document' },

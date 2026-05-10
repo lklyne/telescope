@@ -37,3 +37,22 @@ export async function queryElementsInRect(
   })
   return Array.isArray(data) ? data : []
 }
+
+/**
+ * Resolve the element under a page-local (x, y) coordinate. Used by the
+ * unified comment tool's click-vs-element-anchor flow (ADR 0006). Returns
+ * `null` if the page has no element at that point or the page is gone.
+ */
+export async function queryElementAtPoint(
+  pageId: string,
+  x: number,
+  y: number,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const data = await sendPageIpc(pageId, 'query-element-at-point', { x, y })
+    if (!data || typeof data !== 'object') return null
+    return data as Record<string, unknown>
+  } catch {
+    return null
+  }
+}

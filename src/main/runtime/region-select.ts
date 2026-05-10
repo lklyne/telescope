@@ -49,7 +49,6 @@ export async function executeRegionSelect(canvasRect: WorkspaceBounds, text?: st
     anchor: { type: 'region', canvasRect },
     author: 'user',
     text: text ?? '',
-    kind: 'region_select',
     metadata: {
       regionScreenshot: base64,
       regionComponents,

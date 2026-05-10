@@ -33,7 +33,9 @@ export function PageChromeOverlay({
   const selectedPageId =
     layoutData.selectedEntityIds.length === 1 ? layoutData.selectedEntityIds[0] : null
   const hoveredPageId = layoutData.hover?.id ?? null
-  const dragEnabled = layoutData.activeTool.kind !== 'region-select'
+  // The comment tool captures every pointerdown in the overlay (ADR 0006);
+  // disable chrome drag so the comment gesture wins.
+  const dragEnabled = layoutData.activeTool.kind !== 'comment'
   return (
     <>
       {pages.map((page) => (

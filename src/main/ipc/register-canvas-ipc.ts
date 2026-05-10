@@ -245,7 +245,9 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on('canvas-hover-page', (_event, { pageId }: { pageId: string | null }) => {
     if (interactionBlocksPageHover()) return
-    if (uiActiveTool().kind === 'region-select') return
+    // Comment tool captures pointerdown in the overlay — page hover would
+    // race with the comment gesture's element preview (ADR 0006).
+    if (uiActiveTool().kind === 'comment') return
     setHoveredPage(pageId)
   })
 

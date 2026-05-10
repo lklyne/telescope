@@ -327,8 +327,10 @@ export async function getAnnotationsSlim(args: {
     if (metadata?.pageName) slimMeta.pageName = metadata.pageName
     if (metadata?.pageUrl) slimMeta.pageUrl = metadata.pageUrl
 
-    // Add unified summary with type discriminator.
-    if (ann.kind === 'region_select') {
+    // Add unified summary with type discriminator. ADR 0006 retired
+    // `Annotation.kind` — the anchor type is now the source of truth.
+    const anchorType = (ann.anchor as { type?: string } | undefined)?.type
+    if (anchorType === 'region') {
       const elementCount = regionElements?.reduce((n, g) => n + g.elements.length, 0) ?? 0
       const componentCount = regionComponents?.reduce(
         (n, g) => n + (g.components?.length ?? 0),
@@ -356,7 +358,6 @@ export async function getAnnotationsSlim(args: {
       anchor: ann.anchor,
       author: ann.author,
       text: ann.text,
-      kind: ann.kind,
       status: ann.status,
       createdAt: ann.createdAt,
       replies: ann.replies,

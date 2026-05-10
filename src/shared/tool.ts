@@ -1,4 +1,4 @@
-// Unified Tool concept — see ADR 0005.
+// Unified Tool concept — see ADR 0005, amended by ADR 0006.
 
 // Mirror of `ShapeKind` to avoid types.ts → tool.ts circular import.
 type ToolShapeKind = 'rectangle' | 'ellipse' | 'diamond'
@@ -13,7 +13,6 @@ export type Tool =
   | { kind: 'add-shape'; shapeKind: ToolShapeKind }
   | { kind: 'comment' }
   | { kind: 'draw'; brush?: DrawingBrushType }
-  | { kind: 'region-select' }
   | { kind: 'inspect' }
 
 // Returns the active brush for a draw tool (defaulting to 'pen'), or null if
@@ -36,7 +35,6 @@ export const toolDuration: Record<ToolKind, ToolDuration> = {
   'add-shape': 'one-shot',
   comment: 'persistent',
   draw: 'persistent',
-  'region-select': 'persistent',
   inspect: 'persistent',
 }
 
@@ -49,7 +47,7 @@ export function isPersistent(kind: ToolKind): boolean {
 }
 
 export function isAnnotationTool(tool: Tool): boolean {
-  return tool.kind === 'comment' || tool.kind === 'draw' || tool.kind === 'region-select'
+  return tool.kind === 'comment' || tool.kind === 'draw'
 }
 
 export function isPlacementTool(tool: Tool): boolean {
@@ -72,17 +70,20 @@ export function applyEscape(_current: Tool): Tool {
 export const SELECT_TOOL: Tool = { kind: 'select' }
 
 // Page-content overlay vocabulary (legacy IPC). Kept narrow on purpose —
-// renderer-side mode that drives the comment-hover affordance vs region-select
-// rect, intentionally not part of the unified Tool vocabulary.
-export type AnnotateOverlayMode = 'off' | 'comment' | 'draw' | 'region_select'
+// renderer-side mode that drives the comment-hover affordance, intentionally
+// not part of the unified Tool vocabulary.
+export type AnnotateOverlayMode = 'off' | 'comment' | 'draw'
 
 export function toolAnnotateOverlay(tool: Tool): {
   enabled: boolean
   mode: AnnotateOverlayMode
 } {
-  if (tool.kind === 'comment') return { enabled: true, mode: 'comment' }
+  // ADR 0006: comment tool's element/region preview is now painted by the
+  // page itself in response to `comment-tool-pointer-state` broadcasts from
+  // main; the legacy in-page hover affordance is retired. The overlay mode
+  // remains exposed only for `draw` (which still relies on the page-side
+  // overlay to suppress native input) and as an `off` no-op default.
   if (tool.kind === 'draw') return { enabled: false, mode: 'draw' }
-  if (tool.kind === 'region-select') return { enabled: false, mode: 'region_select' }
   return { enabled: false, mode: 'off' }
 }
 
@@ -103,8 +104,6 @@ export function toolGerund(tool: Tool): string {
       return 'commenting'
     case 'draw':
       return 'drawing'
-    case 'region-select':
-      return 'selecting region'
     case 'inspect':
       return 'inspecting'
   }

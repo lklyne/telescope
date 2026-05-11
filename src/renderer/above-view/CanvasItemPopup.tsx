@@ -142,7 +142,6 @@ function ViewportAnchor({
           top: offset,
           left: layout.toolbarCenterX,
           transform: 'translateX(-50%)',
-          pointerEvents: 'auto',
         }}
       >
         {children}

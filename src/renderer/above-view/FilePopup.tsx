@@ -15,7 +15,6 @@
 
 import { useEffect, useState } from 'react'
 import { Copy, Trash2 } from 'lucide-react'
-import { POPUP_SHOW_DELAY_MS } from '../../shared/popupTiming'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneFileEntity,
@@ -26,8 +25,7 @@ import { iconForFilePath } from '../shared/fileIcon'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from '../canvas-bg/entityConstants'
 import { renderPopupContributions } from './file-popup-contributions'
-
-const POPUP_OFFSET_Y = 14
+import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
 function displayNameFor(file: string): string {
   const base = file.split('/').pop() ?? file
@@ -58,28 +56,14 @@ export function FilePopup({
 }) {
   const count = selectedFiles.length
   const ids = selectedFiles.map((f) => f.id).join('|')
-  const shouldQueue = interactionIdle && count > 0
-  const [delayedKey, setDelayedKey] = useState<string | null>(null)
-  useEffect(() => {
-    if (!shouldQueue) {
-      setDelayedKey(null)
-      return
-    }
-    const timeoutId = window.setTimeout(() => {
-      setDelayedKey(ids)
-    }, POPUP_SHOW_DELAY_MS)
-    return () => window.clearTimeout(timeoutId)
-  }, [shouldQueue, ids])
+  const open = usePopupDelayedKey(ids, interactionIdle && count > 0)
 
   const [isRenaming, setIsRenaming] = useState(false)
   useEffect(() => {
-    // Reset rename mode whenever the selection identity changes — a new
-    // selection target shouldn't inherit the previous one's edit state.
     setIsRenaming(false)
   }, [ids])
 
   if (count === 0) return null
-  const open = delayedKey === ids
   const isSingle = count === 1
   const single = isSingle ? selectedFiles[0] : null
   const entityIds = selectedFiles.map((f) => f.id)

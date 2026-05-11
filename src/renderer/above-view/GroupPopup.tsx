@@ -7,18 +7,15 @@
  * Contents unchanged: color swatches, duplicate, delete.
  */
 
-import { useEffect, useState } from 'react'
 import { Copy, Trash2 } from 'lucide-react'
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
-import { POPUP_SHOW_DELAY_MS } from '../../shared/popupTiming'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneGroupEntity,
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
-
-const POPUP_OFFSET_Y = 14
+import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
 export function GroupPopup({
   api,
@@ -36,20 +33,11 @@ export function GroupPopup({
   selectedGroup: CanvasSceneGroupEntity | null
   interactionIdle: boolean
 }) {
-  const shouldQueue = interactionIdle && selectedGroup !== null
-  const [delayedId, setDelayedId] = useState<string | null>(null)
-  useEffect(() => {
-    if (!shouldQueue || !selectedGroup) {
-      setDelayedId(null)
-      return
-    }
-    const timeoutId = window.setTimeout(() => {
-      setDelayedId(selectedGroup.id)
-    }, POPUP_SHOW_DELAY_MS)
-    return () => window.clearTimeout(timeoutId)
-  }, [shouldQueue, selectedGroup])
+  const open = usePopupDelayedKey(
+    selectedGroup?.id ?? '',
+    interactionIdle && selectedGroup !== null,
+  )
   if (!selectedGroup) return null
-  const open = delayedId === selectedGroup.id
   return (
     <CanvasItemPopup.Root
       entityId={selectedGroup.id}

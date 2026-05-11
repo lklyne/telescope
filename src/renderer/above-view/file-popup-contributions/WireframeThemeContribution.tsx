@@ -8,10 +8,11 @@
  * Migrated out of the legacy `FileChrome` wireframe Popover (ADR 0006 §7).
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CanvasBgElectronAPI, CanvasSceneFileEntity } from '../../../shared/types'
 import { WIREFRAME_THEME_OPTIONS } from '../../canvas-bg/wireframe/WireframeRenderer'
 import type { WireframeThemeName } from '../../canvas-bg/wireframe/wireframe-types'
+import { filePathToSrc } from '../../canvas-bg/entity-renderers/filePathToSrc'
 import { CanvasItemPopup } from '../CanvasItemPopup'
 
 export function WireframeThemeContribution({
@@ -24,18 +25,18 @@ export function WireframeThemeContribution({
   entity: CanvasSceneFileEntity
 }) {
   const [theme, setTheme] = useState<WireframeThemeName>('light')
+  const wireframeRef = useRef<Record<string, unknown> | null>(null)
 
   useEffect(() => {
     let cancelled = false
+    wireframeRef.current = null
     const read = async () => {
       try {
-        const res = await fetch(
-          entity.file.startsWith('local-file://')
-            ? entity.file
-            : `local-file://${entity.file}`,
-        )
-        const wf = JSON.parse(await res.text())
-        if (!cancelled) setTheme(wf.theme ?? 'light')
+        const res = await fetch(filePathToSrc(entity.file))
+        const wf = JSON.parse(await res.text()) as Record<string, unknown>
+        if (cancelled) return
+        wireframeRef.current = wf
+        setTheme((wf.theme as WireframeThemeName | undefined) ?? 'light')
       } catch {
         /* ignore */
       }
@@ -48,12 +49,13 @@ export function WireframeThemeContribution({
 
   const handleChange = async (next: WireframeThemeName) => {
     try {
-      const res = await fetch(
-        entity.file.startsWith('local-file://')
-          ? entity.file
-          : `local-file://${entity.file}`,
-      )
-      const wf = JSON.parse(await res.text())
+      const wf =
+        wireframeRef.current ??
+        (JSON.parse(await (await fetch(filePathToSrc(entity.file))).text()) as Record<
+          string,
+          unknown
+        >)
+      wireframeRef.current = wf
       wf.theme = next
       await api.writeNoteFile(entity.file, JSON.stringify(wf, null, 2))
       setTheme(next)

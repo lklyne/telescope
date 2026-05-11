@@ -50,6 +50,7 @@ export function getDrawDefaults(): ToolDefaults['draw'] {
  */
 export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
   const current = readToolDefaults()
+  if (currentValueFor(current, patch) === patch.value) return
   const next: ToolDefaults = {
     'add-text': { ...current['add-text'] },
     'add-shape': { ...current['add-shape'] },
@@ -74,4 +75,24 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
   saveToolDefaults(next)
   markDirty('canvas')
   requestLayout()
+}
+
+function currentValueFor(
+  current: ToolDefaults,
+  patch: ToolDefaultPatch,
+): ToolDefaultPatch['value'] {
+  switch (patch.scope) {
+    case 'add-text':
+      return patch.key === 'sticky.color'
+        ? current['add-text']['sticky.color']
+        : current['add-text']['plain.color']
+    case 'add-shape':
+      if (patch.key === 'shapeKind') return current['add-shape'].shapeKind
+      if (patch.key === 'color') return current['add-shape'].color
+      return current['add-shape'].strokeWidth
+    case 'draw':
+      if (patch.key === 'brushType') return current.draw.brushType
+      if (patch.key === 'color') return current.draw.color
+      return current.draw.strokeWidth
+  }
 }

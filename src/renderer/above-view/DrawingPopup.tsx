@@ -8,15 +8,12 @@
  * across every selected drawing and every stroke inside each one.
  */
 
-import { useEffect, useState } from 'react'
 import { Copy, Trash2 } from 'lucide-react'
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
-import { POPUP_SHOW_DELAY_MS } from '../../shared/popupTiming'
 import type {
   AnnotationDrawingStroke,
   CanvasBgElectronAPI,
   CanvasSceneDrawingEntity,
-  DrawingBrushType,
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
@@ -27,26 +24,7 @@ import {
   strokeWidthPresetsFor,
 } from './popupVariantOptions'
 import { StrokeWidthSwatch } from './StrokeWidthSwatch'
-
-const POPUP_OFFSET_Y = 14
-
-function sharedBrush(strokes: AnnotationDrawingStroke[]): DrawingBrushType | null {
-  if (!strokes.length) return null
-  const first = strokes[0].brushType ?? 'pen'
-  return strokes.every((s) => (s.brushType ?? 'pen') === first) ? first : null
-}
-
-function sharedColor(strokes: AnnotationDrawingStroke[]): string | null {
-  if (!strokes.length) return null
-  const first = strokes[0].color
-  return strokes.every((s) => s.color === first) ? first : null
-}
-
-function sharedWidth(strokes: AnnotationDrawingStroke[]): number | null {
-  if (!strokes.length) return null
-  const first = strokes[0].width
-  return strokes.every((s) => s.width === first) ? first : null
-}
+import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 
 export function DrawingPopup({
   api,
@@ -66,26 +44,14 @@ export function DrawingPopup({
 }) {
   const count = selectedDrawings.length
   const ids = selectedDrawings.map((e) => e.id).join('|')
-  const shouldQueue = interactionIdle && count > 0
-  const [delayedKey, setDelayedKey] = useState<string | null>(null)
-  useEffect(() => {
-    if (!shouldQueue) {
-      setDelayedKey(null)
-      return
-    }
-    const timeoutId = window.setTimeout(() => {
-      setDelayedKey(ids)
-    }, POPUP_SHOW_DELAY_MS)
-    return () => window.clearTimeout(timeoutId)
-  }, [shouldQueue, ids])
+  const open = usePopupDelayedKey(ids, interactionIdle && count > 0)
   if (count === 0) return null
-  const open = delayedKey === ids
 
   const allStrokes = selectedDrawings.flatMap((d) => d.strokes)
-  const brush = sharedBrush(allStrokes)
-  const colorRaw = sharedColor(allStrokes)
+  const brush = sharedValue(allStrokes.map((s) => s.brushType ?? 'pen'))
+  const colorRaw = sharedValue(allStrokes.map((s) => s.color))
   const currentColor = colorRaw === null ? null : resolveCanvasColor(colorRaw)
-  const widthRaw = sharedWidth(allStrokes)
+  const widthRaw = sharedValue(allStrokes.map((s) => s.width))
   const widthPresets = strokeWidthPresetsFor(brush ?? undefined)
   const activeStrokeWidth =
     widthRaw === null ? null : nearestStrokeWidthPreset(widthRaw, widthPresets)

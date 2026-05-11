@@ -72,8 +72,6 @@ export function useMultiAnchoredPosition(
   entityIds: readonly string[],
   slot: AnchorSlot,
 ): AnchoredRect | null {
-  // Memo key: layout (re-broadcast on every change) + the id list joined so
-  // React.useMemo's reference-equal compare catches new arrays.
   const key = entityIds.join('|')
   return useMemo(() => {
     if (entityIds.length === 0) return null

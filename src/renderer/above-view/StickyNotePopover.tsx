@@ -9,18 +9,15 @@
  * uniformly across both styles when present in the same multi-selection.
  */
 
-import { useEffect, useState } from 'react'
 import { Copy, Trash2 } from 'lucide-react'
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
-import { POPUP_SHOW_DELAY_MS } from '../../shared/popupTiming'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneTextEntity,
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
-
-const POPUP_OFFSET_Y = 14
+import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 
 export function StickyNotePopover({
   api,
@@ -39,27 +36,13 @@ export function StickyNotePopover({
   interactionIdle: boolean
 }) {
   const count = selectedTextEntities.length
-  // Stable id signature so the delay timer only fires when the selection
-  // identity actually changes — not on every layout broadcast.
   const ids = selectedTextEntities.map((e) => e.id).join('|')
-  const shouldQueue = interactionIdle && count > 0
-  const [delayedKey, setDelayedKey] = useState<string | null>(null)
-  useEffect(() => {
-    if (!shouldQueue) {
-      setDelayedKey(null)
-      return
-    }
-    const timeoutId = window.setTimeout(() => {
-      setDelayedKey(ids)
-    }, POPUP_SHOW_DELAY_MS)
-    return () => window.clearTimeout(timeoutId)
-  }, [shouldQueue, ids])
+  const open = usePopupDelayedKey(ids, interactionIdle && count > 0)
   if (count === 0) return null
-  const open = delayedKey === ids
 
-  // Shared color across all selected entities, or null when mixed (ADR §4).
-  const colors = selectedTextEntities.map((e) => resolveCanvasColor(e.color))
-  const sharedColor = colors.every((c) => c === colors[0]) ? colors[0] : null
+  const sharedColor = sharedValue(
+    selectedTextEntities.map((e) => resolveCanvasColor(e.color)),
+  )
 
   const entityIds = selectedTextEntities.map((e) => e.id)
   const noun = count === 1 ? 'sticky note' : `${count} text entities`

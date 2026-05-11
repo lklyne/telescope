@@ -6,10 +6,8 @@
  * fan out across the selection.
  */
 
-import { useEffect, useState } from 'react'
 import { Copy, Trash2 } from 'lucide-react'
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
-import { POPUP_SHOW_DELAY_MS } from '../../shared/popupTiming'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneShapeEntity,
@@ -23,14 +21,7 @@ import {
   nearestStrokeWidthPreset,
 } from './popupVariantOptions'
 import { StrokeWidthSwatch } from './StrokeWidthSwatch'
-
-const POPUP_OFFSET_Y = 14
-
-function shared<T>(values: T[]): T | null {
-  if (values.length === 0) return null
-  const first = values[0]
-  return values.every((v) => v === first) ? first : null
-}
+import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 
 export function ShapePopup({
   api,
@@ -50,30 +41,18 @@ export function ShapePopup({
 }) {
   const count = selectedShapes.length
   const ids = selectedShapes.map((e) => e.id).join('|')
-  const shouldQueue = interactionIdle && count > 0
-  const [delayedKey, setDelayedKey] = useState<string | null>(null)
-  useEffect(() => {
-    if (!shouldQueue) {
-      setDelayedKey(null)
-      return
-    }
-    const timeoutId = window.setTimeout(() => {
-      setDelayedKey(ids)
-    }, POPUP_SHOW_DELAY_MS)
-    return () => window.clearTimeout(timeoutId)
-  }, [shouldQueue, ids])
+  const open = usePopupDelayedKey(ids, interactionIdle && count > 0)
   if (count === 0) return null
-  const open = delayedKey === ids
 
-  const sharedShapeKind = shared(selectedShapes.map((s) => s.shapeKind))
-  const colors = selectedShapes.map((s) =>
-    s.color ? resolveCanvasColor(s.color) : null,
+  const sharedShapeKind = sharedValue(selectedShapes.map((s) => s.shapeKind))
+  const sharedColor = sharedValue(
+    selectedShapes.map((s) => (s.color ? resolveCanvasColor(s.color) : null)),
   )
-  const sharedColor = shared(colors)
-  const widths = selectedShapes.map((s) =>
-    s.strokeWidth !== undefined ? nearestStrokeWidthPreset(s.strokeWidth) : null,
+  const sharedStrokeWidth = sharedValue(
+    selectedShapes.map((s) =>
+      s.strokeWidth !== undefined ? nearestStrokeWidthPreset(s.strokeWidth) : null,
+    ),
   )
-  const sharedStrokeWidth = shared(widths)
 
   const entityIds = selectedShapes.map((s) => s.id)
   const noun = count === 1 ? 'shape' : `${count} shapes`

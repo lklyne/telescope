@@ -172,9 +172,10 @@ function rendererSceneFields(entity: FileEntity): {
   const tag = claim?.rendererTag ?? undefined
   const rendererEditable = claim?.editable ?? false
   const contributions = claim?.popupContributionTags
-  const popupContributions = contributions && contributions.length > 0
-    ? [...contributions]
-    : undefined
+  const popupContributions =
+    contributions && contributions.length > 0
+      ? (contributions as CanvasSceneFileEntity['popupContributions'])
+      : undefined
   if (tag !== 'component') {
     return {
       rendererTag: tag,

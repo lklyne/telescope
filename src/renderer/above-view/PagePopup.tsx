@@ -12,7 +12,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Copy, RotateCw, Trash2 } from 'lucide-react'
-import { POPUP_SHOW_DELAY_MS } from '../../shared/popupTiming'
 import { normalizeUserUrl } from '../../shared/url'
 import type {
   CanvasBgElectronAPI,
@@ -20,8 +19,8 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
-const POPUP_OFFSET_Y = 14
 const URL_INPUT_MIN_WIDTH = 280
 
 export function PagePopup({
@@ -47,18 +46,7 @@ export function PagePopup({
 }) {
   const count = selectedPages.length
   const ids = selectedPages.map((p) => p.id).join('|')
-  const shouldQueue = interactionIdle && count > 0
-  const [delayedKey, setDelayedKey] = useState<string | null>(null)
-  useEffect(() => {
-    if (!shouldQueue) {
-      setDelayedKey(null)
-      return
-    }
-    const timeoutId = window.setTimeout(() => {
-      setDelayedKey(ids)
-    }, POPUP_SHOW_DELAY_MS)
-    return () => window.clearTimeout(timeoutId)
-  }, [shouldQueue, ids])
+  const open = usePopupDelayedKey(ids, interactionIdle && count > 0)
 
   // URL draft local to single-select; commits via blur/Enter. The navigate IPC
   // → broadcast round-trip takes a frame, so after commit we hold the optimistic
@@ -73,7 +61,6 @@ export function PagePopup({
   }, [currentUrl, draftUrl])
 
   if (count === 0) return null
-  const open = delayedKey === ids
   const isSingle = count === 1
   const isBlank = single ? single.url === 'about:blank' : false
   const displayUrl = single ? (isBlank ? '' : single.url) : ''

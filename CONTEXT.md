@@ -61,7 +61,7 @@ Conventions:
 
 ## Stack order
 
-The front-to-back ordering of canvas items. Topmost = frontmost. Backed by the `entityOrder` array on the workspace (a Y.Array, round-tripped through the `.canvas` JSON Canvas node order).
+The front-to-back ordering of canvas items. Topmost = frontmost. Backed by the `entityOrder` array on the workspace (a Y.Array, round-tripped through the `.canvas` JSON Canvas node order). See [ADR 0006](./docs/adr/0006-canvas-stack-order.md).
 
 - **Stack order** — user-facing term for the concept. The sidebar tree mirrors stack order top-to-bottom (topmost row = frontmost item). Pages (`WebContentsView`s) are stacked on the canvas in the same order: frontmost stack slot = topmost child view.
 - **`entityOrder`** — the persisted data-model array. Code-only term; do not surface in UI copy. One flat array regardless of how the sidebar groups things — the section partition below is purely a render-time view, not a data split.

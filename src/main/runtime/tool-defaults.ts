@@ -6,7 +6,8 @@
  * `add-shape`; `useAnnotationDrawingGestures` for draw) read these via
  * `getToolDefault*` helpers when stamping new entities. The tool-mode popup
  * writes patches through `applyToolDefaultPatch`, which persists and triggers
- * a floating-ui layout broadcast so the renderer's swatch state updates.
+ * a layout broadcast so the renderer's swatch state and `layoutRef` (read by
+ * the draw gesture at stroke-start) both pick up the new value.
  *
  * Per ADR: not in Y.Doc, not in `.canvas`, not in undo/redo — user
  * preferences only.
@@ -41,9 +42,11 @@ export function getDrawDefaults(): ToolDefaults['draw'] {
 }
 
 /**
- * Apply a single typed patch. Persists to disk and marks the floating-ui
- * surface dirty so the renderer (which carries tool-defaults in its layout
- * broadcast) sees the new value on the next layout pass.
+ * Apply a single typed patch. Persists to disk and marks the canvas surface
+ * dirty so the renderer (which carries tool-defaults in its layout broadcast)
+ * sees the new value on the next layout pass. `'floating-ui'` would be the
+ * natural channel, but it's been retired in layout-engine — `'canvas'` is the
+ * only flag that actually broadcasts `layout-update` to bg + above views.
  */
 export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
   const current = readToolDefaults()
@@ -69,6 +72,6 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
       break
   }
   saveToolDefaults(next)
-  markDirty('floating-ui')
+  markDirty('canvas')
   requestLayout()
 }

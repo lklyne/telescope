@@ -30,16 +30,27 @@ export const BRUSH_VARIANT_OPTIONS: Array<{
 ]
 
 /**
- * Stroke-width presets shown in popup pickers. Same set for shapes and
- * drawings; the user picks per tool. Keep ordered thin → thick.
+ * Stroke-width presets shown in popup pickers. Shapes and pen-brush drawings
+ * share the thin set; the highlighter uses a thicker set so it reads as a
+ * marker rather than a colored line. Keep ordered thin → thick.
  */
-export const STROKE_WIDTH_PRESETS = [1, 2, 4, 8] as const
+export const STROKE_WIDTH_PRESETS = [2, 8] as const
+const HIGHLIGHT_STROKE_WIDTH_PRESETS = [8, 16] as const
+
+export function strokeWidthPresetsFor(
+  brushType: DrawingBrushType | undefined,
+): readonly number[] {
+  return brushType === 'highlight' ? HIGHLIGHT_STROKE_WIDTH_PRESETS : STROKE_WIDTH_PRESETS
+}
 
 /** Closest preset to a given width — used to highlight the current swatch. */
-export function nearestStrokeWidthPreset(value: number): number {
-  let best: number = STROKE_WIDTH_PRESETS[0]
+export function nearestStrokeWidthPreset(
+  value: number,
+  presets: readonly number[] = STROKE_WIDTH_PRESETS,
+): number {
+  let best = presets[0]
   let bestDist = Math.abs(value - best)
-  for (const preset of STROKE_WIDTH_PRESETS) {
+  for (const preset of presets) {
     const dist = Math.abs(value - preset)
     if (dist < bestDist) {
       best = preset

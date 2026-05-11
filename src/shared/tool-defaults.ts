@@ -33,10 +33,12 @@ export interface ToolDefaults {
 }
 
 /**
- * First-time-launch defaults. ADR 0006 §"Tool defaults":
+ * First-time-launch defaults. ADR 0006 §"Tool defaults" originally specified
+ * shape/draw at black; we shifted both to the red preset so a brand-new canvas
+ * draws in colour rather than indistinguishable-from-text black.
  *   sticky yellow, plain transparent/inherit (null),
- *   shape rectangle/black/2px,
- *   draw pen/black/2px.
+ *   shape rectangle/red/2px,
+ *   draw pen/red/2px.
  */
 export const DEFAULT_TOOL_DEFAULTS: ToolDefaults = {
   'add-text': {
@@ -45,12 +47,12 @@ export const DEFAULT_TOOL_DEFAULTS: ToolDefaults = {
   },
   'add-shape': {
     shapeKind: 'rectangle',
-    color: '#000000',
+    color: '1', // red preset
     strokeWidth: 2,
   },
   draw: {
     brushType: 'pen',
-    color: '#000000',
+    color: '1', // red preset
     strokeWidth: 2,
   },
 }

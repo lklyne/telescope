@@ -17,10 +17,11 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { drawingBounds } from './annotationMath'
 import {
   BRUSH_VARIANT_OPTIONS,
-  STROKE_WIDTH_PRESETS,
   nearestStrokeWidthPreset,
+  strokeWidthPresetsFor,
 } from './popupVariantOptions'
 import { StrokeWidthSwatch } from './StrokeWidthSwatch'
 
@@ -78,11 +79,22 @@ export function DrawingPopup({
   const colorRaw = dominantColor(selectedDrawing.strokes)
   const currentColor = colorRaw === null ? null : resolveCanvasColor(colorRaw)
   const widthRaw = dominantWidth(selectedDrawing.strokes)
-  const activeStrokeWidth = widthRaw === null ? null : nearestStrokeWidthPreset(widthRaw)
+  const widthPresets = strokeWidthPresetsFor(brush ?? undefined)
+  const activeStrokeWidth =
+    widthRaw === null ? null : nearestStrokeWidthPreset(widthRaw, widthPresets)
 
   const writeStrokes = (rewrite: (stroke: AnnotationDrawingStroke) => AnnotationDrawingStroke) => {
     const next = selectedDrawing.strokes.map(rewrite)
-    api.updateDrawingEntity(selectedDrawing.id, { strokes: next })
+    // Recompute the entity bbox so width changes (or brush switches that
+    // snap width) keep the hit/drag box in sync with the visible stroke.
+    const bbox = drawingBounds(next)
+    api.updateDrawingEntity(selectedDrawing.id, {
+      strokes: next,
+      canvasX: bbox.x,
+      canvasY: bbox.y,
+      width: bbox.width,
+      height: bbox.height,
+    })
   }
 
   return (
@@ -102,7 +114,14 @@ export function DrawingPopup({
               active={brush === kind}
               title={label}
               ariaLabel={`Switch drawing brush to ${label}`}
-              onClick={() => writeStrokes((stroke) => ({ ...stroke, brushType: kind }))}
+              onClick={() => {
+                const targetPresets = strokeWidthPresetsFor(kind)
+                writeStrokes((stroke) => ({
+                  ...stroke,
+                  brushType: kind,
+                  width: nearestStrokeWidthPreset(stroke.width, targetPresets),
+                }))
+              }}
             >
               <Icon size={14} />
             </CanvasItemPopup.IconButton>
@@ -124,7 +143,7 @@ export function DrawingPopup({
           })}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
-          {STROKE_WIDTH_PRESETS.map((width) => (
+          {widthPresets.map((width) => (
             <StrokeWidthSwatch
               key={width}
               isDark={isDark}

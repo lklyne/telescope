@@ -15,8 +15,8 @@ import type {
 import { CanvasItemPopup } from './CanvasItemPopup'
 import {
   BRUSH_VARIANT_OPTIONS,
-  STROKE_WIDTH_PRESETS,
   nearestStrokeWidthPreset,
+  strokeWidthPresetsFor,
 } from './popupVariantOptions'
 import { StrokeWidthSwatch } from './StrokeWidthSwatch'
 
@@ -31,7 +31,8 @@ export function DrawToolPopup({
 }) {
   const defaults = layout.toolDefaults.draw
   const currentColor = resolveCanvasColor(defaults.color)
-  const activeStrokeWidth = nearestStrokeWidthPreset(defaults.strokeWidth)
+  const widthPresets = strokeWidthPresetsFor(defaults.brushType)
+  const activeStrokeWidth = nearestStrokeWidthPreset(defaults.strokeWidth, widthPresets)
   return (
     <CanvasItemPopup.ViewportAnchor layout={layout} open offset={8}>
       <CanvasItemPopup.Frame isDark={isDark}>
@@ -44,12 +45,18 @@ export function DrawToolPopup({
               title={label}
               ariaLabel={`Set default brush to ${label}`}
               onClick={() => {
-                const patch: ToolDefaultPatch = {
-                  scope: 'draw',
-                  key: 'brushType',
-                  value: kind,
+                api.setToolDefault({ scope: 'draw', key: 'brushType', value: kind })
+                // Snap stroke width into the new brush's preset range so the
+                // next stroke has a sensible default (pen's 2px would be
+                // invisible as a highlight; highlight's 16px would be a slab
+                // as a pen).
+                const snapped = nearestStrokeWidthPreset(
+                  defaults.strokeWidth,
+                  strokeWidthPresetsFor(kind),
+                )
+                if (snapped !== defaults.strokeWidth) {
+                  api.setToolDefault({ scope: 'draw', key: 'strokeWidth', value: snapped })
                 }
-                api.setToolDefault(patch)
               }}
             >
               <Icon size={14} />
@@ -79,7 +86,7 @@ export function DrawToolPopup({
           })}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
-          {STROKE_WIDTH_PRESETS.map((width) => (
+          {widthPresets.map((width) => (
             <StrokeWidthSwatch
               key={width}
               isDark={isDark}

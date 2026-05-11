@@ -112,6 +112,7 @@ export function FilePopup({
                 onCancel={() => setIsRenaming(false)}
                 variant="canvas-chrome"
                 isDark={isDark}
+                titleClassName="min-w-0 truncate text-xs font-medium"
                 onTitleClick={() => setIsRenaming(true)}
               />
             </span>

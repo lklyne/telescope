@@ -11,6 +11,11 @@ import type {
   FixConfig,
   OnboardingState,
 } from '../../shared/types'
+import {
+  DEFAULT_TOOL_DEFAULTS,
+  normalizeToolDefaults,
+  type ToolDefaults,
+} from '../../shared/tool-defaults'
 import type { LegacyOriginBindings } from './dev-server-manager'
 import {
   DEFAULT_CURSOR_MOTION,
@@ -65,6 +70,7 @@ type PreferencesFile = {
    *  Read once at startup for migration, then stripped from this file. */
   originBindings?: LegacyOriginBindings
   fixConfig?: Omit<FixConfig, 'configured'>
+  toolDefaults?: ToolDefaults
   debug?: {
     cursorMotion?: CursorMotionParams
     cursorSplineViz?: boolean
@@ -75,6 +81,7 @@ type PreferencesFile = {
 let currentCursorMotion: CursorMotionParams = DEFAULT_CURSOR_MOTION
 let currentCursorSplineViz = false
 let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
+let currentToolDefaults: ToolDefaults = normalizeToolDefaults(DEFAULT_TOOL_DEFAULTS)
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -153,6 +160,17 @@ export function loadPreferences(): void {
   currentCursorMotion = normalizeCursorMotion(parsed.debug?.cursorMotion)
   currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
   currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
+  currentToolDefaults = normalizeToolDefaults(parsed.toolDefaults)
+}
+
+export function getToolDefaults(): ToolDefaults {
+  return currentToolDefaults
+}
+
+export function saveToolDefaults(next: ToolDefaults): void {
+  currentToolDefaults = normalizeToolDefaults(next)
+  const parsed = readPreferencesFile()
+  writePreferencesFile({ ...parsed, toolDefaults: currentToolDefaults })
 }
 
 export function getCursorMotion(): CursorMotionParams {
@@ -204,6 +222,7 @@ export function savePreferences(): void {
     devtoolsWidth: uiDevtoolsWidth(),
     devtoolsPanelTab: uiDevtoolsPanelTab(),
     fixConfig: { model: fixConfig.model, permissions: fixConfig.permissions },
+    toolDefaults: currentToolDefaults,
   })
 }
 

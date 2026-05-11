@@ -1,4 +1,5 @@
 import type { LayoutUpdateData } from '../../shared/types'
+import { DEFAULT_TOOL_DEFAULTS } from '../../shared/tool-defaults'
 
 // Selection / hover color tokens
 const SELECTION_COLOR_LIGHT = '#3b82f6' // blue-500
@@ -24,6 +25,7 @@ export const EMPTY_LAYOUT: LayoutUpdateData = {
   selection: [],
   activeSelection: null,
   activeTool: { kind: 'select' },
+  toolDefaults: DEFAULT_TOOL_DEFAULTS,
   annotations: [],
   fixProgress: {},
   viewMode: 'canvas',

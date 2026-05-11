@@ -16,6 +16,7 @@ import { textEntities } from '../runtime/text-entity-state'
 import { fileEntities } from '../runtime/file-entity-state'
 import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from '../runtime/drawing-entity-state'
 import { shapeEntities } from '../runtime/shape-entity-state'
+import { getStickyDefaultColor, getPlainTextDefaultColor } from '../runtime/tool-defaults'
 import {
   createFileEntity,
   createShapeEntity,
@@ -147,10 +148,15 @@ export function registerCanvasEntityIpc(): void {
       const dragRect = payload.dragRect ?? null
       const tool = activeTool()
       if (tool.kind === 'add-text') {
+        const defaultColor =
+          tool.style === 'sticky'
+            ? getStickyDefaultColor()
+            : getPlainTextDefaultColor() ?? undefined
         createTextEntity({
           canvasX,
           canvasY,
           textStyle: tool.style,
+          color: defaultColor,
         })
       } else if (tool.kind === 'add-document') {
         try {

@@ -1,10 +1,18 @@
 /**
- * CanvasItemPopup — compound component for selection-state-driven UI anchored
- * to a canvas entity (ADR 0002 §2). Visibility is driven by the `open` prop
- * (typically derived from selection state).
+ * CanvasItemPopup — compound component for the unified canvas-item popup
+ * (ADR 0006). Two anchor modes:
  *
- * Right-click context menus are out of scope (ADR §4) — this is for popups
- * that follow selection.
+ *   - <CanvasItemPopup.Root> — entity-anchored (selection mode). Tracks an
+ *     entity's screen rect via `useAnchoredPosition`, so it follows pan/zoom.
+ *
+ *   - <CanvasItemPopup.ViewportAnchor> — viewport-anchored (tool mode). Fixed
+ *     strip below the toolbar, centered in the canvas area.
+ *
+ * Composition primitives (`Frame`, `Section`, `ColorSwatch`, `IconButton`,
+ * `DestructiveButton`) factor out shared chrome so every kind-specific popup
+ * renders with the same panel styling and button affordances.
+ *
+ * Right-click context menus are out of scope (ADR 0002 §4).
  */
 
 import { type ReactNode } from 'react'
@@ -78,4 +86,195 @@ function popupStyle(
   }
 }
 
-export const CanvasItemPopup = { Root }
+/**
+ * Viewport-anchored mode (ADR 0006 §1). Positions a fixed strip below the
+ * toolbar, horizontally centered inside the canvas area (i.e. between the
+ * left sidebar edge and the devtools panel edge).
+ *
+ * aboveView's own origin already sits below the toolbar, so `top` is just a
+ * small offset within aboveView. Horizontal centering subtracts the left
+ * sidebar width and the right devtools width so the strip lands over the
+ * visible canvas, not over chrome.
+ */
+function ViewportAnchor({
+  layout,
+  open,
+  offset = 8,
+  children,
+}: {
+  layout: LayoutUpdateData
+  open: boolean
+  /** Pixel gap from the toolbar's bottom edge. */
+  offset?: number
+  children: ReactNode
+}) {
+  if (!open) return null
+  const leftInset = layout.leftChromeWidth
+  const rightInset = layout.devtoolsOpen ? layout.devtoolsWidth : 0
+  return (
+    <div
+      data-overlay-ui
+      className="pointer-events-auto absolute"
+      style={{
+        top: offset,
+        left: leftInset,
+        right: rightInset,
+        display: 'flex',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+      }}
+    >
+      <div style={{ pointerEvents: 'auto' }}>{children}</div>
+    </div>
+  )
+}
+
+/**
+ * Frame — the visual chrome (rounded border, panel bg, padding, shadow) that
+ * every popup wears. Stops mousedown so clicks inside don't fall through to
+ * canvas gestures (marquee/deselect).
+ */
+function Frame({
+  isDark,
+  className = '',
+  children,
+}: {
+  isDark: boolean
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <div
+      className={`flex items-center gap-1.5 rounded-[8px] border border-[var(--surface-panel-border)] bg-[var(--surface-panel)] px-2 py-1.5 shadow-xs ${
+        isDark ? 'text-zinc-100' : 'text-zinc-900'
+      } ${className}`.trim()}
+      onMouseDown={(event) => event.stopPropagation()}
+    >
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Section — a horizontal group of related controls inside the Frame. Use one
+ * per logical block (color swatches, action buttons, variant pickers).
+ */
+function Section({ children }: { children: ReactNode }) {
+  return <div className="flex items-center gap-1.5">{children}</div>
+}
+
+function popupIconButtonClass(isDark: boolean): string {
+  return isDark
+    ? 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100'
+    : 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900'
+}
+
+function popupDeleteButtonClass(isDark: boolean): string {
+  return isDark
+    ? 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent text-zinc-400 transition-colors hover:bg-red-500/12 hover:text-red-400'
+    : 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent text-zinc-500 transition-colors hover:bg-red-50 hover:text-red-600'
+}
+
+function IconButton({
+  isDark,
+  title,
+  ariaLabel,
+  onClick,
+  children,
+}: {
+  isDark: boolean
+  title: string
+  ariaLabel: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      className={popupIconButtonClass(isDark)}
+      onClick={onClick}
+      title={title}
+      aria-label={ariaLabel}
+    >
+      {children}
+    </button>
+  )
+}
+
+function DestructiveButton({
+  isDark,
+  title,
+  ariaLabel,
+  onClick,
+  children,
+}: {
+  isDark: boolean
+  title: string
+  ariaLabel: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      className={popupDeleteButtonClass(isDark)}
+      onClick={onClick}
+      title={title}
+      aria-label={ariaLabel}
+    >
+      {children}
+    </button>
+  )
+}
+
+/**
+ * ColorSwatch — single color circle. `active` highlights the current
+ * selection; pass `active={false}` for all when the selection has mixed
+ * colors (per ADR 0006 §4).
+ */
+function ColorSwatch({
+  isDark,
+  active,
+  color,
+  ariaLabel,
+  onClick,
+}: {
+  isDark: boolean
+  active: boolean
+  /** Resolved CSS color value to render in the circle. */
+  color: string
+  ariaLabel: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      className={`flex h-5 w-5 items-center justify-center rounded-full border transition-transform hover:scale-105 ${
+        active
+          ? isDark
+            ? 'border-white/80 bg-zinc-900'
+            : 'border-zinc-900/80 bg-white'
+          : isDark
+            ? 'border-transparent hover:border-zinc-600'
+            : 'border-transparent hover:border-zinc-300'
+      }`}
+      onClick={onClick}
+    >
+      <span
+        className="block h-3.5 w-3.5 rounded-full"
+        style={{ background: color }}
+      />
+    </button>
+  )
+}
+
+export const CanvasItemPopup = {
+  Root,
+  ViewportAnchor,
+  Frame,
+  Section,
+  IconButton,
+  DestructiveButton,
+  ColorSwatch,
+}

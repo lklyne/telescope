@@ -53,6 +53,7 @@ import { PageChromeOverlay } from './PageChrome'
 import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
 import { StickyNotePopover } from './StickyNotePopover'
+import { TextToolPopup } from './TextToolPopup'
 import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
 import { useAnnotationOverlayShortcuts } from '../shared/hooks/useAnnotationOverlayShortcuts'
 import { useCanvasGlobalShortcuts } from '../shared/hooks/useCanvasGlobalShortcuts'
@@ -926,13 +927,24 @@ export default function App({
           />
 
           {layoutData.viewMode === 'canvas' ? (
-            <StickyNotePopover
-              api={api}
-              isDark={isDark}
-              layout={layoutData}
-              selectedTextEntity={selectedTextEntity}
-              interactionIdle={interactionIdle}
-            />
+            layoutData.activeTool.kind === 'add-text' ? (
+              // Mutex rule (ADR 0006 §2): tool wins. Suppress selection popup
+              // while a creation tool with options is active.
+              <TextToolPopup
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                style={layoutData.activeTool.style}
+              />
+            ) : (
+              <StickyNotePopover
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedTextEntity={selectedTextEntity}
+                interactionIdle={interactionIdle}
+              />
+            )
           ) : null}
         </>
       ) : null}

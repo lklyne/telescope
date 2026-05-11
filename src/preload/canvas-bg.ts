@@ -5,6 +5,7 @@ import type {
   EdgeSide,
   LayoutUpdateData,
   SelectionOverlayPayload,
+  ToolDefaultPatch,
 } from '../shared/types'
 
 function installSelectionOverlayBridge(): void {
@@ -93,6 +94,8 @@ const api: CanvasBgElectronAPI = {
   placePendingEntity: (canvasX, canvasY) =>
     ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY }),
   setTool: (tool) => ipcRenderer.send('toolbar-set-tool', tool),
+  setToolDefault: (patch: ToolDefaultPatch) =>
+    ipcRenderer.send('tool-defaults-set', patch),
   startDragPage: (pageId, selection) =>
     ipcRenderer.send('canvas-drag-page-start', { pageId, selection }),
   dragPage: (pageId, dx, dy) => ipcRenderer.send('canvas-drag-page', { pageId, dx, dy }),

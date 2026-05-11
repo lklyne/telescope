@@ -37,6 +37,7 @@ import {
   zoom,
 } from './runtime-context'
 import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
+import { getToolDefaults } from './tool-defaults'
 import {
   activeBrowserPageId as uiActiveBrowserPageId,
   activeTool as uiActiveTool,
@@ -357,6 +358,7 @@ export function buildCanvasLayoutData(
     selection: uiSelectedCanvasTargets(),
     activeSelection,
     activeTool: tool,
+    toolDefaults: getToolDefaults(),
     annotations: [...workspaceAnnotations],
     fixProgress: getFixProgress(),
     viewMode,

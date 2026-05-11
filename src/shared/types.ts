@@ -11,6 +11,7 @@ import type { PresenceDebugEntry } from './presence-debug'
 import type { DrawingBrushType, Tool } from './tool'
 
 export type { DrawingBrushType, Tool, ToolKind, ToolDuration } from './tool'
+export type { ToolDefaults, ToolDefaultPatch } from './tool-defaults'
 
 // --- IPC Channel Types ---
 
@@ -382,6 +383,8 @@ export interface LayoutUpdateData {
   selection: CanvasSelectableTarget[]
   activeSelection: ActiveCanvasEntitySelection | null
   activeTool: Tool
+  /** Per-tool persistent defaults (ADR 0006 §9). Tool-mode popup reads/writes. */
+  toolDefaults: import('./tool-defaults').ToolDefaults
   annotations: Annotation[]
   fixProgress: Record<string, FixProgressEntry>
   viewMode: WorkspaceViewMode
@@ -1616,6 +1619,7 @@ export interface CanvasBgElectronAPI {
   updatePageBounds: (pageId: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   placePendingEntity: (canvasX: number, canvasY: number) => void
   setTool: (tool: Tool) => void
+  setToolDefault: (patch: import('./tool-defaults').ToolDefaultPatch) => void
   startDragPage: (pageId: string, selection?: CanvasDragStartSelection) => void
   dragPage: (pageId: string, dx: number, dy: number) => void
   endDragPage: () => void

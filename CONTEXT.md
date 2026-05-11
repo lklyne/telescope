@@ -72,12 +72,18 @@ The front-to-back ordering of canvas items. Topmost = frontmost. Backed by the `
 
 The canvas has two interactive paint surfaces, and the sidebar mirrors them as two labelled sections so the user can see why stack order behaves the way it does.
 
-- **Notes** (top section) — text, sticky, document (file), drawing, shape, and groups whose frontmost child is one of these. These render in `aboveView` and always paint above pages by architecture.
-- **Pages** (bottom section) — live web pages and groups whose frontmost child is a page. These render as `WebContentsView` children between `bgView` and `aboveView`.
+- **Notes** (top section) — text, sticky, document (file), drawing, shape. These render in `aboveView` and always paint above pages by architecture.
+- **Pages** (bottom section) — live web pages. These render as `WebContentsView` children between `bgView` and `aboveView`.
 
-Stack-order mutations are scoped per section: bring-forward/backward move within Notes or within Pages, not across the divider. Cross-section drag has no drop target. *Note* is a sidebar-grouping label — it is not a kind in the data model and never appears in `.canvas` files. A *group* still occupies one stack slot inside its section; if a group contains both pages and notes, it sits in whichever section its frontmost child belongs to, and its expanded children reveal the cross-surface mix.
+Stack-order mutations are scoped per section: bring-forward/backward move within Notes or within Pages, not across the divider. Cross-section drag has no drop target. *Note* is a sidebar-grouping label — it is not a kind in the data model and never appears in `.canvas` files.
+
+**Groups with mixed contents** — a group is one entity with one stack slot (its contiguous run in `entityOrder`), but its members can paint on both surfaces. The sidebar honours both facts via **split representation**: a group whose members straddle the two paint surfaces appears as **two rows**, one in each section, sharing id, name, and selection state. Expanding the Notes row reveals only note-children; expanding the Pages row reveals only page-children. Operations are unitary — sending-backward from either row moves the *whole* group run as one unit, so the notes and pages rows shift simultaneously within their respective sections. Pure-note and pure-page groups appear in only one section. Dissolve removes both rows. Render rule: walk `entityOrder`; for each group, partition members by section and emit a row in each section that has any members. Visually link the two rows (matching colour bar / chain glyph) so users read them as one group.
+
+**Edges** — edges participate in stack order (FigJam parity: send-to-back, bring-forward, etc.) by being interleaved into `entityOrder` alongside entities. They render in `EdgeLayer` (within `aboveView`) and silently default to the top of the stack when newly created. They do **not** appear as rows in the sidebar — the sidebar shows entities, not connective tissue. Stack-order mutations on edges happen on the canvas (select edge → keyboard / context menu). Sidebar drag-reorder operates on the entity subsequence only; edge indices in `entityOrder` are untouched by sidebar drags (rule (i)).
 
 Cross-surface stacking — putting a sticky behind a page, or a page in front of a drawing — is not supported today: `aboveView` always paints above all pages. The two-section sidebar surfaces that constraint directly instead of pretending one flat order can override it.
+
+JSON Canvas note: the spec emits nodes and edges into separate arrays. The interleaved `entityOrder` (including edge ids) is persisted as a Specular extension (`specular.order` or equivalent); other JSON Canvas tools round-trip the data but lose precise stack interleaving for edges. Acceptable trade-off — same pattern as `specular.textStyle`.
 
 ## Input authority
 

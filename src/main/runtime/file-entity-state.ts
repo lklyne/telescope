@@ -164,16 +164,22 @@ export function buildFileEntitySceneEntity(
 function rendererSceneFields(entity: FileEntity): {
   rendererTag: CanvasSceneFileEntity['rendererTag']
   rendererEditable: CanvasSceneFileEntity['rendererEditable']
+  popupContributions: CanvasSceneFileEntity['popupContributions']
   componentHasRepo: CanvasSceneFileEntity['componentHasRepo']
   componentInferredRepoPath: CanvasSceneFileEntity['componentInferredRepoPath']
 } {
   const claim = pickRenderer(persistFileEntity(entity))
   const tag = claim?.rendererTag ?? undefined
   const rendererEditable = claim?.editable ?? false
+  const contributions = claim?.popupContributionTags
+  const popupContributions = contributions && contributions.length > 0
+    ? [...contributions]
+    : undefined
   if (tag !== 'component') {
     return {
       rendererTag: tag,
       rendererEditable,
+      popupContributions,
       componentHasRepo: undefined,
       componentInferredRepoPath: undefined,
     }
@@ -182,6 +188,7 @@ function rendererSceneFields(entity: FileEntity): {
   return {
     rendererTag: tag,
     rendererEditable,
+    popupContributions,
     componentHasRepo: hasRepo,
     componentInferredRepoPath: hasRepo ? undefined : inferRepoRoot(entity.file),
   }

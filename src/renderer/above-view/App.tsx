@@ -52,6 +52,7 @@ import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { PageChromeOverlay } from './PageChrome'
 import { PagePopup } from './PagePopup'
+import { FilePopup } from './FilePopup'
 import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
 import { DrawingPopup } from './DrawingPopup'
@@ -166,6 +167,9 @@ export default function App({
   }, [layoutData.selectedEntityIds, layoutData.entities])
   const selectedPageEntities = useMemo<CanvasScenePageEntity[]>(() => {
     return sameKindSelectedEntities(layoutData, 'page')
+  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const selectedFileEntities = useMemo<CanvasSceneFileEntity[]>(() => {
+    return sameKindSelectedEntities(layoutData, 'file')
   }, [layoutData.selectedEntityIds, layoutData.entities])
   const selectedEntityIdSet = useMemo(
     () => new Set(layoutData.selectedEntityIds),
@@ -954,12 +958,7 @@ export default function App({
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
 
           <PageChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
-          <FileChromeOverlay
-            api={api}
-            layoutData={layoutData}
-            isDark={isDark}
-            onJsonModeChange={setFileJsonMode}
-          />
+          <FileChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
           <GroupRenameOverlay
             api={api}
             layoutData={layoutData}
@@ -1023,6 +1022,15 @@ export default function App({
                     layout={layoutData}
                     selectedPages={selectedPageEntities}
                     interactionIdle={interactionIdle}
+                  />
+                  <FilePopup
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedFiles={selectedFileEntities}
+                    interactionIdle={interactionIdle}
+                    fileJsonModeMap={fileJsonModeMap}
+                    setFileJsonMode={setFileJsonMode}
                   />
                 </>
               ) : null}

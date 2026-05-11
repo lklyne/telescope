@@ -62,6 +62,17 @@ export type CanvasEntityKind = 'page' | 'text' | 'file' | 'group' | 'edge' | 'dr
 
 export type ShapeKind = 'rectangle' | 'ellipse' | 'diamond'
 
+/**
+ * Renderer plugin popup contribution tags (ADR 0006 §7). Each tag names a
+ * single piece of UI a renderer plugin can opt into in the file selection
+ * popup. The main-side registry declares which tags a renderer claims; the
+ * renderer-side `renderPopupContributions` switch picks the React component.
+ *
+ * Adding a tag requires both ends: a literal here + a case in
+ * `src/renderer/above-view/file-popup-contributions/index.tsx`.
+ */
+export type PopupContributionTag = 'wireframe-theme' | 'wireframe-json-mode'
+
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
   id: string
@@ -164,6 +175,14 @@ export interface CanvasSceneFileEntity {
   objectFit?: FileObjectFit
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
   rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component'
+  /**
+   * Static contribution tags declared by the picked renderer plugin (ADR 0006
+   * §7). The `FilePopup` reads these to compose plugin-specific controls
+   * (e.g. wireframe theme picker). Empty array means no contributions. The
+   * tag → component switch lives renderer-side; this string list is the
+   * cross-layer contract.
+   */
+  popupContributions?: PopupContributionTag[]
   /** Whether the resolved renderer has a meaningful inline-edit affordance.
    *  Drives both the dblclick and click-on-solo-selected paths in the
    *  pointer router. Undefined for unclaimed (fallback) entities — treated
@@ -1642,6 +1661,7 @@ export interface CanvasBgElectronAPI {
   deleteTextEntity: (id: string) => void
   updateFileEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteFileEntity: (id: string) => void
+  duplicateFileEntity: (id: string) => void
   updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }) => void
   deleteDrawingEntity: (id: string) => void
   duplicateDrawingEntity: (id: string) => void

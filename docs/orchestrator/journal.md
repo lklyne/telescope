@@ -30,7 +30,7 @@ Hint for next run: on first real run, baseline the system. Count merged PRs in t
 ## 2026-05-11
 Surveyed: First real run — baseline of 14 merged PRs (2026-05-07–2026-05-11), queue depths, and the two proposals filed by yesterday's seed run.
 Acted:
-- #65 (new) — filed orchestrator-proposal on AFK pipeline habit gap; two instances: 0/14 AFK PRs, `ready-for-agent` queue at 0.
+- #68 (new) — filed orchestrator-proposal on AFK pipeline habit gap; two instances: 0/14 AFK PRs, `ready-for-agent` queue at 0.
 - docs/orchestrator/journal.md — this entry, opened as PR against main.
 Noticed (no action): Proposals #61 (SKILL.md drift CI check) and #63 (CI workflow absorbing #61) both filed 2026-05-10 and both open. #63 explicitly subsumes #61 yet #61 was not closed when #63 was filed — self-leak to encode: when a proposal supersedes another, close the superseded issue in the same action rather than leaving both open. Also: 5 ADRs (0003–0007) filed in 5 days; watch whether /grill-with-docs is driving these or they are being written manually after decisions settle.
 Hint for next run: compare AFK pipeline fraction to today's 0/14 baseline; check whether #61 and #63 have been acted on or are rotting; check whether #53 (needs-triage) was routed or resolved ad hoc — that signal tells you whether /triage is habitual.

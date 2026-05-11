@@ -1,6 +1,6 @@
 # ADR 0007 — Tool variants live in popup state, not in the `Tool` union
 
-**Status:** Proposed
+**Status:** Accepted (landed alongside ADR 0006 step 6)
 **Date:** 2026-05-10
 **Refines:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). Tool variants for `add-shape` and `draw` move out of the discriminated union into tool-mode popup state (per [ADR 0006](./0006-unified-canvas-item-popup.md)). `add-text` is a deliberate exception.
 **Companion to:** [ADR 0006 — Unified canvas-item popup](./0006-unified-canvas-item-popup.md).

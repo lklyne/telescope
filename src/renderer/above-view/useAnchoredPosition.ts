@@ -25,6 +25,7 @@ import {
 import type { Rect } from '../../shared/hit-regions'
 import type {
   CanvasSceneEntity,
+  CanvasSceneGroupEntity,
   LayoutUpdateData,
 } from '../../shared/types'
 
@@ -37,7 +38,7 @@ export function anchoredSlotRect(
   entityId: string,
   slot: AnchorSlot,
 ): AnchoredRect | null {
-  const entity = findEntity(layout, entityId)
+  const entity = findAnchorTarget(layout, entityId)
   if (!entity) return null
   const entityRect = entityRectFor(entity)
   const layoutResult = entityChromeSlots(entity.kind, entityRect)
@@ -57,8 +58,12 @@ export function useAnchoredPosition(
   return useMemo(() => anchoredSlotRect(layout, entityId, slot), [layout, entityId, slot])
 }
 
-function findEntity(layout: LayoutUpdateData, id: string): CanvasSceneEntity | undefined {
-  return layout.entities.find((e) => e.id === id)
+type AnchorTarget = CanvasSceneEntity | CanvasSceneGroupEntity
+
+function findAnchorTarget(layout: LayoutUpdateData, id: string): AnchorTarget | undefined {
+  const entity = layout.entities.find((e) => e.id === id)
+  if (entity) return entity
+  return (layout.groups ?? []).find((g) => g.id === id)
 }
 
 /**
@@ -68,7 +73,7 @@ function findEntity(layout: LayoutUpdateData, id: string): CanvasSceneEntity | u
  * `CHROME_HEADER_HEIGHT` for kinds that have chrome. After ADR 0002's rect
  * unification this becomes a one-liner returning the entity rect as-is.
  */
-function entityRectFor(entity: CanvasSceneEntity): Rect {
+function entityRectFor(entity: AnchorTarget): Rect {
   const hasHeader = entity.kind === 'page' || entity.kind === 'file' || entity.kind === 'group'
   const headerExtension = hasHeader ? CHROME_HEADER_HEIGHT : 0
   return {

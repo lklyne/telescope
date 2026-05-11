@@ -1,15 +1,11 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { Select } from '@base-ui/react/select'
 import { Tabs } from '@base-ui/react/tabs'
-import { useState } from 'react'
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Circle,
-  Diamond,
   Frame,
-  Highlighter,
   LayoutTemplate,
   MessageCircle,
   Moon,
@@ -29,12 +25,10 @@ import {
 import { Menu } from '@base-ui/react/menu'
 import type {
   AgentPresenceCursor,
-  ShapeKind,
   TextEntityStyle,
   Tool,
   ToolbarSelectionData,
 } from '../../shared/types'
-import { activeDrawBrush } from '../../shared/tool'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { normalizeUserUrl } from '../../shared/url'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
@@ -51,12 +45,6 @@ function toolbarActiveIconBtnClass(isDark: boolean): string {
     ? 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-[var(--surface-interactive)] p-1.5 text-zinc-100'
     : 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-[var(--surface-interactive)] p-1.5 text-zinc-900'
 }
-
-const SHAPE_OPTIONS: Array<{ kind: ShapeKind; label: string; Icon: React.ComponentType<{ size?: number }> }> = [
-  { kind: 'rectangle', label: 'rectangle', Icon: Square },
-  { kind: 'ellipse', label: 'ellipse', Icon: Circle },
-  { kind: 'diamond', label: 'diamond', Icon: Diamond },
-]
 
 type AddTextItem =
   | { kind: 'text'; style: TextEntityStyle; label: string; Icon: React.ComponentType<{ size?: number }> }
@@ -118,62 +106,6 @@ function AddTextMenu({
               >
                 <item.Icon size={12} />
                 <span>{item.label}</span>
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
-  )
-}
-
-function ShapeMenu({
-  isDark,
-  onAddShape,
-  onDropdownOpenChange,
-}: {
-  isDark: boolean
-  onAddShape: (shapeKind: ShapeKind) => void
-  onDropdownOpenChange: (open: boolean) => void
-}) {
-  const [lastShape, setLastShape] = useState<ShapeKind>('rectangle')
-  const triggerClassName = toolbarIconBtnClass(isDark)
-  const LastIcon = SHAPE_OPTIONS.find((o) => o.kind === lastShape)?.Icon ?? Square
-
-  const popupClassName = `z-50 min-w-[160px] rounded-[10px] border p-1 shadow-xl outline-none ${
-    isDark
-      ? 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-100'
-      : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900'
-  }`
-  const itemClassName = `flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-    isDark
-      ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
-      : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
-  }`
-
-  return (
-    <Menu.Root onOpenChange={onDropdownOpenChange}>
-      <Menu.Trigger
-        className={`${triggerClassName} flex items-center gap-0.5 pr-1`}
-        title="Add Shape"
-      >
-        <LastIcon size={14} />
-        <ChevronDown size={10} className={isDark ? 'text-zinc-400' : 'text-zinc-500'} />
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner side="bottom" align="center" sideOffset={4}>
-          <Menu.Popup className={popupClassName}>
-            {SHAPE_OPTIONS.map(({ kind, label, Icon }) => (
-              <Menu.Item
-                key={kind}
-                className={itemClassName}
-                onClick={() => {
-                  setLastShape(kind)
-                  onAddShape(kind)
-                }}
-              >
-                <Icon size={12} />
-                <span>{label}</span>
               </Menu.Item>
             ))}
           </Menu.Popup>
@@ -299,18 +231,13 @@ export function CenterActions({
     })
   const onAddText = (style: TextEntityStyle) => onSetTool({ kind: 'add-text', style })
   const onAddDocument = () => onSetTool({ kind: 'add-document' })
-  const onAddShape = (shapeKind: ShapeKind) =>
-    onSetTool({ kind: 'add-shape', shapeKind })
+  const onAddShape = () => onSetTool({ kind: 'add-shape' })
   const onClearToolMode = () => onSetTool({ kind: 'select' })
   const onToggleAnnotateMode = () =>
     onSetTool(activeTool.kind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
-  const drawBrush = activeDrawBrush(activeTool)
+  const drawActive = activeTool.kind === 'draw'
   const onToggleDrawMode = () =>
-    onSetTool(drawBrush === 'pen' ? { kind: 'select' } : { kind: 'draw', brush: 'pen' })
-  const onToggleHighlightMode = () =>
-    onSetTool(
-      drawBrush === 'highlight' ? { kind: 'select' } : { kind: 'draw', brush: 'highlight' },
-    )
+    onSetTool(drawActive ? { kind: 'select' } : { kind: 'draw' })
   const onToggleRegionSelectMode = () =>
     onSetTool(activeTool.kind === 'region-select' ? { kind: 'select' } : { kind: 'region-select' })
   const onToggleInspectMode = () =>
@@ -358,11 +285,14 @@ export function CenterActions({
         ) : null}
 
         {!isBrowserMode ? (
-          <ShapeMenu
-            isDark={isDark}
-            onAddShape={onAddShape}
-            onDropdownOpenChange={onDropdownOpenChange}
-          />
+          <button
+            onClick={onAddShape}
+            className={`${activeTool.kind === 'add-shape' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+            title="Add Shape"
+            type="button"
+          >
+            <Square size={14} />
+          </button>
         ) : null}
 
         <div className="ml-0.5 flex items-center gap-2">
@@ -377,26 +307,15 @@ export function CenterActions({
           </button>
 
           {drawingEnabled ? (
-            <>
-              <button
-                onClick={onToggleDrawMode}
-                className={`${drawBrush === 'pen' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
-                title="Draw"
-                disabled={!annotateAvailable}
-                type="button"
-              >
-                <PencilLine size={14} />
-              </button>
-              <button
-                onClick={onToggleHighlightMode}
-                className={`${drawBrush === 'highlight' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
-                title="Highlight"
-                disabled={!annotateAvailable}
-                type="button"
-              >
-                <Highlighter size={14} />
-              </button>
-            </>
+            <button
+              onClick={onToggleDrawMode}
+              className={`${drawActive ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+              title="Draw"
+              disabled={!annotateAvailable}
+              type="button"
+            >
+              <PencilLine size={14} />
+            </button>
           ) : null}
 
           <button

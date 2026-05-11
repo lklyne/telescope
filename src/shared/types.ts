@@ -1642,10 +1642,12 @@ export interface CanvasBgElectronAPI {
   deleteTextEntity: (id: string) => void
   updateFileEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteFileEntity: (id: string) => void
-  updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }) => void
   deleteDrawingEntity: (id: string) => void
+  duplicateDrawingEntity: (id: string) => void
   updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteShapeEntity: (id: string) => void
+  duplicateShapeEntity: (id: string) => void
   placePendingShape: (
     canvasX: number,
     canvasY: number,

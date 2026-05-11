@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneFileEntity,
@@ -14,12 +14,10 @@ import { BrowserTabBar } from './BrowserTabBar'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { PageBorderLayer } from './PageBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
-import { GroupInlineMenu } from './InlineEntityMenu'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
-const GROUP_MENU_DELAY_MS = 150
 
 export default function App({
   initialLayoutData,
@@ -56,30 +54,6 @@ export default function App({
       : pageEntities,
     [pageEntities, layoutData.viewMode, layoutData.activeBrowserTabId],
   )
-  const selectedGroupEntity = useMemo(() => {
-    if (!layoutData.selectedGroupId) return null
-    return (layoutData.groups ?? []).find((group) => group.id === layoutData.selectedGroupId) ?? null
-  }, [layoutData.groups, layoutData.selectedGroupId])
-  const [delayedSelectedGroupMenuId, setDelayedSelectedGroupMenuId] = useState<string | null>(null)
-  const shouldQueueSelectedGroupMenu =
-    layoutData.viewMode === 'canvas' &&
-    layoutData.interaction.kind === 'idle' &&
-    selectedGroupEntity !== null
-  useEffect(() => {
-    if (!shouldQueueSelectedGroupMenu || !selectedGroupEntity) {
-      setDelayedSelectedGroupMenuId(null)
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setDelayedSelectedGroupMenuId(selectedGroupEntity.id)
-    }, GROUP_MENU_DELAY_MS)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [selectedGroupEntity, shouldQueueSelectedGroupMenu])
-  const showSelectedGroupMenu =
-    selectedGroupEntity !== null && delayedSelectedGroupMenuId === selectedGroupEntity.id
-
   return (
     <div
       className="relative h-screen w-screen overflow-hidden"
@@ -129,19 +103,8 @@ export default function App({
         />
       </div>
 
-      {showSelectedGroupMenu ? (
-        selectedGroupEntity ? (
-          <GroupInlineMenu
-            group={selectedGroupEntity}
-            isDark={isDark}
-            onDuplicate={() => api.duplicateGroup(selectedGroupEntity.id)}
-            onDelete={() => api.deleteGroup(selectedGroupEntity.id)}
-            onSelectColor={(color) => api.updateGroupEntity(selectedGroupEntity.id, { color })}
-          />
-        ) : null
-      ) : null}
-
-      {/* Selected page menu now renders in the floating-ui view (above pages) */}
+      {/* Group selection popup migrated to above-view (ADR 0006 §1, step 5).
+          Selected page menu lives in the floating-ui view. */}
     </div>
   )
 }

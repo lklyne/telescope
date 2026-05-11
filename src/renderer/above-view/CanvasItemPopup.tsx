@@ -163,7 +163,12 @@ function Section({ children }: { children: ReactNode }) {
   return <div className="flex items-center gap-1.5">{children}</div>
 }
 
-function popupIconButtonClass(isDark: boolean): string {
+function popupIconButtonClass(isDark: boolean, active = false): string {
+  if (active) {
+    return isDark
+      ? 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent bg-zinc-800 text-zinc-100'
+      : 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent bg-zinc-100 text-zinc-900'
+  }
   return isDark
     ? 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100'
     : 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900'
@@ -177,12 +182,15 @@ function popupDeleteButtonClass(isDark: boolean): string {
 
 function IconButton({
   isDark,
+  active = false,
   title,
   ariaLabel,
   onClick,
   children,
 }: {
   isDark: boolean
+  /** Highlights the button as the currently-selected variant. */
+  active?: boolean
   title: string
   ariaLabel: string
   onClick: () => void
@@ -191,10 +199,11 @@ function IconButton({
   return (
     <button
       type="button"
-      className={popupIconButtonClass(isDark)}
+      className={popupIconButtonClass(isDark, active)}
       onClick={onClick}
       title={title}
       aria-label={ariaLabel}
+      aria-pressed={active}
     >
       {children}
     </button>

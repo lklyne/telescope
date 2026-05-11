@@ -127,14 +127,18 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-update-file-entity', { id, patch }),
   deleteFileEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-file-entity', { id }),
-  updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) =>
+  updateDrawingEntity: (id, patch) =>
     ipcRenderer.send('canvas-update-drawing-entity', { id, patch }),
   deleteDrawingEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-drawing-entity', { id }),
+  duplicateDrawingEntity: (id) =>
+    ipcRenderer.send('canvas-duplicate-drawing-entity', { id }),
   updateShapeEntity: (id, patch) =>
     ipcRenderer.send('canvas-update-shape', { id, patch }),
   deleteShapeEntity: (id) =>
     ipcRenderer.send('canvas-delete-shape', { id }),
+  duplicateShapeEntity: (id) =>
+    ipcRenderer.send('canvas-duplicate-shape', { id }),
   placePendingShape: (canvasX, canvasY, dragRect) =>
     ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY, dragRect: dragRect ?? null }),
   requestEntityEdit: (entityId) =>

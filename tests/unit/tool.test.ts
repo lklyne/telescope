@@ -38,11 +38,10 @@ function makeTool(kind: ToolKind): Tool {
   switch (kind) {
     case 'add-text':
       return { kind: 'add-text', style: 'plain' }
-    case 'add-shape':
-      return { kind: 'add-shape', shapeKind: 'rectangle' }
     case 'select':
     case 'add-page':
     case 'add-document':
+    case 'add-shape':
     case 'comment':
     case 'draw':
     case 'region-select':
@@ -105,7 +104,7 @@ describe('toolGerund mapping (cursor-label / status-bar narration)', () => {
     expect(toolGerund({ kind: 'add-text', style: 'plain' })).toBe('adding text')
     expect(toolGerund({ kind: 'add-text', style: 'sticky' })).toBe('adding sticky note')
     expect(toolGerund({ kind: 'add-document' })).toBe('adding document')
-    expect(toolGerund({ kind: 'add-shape', shapeKind: 'rectangle' })).toBe('adding shape')
+    expect(toolGerund({ kind: 'add-shape' })).toBe('adding shape')
     expect(toolGerund({ kind: 'comment' })).toBe('commenting')
     expect(toolGerund({ kind: 'draw' })).toBe('drawing')
     expect(toolGerund({ kind: 'region-select' })).toBe('selecting region')
@@ -134,7 +133,7 @@ describe('isAnnotationTool / isPlacementTool helpers', () => {
     expect(isPlacementTool({ kind: 'add-page' })).toBe(true)
     expect(isPlacementTool({ kind: 'add-text', style: 'plain' })).toBe(true)
     expect(isPlacementTool({ kind: 'add-document' })).toBe(true)
-    expect(isPlacementTool({ kind: 'add-shape', shapeKind: 'rectangle' })).toBe(true)
+    expect(isPlacementTool({ kind: 'add-shape' })).toBe(true)
     expect(isPlacementTool({ kind: 'select' })).toBe(false)
     expect(isPlacementTool({ kind: 'comment' })).toBe(false)
   })

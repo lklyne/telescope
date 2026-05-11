@@ -1,7 +1,9 @@
 /**
- * ShapePopup — selection-driven popup for the single-selected shape entity
- * (ADR 0006, ADR 0007). Lets the user morph the shape's variant (per ADR 0007
- * §Selection-mode consequences), change color and stroke width, and dup/del.
+ * ShapePopup — selection-driven popup for shape entities (ADR 0006, ADR 0007).
+ * Lets the user morph the shape's variant (per ADR 0007 §Selection-mode
+ * consequences), change color and stroke width, and dup/del. Mounts on
+ * single OR same-kind multi-select (ADR 0006 §4) — variant/color/width edits
+ * fan out across the selection.
  */
 
 import { useEffect, useState } from 'react'
@@ -24,11 +26,17 @@ import { StrokeWidthSwatch } from './StrokeWidthSwatch'
 
 const POPUP_OFFSET_Y = 14
 
+function shared<T>(values: T[]): T | null {
+  if (values.length === 0) return null
+  const first = values[0]
+  return values.every((v) => v === first) ? first : null
+}
+
 export function ShapePopup({
   api,
   isDark,
   layout,
-  selectedShape,
+  selectedShapes,
   interactionIdle,
 }: {
   api: Pick<
@@ -37,31 +45,42 @@ export function ShapePopup({
   >
   isDark: boolean
   layout: LayoutUpdateData
-  selectedShape: CanvasSceneShapeEntity | null
+  selectedShapes: CanvasSceneShapeEntity[]
   interactionIdle: boolean
 }) {
-  const shouldQueue = interactionIdle && selectedShape !== null
-  const [delayedId, setDelayedId] = useState<string | null>(null)
+  const count = selectedShapes.length
+  const ids = selectedShapes.map((e) => e.id).join('|')
+  const shouldQueue = interactionIdle && count > 0
+  const [delayedKey, setDelayedKey] = useState<string | null>(null)
   useEffect(() => {
-    if (!shouldQueue || !selectedShape) {
-      setDelayedId(null)
+    if (!shouldQueue) {
+      setDelayedKey(null)
       return
     }
     const timeoutId = window.setTimeout(() => {
-      setDelayedId(selectedShape.id)
+      setDelayedKey(ids)
     }, POPUP_SHOW_DELAY_MS)
     return () => window.clearTimeout(timeoutId)
-  }, [shouldQueue, selectedShape])
-  if (!selectedShape) return null
-  const open = delayedId === selectedShape.id
-  const currentColor = selectedShape.color ? resolveCanvasColor(selectedShape.color) : null
-  const activeStrokeWidth =
-    selectedShape.strokeWidth !== undefined
-      ? nearestStrokeWidthPreset(selectedShape.strokeWidth)
-      : null
+  }, [shouldQueue, ids])
+  if (count === 0) return null
+  const open = delayedKey === ids
+
+  const sharedShapeKind = shared(selectedShapes.map((s) => s.shapeKind))
+  const colors = selectedShapes.map((s) =>
+    s.color ? resolveCanvasColor(s.color) : null,
+  )
+  const sharedColor = shared(colors)
+  const widths = selectedShapes.map((s) =>
+    s.strokeWidth !== undefined ? nearestStrokeWidthPreset(s.strokeWidth) : null,
+  )
+  const sharedStrokeWidth = shared(widths)
+
+  const entityIds = selectedShapes.map((s) => s.id)
+  const noun = count === 1 ? 'shape' : `${count} shapes`
+
   return (
     <CanvasItemPopup.Root
-      entityId={selectedShape.id}
+      entityIds={entityIds}
       layout={layout}
       open={open}
       placement="above"
@@ -73,12 +92,12 @@ export function ShapePopup({
             <CanvasItemPopup.IconButton
               key={kind}
               isDark={isDark}
-              active={selectedShape.shapeKind === kind}
+              active={sharedShapeKind === kind}
               title={label}
-              ariaLabel={`Morph shape to ${label}`}
+              ariaLabel={`Morph ${noun} to ${label}`}
               onClick={() => {
                 const patch: { shapeKind: ShapeKind } = { shapeKind: kind }
-                api.updateShapeEntity(selectedShape.id, patch)
+                for (const s of selectedShapes) api.updateShapeEntity(s.id, patch)
               }}
             >
               <Icon size={14} />
@@ -92,10 +111,14 @@ export function ShapePopup({
               <CanvasItemPopup.ColorSwatch
                 key={option.id}
                 isDark={isDark}
-                active={currentColor === resolved}
+                active={sharedColor === resolved}
                 color={resolved}
-                ariaLabel={`Set shape color to ${option.label}`}
-                onClick={() => api.updateShapeEntity(selectedShape.id, { color: option.id })}
+                ariaLabel={`Set ${noun} color to ${option.label}`}
+                onClick={() => {
+                  for (const s of selectedShapes) {
+                    api.updateShapeEntity(s.id, { color: option.id })
+                  }
+                }}
               />
             )
           })}
@@ -105,27 +128,35 @@ export function ShapePopup({
             <StrokeWidthSwatch
               key={width}
               isDark={isDark}
-              active={activeStrokeWidth === width}
+              active={sharedStrokeWidth === width}
               width={width}
-              ariaLabel={`Set shape stroke width to ${width}px`}
-              onClick={() => api.updateShapeEntity(selectedShape.id, { strokeWidth: width })}
+              ariaLabel={`Set ${noun} stroke width to ${width}px`}
+              onClick={() => {
+                for (const s of selectedShapes) {
+                  api.updateShapeEntity(s.id, { strokeWidth: width })
+                }
+              }}
             />
           ))}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton
             isDark={isDark}
-            title="Duplicate shape"
-            ariaLabel="Duplicate shape"
-            onClick={() => api.duplicateShapeEntity(selectedShape.id)}
+            title={`Duplicate ${noun}`}
+            ariaLabel={`Duplicate ${noun}`}
+            onClick={() => {
+              for (const s of selectedShapes) api.duplicateShapeEntity(s.id)
+            }}
           >
             <Copy size={14} />
           </CanvasItemPopup.IconButton>
           <CanvasItemPopup.DestructiveButton
             isDark={isDark}
-            title="Delete shape"
-            ariaLabel="Delete shape"
-            onClick={() => api.deleteShapeEntity(selectedShape.id)}
+            title={`Delete ${noun}`}
+            ariaLabel={`Delete ${noun}`}
+            onClick={() => {
+              for (const s of selectedShapes) api.deleteShapeEntity(s.id)
+            }}
           >
             <Trash2 size={14} />
           </CanvasItemPopup.DestructiveButton>

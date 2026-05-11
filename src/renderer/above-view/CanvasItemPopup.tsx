@@ -16,23 +16,17 @@
  */
 
 import { type ReactNode } from 'react'
-import { useAnchoredPosition, type AnchorSlot } from './useAnchoredPosition'
+import {
+  useAnchoredPosition,
+  useMultiAnchoredPosition,
+  type AnchorSlot,
+} from './useAnchoredPosition'
 import type { LayoutUpdateData } from '../../shared/types'
 
 type Placement = 'above' | 'below' | 'overlay'
 type Align = 'stretch' | 'center'
 
-function Root({
-  entityId,
-  layout,
-  open,
-  slot = 'body',
-  placement = 'below',
-  align = 'center',
-  offset = 8,
-  children,
-}: {
-  entityId: string
+type RootProps = {
   layout: LayoutUpdateData
   open: boolean
   /** Anchor slot — popup hangs off this rect. Defaults to body. */
@@ -49,8 +43,28 @@ function Root({
   /** Pixel gap between anchor edge and popup. Ignored for `overlay`. */
   offset?: number
   children: ReactNode
-}) {
-  const rect = useAnchoredPosition(layout, entityId, slot)
+} & (
+  | { entityId: string; entityIds?: undefined }
+  | { entityIds: readonly string[]; entityId?: undefined }
+)
+
+function Root(props: RootProps) {
+  const {
+    layout,
+    open,
+    slot = 'body',
+    placement = 'below',
+    align = 'center',
+    offset = 8,
+    children,
+  } = props
+  const singleRect = useAnchoredPosition(
+    layout,
+    props.entityId ?? '',
+    slot,
+  )
+  const multiRect = useMultiAnchoredPosition(layout, props.entityIds ?? [], slot)
+  const rect = props.entityIds !== undefined ? multiRect : singleRect
   if (!open || !rect) return null
   const style = popupStyle(rect, placement, align, offset)
   return (

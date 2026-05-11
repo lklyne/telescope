@@ -1,8 +1,11 @@
 /**
- * DrawingPopup — selection-driven popup for the single-selected drawing entity
- * (ADR 0006 §8). Edits the inner stroke's `brushType`, `color`, and `width`,
- * plus dup/del. Per ADR §8 every drawing has exactly one stroke; if a drawing
- * has multiple (legacy import), edits are applied uniformly to all strokes.
+ * DrawingPopup — selection-driven popup for drawing entities (ADR 0006 §8).
+ * Edits inner strokes' `brushType`, `color`, and `width`, plus dup/del.
+ * Per ADR §8 every drawing has exactly one stroke; legacy drawings with
+ * multiple strokes accept uniform writes across all strokes.
+ *
+ * Mounts on single OR same-kind multi-select (ADR 0006 §4) — edits fan out
+ * across every selected drawing and every stroke inside each one.
  */
 
 import { useEffect, useState } from 'react'
@@ -27,19 +30,19 @@ import { StrokeWidthSwatch } from './StrokeWidthSwatch'
 
 const POPUP_OFFSET_Y = 14
 
-function dominantBrush(strokes: AnnotationDrawingStroke[]): DrawingBrushType | null {
+function sharedBrush(strokes: AnnotationDrawingStroke[]): DrawingBrushType | null {
   if (!strokes.length) return null
   const first = strokes[0].brushType ?? 'pen'
   return strokes.every((s) => (s.brushType ?? 'pen') === first) ? first : null
 }
 
-function dominantColor(strokes: AnnotationDrawingStroke[]): string | null {
+function sharedColor(strokes: AnnotationDrawingStroke[]): string | null {
   if (!strokes.length) return null
   const first = strokes[0].color
   return strokes.every((s) => s.color === first) ? first : null
 }
 
-function dominantWidth(strokes: AnnotationDrawingStroke[]): number | null {
+function sharedWidth(strokes: AnnotationDrawingStroke[]): number | null {
   if (!strokes.length) return null
   const first = strokes[0].width
   return strokes.every((s) => s.width === first) ? first : null
@@ -49,7 +52,7 @@ export function DrawingPopup({
   api,
   isDark,
   layout,
-  selectedDrawing,
+  selectedDrawings,
   interactionIdle,
 }: {
   api: Pick<
@@ -58,48 +61,57 @@ export function DrawingPopup({
   >
   isDark: boolean
   layout: LayoutUpdateData
-  selectedDrawing: CanvasSceneDrawingEntity | null
+  selectedDrawings: CanvasSceneDrawingEntity[]
   interactionIdle: boolean
 }) {
-  const shouldQueue = interactionIdle && selectedDrawing !== null
-  const [delayedId, setDelayedId] = useState<string | null>(null)
+  const count = selectedDrawings.length
+  const ids = selectedDrawings.map((e) => e.id).join('|')
+  const shouldQueue = interactionIdle && count > 0
+  const [delayedKey, setDelayedKey] = useState<string | null>(null)
   useEffect(() => {
-    if (!shouldQueue || !selectedDrawing) {
-      setDelayedId(null)
+    if (!shouldQueue) {
+      setDelayedKey(null)
       return
     }
     const timeoutId = window.setTimeout(() => {
-      setDelayedId(selectedDrawing.id)
+      setDelayedKey(ids)
     }, POPUP_SHOW_DELAY_MS)
     return () => window.clearTimeout(timeoutId)
-  }, [shouldQueue, selectedDrawing])
-  if (!selectedDrawing) return null
-  const open = delayedId === selectedDrawing.id
-  const brush = dominantBrush(selectedDrawing.strokes)
-  const colorRaw = dominantColor(selectedDrawing.strokes)
+  }, [shouldQueue, ids])
+  if (count === 0) return null
+  const open = delayedKey === ids
+
+  const allStrokes = selectedDrawings.flatMap((d) => d.strokes)
+  const brush = sharedBrush(allStrokes)
+  const colorRaw = sharedColor(allStrokes)
   const currentColor = colorRaw === null ? null : resolveCanvasColor(colorRaw)
-  const widthRaw = dominantWidth(selectedDrawing.strokes)
+  const widthRaw = sharedWidth(allStrokes)
   const widthPresets = strokeWidthPresetsFor(brush ?? undefined)
   const activeStrokeWidth =
     widthRaw === null ? null : nearestStrokeWidthPreset(widthRaw, widthPresets)
 
-  const writeStrokes = (rewrite: (stroke: AnnotationDrawingStroke) => AnnotationDrawingStroke) => {
-    const next = selectedDrawing.strokes.map(rewrite)
-    // Recompute the entity bbox so width changes (or brush switches that
-    // snap width) keep the hit/drag box in sync with the visible stroke.
-    const bbox = drawingBounds(next)
-    api.updateDrawingEntity(selectedDrawing.id, {
-      strokes: next,
-      canvasX: bbox.x,
-      canvasY: bbox.y,
-      width: bbox.width,
-      height: bbox.height,
-    })
+  const writeStrokes = (
+    rewrite: (stroke: AnnotationDrawingStroke) => AnnotationDrawingStroke,
+  ) => {
+    for (const drawing of selectedDrawings) {
+      const next = drawing.strokes.map(rewrite)
+      const bbox = drawingBounds(next)
+      api.updateDrawingEntity(drawing.id, {
+        strokes: next,
+        canvasX: bbox.x,
+        canvasY: bbox.y,
+        width: bbox.width,
+        height: bbox.height,
+      })
+    }
   }
+
+  const entityIds = selectedDrawings.map((d) => d.id)
+  const noun = count === 1 ? 'drawing' : `${count} drawings`
 
   return (
     <CanvasItemPopup.Root
-      entityId={selectedDrawing.id}
+      entityIds={entityIds}
       layout={layout}
       open={open}
       placement="above"
@@ -113,7 +125,7 @@ export function DrawingPopup({
               isDark={isDark}
               active={brush === kind}
               title={label}
-              ariaLabel={`Switch drawing brush to ${label}`}
+              ariaLabel={`Switch ${noun} brush to ${label}`}
               onClick={() => {
                 const targetPresets = strokeWidthPresetsFor(kind)
                 writeStrokes((stroke) => ({
@@ -136,7 +148,7 @@ export function DrawingPopup({
                 isDark={isDark}
                 active={currentColor === resolved}
                 color={resolved}
-                ariaLabel={`Set drawing color to ${option.label}`}
+                ariaLabel={`Set ${noun} color to ${option.label}`}
                 onClick={() => writeStrokes((stroke) => ({ ...stroke, color: resolved }))}
               />
             )
@@ -149,7 +161,7 @@ export function DrawingPopup({
               isDark={isDark}
               active={activeStrokeWidth === width}
               width={width}
-              ariaLabel={`Set drawing stroke width to ${width}px`}
+              ariaLabel={`Set ${noun} stroke width to ${width}px`}
               onClick={() => writeStrokes((stroke) => ({ ...stroke, width }))}
             />
           ))}
@@ -157,17 +169,21 @@ export function DrawingPopup({
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton
             isDark={isDark}
-            title="Duplicate drawing"
-            ariaLabel="Duplicate drawing"
-            onClick={() => api.duplicateDrawingEntity(selectedDrawing.id)}
+            title={`Duplicate ${noun}`}
+            ariaLabel={`Duplicate ${noun}`}
+            onClick={() => {
+              for (const d of selectedDrawings) api.duplicateDrawingEntity(d.id)
+            }}
           >
             <Copy size={14} />
           </CanvasItemPopup.IconButton>
           <CanvasItemPopup.DestructiveButton
             isDark={isDark}
-            title="Delete drawing"
-            ariaLabel="Delete drawing"
-            onClick={() => api.deleteDrawingEntity(selectedDrawing.id)}
+            title={`Delete ${noun}`}
+            ariaLabel={`Delete ${noun}`}
+            onClick={() => {
+              for (const d of selectedDrawings) api.deleteDrawingEntity(d.id)
+            }}
           >
             <Trash2 size={14} />
           </CanvasItemPopup.DestructiveButton>

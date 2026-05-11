@@ -51,6 +51,7 @@ import {
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { PageChromeOverlay } from './PageChrome'
+import { PagePopup } from './PagePopup'
 import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
 import { DrawingPopup } from './DrawingPopup'
@@ -81,6 +82,26 @@ function electronCursorToCss(type: string | null): string {
   if (type === 'iBeam') return 'text'
   if (type.endsWith('-panning')) return 'all-scroll'
   return type
+}
+
+/**
+ * Same-kind multi-select detector (ADR 0006 §4). Returns the array of
+ * entities iff every selected id resolves to the requested kind; otherwise
+ * empty. The caller mounts the popup when length >= 1.
+ */
+function sameKindSelectedEntities<K extends CanvasSceneEntity['kind']>(
+  layout: LayoutUpdateData,
+  kind: K,
+): Extract<CanvasSceneEntity, { kind: K }>[] {
+  const ids = layout.selectedEntityIds
+  if (ids.length === 0) return []
+  const result: Extract<CanvasSceneEntity, { kind: K }>[] = []
+  for (const id of ids) {
+    const entity = layout.entities.find((e) => e.id === id)
+    if (!entity || entity.kind !== kind) return []
+    result.push(entity as Extract<CanvasSceneEntity, { kind: K }>)
+  }
+  return result
 }
 
 function overlayRectFromScreenRect(
@@ -126,27 +147,25 @@ export default function App({
   // Marquee preview ids — outline layer highlights entities that the in-flight
   // marquee currently overlaps. canvas-bg used to derive this; aboveView owns
   // the marquee gesture, so we derive locally from `selectionOverlay`.
-  const selectedTextEntity = useMemo<CanvasSceneTextEntity | null>(() => {
-    if (layoutData.selectedEntityIds.length !== 1) return null
-    const [selectedId] = layoutData.selectedEntityIds
-    const entity = layoutData.entities.find((e) => e.id === selectedId)
-    return entity?.kind === 'text' ? entity : null
+  //
+  // Selection-popup mounts on single OR same-kind multi-select (ADR 0006 §4).
+  // Each `selectedXxxEntities` is the non-empty array of selected entities iff
+  // every selected id resolves to that kind; otherwise empty.
+  const selectedTextEntities = useMemo<CanvasSceneTextEntity[]>(() => {
+    return sameKindSelectedEntities(layoutData, 'text')
   }, [layoutData.selectedEntityIds, layoutData.entities])
   const selectedGroupEntity = useMemo(() => {
     if (!layoutData.selectedGroupId) return null
     return (layoutData.groups ?? []).find((g) => g.id === layoutData.selectedGroupId) ?? null
   }, [layoutData.groups, layoutData.selectedGroupId])
-  const selectedShapeEntity = useMemo<CanvasSceneShapeEntity | null>(() => {
-    if (layoutData.selectedEntityIds.length !== 1) return null
-    const [selectedId] = layoutData.selectedEntityIds
-    const entity = layoutData.entities.find((e) => e.id === selectedId)
-    return entity?.kind === 'shape' ? entity : null
+  const selectedShapeEntities = useMemo<CanvasSceneShapeEntity[]>(() => {
+    return sameKindSelectedEntities(layoutData, 'shape')
   }, [layoutData.selectedEntityIds, layoutData.entities])
-  const selectedDrawingEntity = useMemo<CanvasSceneDrawingEntity | null>(() => {
-    if (layoutData.selectedEntityIds.length !== 1) return null
-    const [selectedId] = layoutData.selectedEntityIds
-    const entity = layoutData.entities.find((e) => e.id === selectedId)
-    return entity?.kind === 'drawing' ? entity : null
+  const selectedDrawingEntities = useMemo<CanvasSceneDrawingEntity[]>(() => {
+    return sameKindSelectedEntities(layoutData, 'drawing')
+  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const selectedPageEntities = useMemo<CanvasScenePageEntity[]>(() => {
+    return sameKindSelectedEntities(layoutData, 'page')
   }, [layoutData.selectedEntityIds, layoutData.entities])
   const selectedEntityIdSet = useMemo(
     () => new Set(layoutData.selectedEntityIds),
@@ -974,7 +993,7 @@ export default function App({
                     api={api}
                     isDark={isDark}
                     layout={layoutData}
-                    selectedTextEntity={selectedTextEntity}
+                    selectedTextEntities={selectedTextEntities}
                     interactionIdle={interactionIdle}
                   />
                   <GroupPopup
@@ -988,14 +1007,21 @@ export default function App({
                     api={api}
                     isDark={isDark}
                     layout={layoutData}
-                    selectedShape={selectedShapeEntity}
+                    selectedShapes={selectedShapeEntities}
                     interactionIdle={interactionIdle}
                   />
                   <DrawingPopup
                     api={api}
                     isDark={isDark}
                     layout={layoutData}
-                    selectedDrawing={selectedDrawingEntity}
+                    selectedDrawings={selectedDrawingEntities}
+                    interactionIdle={interactionIdle}
+                  />
+                  <PagePopup
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedPages={selectedPageEntities}
                     interactionIdle={interactionIdle}
                   />
                 </>

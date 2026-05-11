@@ -1,5 +1,6 @@
 /**
- * Sidebar tree builder — constructs hierarchical sidebar data for the left panel.
+ * Sidebar tree builder — turns the structural partition (`shared/sidebar-partition`)
+ * into UI items for the left panel.
  */
 
 import type {
@@ -7,18 +8,22 @@ import type {
   SidebarCanvasItem,
   SidebarDrawingItem,
   SidebarFileItem,
+  SidebarGroupItem,
   SidebarPageItem,
+  SidebarSections,
   SidebarShapeItem,
   SidebarTextItem,
-  WorkspaceBounds,
   WorkspaceGroup,
 } from '../../shared/types'
 import {
-  findPageById,
   interactionState,
   pages,
 } from './runtime-context'
-import { activeWorkspaceTabId, workspaceGroups } from './workspace-model'
+import type { Page } from './runtime-entities'
+import {
+  activeWorkspaceTabId,
+  workspaceGroups,
+} from './workspace-model'
 import { leftSidebarView } from './view-refs'
 import {
   leftSidebarOpen as uiLeftSidebarOpen,
@@ -26,13 +31,19 @@ import {
   selectedGroupId as uiSelectedGroupId,
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
-import { textEntities } from './text-entity-state'
-import { fileEntities } from './file-entity-state'
-import { drawingEntitiesForUi } from './drawing-entity-state'
-import { shapeEntities } from './shape-entity-state'
+import { textEntities, type TextEntity } from './text-entity-state'
+import { fileEntities, type FileEntity } from './file-entity-state'
+import { drawingEntitiesForUi, type DrawingEntity } from './drawing-entity-state'
+import { shapeEntities, type ShapeEntity } from './shape-entity-state'
 import { pageDisplayLabel } from './runtime-serialization'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
+import { getEntityOrder } from './workspace-doc'
+import {
+  partitionSidebar,
+  type PartitionLeaf,
+  type PartitionTreeNode,
+} from '../../shared/sidebar-partition'
 
 type SidebarLeafItem =
   | SidebarPageItem
@@ -40,33 +51,29 @@ type SidebarLeafItem =
   | SidebarFileItem
   | SidebarDrawingItem
   | SidebarShapeItem
-type SidebarNodeBuild = {
-  group: WorkspaceGroup
-  bounds: WorkspaceBounds
-  parentId: string | null
-  childGroupIds: string[]
-}
-type SortableSidebarItem = SidebarCanvasItem & {
-  sortKey: { y: number; x: number; priority: number }
+
+interface EntityIndex {
+  pages: Map<string, Page>
+  text: Map<string, TextEntity>
+  file: Map<string, FileEntity>
+  drawing: Map<string, DrawingEntity>
+  shape: Map<string, ShapeEntity>
+  groups: Map<string, WorkspaceGroup>
 }
 
-function compareSidebarPositions(
-  a: { y: number; x: number; priority: number },
-  b: { y: number; x: number; priority: number },
-): number {
-  if (a.y !== b.y) return a.y - b.y
-  if (a.x !== b.x) return a.x - b.x
-  return a.priority - b.priority
+function buildEntityIndex(): EntityIndex {
+  return {
+    pages: new Map(pages.map((p) => [p.id, p])),
+    text: new Map(textEntities.map((e) => [e.id, e])),
+    file: new Map(fileEntities.map((e) => [e.id, e])),
+    drawing: new Map(drawingEntitiesForUi().map((e) => [e.id, e])),
+    shape: new Map(shapeEntities.map((e) => [e.id, e])),
+    groups: new Map(workspaceGroups.map((g) => [g.id, g])),
+  }
 }
 
-function sortSidebarItems(items: SortableSidebarItem[]): SidebarCanvasItem[] {
-  return items
-    .sort((a, b) => compareSidebarPositions(a.sortKey, b.sortKey))
-    .map(({ sortKey: _sortKey, ...item }) => item)
-}
-
-function buildSidebarLeafItem(entityId: string): (SidebarLeafItem & { sortKey: SortableSidebarItem['sortKey'] }) | null {
-  const page = findPageById(entityId)
+function buildSidebarLeafItem(entityId: string, index: EntityIndex): SidebarLeafItem | null {
+  const page = index.pages.get(entityId)
   if (page) {
     return {
       kind: 'page',
@@ -75,22 +82,20 @@ function buildSidebarLeafItem(entityId: string): (SidebarLeafItem & { sortKey: S
       faviconUrl: page.faviconUrl ?? null,
       width: page.peekWidth,
       height: page.peekHeight,
-      sortKey: { y: page.canvasY, x: page.canvasX, priority: 1 },
     }
   }
 
-  const te = textEntities.find((entity) => entity.id === entityId)
+  const te = index.text.get(entityId)
   if (te) {
     return {
       kind: 'text',
       id: entityId,
       label: te.label || te.text || 'Text',
       color: te.color,
-      sortKey: { y: te.canvasY, x: te.canvasX, priority: 0 },
     }
   }
 
-  const fe = fileEntities.find((entity) => entity.id === entityId)
+  const fe = index.file.get(entityId)
   if (fe) {
     const fileName = fe.file.split('/').pop() ?? fe.file
     const displayName = fileName
@@ -101,11 +106,10 @@ function buildSidebarLeafItem(entityId: string): (SidebarLeafItem & { sortKey: S
       id: entityId,
       label: displayName,
       file: fe.file,
-      sortKey: { y: fe.canvasY, x: fe.canvasX, priority: 0 },
     }
   }
 
-  const de = drawingEntitiesForUi().find((entity) => entity.id === entityId)
+  const de = index.drawing.get(entityId)
   if (de) {
     const defaultLabel = `Drawing (${de.strokes.length} stroke${de.strokes.length === 1 ? '' : 's'})`
     return {
@@ -113,11 +117,10 @@ function buildSidebarLeafItem(entityId: string): (SidebarLeafItem & { sortKey: S
       id: entityId,
       label: de.label || defaultLabel,
       strokeCount: de.strokes.length,
-      sortKey: { y: de.canvasY, x: de.canvasX, priority: 0 },
     }
   }
 
-  const se = shapeEntities.find((entity) => entity.id === entityId)
+  const se = index.shape.get(entityId)
   if (se) {
     const trimmed = se.text.trim()
     const defaultLabel =
@@ -127,111 +130,64 @@ function buildSidebarLeafItem(entityId: string): (SidebarLeafItem & { sortKey: S
       id: entityId,
       label: se.label || trimmed || defaultLabel,
       shapeKind: se.shapeKind,
-      sortKey: { y: se.canvasY, x: se.canvasX, priority: 0 },
     }
   }
 
   return null
 }
 
-function countSidebarLeafDescendants(groupId: string): number {
-  const directLeafCount =
-    pages.filter((page) => page.parentGroupId === groupId).length +
-    textEntities.filter((entity) => entity.parentGroupId === groupId).length +
-    fileEntities.filter((entity) => entity.parentGroupId === groupId).length +
-    drawingEntitiesForUi().filter((entity) => entity.parentGroupId === groupId).length +
-    shapeEntities.filter((entity) => entity.parentGroupId === groupId).length
-
-  const nestedLeafCount = workspaceGroups
-    .filter((group) => group.parentGroupId === groupId)
-    .reduce((total, group) => total + countSidebarLeafDescendants(group.id), 0)
-
-  return directLeafCount + nestedLeafCount
+function collectPartitionLeaves(index: EntityIndex): PartitionLeaf[] {
+  const out: PartitionLeaf[] = []
+  for (const p of index.pages.values()) out.push({ id: p.id, surface: 'pages', parentGroupId: p.parentGroupId ?? null })
+  for (const e of index.text.values()) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
+  for (const e of index.file.values()) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
+  for (const e of index.drawing.values()) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
+  for (const e of index.shape.values()) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
+  return out
 }
 
-export function buildSidebarItems(): SidebarCanvasItem[] {
-  const userGroups = workspaceGroups
+function decorateNode(node: PartitionTreeNode, index: EntityIndex): SidebarCanvasItem | null {
+  if (!node.isGroup) return buildSidebarLeafItem(node.id, index)
 
-  const nodeById = new Map<string, SidebarNodeBuild>(
-    userGroups.map((group) => [
-      group.id,
-      {
-        group,
-        bounds: { x: group.canvasX, y: group.canvasY, width: group.width, height: group.height },
-        parentId: group.parentGroupId ?? null,
-        childGroupIds: [],
-      },
-    ]),
+  const group = index.groups.get(node.id)
+  if (!group) return null
+
+  const children: SidebarCanvasItem[] = []
+  for (const child of node.children) {
+    const decorated = decorateNode(child, index)
+    if (decorated) children.push(decorated)
+  }
+
+  const item: SidebarGroupItem = {
+    kind: 'group',
+    id: node.id,
+    label: group.label,
+    entityCount: node.surfaceLeafCount,
+    children,
+  }
+  return item
+}
+
+function decorateSection(nodes: PartitionTreeNode[], index: EntityIndex): SidebarCanvasItem[] {
+  const out: SidebarCanvasItem[] = []
+  for (const node of nodes) {
+    const decorated = decorateNode(node, index)
+    if (decorated) out.push(decorated)
+  }
+  return out
+}
+
+export function buildSidebarSections(): SidebarSections {
+  const index = buildEntityIndex()
+  const partition = partitionSidebar(
+    collectPartitionLeaves(index),
+    [...index.groups.values()].map((g) => ({ id: g.id, parentGroupId: g.parentGroupId ?? null })),
+    getEntityOrder(),
   )
-
-  const groupNodes = Array.from(nodeById.values())
-  for (const node of groupNodes) {
-    if (node.parentId) {
-      const parent = nodeById.get(node.parentId)
-      if (parent) {
-        parent.childGroupIds.push(node.group.id)
-      }
-    }
+  return {
+    notes: decorateSection(partition.notes, index),
+    pages: decorateSection(partition.pages, index),
   }
-
-  function buildGroupItem(groupId: string): SortableSidebarItem | null {
-    const node = nodeById.get(groupId)
-    if (!node) return null
-
-    const childGroups = node.childGroupIds
-      .map(buildGroupItem)
-      .filter((item): item is SortableSidebarItem => Boolean(item))
-    const directLeafItems = [
-      ...pages.filter((page) => page.parentGroupId === node.group.id).map((page) => page.id),
-      ...textEntities.filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
-      ...fileEntities.filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
-      ...drawingEntitiesForUi().filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
-      ...shapeEntities.filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
-    ]
-      .map(buildSidebarLeafItem)
-      .filter((item): item is NonNullable<typeof item> => Boolean(item))
-
-    return {
-      kind: 'group',
-      id: node.group.id,
-      label: node.group.label,
-      entityCount: countSidebarLeafDescendants(node.group.id),
-      children: sortSidebarItems([...childGroups, ...directLeafItems]),
-      sortKey: { y: node.bounds.y, x: node.bounds.x, priority: 2 },
-    }
-  }
-
-  const groupedEntityIds = new Set<string>([
-    ...pages.filter((page) => page.parentGroupId).map((page) => page.id),
-    ...textEntities.filter((entity) => entity.parentGroupId).map((entity) => entity.id),
-    ...fileEntities.filter((entity) => entity.parentGroupId).map((entity) => entity.id),
-    ...drawingEntitiesForUi().filter((entity) => entity.parentGroupId).map((entity) => entity.id),
-    ...shapeEntities.filter((entity) => entity.parentGroupId).map((entity) => entity.id),
-  ])
-  const rootLeafItems = [
-    ...pages
-      .filter((page) => !groupedEntityIds.has(page.id))
-      .map((page) => buildSidebarLeafItem(page.id)),
-    ...textEntities
-      .filter((entity) => !groupedEntityIds.has(entity.id))
-      .map((entity) => buildSidebarLeafItem(entity.id)),
-    ...fileEntities
-      .filter((entity) => !groupedEntityIds.has(entity.id))
-      .map((entity) => buildSidebarLeafItem(entity.id)),
-    ...drawingEntitiesForUi()
-      .filter((entity) => !groupedEntityIds.has(entity.id))
-      .map((entity) => buildSidebarLeafItem(entity.id)),
-    ...shapeEntities
-      .filter((entity) => !groupedEntityIds.has(entity.id))
-      .map((entity) => buildSidebarLeafItem(entity.id)),
-  ].filter((item): item is NonNullable<typeof item> => Boolean(item))
-
-  const rootGroupItems = groupNodes
-    .filter((node) => !node.parentId)
-    .map((node) => buildGroupItem(node.group.id))
-    .filter((item): item is SortableSidebarItem => Boolean(item))
-
-  return sortSidebarItems([...rootLeafItems, ...rootGroupItems])
 }
 
 export function buildLeftSidebarData(): LeftSidebarData {
@@ -243,7 +199,7 @@ export function buildLeftSidebarData(): LeftSidebarData {
     activeTabId: activeWorkspaceTabId,
     viewMode: uiWorkspaceViewMode(),
     hasPages: pages.length > 0,
-    items: buildSidebarItems(),
+    sections: buildSidebarSections(),
   }
 }
 

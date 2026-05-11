@@ -553,6 +553,25 @@ export type SidebarCanvasItem =
   | SidebarShapeItem
   | SidebarGroupItem
 
+/**
+ * Sidebar entries partitioned by paint surface (ADR 0006).
+ * - `notes` — entities that render in `aboveView` (text, file, drawing, shape).
+ *   Always paint above pages.
+ * - `pages` — live web pages, rendered as `WebContentsView`s.
+ *
+ * Groups with members on both surfaces appear as two linked rows sharing the
+ * same id, one per section. Each row exposes only the children belonging to
+ * that surface (see ADR 0006 §4).
+ *
+ * Each list is ordered frontmost-first (top of the stack at the top of the
+ * section). The underlying `entityOrder` is back-to-front; the sidebar
+ * reverses it for display.
+ */
+export interface SidebarSections {
+  notes: SidebarCanvasItem[]
+  pages: SidebarCanvasItem[]
+}
+
 export interface LeftSidebarData {
   width: number
   selectedEntityIds: string[]
@@ -561,7 +580,7 @@ export interface LeftSidebarData {
   activeTabId: string | null
   viewMode: WorkspaceViewMode
   hasPages: boolean
-  items: SidebarCanvasItem[]
+  sections: SidebarSections
 }
 
 export interface ToolbarSelectionData {

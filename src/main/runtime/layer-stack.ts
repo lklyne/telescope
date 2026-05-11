@@ -1,14 +1,10 @@
 /**
- * LAYER_STACK — the declarative z-order for singleton overlay WCVs.
- *
- * Pages (pageView) are added to the content view at
- * creation time (see page-factory.ts) and interleaved between `bgView`
- * (bottom) and the above-pages cluster by virtue of us re-adding `bgView`
- * at index 0 and then re-adding every above-pages WCV.
+ * LAYER_STACK — declarative z-order for singleton overlay WCVs.
  *
  * `applyStack()` is the only function that calls `addChildView` on these
  * singletons. It is invoked exclusively from `layoutAllViews()` when the
- * 'stack' dirty flag is set (invariant I1).
+ * 'stack' dirty flag is set (invariant I1). Pages are interleaved between
+ * `bgView` (bottom) and the above-pages cluster in `entityOrder` order.
  */
 
 import type { WebContentsView } from 'electron'
@@ -23,6 +19,8 @@ import {
   toolbarView,
   win,
 } from './view-refs'
+import { findPageById } from './runtime-context'
+import { getEntityOrder } from './workspace-doc'
 
 export type LayerId =
   | 'bgView'
@@ -81,6 +79,13 @@ export function applyStack(): void {
   if (!win) return
   const view = resolve('bgView')
   if (view) win.contentView.addChildView(view, 0)
+  // frameView goes behind pageView so the page card's border sits underneath.
+  for (const id of getEntityOrder()) {
+    const page = findPageById(id)
+    if (!page) continue
+    win.contentView.addChildView(page.frameView)
+    win.contentView.addChildView(page.pageView)
+  }
   for (const id of LAYER_STACK) {
     if (id === 'bgView') continue
     const v = resolve(id)

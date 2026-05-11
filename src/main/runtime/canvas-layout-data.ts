@@ -93,6 +93,8 @@ import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { getPresenceCursors } from '../app-control-server'
 import { getFixProgress } from '../agent-fix/fix-progress'
+import { getEntityOrder } from './workspace-doc'
+import { sortByStackOrder } from '../../shared/entity-order-math'
 
 // --- Exported data builders ---
 
@@ -330,27 +332,35 @@ export function buildCanvasLayoutData(
   const origin = localCanvasOrigin()
   const pendingPlacementData = buildPlacementPreview(tool)
   const groupEntities = buildUserGroupSceneEntities(origin)
+  // Frontmost paints last (on top), so body layers must iterate back-to-front.
+  const allEntities = [
+    ...pages,
+    ...textEntities.map((te) =>
+      buildTextEntitySceneEntity(te, zoom, pan, origin)
+    ),
+    ...fileEntities.map((fe) =>
+      buildFileEntitySceneEntity(fe, zoom, pan, origin)
+    ),
+    ...drawingEntitiesForUi().map((de) =>
+      buildDrawingEntitySceneEntity(de, zoom, pan, origin)
+    ),
+    ...shapeEntities.map((se) =>
+      buildShapeEntitySceneEntity(se, zoom, pan, origin)
+    ),
+    ...groupEntities,
+  ] as CanvasSceneEntity[]
+  const orderedEntities = sortByStackOrder(
+    allEntities,
+    (e) => e.id,
+    getEntityOrder(),
+    'back-to-front',
+  )
   return {
     zoom,
     pan,
     canvasOrigin: origin,
     leftChromeWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
-    entities: [
-      ...pages,
-      ...textEntities.map((te) =>
-        buildTextEntitySceneEntity(te, zoom, pan, origin)
-      ),
-      ...fileEntities.map((fe) =>
-        buildFileEntitySceneEntity(fe, zoom, pan, origin)
-      ),
-      ...drawingEntitiesForUi().map((de) =>
-        buildDrawingEntitySceneEntity(de, zoom, pan, origin)
-      ),
-      ...shapeEntities.map((se) =>
-        buildShapeEntitySceneEntity(se, zoom, pan, origin)
-      ),
-      ...groupEntities,
-    ] as CanvasSceneEntity[],
+    entities: orderedEntities,
     browserTabs: buildLiveBrowserTabSummaries(),
     browserFillViewport: fillViewport,
     selectedEntityIds: uiSelectedEntityIds(),

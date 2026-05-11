@@ -178,10 +178,12 @@ Read by creation tools when stamping new entities; written by the tool-mode popu
 
 This is a sequence of vertical slices, not a big-bang. Each slice ships green typecheck + unit + smoke.
 
-1. **Generalize `CanvasItemPopup` for content composition.** Today `CanvasItemPopup.Root` is a positioning shell. Add slot primitives or a shared "content frame" so kind-specific popup contents compose consistently (color swatches block, action button block, rename inline-edit block, variant picker block).
-2. **Tool defaults storage.** New module `src/main/runtime/tool-defaults.ts`. Reads/writes app settings; broadcasts changes via an existing IPC channel (or a new one). First-time defaults: sticky yellow, plain transparent/inherit, shape rectangle/black/2px, draw pen/black/2px.
-3. **Tool-mode popup positioning.** New positioning code in aboveView for "fixed below toolbar". Reads the toolbar's screen-space bottom edge from the layout broadcast (may need a new field).
-4. **Migrate sticky note.** `StickyNotePopover` becomes the sticky consumer of the generalized component. Selection popup contents unchanged. Adds tool-mode popup for `add-text` (style: sticky and plain).
+Progress: Steps 1–4 landed together (popup primitives, tool-defaults storage, viewport-mode positioning, sticky migration). Steps 5–11 are still ahead.
+
+1. ✅ **Generalize `CanvasItemPopup` for content composition.** Today `CanvasItemPopup.Root` is a positioning shell. Add slot primitives or a shared "content frame" so kind-specific popup contents compose consistently (color swatches block, action button block, rename inline-edit block, variant picker block).
+2. ✅ **Tool defaults storage.** New module `src/main/runtime/tool-defaults.ts`. Reads/writes app settings; broadcasts changes via an existing IPC channel (or a new one). First-time defaults: sticky yellow, plain transparent/inherit, shape rectangle/black/2px, draw pen/black/2px.
+3. ✅ **Tool-mode popup positioning.** New positioning code in aboveView for "fixed below toolbar". Reads the toolbar's screen-space bottom edge from the layout broadcast (may need a new field).
+4. ✅ **Migrate sticky note.** `StickyNotePopover` becomes the sticky consumer of the generalized component. Selection popup contents unchanged. Adds tool-mode popup for `add-text` (style: sticky and plain).
 5. **Migrate group.** `GroupInlineMenu` deleted; group becomes another consumer. Same selection contents.
 6. **Add shape popup.** `add-shape` tool popup with `[shapeKind picker] [color] [strokeWidth]`. Selection popup with the same plus dup/del. ADR 0007 lands here in the same PR — `Tool` union shrinks.
 7. **Add drawing popup.** `draw` tool popup with `[brushType picker] [color] [strokeWidth]`. Selection popup writes to inner stroke.

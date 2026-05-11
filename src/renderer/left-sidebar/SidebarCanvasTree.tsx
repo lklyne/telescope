@@ -140,6 +140,7 @@ function EntityListItem({
 function GroupTreeItem({
   group,
   depth,
+  surface,
   selectedEntityIds,
   selectedGroupId,
   isDark,
@@ -147,6 +148,7 @@ function GroupTreeItem({
 }: {
   group: SidebarGroupItem
   depth: number
+  surface: 'notes' | 'pages'
   selectedEntityIds: string[]
   selectedGroupId: string | null
   isDark: boolean
@@ -230,9 +232,10 @@ function GroupTreeItem({
           <Collapsible.Panel>
             {group.children.map((child) => (
               <SidebarCanvasTreeItem
-                key={child.id}
+                key={`${surface}:${child.id}`}
                 item={child}
                 depth={depth + 1}
+                surface={surface}
                 selectedEntityIds={selectedEntityIds}
                 selectedGroupId={selectedGroupId}
                 isDark={isDark}
@@ -281,6 +284,7 @@ function GroupTreeItem({
 function SidebarCanvasTreeItem({
   item,
   depth,
+  surface,
   selectedEntityIds,
   selectedGroupId,
   isDark,
@@ -288,6 +292,7 @@ function SidebarCanvasTreeItem({
 }: {
   item: SidebarCanvasItem
   depth: number
+  surface: 'notes' | 'pages'
   selectedEntityIds: string[]
   selectedGroupId: string | null
   isDark: boolean
@@ -298,6 +303,7 @@ function SidebarCanvasTreeItem({
       <GroupTreeItem
         group={item}
         depth={depth}
+        surface={surface}
         selectedEntityIds={selectedEntityIds}
         selectedGroupId={selectedGroupId}
         isDark={isDark}
@@ -398,12 +404,14 @@ function SidebarCanvasTreeItem({
 
 export function SidebarCanvasTree({
   items,
+  surface,
   selectedEntityIds,
   selectedGroupId,
   isDark,
   api,
 }: {
   items: SidebarCanvasItem[]
+  surface: 'notes' | 'pages'
   selectedEntityIds: string[]
   selectedGroupId: string | null
   isDark: boolean
@@ -413,9 +421,10 @@ export function SidebarCanvasTree({
     <>
       {items.map((item) => (
         <SidebarCanvasTreeItem
-          key={item.id}
+          key={`${surface}:${item.id}`}
           item={item}
           depth={0}
+          surface={surface}
           selectedEntityIds={selectedEntityIds}
           selectedGroupId={selectedGroupId}
           isDark={isDark}

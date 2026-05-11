@@ -30,6 +30,11 @@ function findSidebarItemById(items: SidebarCanvasItem[], targetId: string): Side
   return null
 }
 
+const SECTION_HEADER_LABEL: Record<'notes' | 'pages', string> = {
+  notes: 'Notes',
+  pages: 'Pages',
+}
+
 export default function App({
   initialSidebarData,
   initialTheme,
@@ -66,8 +71,9 @@ export default function App({
       if (!sidebarData.selectedEntityIds.length) return
 
       let deletedAny = false
+      const allItems = [...sidebarData.sections.notes, ...sidebarData.sections.pages]
       for (const entityId of sidebarData.selectedEntityIds) {
-        const item = findSidebarItemById(sidebarData.items, entityId)
+        const item = findSidebarItemById(allItems, entityId)
         if (!item || item.kind === 'group') continue
         if (item.kind === 'page') {
           api.deletePage(item.id)
@@ -83,7 +89,7 @@ export default function App({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [sidebarData.items, sidebarData.selectedEntityIds])
+  }, [sidebarData.sections, sidebarData.selectedEntityIds])
 
   useEffect(() => {
     if (!editingTabId) return
@@ -253,15 +259,33 @@ export default function App({
         <div className={isDark ? 'border-t border-zinc-700/50' : 'border-t border-gray-200/80'} />
 
         <div className="py-2">
-          <SidebarCanvasTree
-            items={sidebarData.items}
-            selectedEntityIds={sidebarData.selectedEntityIds}
-            selectedGroupId={sidebarData.selectedGroupId ?? null}
-            isDark={isDark}
-            api={api}
-          />
+          {(['notes', 'pages'] as const).map((surface) => {
+            const items = sidebarData.sections[surface]
+            if (!items.length) return null
+            return (
+              <div key={surface} className="pb-2">
+                <div
+                  className="pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500"
+                  style={{
+                    paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING,
+                    paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
+                  }}
+                >
+                  {SECTION_HEADER_LABEL[surface]}
+                </div>
+                <SidebarCanvasTree
+                  surface={surface}
+                  items={items}
+                  selectedEntityIds={sidebarData.selectedEntityIds}
+                  selectedGroupId={sidebarData.selectedGroupId ?? null}
+                  isDark={isDark}
+                  api={api}
+                />
+              </div>
+            )
+          })}
 
-          {!sidebarData.items.length ? (
+          {!sidebarData.sections.notes.length && !sidebarData.sections.pages.length ? (
             <div
               className="py-1 text-[11px] text-zinc-500"
               style={{

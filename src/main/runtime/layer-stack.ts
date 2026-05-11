@@ -1,10 +1,12 @@
 /**
  * LAYER_STACK — the declarative z-order for singleton overlay WCVs.
  *
- * Pages (pageView) are added to the content view at
- * creation time (see page-factory.ts) and interleaved between `bgView`
- * (bottom) and the above-pages cluster by virtue of us re-adding `bgView`
- * at index 0 and then re-adding every above-pages WCV.
+ * Pages (pageView + frameView) are added to the content view at creation time
+ * (see page-factory.ts) and interleaved between `bgView` (bottom) and the
+ * above-pages cluster. `applyStack()` re-adds every layer in order:
+ * `bgView` first, then each page's frame + page in `entityOrder` (back-to-front)
+ * per ADR 0006, then the above-pages cluster. This makes page-vs-page visual
+ * stacking match `entityOrder` exactly.
  *
  * `applyStack()` is the only function that calls `addChildView` on these
  * singletons. It is invoked exclusively from `layoutAllViews()` when the
@@ -23,6 +25,8 @@ import {
   toolbarView,
   win,
 } from './view-refs'
+import { findPageById } from './runtime-context'
+import { getEntityOrder } from './workspace-doc'
 
 export type LayerId =
   | 'bgView'
@@ -81,6 +85,16 @@ export function applyStack(): void {
   if (!win) return
   const view = resolve('bgView')
   if (view) win.contentView.addChildView(view, 0)
+  // Re-add pages in entityOrder (back-to-front). For each page id, attach the
+  // frameView first (immediately behind its page), then the pageView. Ids in
+  // `entityOrder` that aren't pages (text, file, drawing, shape, group) are
+  // ignored here — they paint inside `aboveView`.
+  for (const id of getEntityOrder()) {
+    const page = findPageById(id)
+    if (!page) continue
+    win.contentView.addChildView(page.frameView)
+    win.contentView.addChildView(page.pageView)
+  }
   for (const id of LAYER_STACK) {
     if (id === 'bgView') continue
     const v = resolve(id)

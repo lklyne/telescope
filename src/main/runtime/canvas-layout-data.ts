@@ -93,8 +93,30 @@ import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { getPresenceCursors } from '../app-control-server'
 import { getFixProgress } from '../agent-fix/fix-progress'
+import { getEntityOrder } from './workspace-doc'
 
 // --- Exported data builders ---
+
+/**
+ * Order scene entities back-to-front per `entityOrder` (ADR 0006 §6).
+ * Stable on ties: entities missing from `entityOrder` keep their original
+ * relative order at the back of the array.
+ */
+function sortEntitiesByStackOrder(
+  entities: CanvasSceneEntity[],
+  entityOrder: readonly string[],
+): CanvasSceneEntity[] {
+  const rank = new Map<string, number>()
+  for (let i = 0; i < entityOrder.length; i++) rank.set(entityOrder[i]!, i)
+  return entities
+    .map((entity, originalIndex) => ({
+      entity,
+      primary: rank.get(entity.id) ?? -1,
+      secondary: originalIndex,
+    }))
+    .sort((a, b) => a.primary - b.primary || a.secondary - b.secondary)
+    .map(({ entity }) => entity)
+}
 
 export function backgroundPageOverlays(): CanvasScenePageEntity[] {
   const viewMode = uiWorkspaceViewMode()
@@ -330,27 +352,33 @@ export function buildCanvasLayoutData(
   const origin = localCanvasOrigin()
   const pendingPlacementData = buildPlacementPreview(tool)
   const groupEntities = buildUserGroupSceneEntities(origin)
+  // Per ADR 0006 §6, aboveView body layers (sticky/file/shape/drawing/edge)
+  // iterate scene entities in `entityOrder` (back-to-front). The renderer
+  // filters this array by kind; the filtered relative order matches stack
+  // order, so React's render order makes frontmost paint last (on top).
+  const allEntities = [
+    ...pages,
+    ...textEntities.map((te) =>
+      buildTextEntitySceneEntity(te, zoom, pan, origin)
+    ),
+    ...fileEntities.map((fe) =>
+      buildFileEntitySceneEntity(fe, zoom, pan, origin)
+    ),
+    ...drawingEntitiesForUi().map((de) =>
+      buildDrawingEntitySceneEntity(de, zoom, pan, origin)
+    ),
+    ...shapeEntities.map((se) =>
+      buildShapeEntitySceneEntity(se, zoom, pan, origin)
+    ),
+    ...groupEntities,
+  ] as CanvasSceneEntity[]
+  const orderedEntities = sortEntitiesByStackOrder(allEntities, getEntityOrder())
   return {
     zoom,
     pan,
     canvasOrigin: origin,
     leftChromeWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
-    entities: [
-      ...pages,
-      ...textEntities.map((te) =>
-        buildTextEntitySceneEntity(te, zoom, pan, origin)
-      ),
-      ...fileEntities.map((fe) =>
-        buildFileEntitySceneEntity(fe, zoom, pan, origin)
-      ),
-      ...drawingEntitiesForUi().map((de) =>
-        buildDrawingEntitySceneEntity(de, zoom, pan, origin)
-      ),
-      ...shapeEntities.map((se) =>
-        buildShapeEntitySceneEntity(se, zoom, pan, origin)
-      ),
-      ...groupEntities,
-    ] as CanvasSceneEntity[],
+    entities: orderedEntities,
     browserTabs: buildLiveBrowserTabSummaries(),
     browserFillViewport: fillViewport,
     selectedEntityIds: uiSelectedEntityIds(),

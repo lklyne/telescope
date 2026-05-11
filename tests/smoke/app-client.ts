@@ -97,14 +97,15 @@ export function getWorkspace() {
 }
 
 export function getSidebar() {
+  type SidebarItem = {
+    kind: 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group'
+    id: string
+    label: string
+    children?: SidebarItem[]
+    entityCount?: number
+  }
   return get<{
-    items: Array<{
-      kind: 'page' | 'text' | 'file' | 'group'
-      id: string
-      label: string
-      children?: unknown[]
-      entityCount?: number
-    }>
+    sections: { notes: SidebarItem[]; pages: SidebarItem[] }
   }>('/sidebar')
 }
 

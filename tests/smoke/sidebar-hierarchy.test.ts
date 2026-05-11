@@ -46,14 +46,18 @@ describe('left sidebar hierarchy', () => {
     const outerGroup = await createGroup([innerLeft, innerRight, outerOnly], 'Outer group')
 
     const sidebar = await getSidebar()
-    const outerItem = sidebar.items.find((item) => item.id === outerGroup.id)
+    // All three entities are pages — the outer group is a pure-pages group, so
+    // it only appears in the Pages section per ADR 0006.
+    const pagesSection = sidebar.sections.pages
+    const outerItem = pagesSection.find((item) => item.id === outerGroup.id)
     expect(outerItem).toMatchObject({
       kind: 'group',
       label: 'Outer group',
       entityCount: 3,
     })
 
-    expect(sidebar.items.some((item) => item.id === innerGroup.id)).toBe(false)
+    expect(pagesSection.some((item) => item.id === innerGroup.id)).toBe(false)
+    expect(sidebar.sections.notes.some((item) => item.id === outerGroup.id)).toBe(false)
 
     const outerChildren = Array.isArray(outerItem?.children) ? outerItem.children : []
     expect(outerChildren).toHaveLength(2)

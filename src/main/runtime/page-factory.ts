@@ -284,7 +284,7 @@ export function removePageAtIndex(idx: number): Page | null {
   // focus() call lands at the end of the next layout pass via reconcileFocus.
   setPendingFocus({ kind: 'aboveView' })
   pages.splice(idx, 1)
-  markDirty('canvas', 'sidebar', 'toolbar', 'pages')
+  markDirty('canvas', 'sidebar', 'toolbar', 'pages', 'stack')
   invalidateAgentSnapshot(page.id)
   const previousSelectedIndex = uiSelectedPageIndex(pages.map((p) => p.id))
   updateSelectionForRemovedEntity(page.id)

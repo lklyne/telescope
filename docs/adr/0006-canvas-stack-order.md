@@ -144,8 +144,9 @@ Deterministic, no data lost — only a reordering. Re-running the migration is a
 **Costs:**
 
 - Real refactor of `sidebar-builder.ts` and `SidebarCanvasTree.tsx`.
-- New runtime module `entity-order-state.ts` for the four mutation primitives (`bringToFront`, `sendToBack`, `moveForward`, `moveBackward`) and a `moveBefore(id, anchorId)` for drag-target form.
-- `enforceGroupContiguity` helper that runs after every order or group-membership mutation.
+- New pure module `src/shared/entity-order-math.ts` for the mutation primitives (`bringToFront`, `sendToBack`, `moveForward`, `moveBackward`, `moveBefore(id, anchorId, 'before' | 'after')`) and the `appendAtTop` helper for new-entity / new-edge creation.
+- New runtime wrapper `src/main/runtime/entity-order-state.ts` that reads runtime arrays, calls the pure helpers, and writes back. Diff-sync handles Y.Doc per `src/main/runtime/CLAUDE.md`.
+- `enforceGroupContiguity` helper (in the pure module) that runs after every order or group-membership mutation.
 - Page WCV re-stack on every order mutation (cheap but a new code path).
 - aboveView body layers must iterate in `entityOrder` order — verify or fix each one (`StickyBodyLayer`, `FileBodyLayer`, `ShapeBodyLayer`, `DrawingsLayer`, `EdgeLayer`).
 - HTTP API surface for the four mutations so agents / smoke tests can drive them.
@@ -164,7 +165,7 @@ Deterministic, no data lost — only a reordering. Re-running the migration is a
 
 Implementation slices, each independently shippable:
 
-1. **`entity-order-state.ts` + invariant helper.** Pure functions: `bringToFront(id)`, `sendToBack(id)`, `moveForward(id)`, `moveBackward(id)`, `moveBefore(id, anchorId)`, `enforceGroupContiguity(order, groups)`. Y.Doc transaction wrappers. Unit tests cover the invariant under every mutation, multi-selection block moves, and the migration normalization.
+1. **Pure math module + invariant helper.** Split between `src/shared/entity-order-math.ts` (zero-dep pure functions: `bringToFront`, `sendToBack`, `moveForward`, `moveBackward`, `moveBefore(id, anchorId, 'before' | 'after')`, `enforceGroupContiguity(order, groups)`, `appendAtTop`) and a thin runtime wrapper `src/main/runtime/entity-order-state.ts` that calls them against the live runtime arrays. Diff-sync handles Y.Doc writes. Unit tests cover the invariant under every mutation, multi-selection block moves, group selection moving the whole run, and migration normalisation being idempotent.
 2. **Sidebar sort by `entityOrder`.** Replace `compareSidebarPositions` with index lookup. Section partition (Notes / Pages) and split rows for mixed groups. Initial render only — no drag yet.
 3. **Page WCV re-stack.** A `restackPages()` function called from `layoutAllViews()` when the `'stack'` dirty flag is set. Walk `entityOrder`, `addChildView` each page's frameView + pageView. Smoke test: two overlapping pages, send-backward on the front one → click region resolves to the other; visually back one is now on top.
 4. **aboveView paint-iteration verification.** Each body layer iterates `entityOrder`. Smoke test: two overlapping stickies, send-backward → click hits the previously-back one.

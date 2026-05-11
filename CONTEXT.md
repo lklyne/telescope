@@ -64,9 +64,20 @@ Conventions:
 The front-to-back ordering of canvas items. Topmost = frontmost. Backed by the `entityOrder` array on the workspace (a Y.Array, round-tripped through the `.canvas` JSON Canvas node order).
 
 - **Stack order** — user-facing term for the concept. The sidebar tree mirrors stack order top-to-bottom (topmost row = frontmost item). Pages (`WebContentsView`s) are stacked on the canvas in the same order: frontmost stack slot = topmost child view.
-- **`entityOrder`** — the persisted data-model array. Code-only term; do not surface in UI copy.
+- **`entityOrder`** — the persisted data-model array. Code-only term; do not surface in UI copy. One flat array regardless of how the sidebar groups things — the section partition below is purely a render-time view, not a data split.
 - **Group contiguity** — every group's descendants (recursive) plus the group's own id form a single contiguous run inside `entityOrder`. The group's id sits at the front of its run, so `entityOrder.indexOf(groupId)` *is* the group's stack position. A group occupies one stack slot — reordering the group moves the whole run as a unit. Within that run, each child group's subtree is also contiguous (the invariant nests).
 - **Stack-order mutations** — *Bring forward*, *Send backward*, *Bring to front*, *Send to back*. Shortcuts: `Cmd+]`, `Cmd+[`, `Cmd+Shift+]`, `Cmd+Shift+[` (Figma/Sketch convention). Sidebar rows can also be dragged or moved with `↑`/`↓` — moving a row up = bringing it forward.
+
+### Sidebar sections — *Notes* and *Pages*
+
+The canvas has two interactive paint surfaces, and the sidebar mirrors them as two labelled sections so the user can see why stack order behaves the way it does.
+
+- **Notes** (top section) — text, sticky, document (file), drawing, shape, and groups whose frontmost child is one of these. These render in `aboveView` and always paint above pages by architecture.
+- **Pages** (bottom section) — live web pages and groups whose frontmost child is a page. These render as `WebContentsView` children between `bgView` and `aboveView`.
+
+Stack-order mutations are scoped per section: bring-forward/backward move within Notes or within Pages, not across the divider. Cross-section drag has no drop target. *Note* is a sidebar-grouping label — it is not a kind in the data model and never appears in `.canvas` files. A *group* still occupies one stack slot inside its section; if a group contains both pages and notes, it sits in whichever section its frontmost child belongs to, and its expanded children reveal the cross-surface mix.
+
+Cross-surface stacking — putting a sticky behind a page, or a page in front of a drawing — is not supported today: `aboveView` always paints above all pages. The two-section sidebar surfaces that constraint directly instead of pretending one flat order can override it.
 
 ## Input authority
 

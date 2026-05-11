@@ -59,6 +59,15 @@ Conventions:
 - **Body sub-rect** — the part of the entity rect that holds the entity's content (the live document for a page, the image for a file, etc.). Resize handles and edge anchors attach here.
 - **Chrome slot** — the part of the entity rect reserved for canvas-anchored overlay UI. Per-kind, runtime-derived, **not persisted** in the `.canvas` schema.
 
+## Stack order
+
+The front-to-back ordering of canvas items. Topmost = frontmost. Backed by the `entityOrder` array on the workspace (a Y.Array, round-tripped through the `.canvas` JSON Canvas node order).
+
+- **Stack order** — user-facing term for the concept. The sidebar tree mirrors stack order top-to-bottom (topmost row = frontmost item). Pages (`WebContentsView`s) are stacked on the canvas in the same order: frontmost stack slot = topmost child view.
+- **`entityOrder`** — the persisted data-model array. Code-only term; do not surface in UI copy.
+- **Group contiguity** — every group's descendants (recursive) plus the group's own id form a single contiguous run inside `entityOrder`. The group's id sits at the front of its run, so `entityOrder.indexOf(groupId)` *is* the group's stack position. A group occupies one stack slot — reordering the group moves the whole run as a unit. Within that run, each child group's subtree is also contiguous (the invariant nests).
+- **Stack-order mutations** — *Bring forward*, *Send backward*, *Bring to front*, *Send to back*. Shortcuts: `Cmd+]`, `Cmd+[`, `Cmd+Shift+]`, `Cmd+Shift+[` (Figma/Sketch convention). Sidebar rows can also be dragged or moved with `↑`/`↓` — moving a row up = bringing it forward.
+
 ## Input authority
 
 - **Page focus** — runtime state `{ id, since } | null` in main. When set, the focused page receives native pointer input; aboveView's gate is closed. When null, aboveView is the sole input authority. See [ADR 0001](./docs/adr/0001-click-to-enter-frame-focus.md). (ADR 0001 was authored under the old "frame" name; the runtime variable is currently `frameFocus` and renames to `pageFocus` in the migration.)

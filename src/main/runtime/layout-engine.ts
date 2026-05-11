@@ -69,7 +69,6 @@ import {
   annotationsForPage,
   pageAnnotationsKey,
 } from './canvas-layout-data'
-import { textEntityMenuViewBounds } from '../../shared/selectedPageMenu'
 import { textEntities, buildTextEntitySceneEntity } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { listComponentViews, syncComponentViews } from './component-page-factory'

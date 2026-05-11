@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react'
 import { Copy, Trash2 } from 'lucide-react'
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
-import { SELECTED_PAGE_MENU_SHOW_DELAY_MS } from '../../shared/selectedPageMenu'
+import { POPUP_SHOW_DELAY_MS } from '../../shared/popupTiming'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneGroupEntity,
@@ -45,7 +45,7 @@ export function GroupPopup({
     }
     const timeoutId = window.setTimeout(() => {
       setDelayedId(selectedGroup.id)
-    }, SELECTED_PAGE_MENU_SHOW_DELAY_MS)
+    }, POPUP_SHOW_DELAY_MS)
     return () => window.clearTimeout(timeoutId)
   }, [shouldQueue, selectedGroup])
   if (!selectedGroup) return null

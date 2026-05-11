@@ -1681,6 +1681,11 @@ export interface CanvasBgElectronAPI {
   beginResize: (entityId: string, entityKind: CanvasEntityKind) => void
   endResize: () => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
+  /** Comment tool click below the drag threshold. Main resolves the page +
+   *  element under the window-coord point and either fires
+   *  `annotate-element-selected` (element anchor) or
+   *  `comment-canvas-point-committed` (no page hit / no element). ADR 0006. */
+  commitCommentClickAt: (windowX: number, windowY: number) => void
   createAnnotation: (request: AnnotationCreateRequest) => void
   createDrawing: (input: { canvasX: number; canvasY: number; width: number; height: number; strokes: AnnotationDrawingStroke[] }) => void
   selectEntities: (entityIds: string[]) => void
@@ -1698,6 +1703,39 @@ export interface CanvasBgElectronAPI {
   ) => () => void
   onRegionSelectCommitted: (
     callback: (data: { canvasRect: WorkspaceBounds }) => void,
+  ) => () => void
+  /** Comment-tool click that landed off-page (or in a page slot with no DOM
+   *  element). Renderer mounts a canvas-point pending composer at the given
+   *  canvas coordinates. ADR 0006. */
+  onCommentCanvasPointCommitted: (
+    callback: (data: { canvasX: number; canvasY: number }) => void,
+  ) => () => void
+  /** Page-paints contract (ADR 0006). The renderer reports the pointer's
+   *  window-coord position and the current marquee rect (if any) while the
+   *  comment tool is active; main fans these out to every page in page-local
+   *  coords so the page can paint hover/region preview outlines. Pass `null`
+   *  to clear (tool deactivated, pointer left the window, etc.). */
+  setCommentToolPointerState: (
+    state:
+      | {
+          windowX: number
+          windowY: number
+          regionRect: { x: number; y: number; width: number; height: number } | null
+        }
+      | null,
+  ) => void
+  /** Live-bbox subscriptions for element-anchored popovers. The renderer
+   *  groups visible popovers by pageId and pushes the full set whenever it
+   *  changes; main forwards to the target page. The page returns updates via
+   *  `onAnnotationLiveBbox`. ADR 0006. */
+  setAnnotationBboxSubscriptions: (
+    pageId: string,
+    subscriptions: AnnotationBboxSubscription[],
+  ) => void
+  /** Stream of live bboxes from any page, broadcast on layout tick / page
+   *  scroll while the corresponding popover is subscribed. */
+  onAnnotationLiveBbox: (
+    callback: (update: AnnotationLiveBboxUpdate) => void,
   ) => () => void
   createRegionAnnotation: (canvasRect: WorkspaceBounds, text: string) => void
   onAnnotationThreadOpen: (
@@ -1926,7 +1964,6 @@ export type AnnotationAnchor =
 
 export type AnnotationStatus = 'pending' | 'acknowledged' | 'resolved' | 'dismissed'
 export type AnnotationStatusFilter = AnnotationStatus | 'unresolved' | 'all'
-export type AnnotationKind = 'comment' | 'region_select'
 
 export interface AnnotationReply {
   author: 'user' | 'agent'
@@ -2074,7 +2111,6 @@ export interface Annotation {
   anchor: AnnotationAnchor
   author: 'user' | 'agent'
   text: string
-  kind?: AnnotationKind
   status: AnnotationStatus
   replies: AnnotationReply[]
   createdAt: string
@@ -2085,8 +2121,40 @@ export interface AnnotationCreateRequest {
   anchor: AnnotationAnchor
   author?: 'user' | 'agent'
   text: string
-  kind?: AnnotationKind
   metadata?: AnnotationMetadata
+}
+
+// --- Comment-tool page-paints contract (ADR 0006) ---
+
+/**
+ * Per-page snapshot of the comment tool's pointer state. Main fans out one of
+ * these to every page on the canvas (~60 Hz) while the comment tool is
+ * active. The page paints a single-element outline when `pointer` is set and
+ * `regionRect` is null; outlines for every intersecting element when
+ * `regionRect` is set; nothing when `active === false`. All coords are in the
+ * page's own viewport space (page-local CSS pixels).
+ */
+export interface CommentToolPagePreviewState {
+  active: boolean
+  pointer: { x: number; y: number } | null
+  regionRect: { x: number; y: number; width: number; height: number } | null
+}
+
+/** Live-bbox subscription request: identifies an element-anchored annotation
+ *  whose popover/composer is currently visible and needs scroll-tracked
+ *  positioning. Sent renderer → main → target page on subscription churn. */
+export interface AnnotationBboxSubscription {
+  annotationId: string
+  selector: string
+}
+
+/** Live-bbox response from a page. `boundingBox` is null when the selector no
+ *  longer resolves (stale anchor). The renderer keeps the last-known live
+ *  bbox in that case and renders a "stale" hint. */
+export interface AnnotationLiveBboxUpdate {
+  pageId: string
+  annotationId: string
+  boundingBox: DevtoolsPanelDomRect | null
 }
 
 // --- Electron API Interfaces ---

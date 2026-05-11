@@ -313,20 +313,16 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
   {
     name: 'create_annotation',
     description:
-      'Create a new user-visible comment thread on the canvas or an element.',
+      'Create a new user-visible comment thread on the canvas or an element. The anchor type discriminates element / canvas / page / region (ADR 0006).',
     inputSchema: {
       type: 'object',
       properties: {
         text: { type: 'string' },
-        kind: {
-          type: 'string',
-          enum: ['comment', 'region_select'],
-        },
         anchor: {
           type: 'object',
           additionalProperties: true,
           description:
-            "Annotation anchor. Examples: { type: 'canvas', canvasX, canvasY }, { type: 'page', pageId, offsetX, offsetY }, { type: 'element', pageId, selector, elementPath?, boundingBox? }",
+            "Annotation anchor. Examples: { type: 'canvas', canvasX, canvasY }, { type: 'page', pageId, offsetX, offsetY }, { type: 'element', pageId, selector, elementPath?, boundingBox? }, { type: 'region', canvasRect: { x, y, width, height } }",
         },
         metadata: {
           type: 'object',

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
-import { annotationScreenPos } from './annotationMath'
+import { annotationScreenPos, type AnnotationLiveBboxLookup } from './annotationMath'
 
 const VIEWPORT_PADDING = 8
 const THREAD_CARD_WIDTH = 360
@@ -71,27 +71,6 @@ export function useAnnotationThreadState({
     setReplyText('')
   }, [api, openThreadId, replyText])
 
-  const threadPosition = useMemo(() => {
-    if (!openThread) return null
-    const anchorPos = annotationScreenPos(openThread, layoutData)
-    if (!anchorPos) return null
-    const belowY = anchorPos.y + 18
-    const aboveY = anchorPos.y - THREAD_CARD_MIN_HEIGHT - 12
-    const top =
-      belowY + THREAD_CARD_MIN_HEIGHT <= window.innerHeight - VIEWPORT_PADDING
-        ? belowY
-        : Math.max(VIEWPORT_PADDING, aboveY)
-    const isRegion = openThread.anchor.type === 'region'
-    const rawLeft = isRegion
-      ? anchorPos.x - THREAD_CARD_WIDTH / 2
-      : anchorPos.x - THREAD_CARD_WIDTH + 12
-    const left = Math.max(
-      VIEWPORT_PADDING,
-      Math.min(rawLeft, window.innerWidth - THREAD_CARD_WIDTH - VIEWPORT_PADDING),
-    )
-    return { left, top, width: THREAD_CARD_WIDTH }
-  }, [layoutData, openThread])
-
   const openThreadById = useCallback((annotationId: string) => {
     setOpenThreadId(annotationId)
     setOpenThreadMenu(false)
@@ -108,6 +87,35 @@ export function useAnnotationThreadState({
     setOpenThreadMenu,
     setReplyText,
     submitThreadReply,
-    threadPosition,
   }
+}
+
+/**
+ * Pure positioner for the open-thread popover. Lifted out of
+ * `useAnnotationThreadState` so the renderer can inject the live-bbox
+ * lookup (ADR 0006) — element-anchored popovers track page scroll.
+ */
+export function annotationThreadPosition(
+  openThread: import('../../shared/types').Annotation | null,
+  layoutData: LayoutUpdateData,
+  liveBboxes?: AnnotationLiveBboxLookup,
+): { left: number; top: number; width: number } | null {
+  if (!openThread) return null
+  const anchorPos = annotationScreenPos(openThread, layoutData, liveBboxes)
+  if (!anchorPos) return null
+  const belowY = anchorPos.y + 18
+  const aboveY = anchorPos.y - THREAD_CARD_MIN_HEIGHT - 12
+  const top =
+    belowY + THREAD_CARD_MIN_HEIGHT <= window.innerHeight - VIEWPORT_PADDING
+      ? belowY
+      : Math.max(VIEWPORT_PADDING, aboveY)
+  const isRegion = openThread.anchor.type === 'region'
+  const rawLeft = isRegion
+    ? anchorPos.x - THREAD_CARD_WIDTH / 2
+    : anchorPos.x - THREAD_CARD_WIDTH + 12
+  const left = Math.max(
+    VIEWPORT_PADDING,
+    Math.min(rawLeft, window.innerWidth - THREAD_CARD_WIDTH - VIEWPORT_PADDING),
+  )
+  return { left, top, width: THREAD_CARD_WIDTH }
 }

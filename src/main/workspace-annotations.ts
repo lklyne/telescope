@@ -170,7 +170,6 @@ export function createAnnotation(request: AnnotationCreateRequest): Annotation {
     anchor: request.anchor,
     author: request.author ?? 'user',
     text: request.text,
-    kind: request.kind ?? 'comment',
     status: 'pending',
     replies: [],
     createdAt: new Date().toISOString(),

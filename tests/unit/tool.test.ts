@@ -21,7 +21,6 @@ const ALL_KINDS: ToolKind[] = [
   'add-shape',
   'comment',
   'draw',
-  'region-select',
   'inspect',
 ]
 
@@ -30,7 +29,6 @@ const PERSISTENT_KINDS: ToolKind[] = [
   'select',
   'comment',
   'draw',
-  'region-select',
   'inspect',
 ]
 
@@ -45,7 +43,6 @@ function makeTool(kind: ToolKind): Tool {
     case 'add-document':
     case 'comment':
     case 'draw':
-    case 'region-select':
     case 'inspect':
       return { kind } as Tool
   }
@@ -108,7 +105,6 @@ describe('toolGerund mapping (cursor-label / status-bar narration)', () => {
     expect(toolGerund({ kind: 'add-shape', shapeKind: 'rectangle' })).toBe('adding shape')
     expect(toolGerund({ kind: 'comment' })).toBe('commenting')
     expect(toolGerund({ kind: 'draw' })).toBe('drawing')
-    expect(toolGerund({ kind: 'region-select' })).toBe('selecting region')
     expect(toolGerund({ kind: 'inspect' })).toBe('inspecting')
   })
 
@@ -124,7 +120,6 @@ describe('isAnnotationTool / isPlacementTool helpers', () => {
   it('classifies the annotation cluster (replaces former AnnotationMode)', () => {
     expect(isAnnotationTool({ kind: 'comment' })).toBe(true)
     expect(isAnnotationTool({ kind: 'draw' })).toBe(true)
-    expect(isAnnotationTool({ kind: 'region-select' })).toBe(true)
     expect(isAnnotationTool({ kind: 'select' })).toBe(false)
     expect(isAnnotationTool({ kind: 'inspect' })).toBe(false)
     expect(isAnnotationTool({ kind: 'add-page' })).toBe(false)

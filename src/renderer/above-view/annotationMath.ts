@@ -4,6 +4,7 @@ import type {
   AnnotationDrawing,
   AnnotationDrawingPoint,
   AnnotationDrawingStroke,
+  DevtoolsPanelDomRect,
   LayoutUpdateData,
 } from '../../shared/types'
 import {
@@ -14,10 +15,23 @@ import {
 
 
 export interface PendingAnnotation {
+  /** Stable id for this draft, used to subscribe live element bbox updates
+   *  while the composer is open (ADR 0006). */
+  draftId: string
   request: AnnotationCreateRequest
   composerX: number
   composerY: number
   composerWidth: number
+}
+
+/**
+ * Live-bbox lookup contract used by the popover positioners. The renderer
+ * subscribes element-anchored popovers and the composer to per-page bbox
+ * updates; positioning consults this lookup so popovers track page scroll.
+ */
+export interface AnnotationLiveBboxLookup {
+  get: (annotationId: string) => DevtoolsPanelDomRect | undefined
+  isStale: (annotationId: string) => boolean
 }
 
 export interface DrawingSession {
@@ -122,6 +136,7 @@ export function canvasRectToScreenRect(
 export function annotationScreenPos(
   annotation: Annotation,
   layout: LayoutUpdateData,
+  liveBboxes?: AnnotationLiveBboxLookup,
 ): { x: number; y: number; transform: string } | null {
   const railAnchor = (
     page: LayoutUpdateData['entities'][number],
@@ -168,14 +183,19 @@ export function annotationScreenPos(
     if (anchor.type === 'element' && anchor.boundingBox) {
       const topInset = 8
       const rightInset = 8
+      // Prefer the live bbox the page reports on scroll/resize (ADR 0006).
+      // The stored `anchor.boundingBox` is captured at creation and goes
+      // stale the moment the page scrolls.
+      const liveBbox = liveBboxes?.get(annotation.id)
+      const bb = liveBbox ?? anchor.boundingBox
       const x =
         page.screenX +
-        (anchor.boundingBox.x + anchor.boundingBox.width) *
+        (bb.x + bb.width) *
           (page.screenWidth / page.width) -
         rightInset
       const y =
         page.screenY +
-        anchor.boundingBox.y * (page.screenHeight / page.height) +
+        bb.y * (page.screenHeight / page.height) +
         topInset
       const clampedX = Math.max(
         page.screenX + rightInset,
@@ -198,5 +218,91 @@ export function annotationScreenPos(
     return railAnchor(page, toOverlayY(layout, page.screenY + page.screenHeight / 2))
   }
   return null
+}
+
+const PENDING_VIEWPORT_PADDING = 8
+const PENDING_COMPOSER_MARGIN = 8
+const PENDING_COMPOSER_MIN_HEIGHT = 52
+
+/**
+ * Translate a pending element annotation's bbox into an overlay-coord rect.
+ * Prefers the live bbox the page reports on scroll (ADR 0006); falls back to
+ * the click-time `anchor.boundingBox`. Returns null when neither is
+ * available or the page isn't on the canvas anymore.
+ */
+export function pendingElementScreenRect(
+  pending: PendingAnnotation,
+  layout: LayoutUpdateData,
+  liveBboxes?: AnnotationLiveBboxLookup,
+): { left: number; top: number; width: number; height: number } | null {
+  const anchor = pending.request.anchor
+  if (anchor.type !== 'element') return null
+  const bbox = liveBboxes?.get(pending.draftId) ?? anchor.boundingBox
+  if (!bbox) return null
+  const page = layout.entities.find((candidate) => candidate.id === anchor.pageId)
+  if (!page) return null
+  const contentScreenX =
+    'contentScreenX' in page && page.contentScreenX != null ? page.contentScreenX : page.screenX
+  const contentScreenY =
+    'contentScreenY' in page && page.contentScreenY != null ? page.contentScreenY : page.screenY
+  const contentScreenWidth =
+    'contentScreenWidth' in page && page.contentScreenWidth != null
+      ? page.contentScreenWidth
+      : page.screenWidth
+  const contentScreenHeight =
+    'contentScreenHeight' in page && page.contentScreenHeight != null
+      ? page.contentScreenHeight
+      : page.screenHeight
+  const scaleX = contentScreenWidth / page.width
+  const scaleY = contentScreenHeight / page.height
+  return {
+    left: contentScreenX + bbox.x * scaleX,
+    top: toOverlayY(layout, contentScreenY + bbox.y * scaleY),
+    width: bbox.width * scaleX,
+    height: bbox.height * scaleY,
+  }
+}
+
+/**
+ * Render-time positioner for an element-anchored pending composer. The
+ * stored `composerX/Y/Width` on `PendingAnnotation` is the click-time
+ * fallback; we prefer the live bbox the page reports on scroll so the
+ * composer follows page content (ADR 0006).
+ */
+export function pendingElementComposerPosition(
+  pending: PendingAnnotation,
+  layout: LayoutUpdateData,
+  liveBboxes?: AnnotationLiveBboxLookup,
+): { left: number; top: number; width: number } {
+  const fallback = {
+    left: pending.composerX,
+    top: pending.composerY,
+    width: pending.composerWidth,
+  }
+  const anchor = pending.request.anchor
+  if (anchor.type !== 'element') return fallback
+  const liveBbox = liveBboxes?.get(pending.draftId)
+  if (!liveBbox) return fallback
+
+  const elementRect = pendingElementScreenRect(pending, layout, liveBboxes)
+  if (!elementRect) return fallback
+  const page = layout.entities.find((candidate) => candidate.id === anchor.pageId)
+  if (!page) return fallback
+  const pageBottomOverlay = toOverlayY(layout, page.screenY + page.screenHeight)
+  const pageTopOverlay = toOverlayY(layout, page.screenY)
+  const elementBottom = Math.max(elementRect.top + elementRect.height, pageBottomOverlay)
+  const elementTopAnchor = Math.min(elementRect.top, pageTopOverlay)
+  const composerWidth = pending.composerWidth
+  const composerX = Math.min(
+    Math.max(elementRect.left, PENDING_VIEWPORT_PADDING),
+    window.innerWidth - composerWidth - PENDING_VIEWPORT_PADDING,
+  )
+  const canRenderBelow =
+    elementBottom + PENDING_COMPOSER_MARGIN + PENDING_COMPOSER_MIN_HEIGHT <=
+    window.innerHeight - PENDING_VIEWPORT_PADDING
+  const belowY = elementBottom + PENDING_COMPOSER_MARGIN
+  const aboveY = elementTopAnchor - PENDING_COMPOSER_MARGIN - PENDING_COMPOSER_MIN_HEIGHT
+  const composerY = canRenderBelow ? belowY : Math.max(PENDING_VIEWPORT_PADDING, aboveY)
+  return { left: composerX, top: composerY, width: composerWidth }
 }
 

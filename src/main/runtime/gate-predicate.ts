@@ -30,10 +30,10 @@ export type GateInputs = {
 
 export function shouldGateBeOpen(inputs: GateInputs): boolean {
   const toolKind = inputs.activeTool.kind
-  // Inspect + comment drive feedback off the page's webContents mousemove
-  // (eyedropper, comment hover). Keep the gate closed unless the comment
-  // composer has been opened.
-  if (toolKind === 'inspect' || toolKind === 'comment') {
+  // Inspect drives feedback off the page's webContents mousemove
+  // (eyedropper). Keep the gate closed unless the comment composer has been
+  // opened by a different UI path.
+  if (toolKind === 'inspect') {
     return inputs.commentOverlayActive
   }
   if (inputs.viewMode === 'canvas') return true
@@ -61,14 +61,15 @@ function interactionOpensGate(interactionKind: GateInputs['interactionKind']): b
 
 /**
  * Tools that need the gate pre-armed to paint canvas-level UI above pages
- * (draw strokes, region-select marquee). `comment` and `inspect` are
- * excluded: they rely on the page's own webContents receiving mousemove to
- * drive the DOM inspection eyedropper. The gate reopens via
- * `commentOverlayActive` once the user picks an element and the composer
- * opens.
+ * (draw strokes, comment hover/region preview). Per ADR 0006, the comment
+ * tool now captures pointerdown/move/up in the aboveView overlay (not the
+ * page) for its full lifecycle — clicks, drags, and the resulting region
+ * marquee. `inspect` is excluded: the eyedropper relies on the page's own
+ * webContents receiving mousemove. The comment-tool-active gate reopens
+ * (via `commentOverlayActive`) once the composer opens.
  */
 function toolOpensGate(tool: Tool): boolean {
-  return tool.kind === 'draw' || tool.kind === 'region-select'
+  return tool.kind === 'draw' || tool.kind === 'comment'
 }
 
 /**
@@ -79,9 +80,9 @@ function toolOpensGate(tool: Tool): boolean {
  * interaction, so drawings should stay visible.
  *
  * We also yield when the user is in a tool that needs the page's
- * webContents to receive events (comment hover, inspect eyedropper).
- * Placement tools keep the gate open so drawings stay visible while placing
- * — above-view handles the placement preview and commit itself.
+ * webContents to receive events (inspect eyedropper). Placement tools keep
+ * the gate open so drawings stay visible while placing — above-view
+ * handles the placement preview and commit itself.
  */
 function hasVisibleSavedDrawings(inputs: GateInputs): boolean {
   if (!inputs.hasSavedDrawings) return false

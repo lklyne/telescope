@@ -168,6 +168,30 @@ export function inspectionPayload(element: Element) {
   }
 }
 
+export function rectIntersectsRegion(
+  box: { left: number; right: number; top: number; bottom: number },
+  region: { x: number; y: number; width: number; height: number },
+): boolean {
+  return !(
+    box.right < region.x ||
+    box.left > region.x + region.width ||
+    box.bottom < region.y ||
+    box.top > region.y + region.height
+  )
+}
+
+export function rectFullyContainedInRegion(
+  box: { left: number; right: number; top: number; bottom: number },
+  region: { x: number; y: number; width: number; height: number },
+): boolean {
+  return (
+    box.left >= region.x &&
+    box.right <= region.x + region.width &&
+    box.top >= region.y &&
+    box.bottom <= region.y + region.height
+  )
+}
+
 export function isVisibleForSnapshot(element: Element): boolean {
   const rect = element.getBoundingClientRect()
   if (rect.width === 0 && rect.height === 0) return false

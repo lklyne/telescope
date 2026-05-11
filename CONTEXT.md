@@ -87,20 +87,36 @@ type Tool =
   | { kind: 'add-text', style: 'plain' | 'sticky' }                          // one-shot
   | { kind: 'add-document' }                                                 // one-shot
   | { kind: 'add-shape', shapeKind: 'rectangle' | 'ellipse' | 'diamond' }    // one-shot
-  | { kind: 'comment' }                                                      // persistent
+  | { kind: 'comment' }                                                      // persistent — click for point/element comment, drag for region comment
   | { kind: 'draw' }                                                         // persistent — creates drawing entities
-  | { kind: 'region-select' }                                                // persistent
   | { kind: 'inspect' }                                                      // persistent
 ```
 
 - **One-shot tools** auto-revert to `select` after one placement.
 - **Persistent tools** stay active until toggled off, replaced, or Escape.
 - The toolbar does **not** visually distinguish one-shot from persistent — users learn the duration by use.
-- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `region-select` → "selecting region", `inspect` → "inspecting".
+- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `inspect` → "inspecting".
 
 Replaces three previously-parallel state machines: `pendingPlacement`, `AnnotationMode`, and the `inspect` boolean. The legacy term "annotation mode" no longer names a state — annotations themselves remain, but the *mode of being in the comment tool* is just a tool.
 
 **Not a tool:** **View mode** (canvas vs browser). View mode answers "which surface am I looking at?", not "what does my next click do?" — it's structural, not transient. Stays in its own state.
+
+## Annotations
+
+Comments live on the canvas as a single user-facing concept ("comment") and a single runtime entity (`Annotation`). One tool — `comment` — produces all of them; the gesture decides the **anchor** (per [ADR 0006](./docs/adr/0006-unified-comment-tool.md)):
+
+- **Click on a page element** → element anchor (DOM selector + bbox).
+- **Click anywhere else on the canvas** → canvas-point anchor (the click position).
+- **Drag a marquee** → region anchor (canvas-rect, may span pages).
+
+Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Annotation.kind` field is redundant once the anchor is the source of truth.
+
+**Resting visual on the canvas** is asymmetric and matches today's behavior:
+- Region anchor → dashed rose-400 rectangle, always visible (filtered only by `status`). Click opens the thread. Region rects are in canvas coords — they do **not** track page scroll (intentional: regions mark canvas space, not page content).
+- Element anchor → no resting visual; lives in the right panel and surfaces via composer (pending) or popover (opened from panel). Element popovers re-query the live bbox via `selector` on every layout tick / page scroll, so they track scroll. If the selector no longer matches, the popover stays at its last-known position with a "stale anchor" indicator.
+- Canvas-point anchor → same as element — no resting visual; selection from the right panel reveals a temporary marker at the canvas point and opens the thread popover.
+
+**Pending composer** — single component that mounts after the gesture and before the comment is committed. Placement is a thin function over the anchor: above-right of the element bbox, adjacent to the click point, or above-right of the region rect. Esc cancels; click outside commits (if non-empty) or discards (if empty); only one pending composer exists at a time.
 
 ## UI copy voice
 

@@ -125,18 +125,29 @@ function ViewportAnchor({
 }) {
   if (!open) return null
   return (
-    <div
-      data-overlay-ui
-      className="pointer-events-auto absolute"
-      style={{
-        top: offset,
-        left: layout.toolbarCenterX,
-        transform: 'translateX(-50%)',
-        pointerEvents: 'auto',
-      }}
-    >
-      {children}
-    </div>
+    <>
+      {/* Bridge across the gap between the toolbar and the popup. Marked as
+          overlay UI so the placement-preview ghost clears while the cursor
+          is in this strip, instead of stamping through the gap. */}
+      <div
+        data-overlay-ui
+        aria-hidden
+        className="pointer-events-auto absolute left-0 right-0"
+        style={{ top: 0, height: offset }}
+      />
+      <div
+        data-overlay-ui
+        className="pointer-events-auto absolute"
+        style={{
+          top: offset,
+          left: layout.toolbarCenterX,
+          transform: 'translateX(-50%)',
+          pointerEvents: 'auto',
+        }}
+      >
+        {children}
+      </div>
+    </>
   )
 }
 

@@ -388,6 +388,7 @@ export default function App({
     layoutData.activeTool.kind !== 'draw' && layoutData.activeTool.kind !== 'region-select'
   useEffect(() => {
     const clearHover = () => {
+      setPlacementCursor(null)
       if (lastHoverIdRef.current === null) return
       lastHoverIdRef.current = null
       api.hoverPage(null)
@@ -397,7 +398,10 @@ export default function App({
       return
     }
     const handleMove = (event: PointerEvent) => {
-      if (isOverlayUiTarget(event.target)) return
+      if (isOverlayUiTarget(event.target)) {
+        clearHover()
+        return
+      }
       if (pendingPlacement) {
         setPlacementCursor({
           clientX: event.clientX,
@@ -412,12 +416,17 @@ export default function App({
         }
       }
     }
+    // The top toolbar is a sibling WebContentsView, so when the cursor moves
+    // up into it the above-view stops receiving pointer events without
+    // window.pointerleave firing. mouseleave on documentElement is the
+    // reliable "cursor left this webcontents" signal.
+    const docEl = document.documentElement
     window.addEventListener('pointermove', handleMove)
-    window.addEventListener('pointerleave', clearHover)
+    docEl.addEventListener('mouseleave', clearHover)
     window.addEventListener('blur', clearHover)
     return () => {
       window.removeEventListener('pointermove', handleMove)
-      window.removeEventListener('pointerleave', clearHover)
+      docEl.removeEventListener('mouseleave', clearHover)
       window.removeEventListener('blur', clearHover)
       clearHover()
     }

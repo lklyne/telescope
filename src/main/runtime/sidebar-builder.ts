@@ -1,11 +1,6 @@
 /**
  * Sidebar tree builder — turns the structural partition (`shared/sidebar-partition`)
  * into UI items for the left panel.
- *
- * Per ADR 0006: items within each section are ordered by `entityOrder`,
- * frontmost-first (top of section = top of stack). Groups with members on
- * both paint surfaces emit one row per surface (split representation), sharing
- * the same group id and label but exposing only the children on that surface.
  */
 
 import type {
@@ -18,12 +13,13 @@ import type {
   SidebarSections,
   SidebarShapeItem,
   SidebarTextItem,
+  WorkspaceGroup,
 } from '../../shared/types'
 import {
-  findPageById,
   interactionState,
   pages,
 } from './runtime-context'
+import type { Page } from './runtime-entities'
 import {
   activeWorkspaceTabId,
   workspaceGroups,
@@ -35,10 +31,10 @@ import {
   selectedGroupId as uiSelectedGroupId,
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
-import { textEntities } from './text-entity-state'
-import { fileEntities } from './file-entity-state'
-import { drawingEntitiesForUi } from './drawing-entity-state'
-import { shapeEntities } from './shape-entity-state'
+import { textEntities, type TextEntity } from './text-entity-state'
+import { fileEntities, type FileEntity } from './file-entity-state'
+import { drawingEntitiesForUi, type DrawingEntity } from './drawing-entity-state'
+import { shapeEntities, type ShapeEntity } from './shape-entity-state'
 import { pageDisplayLabel } from './runtime-serialization'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
@@ -56,8 +52,28 @@ type SidebarLeafItem =
   | SidebarDrawingItem
   | SidebarShapeItem
 
-function buildSidebarLeafItem(entityId: string): SidebarLeafItem | null {
-  const page = findPageById(entityId)
+interface EntityIndex {
+  pages: Map<string, Page>
+  text: Map<string, TextEntity>
+  file: Map<string, FileEntity>
+  drawing: Map<string, DrawingEntity>
+  shape: Map<string, ShapeEntity>
+  groups: Map<string, WorkspaceGroup>
+}
+
+function buildEntityIndex(): EntityIndex {
+  return {
+    pages: new Map(pages.map((p) => [p.id, p])),
+    text: new Map(textEntities.map((e) => [e.id, e])),
+    file: new Map(fileEntities.map((e) => [e.id, e])),
+    drawing: new Map(drawingEntitiesForUi().map((e) => [e.id, e])),
+    shape: new Map(shapeEntities.map((e) => [e.id, e])),
+    groups: new Map(workspaceGroups.map((g) => [g.id, g])),
+  }
+}
+
+function buildSidebarLeafItem(entityId: string, index: EntityIndex): SidebarLeafItem | null {
+  const page = index.pages.get(entityId)
   if (page) {
     return {
       kind: 'page',
@@ -69,7 +85,7 @@ function buildSidebarLeafItem(entityId: string): SidebarLeafItem | null {
     }
   }
 
-  const te = textEntities.find((entity) => entity.id === entityId)
+  const te = index.text.get(entityId)
   if (te) {
     return {
       kind: 'text',
@@ -79,7 +95,7 @@ function buildSidebarLeafItem(entityId: string): SidebarLeafItem | null {
     }
   }
 
-  const fe = fileEntities.find((entity) => entity.id === entityId)
+  const fe = index.file.get(entityId)
   if (fe) {
     const fileName = fe.file.split('/').pop() ?? fe.file
     const displayName = fileName
@@ -93,7 +109,7 @@ function buildSidebarLeafItem(entityId: string): SidebarLeafItem | null {
     }
   }
 
-  const de = drawingEntitiesForUi().find((entity) => entity.id === entityId)
+  const de = index.drawing.get(entityId)
   if (de) {
     const defaultLabel = `Drawing (${de.strokes.length} stroke${de.strokes.length === 1 ? '' : 's'})`
     return {
@@ -104,7 +120,7 @@ function buildSidebarLeafItem(entityId: string): SidebarLeafItem | null {
     }
   }
 
-  const se = shapeEntities.find((entity) => entity.id === entityId)
+  const se = index.shape.get(entityId)
   if (se) {
     const trimmed = se.text.trim()
     const defaultLabel =
@@ -120,25 +136,25 @@ function buildSidebarLeafItem(entityId: string): SidebarLeafItem | null {
   return null
 }
 
-function collectPartitionLeaves(): PartitionLeaf[] {
+function collectPartitionLeaves(index: EntityIndex): PartitionLeaf[] {
   const out: PartitionLeaf[] = []
-  for (const p of pages) out.push({ id: p.id, surface: 'pages', parentGroupId: p.parentGroupId ?? null })
-  for (const e of textEntities) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
-  for (const e of fileEntities) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
-  for (const e of drawingEntitiesForUi()) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
-  for (const e of shapeEntities) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
+  for (const p of index.pages.values()) out.push({ id: p.id, surface: 'pages', parentGroupId: p.parentGroupId ?? null })
+  for (const e of index.text.values()) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
+  for (const e of index.file.values()) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
+  for (const e of index.drawing.values()) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
+  for (const e of index.shape.values()) out.push({ id: e.id, surface: 'notes', parentGroupId: e.parentGroupId ?? null })
   return out
 }
 
-function decorateNode(node: PartitionTreeNode): SidebarCanvasItem | null {
-  if (!node.isGroup) return buildSidebarLeafItem(node.id)
+function decorateNode(node: PartitionTreeNode, index: EntityIndex): SidebarCanvasItem | null {
+  if (!node.isGroup) return buildSidebarLeafItem(node.id, index)
 
-  const group = workspaceGroups.find((g) => g.id === node.id)
+  const group = index.groups.get(node.id)
   if (!group) return null
 
   const children: SidebarCanvasItem[] = []
   for (const child of node.children) {
-    const decorated = decorateNode(child)
+    const decorated = decorateNode(child, index)
     if (decorated) children.push(decorated)
   }
 
@@ -152,24 +168,25 @@ function decorateNode(node: PartitionTreeNode): SidebarCanvasItem | null {
   return item
 }
 
-function decorateSection(nodes: PartitionTreeNode[]): SidebarCanvasItem[] {
+function decorateSection(nodes: PartitionTreeNode[], index: EntityIndex): SidebarCanvasItem[] {
   const out: SidebarCanvasItem[] = []
   for (const node of nodes) {
-    const decorated = decorateNode(node)
+    const decorated = decorateNode(node, index)
     if (decorated) out.push(decorated)
   }
   return out
 }
 
 export function buildSidebarSections(): SidebarSections {
+  const index = buildEntityIndex()
   const partition = partitionSidebar(
-    collectPartitionLeaves(),
-    workspaceGroups.map((g) => ({ id: g.id, parentGroupId: g.parentGroupId ?? null })),
+    collectPartitionLeaves(index),
+    [...index.groups.values()].map((g) => ({ id: g.id, parentGroupId: g.parentGroupId ?? null })),
     getEntityOrder(),
   )
   return {
-    notes: decorateSection(partition.notes),
-    pages: decorateSection(partition.pages),
+    notes: decorateSection(partition.notes, index),
+    pages: decorateSection(partition.pages, index),
   }
 }
 

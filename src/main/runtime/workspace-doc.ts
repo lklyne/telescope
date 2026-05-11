@@ -85,11 +85,7 @@ export function setDocTabList(doc: Y.Doc, tabs: DocTabEntry[]): void {
   doc.getMap(DOC_MAP_WORKSPACE).set('tabs', tabs)
 }
 
-/**
- * Read the current `entityOrder` (back-to-front paint order) from the active
- * Y.Doc. See ADR 0006 for invariants. Returns a snapshot array; mutate via the
- * runtime wrapper, never this return value.
- */
+/** Snapshot of the current `entityOrder` array. Mutate via the runtime wrapper, not this return value. */
 export function getEntityOrder(): readonly string[] {
   return getActiveDoc().getArray<string>(DOC_ARRAY_ENTITY_ORDER).toArray()
 }

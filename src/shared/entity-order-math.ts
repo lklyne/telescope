@@ -16,6 +16,29 @@ export interface GroupRun {
 }
 
 /**
+ * Sort `items` by their position in `entityOrder`. Stable on ties; items whose
+ * ids are missing from `entityOrder` get rank -1 and fall to the back.
+ *
+ * `direction: 'back-to-front'` mirrors `entityOrder` itself (paint order).
+ * `direction: 'front-to-back'` is the inverse — used by sidebar rendering,
+ * where the frontmost item sits at the top of its section.
+ */
+export function sortByStackOrder<T>(
+  items: readonly T[],
+  getId: (item: T) => StackId,
+  order: readonly StackId[],
+  direction: 'back-to-front' | 'front-to-back',
+): T[] {
+  const rank = new Map<StackId, number>()
+  for (let i = 0; i < order.length; i++) rank.set(order[i]!, i)
+  const sign = direction === 'back-to-front' ? 1 : -1
+  return items
+    .map((item, index) => ({ item, rank: rank.get(getId(item)) ?? -1, index }))
+    .sort((a, b) => sign * (a.rank - b.rank) || a.index - b.index)
+    .map(({ item }) => item)
+}
+
+/**
  * Expand a selection of ids so that whenever a group id is present, the group's
  * full run (descendants) is included. Preserves the order of the input where possible.
  */

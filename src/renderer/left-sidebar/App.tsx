@@ -8,6 +8,7 @@ import type {
   SidebarCanvasItem,
   ThemeData,
 } from '../../shared/types'
+import type { SidebarSurface } from '../../shared/sidebar-partition'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { SidebarCanvasTree } from './SidebarCanvasTree'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
@@ -30,10 +31,12 @@ function findSidebarItemById(items: SidebarCanvasItem[], targetId: string): Side
   return null
 }
 
-const SECTION_HEADER_LABEL: Record<'notes' | 'pages', string> = {
+const SECTION_HEADER_LABEL: Record<SidebarSurface, string> = {
   notes: 'Notes',
   pages: 'Pages',
 }
+
+const SIDEBAR_SURFACES: readonly SidebarSurface[] = ['notes', 'pages']
 
 export default function App({
   initialSidebarData,
@@ -259,7 +262,7 @@ export default function App({
         <div className={isDark ? 'border-t border-zinc-700/50' : 'border-t border-gray-200/80'} />
 
         <div className="py-2">
-          {(['notes', 'pages'] as const).map((surface) => {
+          {SIDEBAR_SURFACES.map((surface) => {
             const items = sidebarData.sections[surface]
             if (!items.length) return null
             return (
@@ -274,7 +277,6 @@ export default function App({
                   {SECTION_HEADER_LABEL[surface]}
                 </div>
                 <SidebarCanvasTree
-                  surface={surface}
                   items={items}
                   selectedEntityIds={sidebarData.selectedEntityIds}
                   selectedGroupId={sidebarData.selectedGroupId ?? null}

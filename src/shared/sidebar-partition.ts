@@ -1,14 +1,10 @@
 /**
- * Pure partition algorithm for the left-sidebar tree, per ADR 0006.
- *
- * Splits a flat list of entities + groups into two sections by paint surface
- * (Notes / Pages). Mixed groups (members on both surfaces) yield one node per
- * section, both bearing the same group id. Each section is ordered
- * frontmost-first using `entityOrder` ranks.
- *
- * Zero dependencies — kept in `shared/` so it can be unit-tested without
- * pulling in the runtime.
+ * Splits canvas items into Notes / Pages sections (see ADR 0006). Mixed groups
+ * appear once per section, sharing the group id but exposing only that
+ * surface's children.
  */
+
+import { sortByStackOrder } from './entity-order-math'
 
 export type SidebarSurface = 'notes' | 'pages'
 
@@ -93,15 +89,8 @@ export function partitionSidebar(
     return n
   }
 
-  const rank = new Map<string, number>()
-  for (let i = 0; i < entityOrder.length; i++) rank.set(entityOrder[i]!, i)
-
-  function sortFrontFirst(ids: string[]): string[] {
-    return ids
-      .map((id, index) => ({ id, primary: rank.get(id) ?? -1, secondary: index }))
-      .sort((a, b) => b.primary - a.primary || a.secondary - b.secondary)
-      .map(({ id }) => id)
-  }
+  const sortFrontFirst = (ids: string[]): string[] =>
+    sortByStackOrder(ids, (id) => id, entityOrder, 'front-to-back')
 
   function buildGroupNode(groupId: string, surface: SidebarSurface): PartitionTreeNode | null {
     const directLeaves = (directLeafChildrenOf.get(groupId) ?? []).filter(

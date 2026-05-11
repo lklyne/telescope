@@ -60,15 +60,21 @@ export function PagePopup({
     return () => window.clearTimeout(timeoutId)
   }, [shouldQueue, ids])
 
-  // URL draft local to single-select; commits via blur/Enter. The broadcast
-  // value can lag a frame after commit, so we hold the draft until commit.
+  // URL draft local to single-select; commits via blur/Enter. The navigate IPC
+  // → broadcast round-trip takes a frame, so after commit we hold the optimistic
+  // value in `draftUrl` and clear it once `single.url` catches up.
   const [draftUrl, setDraftUrl] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const single = count === 1 ? selectedPages[0] : null
+  const currentUrl = single?.url
+  useEffect(() => {
+    if (draftUrl !== null && currentUrl === draftUrl) setDraftUrl(null)
+  }, [currentUrl, draftUrl])
 
   if (count === 0) return null
   const open = delayedKey === ids
   const isSingle = count === 1
-  const single = isSingle ? selectedPages[0] : null
   const isBlank = single ? single.url === 'about:blank' : false
   const displayUrl = single ? (isBlank ? '' : single.url) : ''
   const value = draftUrl !== null ? draftUrl : displayUrl
@@ -76,9 +82,13 @@ export function PagePopup({
   const commitUrl = () => {
     if (!single || draftUrl === null) return
     const trimmed = draftUrl.trim()
-    setDraftUrl(null)
-    if (!trimmed || trimmed === single.url) return
-    api.navigatePage(single.id, normalizeUserUrl(trimmed))
+    if (!trimmed || trimmed === single.url) {
+      setDraftUrl(null)
+      return
+    }
+    const normalized = normalizeUserUrl(trimmed)
+    setDraftUrl(normalized)
+    api.navigatePage(single.id, normalized)
   }
 
   const entityIds = selectedPages.map((p) => p.id)

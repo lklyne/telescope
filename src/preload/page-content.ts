@@ -484,7 +484,11 @@ ipcRenderer.on(
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
       acceptNode(node) {
         const el = node as Element
-        if (!isVisibleForSnapshot(el)) return NodeFilter.FILTER_REJECT
+        // FILTER_SKIP (not REJECT): a `display: contents` wrapper has a 0×0
+        // bbox but its children render normally; REJECT would prune the
+        // whole subtree the moment we hit such a wrapper. See the matching
+        // walker in comment-hover-overlay.ts.
+        if (!isVisibleForSnapshot(el)) return NodeFilter.FILTER_SKIP
         const box = el.getBoundingClientRect()
         if (!rectIntersectsRegion(box, region)) return NodeFilter.FILTER_SKIP
         if (REGION_SELECT_FULL_CONTAINMENT && !rectFullyContainedInRegion(box, region)) {

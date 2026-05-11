@@ -13,14 +13,15 @@
 import { pages, pan, zoom } from './runtime-context'
 import {
   boundCanvasOrigin,
+  boundEffectivePageContentSize,
   boundScreenBoundsForPage,
 } from './runtime-geometry'
 
 export type PageHit = {
   pageId: string
-  /** Page-local x, suitable for `query-element-at-point`. */
+  /** Page-local x in CSS pixels, suitable for `query-element-at-point`. */
   localX: number
-  /** Page-local y, suitable for `query-element-at-point`. */
+  /** Page-local y in CSS pixels, suitable for `query-element-at-point`. */
   localY: number
 }
 
@@ -28,6 +29,12 @@ export type PageHit = {
  * Returns the topmost page whose `page` rect contains the window-coord
  * (windowX, windowY), or null. Iterates in reverse `pages` order so later
  * entries — which paint on top — win.
+ *
+ * `localX`/`localY` are returned in the page's CSS coordinate space (the
+ * space `elementFromPoint` operates on), derived from the rendered host
+ * rect via `cssWidth / hostWidth`. At canvas zoom = 1 this collapses to a
+ * simple offset; at any other zoom the scale factor is required for
+ * element resolution to land on the right node.
  */
 export function pageAtWindowPoint(windowX: number, windowY: number): PageHit | null {
   for (let i = pages.length - 1; i >= 0; i--) {
@@ -43,10 +50,12 @@ export function pageAtWindowPoint(windowX: number, windowY: number): PageHit | n
     ) {
       continue
     }
+    const cssWidth = boundEffectivePageContentSize(page).width
+    const cssScale = cssWidth > 0 ? cssWidth / bounds.width : 1
     return {
       pageId: page.id,
-      localX: Math.round(windowX - bounds.x),
-      localY: Math.round(windowY - bounds.y),
+      localX: Math.round((windowX - bounds.x) * cssScale),
+      localY: Math.round((windowY - bounds.y) * cssScale),
     }
   }
   return null

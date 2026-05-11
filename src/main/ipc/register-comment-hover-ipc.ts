@@ -46,8 +46,19 @@ let activeBroadcastInFlight = false
 let lastActiveFrame = false
 // Per-page signature of the most recent payload sent. Suppresses no-op IPC
 // when the renderer holds a static rect (composer open) or the pointer hasn't
-// moved inside this page.
+// moved inside this page. Entries are evicted on webContents `destroyed`
+// (see trackPageForDedup) so the map doesn't accumulate stale page ids over
+// the lifetime of the session.
 const lastPayloadByPage = new Map<string, string>()
+const dedupCleanupBoundFor = new WeakSet<Electron.WebContents>()
+
+function trackPageForDedup(pageId: string, webContents: Electron.WebContents): void {
+  if (dedupCleanupBoundFor.has(webContents)) return
+  dedupCleanupBoundFor.add(webContents)
+  webContents.once('destroyed', () => {
+    lastPayloadByPage.delete(pageId)
+  })
+}
 
 function payloadSignature(payload: {
   active: boolean
@@ -73,6 +84,7 @@ function sendIfChanged(
   const sig = payloadSignature(payload)
   if (lastPayloadByPage.get(pageId) === sig) return
   lastPayloadByPage.set(pageId, sig)
+  trackPageForDedup(pageId, webContents)
   safeSend(webContents, 'comment-tool-page-preview', payload)
 }
 

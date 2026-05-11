@@ -37,28 +37,26 @@ describe('shouldGateBeOpen — canvas mode (default-open per ADR 0002 Step 7)', 
     expect(shouldGateBeOpen({ ...base(), interactionKind: 'editing-entity' })).toBe(true)
   })
 
-  it.each<Tool>([{ kind: 'draw' }, { kind: 'region-select' }])(
-    'open when activeTool is %s',
+  it.each<Tool>([{ kind: 'draw' }, { kind: 'comment' }])(
+    'open when activeTool is %s (aboveView captures the gesture)',
     (activeTool) => {
       expect(shouldGateBeOpen({ ...base(), activeTool })).toBe(true)
     },
   )
 
-  it.each<Tool>([{ kind: 'inspect' }, { kind: 'comment' }])(
-    'closed when activeTool is %s without composer open (page receives mousemove)',
-    (activeTool) => {
-      expect(shouldGateBeOpen({ ...base(), activeTool })).toBe(false)
-    },
-  )
+  it('closed when activeTool is inspect without composer open (page receives mousemove for the eyedropper)', () => {
+    expect(shouldGateBeOpen({ ...base(), activeTool: { kind: 'inspect' } })).toBe(false)
+  })
 
-  it.each<Tool>([{ kind: 'inspect' }, { kind: 'comment' }])(
-    'open when activeTool is %s and comment composer is active',
-    (activeTool) => {
-      expect(
-        shouldGateBeOpen({ ...base(), activeTool, commentOverlayActive: true }),
-      ).toBe(true)
-    },
-  )
+  it('open when activeTool is inspect and comment composer is active', () => {
+    expect(
+      shouldGateBeOpen({
+        ...base(),
+        activeTool: { kind: 'inspect' },
+        commentOverlayActive: true,
+      }),
+    ).toBe(true)
+  })
 
   it('open with selection in canvas mode', () => {
     expect(

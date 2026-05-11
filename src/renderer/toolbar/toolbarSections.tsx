@@ -17,7 +17,6 @@ import {
   RotateCw,
   FileText,
   Square,
-  SquareDashedMousePointer,
   StickyNote,
   Sun,
   Type,
@@ -238,8 +237,6 @@ export function CenterActions({
   const drawActive = activeTool.kind === 'draw'
   const onToggleDrawMode = () =>
     onSetTool(drawActive ? { kind: 'select' } : { kind: 'draw' })
-  const onToggleRegionSelectMode = () =>
-    onSetTool(activeTool.kind === 'region-select' ? { kind: 'select' } : { kind: 'region-select' })
   const onToggleInspectMode = () =>
     onSetTool(activeTool.kind === 'inspect' ? { kind: 'select' } : { kind: 'inspect' })
   const iconButtonClassName = toolbarIconBtnClass(isDark)
@@ -317,16 +314,6 @@ export function CenterActions({
               <PencilLine size={14} />
             </button>
           ) : null}
-
-          <button
-            onClick={onToggleRegionSelectMode}
-            className={`${activeTool.kind === 'region-select' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
-            title="Region Select"
-            disabled={!annotateAvailable}
-            type="button"
-          >
-            <SquareDashedMousePointer size={14} />
-          </button>
         </div>
 
         <div className="ml-0.5 flex items-center gap-2">

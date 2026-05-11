@@ -1,5 +1,6 @@
 import { clipboard, ipcMain, Menu, shell } from 'electron'
-import { VIEWPORT_PRESETS } from '../../shared/constants'
+import { DESKTOP_PRESET_INDEX, VIEWPORT_PRESETS } from '../../shared/constants'
+import { looksLikeUrl, normalizeUserUrl } from '../../shared/url'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type {
   AnnotationCreateRequest,
@@ -11,6 +12,11 @@ import { aboveView } from '../runtime/view-refs'
 import { beginEditingEntity } from '../runtime/editing-entity-runtime'
 import { setPendingFocus } from '../runtime/runtime-context'
 import { executeRegionSelect } from '../runtime/region-select'
+import { queryElementAtPoint } from '../runtime/page-queries'
+import {
+  pageAtWindowPoint,
+  windowPointToCanvasPoint,
+} from '../runtime/window-coords'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { textEntities } from '../runtime/text-entity-state'
 import { fileEntities } from '../runtime/file-entity-state'
@@ -496,12 +502,32 @@ export function registerCanvasEntityIpc(): void {
         return
       }
 
-      const payload = parseClipboardSelection(clipboard.readText())
-      if (!payload) return
-      if (payload.version === 2) {
-        pasteEntitiesFromClipboard({ payload, canvasX, canvasY })
-      } else {
-        pastePagesFromClipboard({ payload, canvasX, canvasY })
+      const text = clipboard.readText()
+      const payload = parseClipboardSelection(text)
+      if (payload) {
+        if (payload.version === 2) {
+          pasteEntitiesFromClipboard({ payload, canvasX, canvasY })
+        } else {
+          pastePagesFromClipboard({ payload, canvasX, canvasY })
+        }
+        return
+      }
+
+      const trimmed = text.trim()
+      if (trimmed && !trimmed.includes('\n') && looksLikeUrl(trimmed)) {
+        try {
+          const url = normalizeUserUrl(trimmed)
+          createPageAtPosition({
+            presetIndex: DESKTOP_PRESET_INDEX,
+            canvasX,
+            canvasY,
+            mode: 'paste_url',
+            focus: true,
+            url,
+          })
+        } catch {
+          // Not a valid URL after normalisation — ignore the paste.
+        }
       }
     },
   )
@@ -569,6 +595,57 @@ export function registerCanvasEntityIpc(): void {
       executeRegionSelect(payload.canvasRect, payload.text).catch((err) => {
         console.error('[region-select] failed:', err)
       })
+    },
+  )
+
+  // Comment tool — click below the drag threshold (ADR 0006). Resolve the
+  // page under the click; if a DOM element is at the page-local point,
+  // route to the existing `annotate-element-selected` flow. Otherwise
+  // fall back to a canvas-point anchor, broadcast on a sibling channel.
+  ipcMain.on(
+    'canvas-comment-click-at',
+    (_event, payload: { windowX?: number; windowY?: number } | undefined) => {
+      const windowX = payload?.windowX
+      const windowY = payload?.windowY
+      if (typeof windowX !== 'number' || typeof windowY !== 'number') return
+
+      const fireCanvasPoint = () => {
+        const canvasPoint = windowPointToCanvasPoint(windowX, windowY)
+        setCommentOverlayActive(true)
+        setPendingFocus({ kind: 'aboveView' })
+        layoutAllViews()
+        if (aboveView && !aboveView.webContents.isDestroyed()) {
+          aboveView.webContents.send('comment-canvas-point-committed', {
+            canvasX: canvasPoint.x,
+            canvasY: canvasPoint.y,
+          })
+        }
+      }
+
+      const hit = pageAtWindowPoint(windowX, windowY)
+      if (!hit) {
+        fireCanvasPoint()
+        return
+      }
+      queryElementAtPoint(hit.pageId, hit.localX, hit.localY)
+        .then((data) => {
+          if (data) {
+            setCommentOverlayActive(true)
+            setPendingFocus({ kind: 'aboveView' })
+            layoutAllViews()
+            if (aboveView && !aboveView.webContents.isDestroyed()) {
+              aboveView.webContents.send('annotate-element-selected', {
+                pageId: hit.pageId,
+                ...data,
+              })
+            }
+            return
+          }
+          fireCanvasPoint()
+        })
+        .catch(() => {
+          fireCanvasPoint()
+        })
     },
   )
 

@@ -1,14 +1,20 @@
 import { ipcRenderer } from 'electron'
-import type { Annotation, ScrollSyncData } from '../shared/types'
+import type {
+  Annotation,
+  AnnotationBboxSubscription,
+  CommentToolPagePreviewState,
+  ScrollSyncData,
+} from '../shared/types'
 import { PRESENCE_SCROLL_ANIMATION_MS } from '../shared/presence-timing'
+import { REGION_SELECT_FULL_CONTAINMENT } from '../shared/featureFlags'
 
 // The page-content preload still consumes the legacy `set-annotate-mode`
 // channel from main: it carries an `enabled` flag plus a coarse mode
-// discriminator so the comment-overlay knows whether to draw the standard
-// hover affordance or the region-select rect. This is a renderer-process
-// implementation detail and intentionally not part of the unified `Tool`
-// vocabulary (ADR 0005).
-type AnnotateOverlayMode = 'off' | 'comment' | 'draw' | 'region_select'
+// discriminator. ADR 0006 retired the `region_select` variant — the comment
+// tool now captures pointerdown in the aboveView overlay for both clicks
+// and region drags, and the page no longer paints a region-select overlay
+// itself. The mode remains exposed for `draw` (legacy) and as `off`.
+type AnnotateOverlayMode = 'off' | 'comment' | 'draw'
 
 import {
   getInspectableElementByNodeId,
@@ -22,6 +28,15 @@ import {
   setPageAnnotations,
 } from './comment-badges'
 import {
+  applyCommentHoverOverlay,
+  clearCommentHoverOverlay,
+  queueRefreshCommentHoverOverlay,
+} from './comment-hover-overlay'
+import {
+  queueRecomputeAnnotationBboxes,
+  setAnnotationBboxSubscriptions,
+} from './annotation-bbox-tracker'
+import {
   buildElementPath,
   buildStructuredDomSnapshot,
   compactText,
@@ -29,10 +44,11 @@ import {
   inspectionPayload,
   isInteractiveForSnapshot,
   isVisibleForSnapshot,
+  rectFullyContainedInRegion,
+  rectIntersectsRegion,
 } from './dom-element-utils'
 import {
   applyDomInspectionState,
-  ensureDomInspectionOverlay,
   handleInspectFocusNode,
   hideDomInspectionOverlay,
   isDomInspectionEnabled,
@@ -40,7 +56,6 @@ import {
   emitHoveredElement,
   queueRefreshDomInspectionOverlay,
   setDomInspectionEnabled,
-  updateDomInspectionOverlay,
 } from './dom-inspection'
 import {
   forwardMiddleDragPan,
@@ -59,7 +74,6 @@ let interactive = false
 let multiSelected = false
 let canvasZoom = 1
 let annotateEnabled = false
-let annotationMode: AnnotateOverlayMode = 'off'
 let cleanupBlockingOverlayListeners: (() => void) | null = null
 const SELECTION_DEBUG = process.env.CANVAS_DEBUG_SELECTION === '1'
 
@@ -138,66 +152,18 @@ console.error = (...args: unknown[]) => {
 }
 
 // --- Annotate mode ---
-
-function handleAnnotateClick(event: MouseEvent): void {
-  if (!annotateEnabled) return
-  const target = deepElementFromPoint(event.clientX, event.clientY)
-  if (!target) return
-  if (isPageOverlayTarget(target)) {
-    return
-  }
-  event.preventDefault()
-  event.stopPropagation()
-  event.stopImmediatePropagation()
-  const payload = inspectionPayload(target)
-  ipcRenderer.send('annotate-element-select', {
-    ...payload,
-  })
-}
-
-function handleAnnotateMouseDown(event: MouseEvent): void {
-  if (!annotateEnabled) return
-  const target = deepElementFromPoint(event.clientX, event.clientY)
-  if (isPageOverlayTarget(target)) {
-    return
-  }
-  event.preventDefault()
-  event.stopPropagation()
-  event.stopImmediatePropagation()
-}
-
-function handleAnnotateMove(event: MouseEvent): void {
-  if (!annotateEnabled) return
-  const target = deepElementFromPoint(event.clientX, event.clientY)
-  if (isPageOverlayTarget(target)) {
-    hideDomInspectionOverlay()
-    return
-  }
-  if (target) {
-    const payload = inspectionPayload(target)
-    updateDomInspectionOverlay(target, payload)
-  } else {
-    hideDomInspectionOverlay()
-  }
-}
-
-function handleAnnotateLeave(): void {
-  if (!annotateEnabled) return
-  hideDomInspectionOverlay()
-}
+//
+// ADR 0006 retired the page-side annotate-click / hover handlers. The
+// comment tool now captures pointerdown in the aboveView overlay; the
+// resulting element resolution comes from `query-element-at-point`
+// invoked from main on pointerup-without-drag. Hover preview is painted
+// by the page in response to `comment-tool-pointer-state` broadcasts (see
+// below), not by the page's own mousemove listener.
 
 function applyAnnotateState(): void {
-  window.removeEventListener('mousemove', handleAnnotateMove, true)
-  window.removeEventListener('mousedown', handleAnnotateMouseDown, true)
-  window.removeEventListener('click', handleAnnotateClick, true)
-  window.removeEventListener('mouseleave', handleAnnotateLeave, true)
-  if (annotateEnabled) {
-    ensureDomInspectionOverlay()
-    window.addEventListener('mousemove', handleAnnotateMove, true)
-    window.addEventListener('mousedown', handleAnnotateMouseDown, true)
-    window.addEventListener('click', handleAnnotateClick, true)
-    window.addEventListener('mouseleave', handleAnnotateLeave, true)
-  } else {
+  // Kept as a no-op so legacy call sites don't change shape; if a future
+  // tool resurrects in-page annotation hover, restore the listeners here.
+  if (!annotateEnabled) {
     hideDomInspectionOverlay()
   }
 }
@@ -221,7 +187,7 @@ window.addEventListener(
 // aboveView's canvas pointer router.
 
 function injectBlockingOverlay(): void {
-  const overlayMode = annotationMode === 'region_select' ? 'region_select' : 'default'
+  const overlayMode: 'default' = 'default'
   const existingOverlay = document.getElementById('__canvas-blocking-overlay')
   if (
     existingOverlay instanceof HTMLDivElement &&
@@ -366,7 +332,6 @@ ipcRenderer.on('set-annotate-mode', (_event, payload: { enabled?: boolean; mode?
     mode: payload?.mode ?? 'off',
   })
   annotateEnabled = Boolean(payload?.enabled)
-  annotationMode = payload?.mode ?? 'off'
   applyAnnotateState()
   applyInteractiveState()
 })
@@ -375,6 +340,33 @@ ipcRenderer.on('annotate-clear-hover', () => {
   if (!annotateEnabled) return
   hideDomInspectionOverlay()
 })
+
+// ADR 0006 — page-paints contract for the unified comment tool. Main fans
+// out the latest pointer state (per-page coords; region rect intersected
+// with this page's viewport) to every page on the canvas. The page paints
+// outlines directly in its own DOM so they align pixel-perfectly with
+// content and cost no IPC per frame. `active === false` clears.
+ipcRenderer.on(
+  'comment-tool-page-preview',
+  (_event, payload: CommentToolPagePreviewState | null | undefined) => {
+    if (!payload || !payload.active) {
+      clearCommentHoverOverlay()
+      return
+    }
+    applyCommentHoverOverlay(payload)
+  },
+)
+
+// ADR 0006 — live-bbox subscriptions for element-anchored annotation
+// popovers. The renderer pushes the full per-page subscription set whenever
+// it changes; the page resolves selectors against the live DOM and reports
+// bboxes back via `annotation-bbox-update`.
+ipcRenderer.on(
+  'annotation-bbox-subscriptions',
+  (_event, payload: { subscriptions?: AnnotationBboxSubscription[] } | undefined) => {
+    setAnnotationBboxSubscriptions(payload?.subscriptions ?? [])
+  },
+)
 
 ipcRenderer.on(
   'page-annotations-update',
@@ -442,6 +434,29 @@ ipcRenderer.on('take-dom-snapshot', (_event, payload: { requestId: string; maxDe
   ipcRenderer.send('take-dom-snapshot-response', { requestId: payload.requestId, data: snapshot })
 })
 
+ipcRenderer.on(
+  'query-element-at-point',
+  (_event, payload: { requestId: string; x: number; y: number }) => {
+    // ADR 0006 — comment tool's click-vs-element resolver. Main asks "what
+    // element is under (x,y) in this page's content rect?" on pointerup-
+    // without-drag. We mirror the comment-overlay's old self-firing path
+    // (inspectionPayload + deepElementFromPoint) without depending on the
+    // page receiving the click directly.
+    const target = deepElementFromPoint(payload.x, payload.y)
+    if (!target || isPageOverlayTarget(target)) {
+      ipcRenderer.send('query-element-at-point-response', {
+        requestId: payload.requestId,
+        data: null,
+      })
+      return
+    }
+    ipcRenderer.send('query-element-at-point-response', {
+      requestId: payload.requestId,
+      data: inspectionPayload(target),
+    })
+  },
+)
+
 ipcRenderer.on('query-dom-elements', (_event, payload: { requestId: string; selector: string; maxResults?: number }) => {
   const maxResults = payload.maxResults ?? 20
   let elements: Element[]
@@ -463,18 +478,20 @@ ipcRenderer.on(
   (_event, payload: { requestId: string; rect: { x: number; y: number; width: number; height: number }; maxResults?: number }) => {
     const maxResults = payload.maxResults ?? 15
     const region = payload.rect
-    const regionRight = region.x + region.width
-    const regionBottom = region.y + region.height
     const seen = new Set<Element>()
     const results: ReturnType<typeof inspectionPayload>[] = []
 
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
       acceptNode(node) {
         const el = node as Element
-        if (!isVisibleForSnapshot(el)) return NodeFilter.FILTER_REJECT
+        // FILTER_SKIP (not REJECT): a `display: contents` wrapper has a 0×0
+        // bbox but its children render normally; REJECT would prune the
+        // whole subtree the moment we hit such a wrapper. See the matching
+        // walker in comment-hover-overlay.ts.
+        if (!isVisibleForSnapshot(el)) return NodeFilter.FILTER_SKIP
         const box = el.getBoundingClientRect()
-        // Skip elements entirely outside the region
-        if (box.right < region.x || box.left > regionRight || box.bottom < region.y || box.top > regionBottom) {
+        if (!rectIntersectsRegion(box, region)) return NodeFilter.FILTER_SKIP
+        if (REGION_SELECT_FULL_CONTAINMENT && !rectFullyContainedInRegion(box, region)) {
           return NodeFilter.FILTER_SKIP
         }
         if (isInteractiveForSnapshot(el)) return NodeFilter.FILTER_ACCEPT
@@ -648,6 +665,8 @@ window.addEventListener(
     queueScrollSyncBroadcast(interactive)
     queueRenderCommentBadges()
     queueRefreshDomInspectionOverlay()
+    queueRefreshCommentHoverOverlay()
+    queueRecomputeAnnotationBboxes()
   },
   { passive: true, capture: true }
 )
@@ -655,6 +674,8 @@ window.addEventListener(
 window.addEventListener('resize', () => {
   queueRenderCommentBadges()
   queueRefreshDomInspectionOverlay()
+  queueRefreshCommentHoverOverlay()
+  queueRecomputeAnnotationBboxes()
 })
 
 window.addEventListener(

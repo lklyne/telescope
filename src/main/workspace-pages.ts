@@ -161,7 +161,14 @@ export function addPageFromSource(input: {
       canvasX: placement.canvasX,
       canvasY: placement.canvasY,
       source: 'manual',
-      metadata: setDeviceIdMetadata({ createdFrom: input.mode, deviceOrientation: defaultOrientationForDevice(device) }, device?.id ?? null),
+      metadata: setDeviceIdMetadata(
+        {
+          createdFrom: input.mode,
+          deviceOrientation: defaultOrientationForDevice(device),
+          showDeviceFrame: true,
+        },
+        device?.id ?? null,
+      ),
     })
     if (input.customSize) {
       page.metadata = setCustomPageSizeMetadata(page.metadata, pageContentSize(page))
@@ -214,19 +221,24 @@ export function createPageAtPosition(input: {
   customSize?: boolean
   canvasX: number
   canvasY: number
-  mode: 'add_from_toolbar' | 'duplicate'
+  mode: 'add_from_toolbar' | 'duplicate' | 'paste_url'
   focus?: boolean
+  url?: string
 }): { pageId: string } {
   const preset = VIEWPORT_PRESETS[input.presetIndex]
   if (!preset) {
     throw new Error(`Unknown preset index: ${input.presetIndex}`)
   }
 
-  const url = pageCurrentUrl(input.sourcePageId) ?? 'about:blank'
+  const url = input.url ?? pageCurrentUrl(input.sourcePageId) ?? 'about:blank'
   // Auto-assign device based on the preset so orientation tabs appear immediately
   const matchedDevice = deviceForPresetIndex(input.presetIndex)
   const metadata = setDeviceIdMetadata(
-    { createdFrom: input.mode, deviceOrientation: defaultOrientationForDevice(matchedDevice) },
+    {
+      createdFrom: input.mode,
+      deviceOrientation: defaultOrientationForDevice(matchedDevice),
+      showDeviceFrame: true,
+    },
     matchedDevice?.id ?? null,
   )
 

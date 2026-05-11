@@ -10,7 +10,6 @@ export function MarqueeLayer({ overlay }: { overlay: SelectionOverlayPayload | n
   // Place-shape drag renders a live shape preview elsewhere; suppress the
   // marquee box so they don't double up.
   if (overlay.variant === 'place-shape') return null
-  const isRegionSelect = overlay.variant === 'region-select'
   return (
     <div
       style={{
@@ -20,12 +19,11 @@ export function MarqueeLayer({ overlay }: { overlay: SelectionOverlayPayload | n
         width: overlay.rect.width,
         height: overlay.rect.height,
         boxSizing: 'border-box',
-        border: isRegionSelect
-          ? '1px solid rgba(232, 180, 184, 0.95)'
-          : '1px solid rgba(59, 130, 246, 0.9)',
-        background: isRegionSelect
-          ? 'rgba(232, 180, 184, 0.22)'
-          : 'rgba(59, 130, 246, 0.12)',
+        // Same blue as the inspect-tool / per-item hover highlight, so the
+        // marquee bbox reads like a "this is what you'd be selecting"
+        // companion to the inner item outlines painted by each page.
+        border: '1px solid rgba(59, 130, 246, 0.9)',
+        background: 'rgba(59, 130, 246, 0.12)',
         pointerEvents: 'none',
         // Body layers (file/sticky/shape) wrap their cards in a viewport
         // div with `transform: scale`, which creates a stacking context.

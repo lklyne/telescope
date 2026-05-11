@@ -33,12 +33,14 @@ canvas and page operations go through the `specular` command.
 | `specular link <a> <b>` | Connect two pages with an edge |
 | `specular group <id…>` | Group entities together |
 | `specular breakpoints <id>` | Cycle through device breakpoints for a page |
-| `specular annotate "<text>"` | Leave an annotation on the canvas |
+| `specular annotate "<text>"` | Leave a comment on the canvas (anchor type from context — viewport by default; `--page-id` for a page anchor) |
 | `specular annotations` | List unresolved annotations (pending + acknowledged) |
 | `specular annotations --status <s>` | Filter by specific status (`pending`, `acknowledged`, `resolved`, `dismissed`) |
 | `specular annotations --all` | Include resolved + dismissed too |
 | `specular annotation <id>` | Get full detail for one annotation (elements, screenshot, replies) |
 | `specular ack <id>` / `specular resolve <id>` | Respond to an annotation |
+
+Annotations are a single concept (a comment thread) discriminated by **anchor type** — `element` (DOM element on a page), `canvas` (a free canvas point), `page` (anchored to a page in viewport coords), or `region` (a rectangle in canvas space). One UI tool — `comment` — produces all of them; the gesture decides the anchor (click on an element → `element`; click off-page → `canvas`; drag a marquee → `region`). There is no `--kind` flag on `specular annotate`; pass `--page-id` to scope a comment to a page rather than the viewport.
 | `specular snapshot -i` | Capture an accessibility snapshot with refs |
 | `specular click @<ref>` | Click an element by ref |
 | `specular fill @<ref> "<text>"` | Fill a form field |

@@ -194,6 +194,11 @@ export function registerAnnotationInspectionIpc(): void {
     handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })
 
+  ipcMain.on('query-element-at-point-response', (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handlePageIpcResponse(payload as { requestId: string; data: unknown })
+  })
+
   ipcMain.on('inspect-tree-update', (event, payload) => {
     const page = findPageByPageView(event.sender)
     if (!page || !Array.isArray(payload)) return
@@ -248,17 +253,9 @@ export function registerAnnotationInspectionIpc(): void {
     setCommentOverlayActive(Boolean(active))
   })
 
-  ipcMain.on('annotate-element-select', (event, payload) => {
-    const page = findPageByPageView(event.sender)
-    if (!page || !payload) return
-    setCommentOverlayActive(true)
-    setPendingFocus({ kind: 'aboveView' })
-    layoutAllViews()
-    if (aboveView && !aboveView.webContents.isDestroyed()) {
-      aboveView.webContents.send('annotate-element-selected', {
-        pageId: page.id,
-        ...payload,
-      })
-    }
-  })
+  // ADR 0006 retired the page-side `annotate-element-select` self-firing
+  // path. Element resolution for the comment tool now happens via
+  // `query-element-at-point` invoked from `canvas-comment-click-at` —
+  // see `register-canvas-entity-ipc.ts`. The `annotate-element-selected`
+  // channel sent to aboveView is unchanged.
 }

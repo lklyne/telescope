@@ -1,7 +1,8 @@
-// Unified Tool concept — see ADR 0005. Per ADR 0007, `add-shape` and `draw`
-// no longer carry sub-kind variants; those move to tool defaults (ADR 0006 §9)
-// and are surfaced through the tool-mode popup. `add-text.style` stays as a
-// deliberate exception (ADR 0007 §Decision).
+// Unified Tool concept — see ADR 0005, amended by ADR 0006 (comment tool).
+// Per ADR 0009, `add-shape` and `draw` no longer carry sub-kind variants;
+// those move to tool defaults (ADR 0008 §9) and are surfaced through the
+// tool-mode popup. `add-text.style` stays as a deliberate exception
+// (ADR 0009 §Decision).
 
 export type DrawingBrushType = 'pen' | 'highlight'
 
@@ -13,7 +14,6 @@ export type Tool =
   | { kind: 'add-shape' }
   | { kind: 'comment' }
   | { kind: 'draw' }
-  | { kind: 'region-select' }
   | { kind: 'inspect' }
 
 export type ToolKind = Tool['kind']
@@ -28,7 +28,6 @@ export const toolDuration: Record<ToolKind, ToolDuration> = {
   'add-shape': 'one-shot',
   comment: 'persistent',
   draw: 'persistent',
-  'region-select': 'persistent',
   inspect: 'persistent',
 }
 
@@ -41,18 +40,18 @@ export function isPersistent(kind: ToolKind): boolean {
 }
 
 /**
- * Tools that own a viewport-anchored tool-mode popup (ADR 0006 §1, §2). When
+ * Tools that own a viewport-anchored tool-mode popup (ADR 0008 §1, §2). When
  * any of these is active, selection-driven popups are suppressed (mutex rule
  * §2) so the user sees one popup at a time — the tool's, not the previous
- * selection's. `add-page`, `add-document`, `comment`, `region-select`,
- * `inspect`, and `select` have no popup and don't suppress anything.
+ * selection's. `add-page`, `add-document`, `comment`, `inspect`, and `select`
+ * have no popup and don't suppress anything.
  */
 export function toolHasPopup(tool: Tool): boolean {
   return tool.kind === 'add-text' || tool.kind === 'add-shape' || tool.kind === 'draw'
 }
 
 export function isAnnotationTool(tool: Tool): boolean {
-  return tool.kind === 'comment' || tool.kind === 'draw' || tool.kind === 'region-select'
+  return tool.kind === 'comment' || tool.kind === 'draw'
 }
 
 export function isPlacementTool(tool: Tool): boolean {
@@ -75,17 +74,20 @@ export function applyEscape(_current: Tool): Tool {
 export const SELECT_TOOL: Tool = { kind: 'select' }
 
 // Page-content overlay vocabulary (legacy IPC). Kept narrow on purpose —
-// renderer-side mode that drives the comment-hover affordance vs region-select
-// rect, intentionally not part of the unified Tool vocabulary.
-export type AnnotateOverlayMode = 'off' | 'comment' | 'draw' | 'region_select'
+// renderer-side mode that drives the comment-hover affordance, intentionally
+// not part of the unified Tool vocabulary.
+export type AnnotateOverlayMode = 'off' | 'comment' | 'draw'
 
 export function toolAnnotateOverlay(tool: Tool): {
   enabled: boolean
   mode: AnnotateOverlayMode
 } {
-  if (tool.kind === 'comment') return { enabled: true, mode: 'comment' }
+  // ADR 0006: comment tool's element/region preview is now painted by the
+  // page itself in response to `comment-tool-pointer-state` broadcasts from
+  // main; the legacy in-page hover affordance is retired. The overlay mode
+  // remains exposed only for `draw` (which still relies on the page-side
+  // overlay to suppress native input) and as an `off` no-op default.
   if (tool.kind === 'draw') return { enabled: false, mode: 'draw' }
-  if (tool.kind === 'region-select') return { enabled: false, mode: 'region_select' }
   return { enabled: false, mode: 'off' }
 }
 
@@ -106,8 +108,6 @@ export function toolGerund(tool: Tool): string {
       return 'commenting'
     case 'draw':
       return 'drawing'
-    case 'region-select':
-      return 'selecting region'
     case 'inspect':
       return 'inspecting'
   }

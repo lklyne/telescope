@@ -1,5 +1,5 @@
 /**
- * GroupPopup — selection-driven popup for the single-selected group (ADR 0006).
+ * GroupPopup — selection-driven popup for the single-selected group (ADR 0008).
  * Anchored above the group body via `CanvasItemPopup.Root`, tracks pan/zoom
  * with the rest of aboveView. Replaces the screen-coords `GroupInlineMenu`
  * that previously lived in canvas-bg.

@@ -179,6 +179,7 @@ export function pastePagesFromClipboard(input: {
       source: 'manual',
       metadata: {
         createdFrom: 'paste',
+        showDeviceFrame: true,
       },
     })
     return page.id

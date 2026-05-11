@@ -1,6 +1,6 @@
 /**
  * TextToolPopup — viewport-anchored tool-mode popup for the `add-text` tool
- * (ADR 0006 §1, §5). Surfaces the color swatch for the active text style;
+ * (ADR 0008 §1, §5). Surfaces the color swatch for the active text style;
  * picking a swatch writes to per-style tool defaults so the next stamped
  * entity inherits the chosen color.
  *

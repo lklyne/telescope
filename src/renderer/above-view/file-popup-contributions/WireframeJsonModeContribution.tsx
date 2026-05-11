@@ -4,7 +4,7 @@
  * `App` so the `FileBodyLayer` can read it directly; this component reads
  * the current value and asks the parent to flip it.
  *
- * Migrated out of the legacy `FileChrome` wireframe Popover (ADR 0006 §7).
+ * Migrated out of the legacy `FileChrome` wireframe Popover (ADR 0008 §7).
  */
 
 import type { CanvasSceneFileEntity } from '../../../shared/types'

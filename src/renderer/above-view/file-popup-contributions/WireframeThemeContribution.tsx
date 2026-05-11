@@ -5,7 +5,7 @@
  * `wireframe-file-changed` CustomEvent so it picks up the disk change
  * without waiting for a layout broadcast.
  *
- * Migrated out of the legacy `FileChrome` wireframe Popover (ADR 0006 §7).
+ * Migrated out of the legacy `FileChrome` wireframe Popover (ADR 0008 §7).
  */
 
 import { useEffect, useRef, useState } from 'react'

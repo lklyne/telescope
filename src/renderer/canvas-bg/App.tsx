@@ -103,7 +103,7 @@ export default function App({
         />
       </div>
 
-      {/* Group selection popup migrated to above-view (ADR 0006 §1, step 5).
+      {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).
           Selected page menu lives in the floating-ui view. */}
     </div>
   )

@@ -91,7 +91,7 @@ export function useAnnotationDrawingGestures({
         closeThread()
         setPendingAnnotation(null)
         // Brush, color, and stroke width come from per-tool defaults
-        // (ADR 0007). The draw tool's popup writes them; the gesture reads
+        // (ADR 0009). The draw tool's popup writes them; the gesture reads
         // them at stroke-start time. Resolve preset ids to hex here so the
         // persisted stroke matches what DrawingPopup writes (SVG renders the
         // raw value — preset ids would fall back to black).

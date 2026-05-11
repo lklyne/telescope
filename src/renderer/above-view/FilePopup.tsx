@@ -1,5 +1,5 @@
 /**
- * FilePopup — selection-driven popup for file entities (ADR 0006). Replaces
+ * FilePopup — selection-driven popup for file entities (ADR 0008). Replaces
  * the action affordances that previously lived in `FileChrome` (rename,
  * wireframe theme, JSON-mode toggle). The chrome shrinks to favicon +
  * filename identity-only.
@@ -8,7 +8,7 @@
  * come from the renderer plugin contribution surface — `entity.popupContributions`
  * carries the tags, `renderPopupContributions` picks the React components.
  *
- * Mounts on single OR same-kind multi-select (ADR 0006 §4). Rename and the
+ * Mounts on single OR same-kind multi-select (ADR 0008 §4). Rename and the
  * plugin contribution row hide on multi (per-entity affordances) — multi
  * collapses to dup/del.
  */

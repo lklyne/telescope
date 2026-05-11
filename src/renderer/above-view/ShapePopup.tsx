@@ -1,8 +1,8 @@
 /**
- * ShapePopup — selection-driven popup for shape entities (ADR 0006, ADR 0007).
- * Lets the user morph the shape's variant (per ADR 0007 §Selection-mode
+ * ShapePopup — selection-driven popup for shape entities (ADR 0008, ADR 0009).
+ * Lets the user morph the shape's variant (per ADR 0009 §Selection-mode
  * consequences), change color and stroke width, and dup/del. Mounts on
- * single OR same-kind multi-select (ADR 0006 §4) — variant/color/width edits
+ * single OR same-kind multi-select (ADR 0008 §4) — variant/color/width edits
  * fan out across the selection.
  */
 

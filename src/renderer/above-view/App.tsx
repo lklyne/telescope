@@ -37,13 +37,16 @@ import { StickyBodyLayer } from './StickyBodyLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
 import {
   AnnotationThreadPopover,
-  PendingCommentComposer,
-  RegionSelectComposer,
+  PendingAnnotationComposer,
+  PendingElementOutline,
 } from './CommentsLayer'
 import { MarqueeLayer } from './MarqueeLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
-import { useAnnotationThreadState } from './useAnnotationThreadState'
+import { useAnnotationThreadState, annotationThreadPosition } from './useAnnotationThreadState'
+import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
+import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
+import { canvasRectToScreenRect, pendingElementComposerPosition } from './annotationMath'
 import {
   FULL_ROUTER_CONSUME,
   useCanvasPointerRouter,
@@ -86,7 +89,7 @@ function electronCursorToCss(type: string | null): string {
 }
 
 /**
- * Same-kind multi-select detector (ADR 0006 §4). Returns the array of
+ * Same-kind multi-select detector (ADR 0008 §4). Returns the array of
  * entities iff every selected id resolves to the requested kind; otherwise
  * empty. The caller mounts the popup when length >= 1.
  */
@@ -149,7 +152,7 @@ export default function App({
   // marquee currently overlaps. canvas-bg used to derive this; aboveView owns
   // the marquee gesture, so we derive locally from `selectionOverlay`.
   //
-  // Selection-popup mounts on single OR same-kind multi-select (ADR 0006 §4).
+  // Selection-popup mounts on single OR same-kind multi-select (ADR 0008 §4).
   // Each `selectedXxxEntities` is the non-empty array of selected entities iff
   // every selected id resolves to that kind; otherwise empty.
   const selectedTextEntities = useMemo<CanvasSceneTextEntity[]>(() => {
@@ -241,12 +244,50 @@ export default function App({
     setOpenThreadMenu,
     setReplyText,
     submitThreadReply,
-    threadPosition,
   } = useAnnotationThreadState({
     api,
     layoutData,
     threadInputRef,
   })
+
+  // ADR 0006 — element-anchored popovers re-query their bbox via the page on
+  // every scroll/resize so they don't freeze at their creation rect. Collect
+  // the active subscriptions (open thread + pending element composer), hand
+  // them to the live-bbox hook, then pass the resulting lookup down to the
+  // popover positioners below.
+  const liveBboxSubscriptions = useMemo(() => {
+    const subs: Array<{ pageId: string; annotationId: string; selector: string }> = []
+    if (
+      pendingAnnotation &&
+      pendingAnnotation.request.anchor.type === 'element'
+    ) {
+      const anchor = pendingAnnotation.request.anchor
+      subs.push({
+        pageId: anchor.pageId,
+        annotationId: pendingAnnotation.draftId,
+        selector: anchor.selector,
+      })
+    }
+    if (openThread && openThread.anchor.type === 'element') {
+      subs.push({
+        pageId: openThread.anchor.pageId,
+        annotationId: openThread.id,
+        selector: openThread.anchor.selector,
+      })
+    }
+    return subs
+  }, [openThread, pendingAnnotation])
+
+  const liveBboxes = useLiveAnnotationBboxes({ api, subscriptions: liveBboxSubscriptions })
+
+  const threadPosition = useMemo(
+    () => annotationThreadPosition(openThread, layoutData, liveBboxes),
+    [layoutData, liveBboxes, openThread],
+  )
+  const pendingComposerPosition = useMemo(
+    () => (pendingAnnotation ? pendingElementComposerPosition(pendingAnnotation, layoutData, liveBboxes) : null),
+    [layoutData, liveBboxes, pendingAnnotation],
+  )
   const drawInteractionEnabled = layoutData.activeTool.kind === 'draw' && !openThreadId
   const selectedEdgeIds = useMemo(() => {
     const ids = new Set<string>()
@@ -324,6 +365,36 @@ export default function App({
     deleteSelection: api.deleteSelection,
   })
 
+  // ADR 0006 page-paints contract: while the comment tool is active,
+  // broadcast pointer-state to main so each page can paint a hover preview
+  // (single element under the pointer; outlines for elements intersecting
+  // the marquee while a region drag is in flight). We keep the broadcast
+  // active during the pending region composer too so the contained-element
+  // outlines stay visible while the user types — only suppress for the
+  // single-target (element/canvas-point) composer where there's nothing to
+  // preview.
+  const commentPreviewActive =
+    layoutData.activeTool.kind === 'comment' && !pendingAnnotation
+  // Translate the pending region (in canvas coords) into window coords so
+  // the hook can hold it across the composer. The hook prefers the
+  // in-flight drag rect when both are set.
+  const heldRegionRect = useMemo(() => {
+    if (!pendingRegionRect) return null
+    const screen = canvasRectToScreenRect(layoutData, pendingRegionRect)
+    return {
+      x: screen.left,
+      y: screen.top,
+      width: screen.width,
+      height: screen.height,
+    }
+  }, [layoutData, pendingRegionRect])
+  const commentPreview = useCommentToolPointerBroadcast({
+    api,
+    layoutRef,
+    active: commentPreviewActive,
+    heldRegionRect,
+  })
+
   const onDragMove = useCallback(
     (startX: number, startY: number, endX: number, endY: number) => {
       const layout = layoutRef.current
@@ -338,8 +409,18 @@ export default function App({
         },
         variant: 'region-select',
       })
+      // Forward the marquee rect to the per-page hover preview so each page
+      // can outline the elements its bbox intersects. Use window coords
+      // (matching the pointer broadcast); main intersects with each page's
+      // screen bounds and converts to page-local before forwarding.
+      commentPreview.setRegionRect({
+        x: rect.left,
+        y: rect.top + layout.canvasOrigin.y,
+        width: rect.width,
+        height: rect.height,
+      })
     },
-    [api, layoutRef],
+    [api, commentPreview, layoutRef],
   )
 
   const onDragEnd = useCallback(
@@ -347,6 +428,7 @@ export default function App({
       const layout = layoutRef.current
       const rect = normalizeRect(startX, startY, endX, endY)
       api.setSelectionOverlayRect(null)
+      commentPreview.setRegionRect(null)
       if (rect.width < 4 || rect.height < 4) return
       // Overlay clientY is relative to the overlay top (canvasOrigin.y),
       // but clientX is already window-relative (overlay starts at x=0).
@@ -385,7 +467,7 @@ export default function App({
   // never sees mouseenter/leave, so we dedupe and forward via api.hoverPage.
   const lastHoverIdRef = useRef<string | null>(null)
   const hoverForwardingEnabled =
-    layoutData.activeTool.kind !== 'draw' && layoutData.activeTool.kind !== 'region-select'
+    layoutData.activeTool.kind !== 'draw' && layoutData.activeTool.kind !== 'comment'
   useEffect(() => {
     const clearHover = () => {
       setPlacementCursor(null)
@@ -438,18 +520,26 @@ export default function App({
     !isAnnotationTool(layoutData.activeTool)
   const toolGestureOwnsCanvasPointers =
     !overlayInteractive &&
-    (Boolean(pendingPlacement) || layoutData.activeTool.kind === 'region-select')
+    (Boolean(pendingPlacement) || layoutData.activeTool.kind === 'comment')
 
+  // Comment-tool gesture + placement-tool gesture share this overlay handler:
+  // both capture pointerdown/move/up while the gate routes events to aboveView.
+  //
+  // Comment tool (ADR 0006): click below threshold → resolve element under
+  // cursor via `inspectAtPoint`; element hit → element anchor; nothing →
+  // canvas-point anchor. Drag past threshold → marquee → region anchor on
+  // pointerup. Threshold matches the rest of the canvas pointer router.
+  const COMMENT_DRAG_THRESHOLD = 4
   useEffect(() => {
     if (overlayInteractive) return
-    if (!pendingPlacement && layoutData.activeTool.kind !== 'region-select') return
+    if (!pendingPlacement && layoutData.activeTool.kind !== 'comment') return
 
     const onPointerDown = (event: PointerEvent) => {
       if (isOverlayUiTarget(event.target)) return
       if (event.button !== 0) return
       const layout = layoutRef.current
       if (layout.viewMode !== 'canvas') return
-      if (!layout.pendingPlacement && layout.activeTool.kind !== 'region-select') return
+      if (!layout.pendingPlacement && layout.activeTool.kind !== 'comment') return
 
       event.preventDefault()
       event.stopPropagation()
@@ -467,6 +557,7 @@ export default function App({
       const startWindowY = startY + layout.canvasOrigin.y
       const startCanvas = screenPointToCanvasPoint(startX, startWindowY, layout)
       const placementAtStart = layout.pendingPlacement
+      let crossedThreshold = false
 
       const cleanup = () => {
         try {
@@ -518,7 +609,15 @@ export default function App({
           updateShapePreview(ev)
           return
         }
-        if (!placementAtStart && current.activeTool.kind === 'region-select') {
+        if (!placementAtStart && current.activeTool.kind === 'comment') {
+          if (!crossedThreshold) {
+            const dx = ev.clientX - startX
+            const dy = ev.clientY - startY
+            if (Math.abs(dx) < COMMENT_DRAG_THRESHOLD && Math.abs(dy) < COMMENT_DRAG_THRESHOLD) {
+              return
+            }
+            crossedThreshold = true
+          }
           onDragMove(startX, startY, ev.clientX, ev.clientY)
         }
       }
@@ -557,8 +656,16 @@ export default function App({
           api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
           return
         }
-        if (current.activeTool.kind === 'region-select') {
-          onDragEnd(startX, startY, ev.clientX, ev.clientY)
+        if (current.activeTool.kind === 'comment') {
+          if (crossedThreshold) {
+            // Drag past threshold → region anchor.
+            onDragEnd(startX, startY, ev.clientX, ev.clientY)
+            return
+          }
+          // Click below threshold → element anchor if a page DOM element sits
+          // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
+          api.setSelectionOverlayRect(null)
+          api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
         }
       }
 
@@ -799,39 +906,37 @@ export default function App({
 
       {!captureMode ? (
         <>
-          {layoutData.activeTool.kind === 'region-select' ? (
-            <RegionSelectAnnotations
-              annotations={layoutData.annotations}
-              interactive={!selectionOverlay && !pendingRegionRect}
-              layoutData={layoutData}
-              onOpenThread={openThreadById}
-            />
-          ) : null}
+          {/* ADR 0006: region anchors always render their resting visual,
+              filtered only by status. Element + canvas-point anchors have no
+              resting chrome — they live in the right panel. */}
+          <RegionSelectAnnotations
+            annotations={layoutData.annotations}
+            interactive={!selectionOverlay && !pendingRegionRect && !pendingAnnotation}
+            layoutData={layoutData}
+            onOpenThread={openThreadById}
+          />
 
           {drawingSession ? <DrawingLayer drawing={{ version: 1, ...drawingSession }} layout={layoutData} active /> : null}
 
-          <PendingCommentComposer
+          <PendingElementOutline
+            pending={pendingAnnotation}
+            layoutData={layoutData}
+            liveBboxes={liveBboxes}
+          />
+
+          <PendingAnnotationComposer
             clearDraft={clearDraft}
             commentInputRef={commentInputRef}
             commentText={commentText}
+            layoutData={layoutData}
             pendingAnnotation={pendingAnnotation}
+            pendingPosition={pendingComposerPosition}
+            pendingRegionRect={pendingRegionRect}
             resizeCommentInput={resizeCommentInput}
             setCommentText={setCommentText}
             submitPendingAnnotation={submitPendingAnnotation}
+            submitRegionAnnotation={submitRegionAnnotation}
           />
-
-          {pendingRegionRect ? (
-            <RegionSelectComposer
-              canvasRect={pendingRegionRect}
-              clearDraft={clearDraft}
-              commentInputRef={commentInputRef}
-              commentText={commentText}
-              layoutData={layoutData}
-              resizeCommentInput={resizeCommentInput}
-              setCommentText={setCommentText}
-              submitRegionAnnotation={submitRegionAnnotation}
-            />
-          ) : null}
 
         </>
       ) : null}
@@ -977,7 +1082,7 @@ export default function App({
 
           {layoutData.viewMode === 'canvas' ? (
             <>
-              {/* Tool-mode popups (ADR 0006 §2 mutex: tool wins when active). */}
+              {/* Tool-mode popups (ADR 0008 §2 mutex: tool wins when active). */}
               {layoutData.activeTool.kind === 'add-text' ? (
                 <TextToolPopup
                   api={api}
@@ -994,7 +1099,7 @@ export default function App({
               ) : null}
 
               {/* Selection-mode popups — suppressed while any tool with its own
-                  popup is active (ADR 0006 §2). */}
+                  popup is active (ADR 0008 §2). */}
               {!toolHasPopup(layoutData.activeTool) ? (
                 <>
                   <StickyNotePopover

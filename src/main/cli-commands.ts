@@ -289,7 +289,9 @@ const annotation: VerbHandler = async (args) => {
 const annotate: VerbHandler = async (args) => {
   const text = args.positional.join(' ')
   if (!text) { printError('usage: specular annotate <text>'); return 1 }
-  // Construct anchor: page-specific if --page-id given, else viewport
+  // Construct anchor: page-specific if --page-id given, else viewport.
+  // ADR 0006 retired the `--kind` flag — `specular annotate` always creates
+  // a comment; the anchor type discriminates element / canvas / region.
   const anchor = args.flags['page-id']
     ? { type: 'page', pageId: args.flags['page-id'] }
     : { type: 'viewport' }
@@ -297,7 +299,6 @@ const annotate: VerbHandler = async (args) => {
     method: 'POST',
     body: JSON.stringify({
       text,
-      kind: args.flags.kind,
       anchor,
       author: 'agent',
     }),

@@ -1,10 +1,10 @@
 /**
  * StickyNotePopover — selection-driven popup for text entities (plain and
  * sticky styles). Anchored above the body via `CanvasItemPopup.Root` (ADR
- * 0002 §2, ADR 0006), so it tracks pan/zoom for free along with the rest of
+ * 0002 §2, ADR 0008), so it tracks pan/zoom for free along with the rest of
  * aboveView.
  *
- * Mounts on single OR same-kind multi-select (ADR 0006 §4). Per §4 plain and
+ * Mounts on single OR same-kind multi-select (ADR 0008 §4). Per §4 plain and
  * sticky text count as same kind for color, so the popup applies color
  * uniformly across both styles when present in the same multi-selection.
  */

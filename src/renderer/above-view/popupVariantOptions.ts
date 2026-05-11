@@ -1,5 +1,5 @@
 /**
- * Shared visual helpers for popup variant pickers (ADR 0006 §5).
+ * Shared visual helpers for popup variant pickers (ADR 0008 §5).
  *
  * The shape popup (selection + tool mode) and drawing popup share these so
  * the toolbar, popups, and sidebar all render the same shapeKind / brushType /

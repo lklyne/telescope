@@ -192,6 +192,7 @@ function buildViewportPresets(): ViewportPreset[] {
 
 export const VIEWPORT_PRESETS: ViewportPreset[] = buildViewportPresets()
 export const LAPTOP_PRESET_INDEX = entries.find((d) => d.id === 'laptop')!.presetIndex
+export const DESKTOP_PRESET_INDEX = entries.find((d) => d.id === 'desktop')!.presetIndex
 
 // --- Custom (no-device) shell constants — uniform balanced bezel ---
 

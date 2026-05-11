@@ -1,5 +1,5 @@
 /**
- * Renderer-side dispatch for file popup plugin contributions (ADR 0006 §7).
+ * Renderer-side dispatch for file popup plugin contributions (ADR 0008 §7).
  *
  * Each contribution tag broadcast on `CanvasSceneFileEntity.popupContributions`
  * maps to a React component declared here. The `FilePopup` calls

@@ -1,9 +1,9 @@
-# ADR 0006 — Unified canvas-item popup, selection-driven and tool-driven
+# ADR 0008 — Unified canvas-item popup, selection-driven and tool-driven
 
 **Status:** Accepted (all 11 migration steps landed)
 **Date:** 2026-05-10
 **Builds on:** [ADR 0002 — Canvas-anchored overlay UI in aboveView](./0002-canvas-anchored-overlay-ui.md), [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md).
-**Refined by:** [ADR 0007 — Tool variants in popup state](./0007-tool-variants-in-popup-state.md) (companion change; tool variants move out of the `Tool` union into tool-mode popup state).
+**Refined by:** [ADR 0009 — Tool variants in popup state](./0009-tool-variants-in-popup-state.md) (companion change; tool variants move out of the `Tool` union into tool-mode popup state).
 
 ## Context
 
@@ -156,7 +156,7 @@ Read by creation tools when stamping new entities; written by the tool-mode popu
 - Configurable tool defaults: pick "the next sticky should be red" before placing it. Drawings get a configurable brush + color + thickness.
 - Same-kind multi-select recoloring (3 drawings → red in one click).
 - Selection-popup can carry post-creation variant swaps (sticky → plain, rect → ellipse, pen → highlight).
-- The `Tool` union shrinks (per ADR 0007).
+- The `Tool` union shrinks (per ADR 0009).
 
 **Costs:**
 - Real refactor across multiple kinds. Sticky and group are partial migrations; plain-text, shape, drawing, file are net-new popup wiring.
@@ -170,7 +170,7 @@ Read by creation tools when stamping new entities; written by the tool-mode popu
 - Cross-kind multi-select intersection logic.
 - Stroke-as-selectable sub-selection inside a drawing.
 - Page chrome consolidation (page chrome stays as today; popup adds alongside).
-- Toolbar layout changes beyond what ADR 0007 implies for shape (one button instead of three).
+- Toolbar layout changes beyond what ADR 0009 implies for shape (one button instead of three).
 - `add-page` preset picker as a tool popup contribution.
 - Brush-type swatch unification with the keyboard-shortcut path for pen/highlight (today there's an implicit shortcut; the popup doesn't replace it, it adds a UI for it).
 
@@ -178,14 +178,14 @@ Read by creation tools when stamping new entities; written by the tool-mode popu
 
 This is a sequence of vertical slices, not a big-bang. Each slice ships green typecheck + unit + smoke.
 
-Progress: All 11 steps landed. Step 5 migrated the group selection popup off `GroupInlineMenu` onto `CanvasItemPopup`, deleted `InlineEntityMenu.tsx`, and factored a shared `toolHasPopup(tool)` helper for the §2 mutex rule. Steps 6–7 landed together with ADR 0007: the `Tool` union shrunk (`add-shape` and `draw` no longer carry sub-kind variants), the toolbar collapsed to one shape button + one draw button, the placement IPC + drawing gesture now read shapeKind / brush / color / strokeWidth from tool defaults, and four new popups (`ShapeToolPopup`, `ShapePopup`, `DrawToolPopup`, `DrawingPopup`) were wired in `above-view`. Steps 8–11 finished the migration: the renderer plugin registry gained `popupContributionTags`, the wireframe theme picker + json-mode toggle moved into the new `FilePopup` via the contribution dispatch in `src/renderer/above-view/file-popup-contributions/`, `FileChrome` shrunk to favicon + filename identity-only, every popup gained same-kind multi-select via `useMultiAnchoredPosition`, a `PagePopup` joined the lineup, and `selectedPageMenu.ts` was renamed to `popupTiming.ts` with the dead `textEntityMenuViewBounds` deleted.
+Progress: All 11 steps landed. Step 5 migrated the group selection popup off `GroupInlineMenu` onto `CanvasItemPopup`, deleted `InlineEntityMenu.tsx`, and factored a shared `toolHasPopup(tool)` helper for the §2 mutex rule. Steps 6–7 landed together with ADR 0009: the `Tool` union shrunk (`add-shape` and `draw` no longer carry sub-kind variants), the toolbar collapsed to one shape button + one draw button, the placement IPC + drawing gesture now read shapeKind / brush / color / strokeWidth from tool defaults, and four new popups (`ShapeToolPopup`, `ShapePopup`, `DrawToolPopup`, `DrawingPopup`) were wired in `above-view`. Steps 8–11 finished the migration: the renderer plugin registry gained `popupContributionTags`, the wireframe theme picker + json-mode toggle moved into the new `FilePopup` via the contribution dispatch in `src/renderer/above-view/file-popup-contributions/`, `FileChrome` shrunk to favicon + filename identity-only, every popup gained same-kind multi-select via `useMultiAnchoredPosition`, a `PagePopup` joined the lineup, and `selectedPageMenu.ts` was renamed to `popupTiming.ts` with the dead `textEntityMenuViewBounds` deleted.
 
 1. ✅ **Generalize `CanvasItemPopup` for content composition.** Today `CanvasItemPopup.Root` is a positioning shell. Add slot primitives or a shared "content frame" so kind-specific popup contents compose consistently (color swatches block, action button block, rename inline-edit block, variant picker block).
 2. ✅ **Tool defaults storage.** New module `src/main/runtime/tool-defaults.ts`. Reads/writes app settings; broadcasts changes via an existing IPC channel (or a new one). First-time defaults: sticky yellow, plain transparent/inherit, shape rectangle/black/2px, draw pen/black/2px.
 3. ✅ **Tool-mode popup positioning.** New positioning code in aboveView for "fixed below toolbar". Reads the toolbar's screen-space bottom edge from the layout broadcast (may need a new field).
 4. ✅ **Migrate sticky note.** `StickyNotePopover` becomes the sticky consumer of the generalized component. Selection popup contents unchanged. Adds tool-mode popup for `add-text` (style: sticky and plain).
 5. ✅ **Migrate group.** `GroupInlineMenu` deleted; group becomes another consumer. Same selection contents.
-6. ✅ **Add shape popup.** `add-shape` tool popup with `[shapeKind picker] [color] [strokeWidth]`. Selection popup with the same plus dup/del. ADR 0007 lands here in the same PR — `Tool` union shrinks.
+6. ✅ **Add shape popup.** `add-shape` tool popup with `[shapeKind picker] [color] [strokeWidth]`. Selection popup with the same plus dup/del. ADR 0009 lands here in the same PR — `Tool` union shrinks.
 7. ✅ **Add drawing popup.** `draw` tool popup with `[brushType picker] [color] [strokeWidth]`. Selection popup writes to inner stroke.
 8. ✅ **Renderer plugin contribution surface.** `BaseRendererClaim.popupContributionTags` (string list) declares each renderer's contributions; the wireframe claim opts into `wireframe-theme` and `wireframe-json-mode`. Tags ride on the file scene entity as `popupContributions: PopupContributionTag[]`. Renderer side: `src/renderer/above-view/file-popup-contributions/index.tsx` switches the tags onto React components. `FilePopup` composes rename + plugin contributions + dup/del. `FileChrome` shrunk to favicon + filename only.
 9. ✅ **Same-kind multi-select.** All five kind popups (text, group, shape, drawing, page, file) mount on single OR same-kind multi-select. `useMultiAnchoredPosition` returns the union bbox; the popup anchors against it. Shared-value detection drives the active swatch — when colors/variants/widths diverge across the selection, no swatch shows active. Per ADR §4 plain + sticky count as same kind for color. Groups stay single-only (runtime has no multi-group selection concept).

@@ -1,6 +1,6 @@
 /**
  * CanvasItemPopup — compound component for the unified canvas-item popup
- * (ADR 0006). Two anchor modes:
+ * (ADR 0008). Two anchor modes:
  *
  *   - <CanvasItemPopup.Root> — entity-anchored (selection mode). Tracks an
  *     entity's screen rect via `useAnchoredPosition`, so it follows pan/zoom.
@@ -101,7 +101,7 @@ function popupStyle(
 }
 
 /**
- * Viewport-anchored mode (ADR 0006 §1). Positions a fixed strip below the
+ * Viewport-anchored mode (ADR 0008 §1). Positions a fixed strip below the
  * toolbar, horizontally centered on the toolbar's tool cluster.
  *
  * The popup reads `layout.toolbarCenterX` (window-coord pixels, computed in
@@ -260,7 +260,7 @@ function DestructiveButton({
 /**
  * ColorSwatch — single color circle. `active` highlights the current
  * selection; pass `active={false}` for all when the selection has mixed
- * colors (per ADR 0006 §4).
+ * colors (per ADR 0008 §4).
  */
 function ColorSwatch({
   isDark,

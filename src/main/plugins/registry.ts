@@ -49,7 +49,7 @@ interface BaseRendererClaim {
   editable: boolean
   /**
    * Popup contribution tags this renderer surfaces in the file selection
-   * popup (ADR 0006 §7). The renderer side owns the React components — the
+   * popup (ADR 0008 §7). The renderer side owns the React components — the
    * registry only declares which tags apply. Omit or empty for "no plugin
    * contributions".
    */
@@ -130,7 +130,7 @@ export function getRendererTagFor(entity: PersistedFileEntity): EntityRendererTa
 
 /**
  * Static popup contribution tags from the picked renderer. Broadcast to the
- * file selection popup as part of the scene data (ADR 0006 §7). Returns an
+ * file selection popup as part of the scene data (ADR 0008 §7). Returns an
  * empty array when no plugin claims the entity, or when the picked plugin
  * declares no contributions.
  */

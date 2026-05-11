@@ -1,12 +1,12 @@
 /**
- * Tool defaults — per-tool, persistent app settings (ADR 0006 §9).
+ * Tool defaults — per-tool, persistent app settings (ADR 0008 §9).
  *
  * Stored in the user's preferences file (not in `.canvas`, not in Y.Doc, not
  * in undo/redo). The next entity created by a tool stamps these values; the
  * tool-mode popup reads/writes them.
  *
  * Plain-text color is intentionally absent: plain text inherits canvas
- * foreground / `currentColor` by default. ADR 0006 reserves
+ * foreground / `currentColor` by default. ADR 0008 reserves
  * `add-text.plain.color` for a future override but Step 4 only wires
  * `add-text.sticky.color`.
  */
@@ -33,7 +33,7 @@ export interface ToolDefaults {
 }
 
 /**
- * First-time-launch defaults. ADR 0006 §"Tool defaults" originally specified
+ * First-time-launch defaults. ADR 0008 §"Tool defaults" originally specified
  * shape/draw at black; we shifted both to the red preset so a brand-new canvas
  * draws in colour rather than indistinguishable-from-text black.
  *   sticky yellow, plain transparent/inherit (null),

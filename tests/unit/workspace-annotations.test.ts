@@ -44,7 +44,6 @@ function makeAnnotation(overrides: Partial<Annotation> = {}): Annotation {
     anchor: { type: 'canvas', canvasX: 0, canvasY: 0 },
     author: 'user',
     text: 'test',
-    kind: 'comment',
     status: 'pending',
     replies: [],
     createdAt: new Date().toISOString(),

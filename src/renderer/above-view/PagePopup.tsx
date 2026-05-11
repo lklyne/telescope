@@ -1,11 +1,11 @@
 /**
- * PagePopup — selection-driven popup for page entities (ADR 0006). Adds the
+ * PagePopup — selection-driven popup for page entities (ADR 0008). Adds the
  * page kind's popup surface (URL + nav + dup + del on single-select; dup + del
  * only on multi-select) alongside the existing `PageChrome`. Per ADR §6, the
  * URL/nav redundancy between chrome and popup is acceptable for now; a future
  * ADR may consolidate.
  *
- * Mounts on single OR same-kind multi-select (ADR 0006 §4). URL editing and
+ * Mounts on single OR same-kind multi-select (ADR 0008 §4). URL editing and
  * nav buttons hide when multi — those don't have a meaningful multi-page
  * semantic. Dup/del fan out across the selection.
  */

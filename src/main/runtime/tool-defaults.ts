@@ -1,6 +1,6 @@
 /**
  * Tool defaults runtime — mediator between the persisted defaults in
- * `preferences.ts` and the rest of the app (ADR 0006 §9).
+ * `preferences.ts` and the rest of the app (ADR 0008 §9).
  *
  * Creation paths (e.g. `register-canvas-entity-ipc.ts` for `add-text`,
  * `add-shape`; `useAnnotationDrawingGestures` for draw) read these via

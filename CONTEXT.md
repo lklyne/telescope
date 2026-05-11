@@ -69,13 +69,13 @@ Conventions:
 
 ## Overlay UI in aboveView
 
-Per [ADR 0002](./docs/adr/0002-canvas-anchored-overlay-ui.md) and [ADR 0006](./docs/adr/0006-unified-canvas-item-popup.md). All canvas-anchored UI renders in aboveView's React tree, marked `data-overlay-ui` so the pointer router yields.
+Per [ADR 0002](./docs/adr/0002-canvas-anchored-overlay-ui.md) and [ADR 0008](./docs/adr/0008-unified-canvas-item-popup.md). All canvas-anchored UI renders in aboveView's React tree, marked `data-overlay-ui` so the pointer router yields.
 
-- **`CanvasItemChrome`** — persistent overlay UI for **identity** rendered while an entity exists. Per ADR 0006 §"File chrome", chrome carries identity affordances only (favicon + URL/filename + drag handle); all *actions* move into the popup. Examples: page favicon + URL display, file filename label.
+- **`CanvasItemChrome`** — persistent overlay UI for **identity** rendered while an entity exists. Per ADR 0008 §"File chrome", chrome carries identity affordances only (favicon + URL/filename + drag handle); all *actions* move into the popup. Examples: page favicon + URL display, file filename label.
 - **`CanvasItemPopup`** — the unified popup for "configure this kind". One component, two anchor modes:
   - **Entity-anchored (selection mode)** — mounts when one entity (or a same-kind multi-selection) is selected, idle, after a 150 ms delay. Hidden during drag/marquee/resize/edit. Reads/writes that entity's fields.
   - **Viewport-anchored (tool mode)** — mounts under the toolbar, centered, when a creation tool with options is active (`add-text`, `add-shape`, `draw`). Reads/writes per-tool defaults in app settings; the next item created uses those defaults.
-  - When a non-`select` tool with options is active, the tool popup wins; the selection popup is suppressed. Tools without options (`region-select`, `inspect`, `comment`, `add-page`, `add-document`) fall through to the selection popup.
+  - When a non-`select` tool with options is active, the tool popup wins; the selection popup is suppressed. Tools without options (`inspect`, `comment`, `add-page`, `add-document`) fall through to the selection popup.
   - Right-click context menus are out of scope.
 - **`useAnchoredPosition(entityId, slot)`** — pure positioning hook. Reads the layout broadcast aboveView already receives, returns screen-space coords for the entity's chrome slot.
 - **`EntityChrome` compound** — the `Root / DragTrigger / Title / Actions / Button` primitives composed inside `CanvasItemChrome` consumers. Style once, compose differently per consumer.
@@ -91,11 +91,11 @@ Per-tool, persistent app settings (not per-canvas, not in `.canvas`). Read by cr
 | `add-shape` | `shapeKind`, `color`, `strokeWidth` |
 | `draw` | `brushType`, `color`, `strokeWidth` |
 
-Tool defaults never participate in undo/redo and never round-trip through Y.Doc — they're user preferences, not document data. See [ADR 0006](./docs/adr/0006-unified-canvas-item-popup.md) §"Tool defaults".
+Tool defaults never participate in undo/redo and never round-trip through Y.Doc — they're user preferences, not document data. See [ADR 0008](./docs/adr/0008-unified-canvas-item-popup.md) §"Tool defaults".
 
 ## Tools
 
-A **Tool** is the single representation of "what does my next click/gesture do?" There is exactly one active tool at any moment. Tools are mutually exclusive; you switch by toolbar click, keyboard shortcut, or Escape (which returns to `select`). See [ADR 0005](./docs/adr/0005-unified-tool-concept.md), refined by [ADR 0007](./docs/adr/0007-tool-variants-in-popup-state.md).
+A **Tool** is the single representation of "what does my next click/gesture do?" There is exactly one active tool at any moment. Tools are mutually exclusive; you switch by toolbar click, keyboard shortcut, or Escape (which returns to `select`). See [ADR 0005](./docs/adr/0005-unified-tool-concept.md), amended by [ADR 0006](./docs/adr/0006-unified-comment-tool.md) (comment tool subsumes region-select), and refined by [ADR 0009](./docs/adr/0009-tool-variants-in-popup-state.md) (variants move to tool defaults).
 
 ```ts
 type Tool =
@@ -104,21 +104,37 @@ type Tool =
   | { kind: 'add-text', style: 'plain' | 'sticky' } // one-shot
   | { kind: 'add-document' }                        // one-shot
   | { kind: 'add-shape' }                           // one-shot — shapeKind in tool defaults
-  | { kind: 'comment' }                             // persistent
+  | { kind: 'comment' }                             // persistent — click for point/element comment, drag for region comment
   | { kind: 'draw' }                                // persistent — brushType in tool defaults
-  | { kind: 'region-select' }                       // persistent
   | { kind: 'inspect' }                             // persistent
 ```
 
 - **One-shot tools** auto-revert to `select` after one placement.
 - **Persistent tools** stay active until toggled off, replaced, or Escape.
 - The toolbar does **not** visually distinguish one-shot from persistent — users learn the duration by use.
-- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `region-select` → "selecting region", `inspect` → "inspecting".
-- **Variants live in tool defaults, not in the union.** `add-shape` no longer carries `shapeKind`; `draw` no longer encodes `brushType` via implicit Tool state. Both are picked from the tool-mode popup and persisted to app settings (per ADR 0007). `add-text` is the deliberate exception — `style` stays in the union because plain vs sticky has been a long-established two-button affordance ([ADR 0004](./docs/adr/0004-text-affordances-and-spec-extensions.md)).
+- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `inspect` → "inspecting".
+- **Variants live in tool defaults, not in the union.** `add-shape` no longer carries `shapeKind`; `draw` no longer encodes `brushType` via implicit Tool state. Both are picked from the tool-mode popup and persisted to app settings (per ADR 0009). `add-text` is the deliberate exception — `style` stays in the union because plain vs sticky has been a long-established two-button affordance ([ADR 0004](./docs/adr/0004-text-affordances-and-spec-extensions.md)).
 
 Replaces three previously-parallel state machines: `pendingPlacement`, `AnnotationMode`, and the `inspect` boolean. The legacy term "annotation mode" no longer names a state — annotations themselves remain, but the *mode of being in the comment tool* is just a tool.
 
 **Not a tool:** **View mode** (canvas vs browser). View mode answers "which surface am I looking at?", not "what does my next click do?" — it's structural, not transient. Stays in its own state.
+
+## Annotations
+
+Comments live on the canvas as a single user-facing concept ("comment") and a single runtime entity (`Annotation`). One tool — `comment` — produces all of them; the gesture decides the **anchor** (per [ADR 0006](./docs/adr/0006-unified-comment-tool.md)):
+
+- **Click on a page element** → element anchor (DOM selector + bbox).
+- **Click anywhere else on the canvas** → canvas-point anchor (the click position).
+- **Drag a marquee** → region anchor (canvas-rect, may span pages).
+
+Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Annotation.kind` field is redundant once the anchor is the source of truth.
+
+**Resting visual on the canvas** is asymmetric and matches today's behavior:
+- Region anchor → dashed rose-400 rectangle, always visible (filtered only by `status`). Click opens the thread. Region rects are in canvas coords — they do **not** track page scroll (intentional: regions mark canvas space, not page content).
+- Element anchor → no resting visual; lives in the right panel and surfaces via composer (pending) or popover (opened from panel). Element popovers re-query the live bbox via `selector` on every layout tick / page scroll, so they track scroll. If the selector no longer matches, the popover stays at its last-known position with a "stale anchor" indicator.
+- Canvas-point anchor → same as element — no resting visual; selection from the right panel reveals a temporary marker at the canvas point and opens the thread popover.
+
+**Pending composer** — single component that mounts after the gesture and before the comment is committed. Placement is a thin function over the anchor: above-right of the element bbox, adjacent to the click point, or above-right of the region rect. Esc cancels; click outside commits (if non-empty) or discards (if empty); only one pending composer exists at a time.
 
 ## UI copy voice
 

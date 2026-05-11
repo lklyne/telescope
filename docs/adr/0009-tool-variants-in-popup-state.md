@@ -1,9 +1,9 @@
-# ADR 0007 — Tool variants live in popup state, not in the `Tool` union
+# ADR 0009 — Tool variants live in popup state, not in the `Tool` union
 
-**Status:** Accepted (landed alongside ADR 0006 step 6)
+**Status:** Accepted (landed alongside ADR 0008 step 6)
 **Date:** 2026-05-10
-**Refines:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). Tool variants for `add-shape` and `draw` move out of the discriminated union into tool-mode popup state (per [ADR 0006](./0006-unified-canvas-item-popup.md)). `add-text` is a deliberate exception.
-**Companion to:** [ADR 0006 — Unified canvas-item popup](./0006-unified-canvas-item-popup.md).
+**Refines:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). Tool variants for `add-shape` and `draw` move out of the discriminated union into tool-mode popup state (per [ADR 0008](./0008-unified-canvas-item-popup.md)). `add-text` is a deliberate exception.
+**Companion to:** [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md).
 
 ## Context
 
@@ -16,7 +16,7 @@ ADR 0005 unified three parallel state machines into one `activeTool: Tool` discr
 
 `draw` did not encode brush type in the union, but the toolbar effectively split it via two separate UI affordances (pen and highlight buttons) that mapped to brushType-baked-into-stroke at gesture time.
 
-ADR 0006 introduces a tool-mode popup that surfaces tool defaults (color, thickness, etc.) below the toolbar. Once that popup exists, encoding the variant in the `Tool` union becomes redundant for shape and draw:
+ADR 0008 introduces a tool-mode popup that surfaces tool defaults (color, thickness, etc.) below the toolbar. Once that popup exists, encoding the variant in the `Tool` union becomes redundant for shape and draw:
 
 - The variant is just another configurable default the popup naturally surfaces, alongside color and thickness.
 - The toolbar carries one button per family (`add-shape`, `draw`); the popup picks the variant.
@@ -30,7 +30,7 @@ Keeping the variant in the union forces:
 
 ## Decision
 
-`shapeKind` and `brushType` move out of the `Tool` union and into **tool defaults** (per ADR 0006). The `Tool` union becomes:
+`shapeKind` and `brushType` move out of the `Tool` union and into **tool defaults** (per ADR 0008). The `Tool` union becomes:
 
 ```ts
 type Tool =
@@ -95,7 +95,7 @@ type Tool =
 ## Migration
 
 1. Drop `shapeKind` from `Tool` union variants in `src/shared/tool.ts`. Update consumers.
-2. Add tool-defaults storage (per ADR 0006 §"Tool defaults") with keys for `add-shape.shapeKind`, `add-shape.color`, `add-shape.strokeWidth`, `draw.brushType`, `draw.color`, `draw.strokeWidth`.
+2. Add tool-defaults storage (per ADR 0008 §"Tool defaults") with keys for `add-shape.shapeKind`, `add-shape.color`, `add-shape.strokeWidth`, `draw.brushType`, `draw.color`, `draw.strokeWidth`.
 3. Toolbar collapses three shape buttons to one. Existing keyboard shortcuts (if any) re-target.
 4. `add-shape` tool popup wires the three shape buttons to tool defaults. `add-shape` placement reads `tool-defaults.add-shape.shapeKind` instead of `tool.shapeKind`.
 5. `draw` gesture reads `tool-defaults.draw.brushType` instead of `activeDrawBrush(tool)`. `activeDrawBrush` is deleted.

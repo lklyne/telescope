@@ -1,10 +1,10 @@
 /**
- * DrawingPopup — selection-driven popup for drawing entities (ADR 0006 §8).
+ * DrawingPopup — selection-driven popup for drawing entities (ADR 0008 §8).
  * Edits inner strokes' `brushType`, `color`, and `width`, plus dup/del.
  * Per ADR §8 every drawing has exactly one stroke; legacy drawings with
  * multiple strokes accept uniform writes across all strokes.
  *
- * Mounts on single OR same-kind multi-select (ADR 0006 §4) — edits fan out
+ * Mounts on single OR same-kind multi-select (ADR 0008 §4) — edits fan out
  * across every selected drawing and every stroke inside each one.
  */
 

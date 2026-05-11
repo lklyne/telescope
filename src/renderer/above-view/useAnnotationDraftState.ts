@@ -6,7 +6,7 @@ import type {
   LayoutUpdateData,
   WorkspaceBounds,
 } from '../../shared/types'
-import { toOverlayY } from '../../shared/gesture-utils'
+import { canvasToScreenX, canvasToScreenY, toOverlayY } from '../../shared/gesture-utils'
 import {
   drawingBounds,
   type DrawingSession,
@@ -16,6 +16,7 @@ import {
 const VIEWPORT_PADDING = 8
 const COMPOSER_MARGIN = 8
 const COMPOSER_MIN_HEIGHT = 52
+const CANVAS_POINT_COMPOSER_WIDTH = 320
 
 export function useAnnotationDraftState({
   api,
@@ -118,18 +119,26 @@ export function useAnnotationDraftState({
     return cleanup
   }, [api])
 
+  useEffect(() => {
+    // ADR 0006: comment-tool click that landed off-page (or in a page slot
+    // with no DOM element) becomes a canvas-point pending annotation. We
+    // mount the composer adjacent to the click in screen coords.
+    const cleanup = api.onCommentCanvasPointCommitted(({ canvasX, canvasY }) => {
+      const pending = buildCanvasPointPendingAnnotation(canvasX, canvasY, layoutRef.current)
+      setPendingAnnotation(pending)
+      setPendingRegionRect(null)
+      setDrawingSession(null)
+      setCommentText('')
+    })
+    return cleanup
+  }, [api, layoutRef])
+
   const activeToolKind = layoutData.activeTool.kind
   useEffect(() => {
     if (activeToolKind === 'comment') {
-      if (drawingSession) {
-        activeStrokeRef.current = null
-        setDrawingSession(null)
-        setCommentText('')
-      }
-      return
-    }
-    if (activeToolKind === 'region-select') {
-      // Keep pendingRegionRect intact during region-select mode.
+      // Comment tool now owns both element/canvas-point clicks and region
+      // drags (ADR 0006). Drafts of either kind persist across these
+      // gestures; only the (mutually exclusive) drawing session is cleared.
       if (drawingSession) {
         activeStrokeRef.current = null
         setDrawingSession(null)
@@ -145,7 +154,7 @@ export function useAnnotationDraftState({
       setPendingRegionRect(null)
       setCommentText('')
     }
-  }, [activeStrokeRef, drawingSession, activeToolKind, pendingAnnotation])
+  }, [activeStrokeRef, drawingSession, activeToolKind, pendingAnnotation, pendingRegionRect])
 
   useEffect(() => {
     if (activeToolKind === 'draw') return
@@ -245,13 +254,50 @@ function buildPendingAnnotation(
     boundingBox: payload.boundingBox,
   }
   return {
+    draftId: makeDraftId(),
     request: {
       anchor,
       text: '',
-      kind: 'comment',
       metadata: {
         inspectContext: payload,
       },
+    },
+    composerX,
+    composerY,
+    composerWidth,
+  }
+}
+
+function makeDraftId(): string {
+  return `draft:${Math.random().toString(36).slice(2, 10)}:${Date.now().toString(36)}`
+}
+
+function buildCanvasPointPendingAnnotation(
+  canvasX: number,
+  canvasY: number,
+  layout: LayoutUpdateData,
+): PendingAnnotation {
+  // Anchor the composer just below + right of the click point in screen
+  // coords. Coords are converted from canvas via the live layout (zoom +
+  // pan) so the composer stays put even if pan/zoom changes between the
+  // commit and the next layout broadcast.
+  const screenX = canvasToScreenX(layout, canvasX)
+  const screenY = canvasToScreenY(layout, canvasY)
+  const composerWidth = Math.min(CANVAS_POINT_COMPOSER_WIDTH, window.innerWidth - VIEWPORT_PADDING * 2)
+  const composerX = Math.min(
+    Math.max(screenX + COMPOSER_MARGIN, VIEWPORT_PADDING),
+    window.innerWidth - composerWidth - VIEWPORT_PADDING,
+  )
+  const overlayY = toOverlayY(layout, screenY) + COMPOSER_MARGIN
+  const composerY = Math.min(
+    Math.max(overlayY, VIEWPORT_PADDING),
+    window.innerHeight - COMPOSER_MIN_HEIGHT - VIEWPORT_PADDING,
+  )
+  return {
+    draftId: makeDraftId(),
+    request: {
+      anchor: { type: 'canvas', canvasX, canvasY },
+      text: '',
     },
     composerX,
     composerY,

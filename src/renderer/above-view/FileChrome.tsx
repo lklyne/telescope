@@ -1,9 +1,9 @@
 /**
- * FileChrome — per-file-entity chrome rendered in aboveView. Per ADR 0006 §6,
+ * FileChrome — per-file-entity chrome rendered in aboveView. Per ADR 0008 §6,
  * the chrome is identity-only: favicon + filename label, no actions. All
  * file actions (rename, wireframe theme, json toggle, dup, del) live in the
  * `FilePopup`, dispatched through the renderer plugin contribution surface
- * (ADR 0006 §7).
+ * (ADR 0008 §7).
  */
 
 import { memo } from 'react'

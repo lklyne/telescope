@@ -1,6 +1,6 @@
 /**
  * ShapeToolPopup — viewport-anchored tool-mode popup for the `add-shape` tool
- * (ADR 0006 §1, §5; ADR 0007). Picks the variant + color + stroke width that
+ * (ADR 0008 §1, §5; ADR 0009). Picks the variant + color + stroke width that
  * the next stamped shape will use; values persist via tool defaults.
  *
  * Mounted in `above-view/App.tsx` when `activeTool.kind === 'add-shape'`.

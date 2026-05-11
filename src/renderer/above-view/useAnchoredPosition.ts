@@ -59,7 +59,7 @@ export function useAnchoredPosition(
 }
 
 /**
- * Multi-entity union rect for same-kind multi-select popups (ADR 0006 §4).
+ * Multi-entity union rect for same-kind multi-select popups (ADR 0008 §4).
  * Returns the bounding box of every resolved entity's slot rect. The popup
  * anchors against this union so it visually spans the selection.
  *

@@ -1,5 +1,5 @@
 /**
- * Shared primitives for canvas-item popups (ADR 0006). Each kind's popup
+ * Shared primitives for canvas-item popups (ADR 0008). Each kind's popup
  * (Sticky/Group/Shape/Drawing/Page/File) uses these to gate mount on a
  * show-delay, anchor at the same offset, and collapse multi-selected
  * properties into a single "shared" value or null.

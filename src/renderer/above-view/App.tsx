@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
+  CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
   CanvasScenePageEntity,
   CanvasSceneShapeEntity,
@@ -21,7 +22,7 @@ import {
   squareConstrainedRect,
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
-import { isAnnotationTool } from '../../shared/tool'
+import { isAnnotationTool, toolHasPopup } from '../../shared/tool'
 import { DRAW_CURSOR } from '../canvas-bg/canvasBgConstants'
 import { ActivePageHighlightLayer } from '../canvas-bg/AgentCursorLayer'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
@@ -52,6 +53,11 @@ import { EdgeLayer } from './EdgeLayer'
 import { PageChromeOverlay } from './PageChrome'
 import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
+import { DrawingPopup } from './DrawingPopup'
+import { DrawToolPopup } from './DrawToolPopup'
+import { GroupPopup } from './GroupPopup'
+import { ShapePopup } from './ShapePopup'
+import { ShapeToolPopup } from './ShapeToolPopup'
 import { StickyNotePopover } from './StickyNotePopover'
 import { TextToolPopup } from './TextToolPopup'
 import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
@@ -125,6 +131,22 @@ export default function App({
     const [selectedId] = layoutData.selectedEntityIds
     const entity = layoutData.entities.find((e) => e.id === selectedId)
     return entity?.kind === 'text' ? entity : null
+  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const selectedGroupEntity = useMemo(() => {
+    if (!layoutData.selectedGroupId) return null
+    return (layoutData.groups ?? []).find((g) => g.id === layoutData.selectedGroupId) ?? null
+  }, [layoutData.groups, layoutData.selectedGroupId])
+  const selectedShapeEntity = useMemo<CanvasSceneShapeEntity | null>(() => {
+    if (layoutData.selectedEntityIds.length !== 1) return null
+    const [selectedId] = layoutData.selectedEntityIds
+    const entity = layoutData.entities.find((e) => e.id === selectedId)
+    return entity?.kind === 'shape' ? entity : null
+  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const selectedDrawingEntity = useMemo<CanvasSceneDrawingEntity | null>(() => {
+    if (layoutData.selectedEntityIds.length !== 1) return null
+    const [selectedId] = layoutData.selectedEntityIds
+    const entity = layoutData.entities.find((e) => e.id === selectedId)
+    return entity?.kind === 'drawing' ? entity : null
   }, [layoutData.selectedEntityIds, layoutData.entities])
   const selectedEntityIdSet = useMemo(
     () => new Set(layoutData.selectedEntityIds),
@@ -927,24 +949,58 @@ export default function App({
           />
 
           {layoutData.viewMode === 'canvas' ? (
-            layoutData.activeTool.kind === 'add-text' ? (
-              // Mutex rule (ADR 0006 §2): tool wins. Suppress selection popup
-              // while a creation tool with options is active.
-              <TextToolPopup
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                style={layoutData.activeTool.style}
-              />
-            ) : (
-              <StickyNotePopover
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                selectedTextEntity={selectedTextEntity}
-                interactionIdle={interactionIdle}
-              />
-            )
+            <>
+              {/* Tool-mode popups (ADR 0006 §2 mutex: tool wins when active). */}
+              {layoutData.activeTool.kind === 'add-text' ? (
+                <TextToolPopup
+                  api={api}
+                  isDark={isDark}
+                  layout={layoutData}
+                  style={layoutData.activeTool.style}
+                />
+              ) : null}
+              {layoutData.activeTool.kind === 'add-shape' ? (
+                <ShapeToolPopup api={api} isDark={isDark} layout={layoutData} />
+              ) : null}
+              {layoutData.activeTool.kind === 'draw' ? (
+                <DrawToolPopup api={api} isDark={isDark} layout={layoutData} />
+              ) : null}
+
+              {/* Selection-mode popups — suppressed while any tool with its own
+                  popup is active (ADR 0006 §2). */}
+              {!toolHasPopup(layoutData.activeTool) ? (
+                <>
+                  <StickyNotePopover
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedTextEntity={selectedTextEntity}
+                    interactionIdle={interactionIdle}
+                  />
+                  <GroupPopup
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedGroup={selectedGroupEntity}
+                    interactionIdle={interactionIdle}
+                  />
+                  <ShapePopup
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedShape={selectedShapeEntity}
+                    interactionIdle={interactionIdle}
+                  />
+                  <DrawingPopup
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedDrawing={selectedDrawingEntity}
+                    interactionIdle={interactionIdle}
+                  />
+                </>
+              ) : null}
+            </>
           ) : null}
         </>
       ) : null}

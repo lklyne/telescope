@@ -155,13 +155,32 @@ export function applyDragDelta(entityIds: string[], dx: number, dy: number): voi
     }
     acc.rawX += dx / zoom
     acc.rawY += dy / zoom
+    const prevX = entity.canvasX
+    const prevY = entity.canvasY
     entity.canvasX = snapToGrid(acc.rawX)
     entity.canvasY = snapToGrid(acc.rawY)
+    shiftDrawingStrokes(id, entity.canvasX - prevX, entity.canvasY - prevY)
   }
   if (entityIds.length) {
     markDirty('canvas', 'sidebar')
     scheduleWorkspaceAutosave()
   }
+}
+
+/**
+ * Drawing strokes are stored in absolute canvas coordinates, not relative to
+ * the entity origin (the renderer applies pan/zoom directly to each point).
+ * When the entity's `canvasX/canvasY` moves, the strokes have to move with
+ * it or the bbox will drift away from the visible ink.
+ */
+function shiftDrawingStrokes(entityId: string, deltaX: number, deltaY: number): void {
+  if (deltaX === 0 && deltaY === 0) return
+  const drawing = drawingEntities.find((d) => d.id === entityId)
+  if (!drawing) return
+  drawing.strokes = drawing.strokes.map((stroke) => ({
+    ...stroke,
+    points: stroke.points.map((p) => ({ x: p.x + deltaX, y: p.y + deltaY })),
+  }))
 }
 
 export function finalizeDrag(): void {
@@ -178,8 +197,11 @@ export function moveEntities(entityIds: string[], dx: number, dy: number): void 
   for (const id of entityIds) {
     const entity = findMovableEntity(id)
     if (!entity) continue
+    const prevX = entity.canvasX
+    const prevY = entity.canvasY
     entity.canvasX = snapToGrid(entity.canvasX + dx / zoom)
     entity.canvasY = snapToGrid(entity.canvasY + dy / zoom)
+    shiftDrawingStrokes(id, entity.canvasX - prevX, entity.canvasY - prevY)
   }
   if (entityIds.length) {
     markDirty('canvas', 'sidebar')

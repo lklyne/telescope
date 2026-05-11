@@ -78,26 +78,34 @@ export function pathD(points: AnnotationDrawingPoint[]): string {
   return path
 }
 
-function boundsFromPoints(points: AnnotationDrawingPoint[]): AnnotationDrawing['bounds'] {
-  const xs = points.map((point) => point.x)
-  const ys = points.map((point) => point.y)
-  const left = Math.min(...xs)
-  const top = Math.min(...ys)
-  const right = Math.max(...xs)
-  const bottom = Math.max(...ys)
+export function drawingBounds(
+  strokes: AnnotationDrawingStroke[],
+): AnnotationDrawing['bounds'] {
+  let left = Infinity
+  let top = Infinity
+  let right = -Infinity
+  let bottom = -Infinity
+  for (const stroke of strokes) {
+    // Inflate each stroke by half its width so the bounding rect matches the
+    // visible band (otherwise a straight horizontal/vertical line collapses
+    // to a 1px-tall bbox and becomes impossible to drag).
+    const pad = stroke.width / 2
+    for (const point of stroke.points) {
+      if (point.x - pad < left) left = point.x - pad
+      if (point.y - pad < top) top = point.y - pad
+      if (point.x + pad > right) right = point.x + pad
+      if (point.y + pad > bottom) bottom = point.y + pad
+    }
+  }
+  if (!Number.isFinite(left)) {
+    return { x: 0, y: 0, width: 1, height: 1 }
+  }
   return {
     x: left,
     y: top,
     width: Math.max(1, right - left),
     height: Math.max(1, bottom - top),
   }
-}
-
-export function drawingBounds(
-  strokes: AnnotationDrawingStroke[],
-): AnnotationDrawing['bounds'] {
-  const points = strokes.flatMap((stroke) => stroke.points)
-  return boundsFromPoints(points)
 }
 
 export function canvasRectToScreenRect(

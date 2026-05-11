@@ -289,7 +289,10 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
   const presetIndex = tool.kind === 'add-page' ? tool.presetIndex : undefined
   const customSize = tool.kind === 'add-page' ? tool.customSize === true : false
   const sourcePageId = tool.kind === 'add-page' ? tool.sourcePageId : undefined
-  const shapeKind = tool.kind === 'add-shape' ? tool.shapeKind : undefined
+  // shapeKind moved to tool defaults per ADR 0007 — preview reads the persisted
+  // default so the user sees the variant they last picked in the popup.
+  const shapeKind =
+    tool.kind === 'add-shape' ? getToolDefaults()['add-shape'].shapeKind : undefined
   const sourcePage = sourcePageId ? findPageById(sourcePageId) : null
   const preset = (isText || isFile || isShape)
     ? null

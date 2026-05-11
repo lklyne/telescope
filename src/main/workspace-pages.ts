@@ -27,6 +27,10 @@ import { textEntities, createTextEntity as createTextEntityInState } from './run
 import { fileEntities, createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
 import { shapeEntities, createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
 import {
+  drawingEntities,
+  createDrawingEntity as createDrawingEntityInState,
+} from './runtime/drawing-entity-state'
+import {
   layoutAllViews,
   pageContentSize,
   snapToGrid,
@@ -450,6 +454,36 @@ export function duplicateEntity(input: {
     layoutAllViews()
     scheduleWorkspaceAutosave()
     return { entityId: newShape.id }
+  }
+
+  const drawing = drawingEntities.find((d) => d.id === input.entityId)
+  if (drawing) {
+    const drawingPlacement = findDuplicatePlacement({
+      x: drawing.canvasX,
+      y: drawing.canvasY,
+      width: drawing.width,
+      height: drawing.height,
+    })
+    const dx = drawingPlacement.canvasX - drawing.canvasX
+    const dy = drawingPlacement.canvasY - drawing.canvasY
+    const newDrawing = createDrawingEntityInState({
+      canvasX: drawingPlacement.canvasX,
+      canvasY: drawingPlacement.canvasY,
+      width: drawing.width,
+      height: drawing.height,
+      strokes: drawing.strokes.map((stroke) => ({
+        ...stroke,
+        id: `${stroke.id}_dup_${Math.random().toString(36).slice(2, 8)}`,
+        points: stroke.points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+      })),
+      label: drawing.label,
+    })
+    if (input.focus ?? true) {
+      setSelectedEntities([newDrawing.id])
+    }
+    layoutAllViews()
+    scheduleWorkspaceAutosave()
+    return { entityId: newDrawing.id }
   }
 
   throw new Error(`Unknown entity: ${input.entityId}`)

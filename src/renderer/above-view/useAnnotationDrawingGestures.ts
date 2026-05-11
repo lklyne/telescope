@@ -1,13 +1,8 @@
 import { useCallback, useRef } from 'react'
 import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
-import { activeDrawBrush } from '../../shared/tool'
+import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { isOverlayUiTarget, screenPointToCanvasPoint } from '../../shared/gesture-utils'
 import { drawingBounds, snapPointTo45Degrees, type DrawingSession } from './annotationMath'
-
-const PEN_STROKE_COLOR = '#ef4444'
-const PEN_STROKE_WIDTH = 6
-const HIGHLIGHT_STROKE_COLOR = '#facc15'
-const HIGHLIGHT_STROKE_WIDTH = 22
 
 export function useAnnotationDrawingGestures({
   api,
@@ -95,14 +90,19 @@ export function useAnnotationDrawingGestures({
         setDrawingStrokeActive(true)
         closeThread()
         setPendingAnnotation(null)
-        const brush = activeDrawBrush(layoutRef.current.activeTool) ?? 'pen'
+        // Brush, color, and stroke width come from per-tool defaults
+        // (ADR 0007). The draw tool's popup writes them; the gesture reads
+        // them at stroke-start time. Resolve preset ids to hex here so the
+        // persisted stroke matches what DrawingPopup writes (SVG renders the
+        // raw value — preset ids would fall back to black).
+        const drawDefaults = layoutRef.current.toolDefaults.draw
         const nextStrokes = [
           {
             id: strokeId,
-            color: brush === 'highlight' ? HIGHLIGHT_STROKE_COLOR : PEN_STROKE_COLOR,
-            width: brush === 'highlight' ? HIGHLIGHT_STROKE_WIDTH : PEN_STROKE_WIDTH,
+            color: resolveCanvasColor(drawDefaults.color),
+            width: drawDefaults.strokeWidth,
             points: [startPoint],
-            brushType: brush,
+            brushType: drawDefaults.brushType,
           },
         ]
         const nextSession: DrawingSession = {

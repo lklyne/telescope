@@ -6,6 +6,7 @@ import type {
   ScrollSyncData,
 } from '../shared/types'
 import { PRESENCE_SCROLL_ANIMATION_MS } from '../shared/presence-timing'
+import { REGION_SELECT_FULL_CONTAINMENT } from '../shared/featureFlags'
 
 // The page-content preload still consumes the legacy `set-annotate-mode`
 // channel from main: it carries an `enabled` flag plus a coarse mode
@@ -485,9 +486,16 @@ ipcRenderer.on(
         const el = node as Element
         if (!isVisibleForSnapshot(el)) return NodeFilter.FILTER_REJECT
         const box = el.getBoundingClientRect()
-        // Skip elements entirely outside the region
         if (box.right < region.x || box.left > regionRight || box.bottom < region.y || box.top > regionBottom) {
           return NodeFilter.FILTER_SKIP
+        }
+        if (REGION_SELECT_FULL_CONTAINMENT) {
+          const fullyInside =
+            box.left >= region.x &&
+            box.right <= regionRight &&
+            box.top >= region.y &&
+            box.bottom <= regionBottom
+          if (!fullyInside) return NodeFilter.FILTER_SKIP
         }
         if (isInteractiveForSnapshot(el)) return NodeFilter.FILTER_ACCEPT
         return NodeFilter.FILTER_SKIP

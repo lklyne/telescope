@@ -24,6 +24,7 @@ import {
 import { inspectionPayload, isVisibleForSnapshot } from './dom-element-utils'
 import { isPageOverlayTarget } from './gesture-forwarding'
 import type { CommentToolPagePreviewState } from '../shared/types'
+import { REGION_SELECT_FULL_CONTAINMENT } from '../shared/featureFlags'
 
 const OVERLAY_LAYER_ID = '__canvas-comment-preview-layer'
 const OUTLINE_CLASS = '__canvas-comment-preview-outline'
@@ -149,8 +150,13 @@ function paintRegionIntersection(region: { x: number; y: number; width: number; 
       // happened to the page body of modern React/Astro sites.
       if (!isVisibleForSnapshot(el)) return NodeFilter.FILTER_SKIP
       const box = el.getBoundingClientRect()
-      if (box.right < region.x || box.left > right || box.bottom < region.y || box.top > bottom) {
-        return NodeFilter.FILTER_SKIP
+      const outsideRegion =
+        box.right < region.x || box.left > right || box.bottom < region.y || box.top > bottom
+      if (outsideRegion) return NodeFilter.FILTER_SKIP
+      if (REGION_SELECT_FULL_CONTAINMENT) {
+        const fullyInside =
+          box.left >= region.x && box.right <= right && box.top >= region.y && box.bottom <= bottom
+        if (!fullyInside) return NodeFilter.FILTER_SKIP
       }
       return NodeFilter.FILTER_ACCEPT
     },

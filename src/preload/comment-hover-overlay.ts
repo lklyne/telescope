@@ -21,7 +21,12 @@ import {
   hideDomInspectionOverlay,
   updateDomInspectionOverlay,
 } from './dom-inspection'
-import { inspectionPayload, isVisibleForSnapshot } from './dom-element-utils'
+import {
+  inspectionPayload,
+  isVisibleForSnapshot,
+  rectFullyContainedInRegion,
+  rectIntersectsRegion,
+} from './dom-element-utils'
 import { isPageOverlayTarget } from './gesture-forwarding'
 import type { CommentToolPagePreviewState } from '../shared/types'
 import { REGION_SELECT_FULL_CONTAINMENT } from '../shared/featureFlags'
@@ -131,9 +136,10 @@ function paintRegionIntersection(region: { x: number; y: number; width: number; 
   hideDomInspectionOverlay()
   const layer = ensureOverlayLayer()
   layer.replaceChildren()
-  const right = region.x + region.width
-  const bottom = region.y + region.height
 
+  // Cache the bbox computed during the walk so we don't call
+  // getBoundingClientRect again when building outlines.
+  const rectByElement = new WeakMap<Element, DOMRect>()
   const accepted: Element[] = []
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
     acceptNode(node) {
@@ -150,14 +156,11 @@ function paintRegionIntersection(region: { x: number; y: number; width: number; 
       // happened to the page body of modern React/Astro sites.
       if (!isVisibleForSnapshot(el)) return NodeFilter.FILTER_SKIP
       const box = el.getBoundingClientRect()
-      const outsideRegion =
-        box.right < region.x || box.left > right || box.bottom < region.y || box.top > bottom
-      if (outsideRegion) return NodeFilter.FILTER_SKIP
-      if (REGION_SELECT_FULL_CONTAINMENT) {
-        const fullyInside =
-          box.left >= region.x && box.right <= right && box.top >= region.y && box.bottom <= bottom
-        if (!fullyInside) return NodeFilter.FILTER_SKIP
+      if (!rectIntersectsRegion(box, region)) return NodeFilter.FILTER_SKIP
+      if (REGION_SELECT_FULL_CONTAINMENT && !rectFullyContainedInRegion(box, region)) {
+        return NodeFilter.FILTER_SKIP
       }
+      rectByElement.set(el, box)
       return NodeFilter.FILTER_ACCEPT
     },
   })
@@ -168,8 +171,8 @@ function paintRegionIntersection(region: { x: number; y: number; width: number; 
   }
 
   for (const el of accepted) {
-    const rect = el.getBoundingClientRect()
-    if (rect.width <= 0 || rect.height <= 0) continue
+    const rect = rectByElement.get(el)
+    if (!rect || rect.width <= 0 || rect.height <= 0) continue
     layer.appendChild(buildOutline(rect))
   }
 }
@@ -192,12 +195,33 @@ function refresh(state: CommentToolPagePreviewState): void {
   hideDomInspectionOverlay()
 }
 
+function statesEqual(a: CommentToolPagePreviewState, b: CommentToolPagePreviewState): boolean {
+  if (a.active !== b.active) return false
+  if ((a.pointer == null) !== (b.pointer == null)) return false
+  if (a.pointer && b.pointer && (a.pointer.x !== b.pointer.x || a.pointer.y !== b.pointer.y)) {
+    return false
+  }
+  if ((a.regionRect == null) !== (b.regionRect == null)) return false
+  if (a.regionRect && b.regionRect) {
+    if (
+      a.regionRect.x !== b.regionRect.x ||
+      a.regionRect.y !== b.regionRect.y ||
+      a.regionRect.width !== b.regionRect.width ||
+      a.regionRect.height !== b.regionRect.height
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
 /**
  * Apply the latest broadcast state. The overlay is repainted synchronously
  * — pointer events arrive at native input rate and the work per frame is
  * cheap (one elementFromPoint or one TreeWalker pass + a few DOM nodes).
  */
 export function applyCommentHoverOverlay(state: CommentToolPagePreviewState): void {
+  if (statesEqual(lastState, state)) return
   lastState = state
   refresh(state)
 }
@@ -222,6 +246,9 @@ export function clearCommentHoverOverlay(): void {
     pendingRefresh = 0
   }
   lastState = { active: false, pointer: null, regionRect: null }
-  clearMarqueeLayer()
+  if (overlayLayerEl) {
+    overlayLayerEl.remove()
+    overlayLayerEl = null
+  }
   hideDomInspectionOverlay()
 }

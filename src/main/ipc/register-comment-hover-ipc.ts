@@ -44,6 +44,37 @@ let activeBroadcastInFlight = false
 // Tracks whether we last broadcast an "active" frame to pages so we can emit
 // a single trailing `active: false` clear when the tool deactivates.
 let lastActiveFrame = false
+// Per-page signature of the most recent payload sent. Suppresses no-op IPC
+// when the renderer holds a static rect (composer open) or the pointer hasn't
+// moved inside this page.
+const lastPayloadByPage = new Map<string, string>()
+
+function payloadSignature(payload: {
+  active: boolean
+  pointer: { x: number; y: number } | null
+  regionRect: { x: number; y: number; width: number; height: number } | null
+}): string {
+  const p = payload.pointer ? `${payload.pointer.x},${payload.pointer.y}` : '-'
+  const r = payload.regionRect
+    ? `${payload.regionRect.x},${payload.regionRect.y},${payload.regionRect.width},${payload.regionRect.height}`
+    : '-'
+  return `${payload.active ? '1' : '0'}|${p}|${r}`
+}
+
+function sendIfChanged(
+  pageId: string,
+  webContents: Electron.WebContents,
+  payload: {
+    active: boolean
+    pointer: { x: number; y: number } | null
+    regionRect: { x: number; y: number; width: number; height: number } | null
+  },
+): void {
+  const sig = payloadSignature(payload)
+  if (lastPayloadByPage.get(pageId) === sig) return
+  lastPayloadByPage.set(pageId, sig)
+  safeSend(webContents, 'comment-tool-page-preview', payload)
+}
 
 function broadcastPointerState(state: PointerStateInput): void {
   if (!state) {
@@ -51,7 +82,7 @@ function broadcastPointerState(state: PointerStateInput): void {
     lastActiveFrame = false
     for (const page of pages) {
       if (page.pageView.webContents.isDestroyed()) continue
-      safeSend(page.pageView.webContents, 'comment-tool-page-preview', {
+      sendIfChanged(page.id, page.pageView.webContents, {
         active: false,
         pointer: null,
         regionRect: null,
@@ -65,7 +96,7 @@ function broadcastPointerState(state: PointerStateInput): void {
     if (page.pageView.webContents.isDestroyed()) continue
     const screen = boundScreenBoundsForPage(page).page
     if (screen.width <= 0 || screen.height <= 0) {
-      safeSend(page.pageView.webContents, 'comment-tool-page-preview', {
+      sendIfChanged(page.id, page.pageView.webContents, {
         active: true,
         pointer: null,
         regionRect: null,
@@ -83,7 +114,7 @@ function broadcastPointerState(state: PointerStateInput): void {
     const regionRect = state.regionRect
       ? intersectRegionWithPage(state.regionRect, screen, cssScale)
       : null
-    safeSend(page.pageView.webContents, 'comment-tool-page-preview', {
+    sendIfChanged(page.id, page.pageView.webContents, {
       active: true,
       pointer,
       regionRect,

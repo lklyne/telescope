@@ -44,6 +44,8 @@ import {
   inspectionPayload,
   isInteractiveForSnapshot,
   isVisibleForSnapshot,
+  rectFullyContainedInRegion,
+  rectIntersectsRegion,
 } from './dom-element-utils'
 import {
   applyDomInspectionState,
@@ -476,8 +478,6 @@ ipcRenderer.on(
   (_event, payload: { requestId: string; rect: { x: number; y: number; width: number; height: number }; maxResults?: number }) => {
     const maxResults = payload.maxResults ?? 15
     const region = payload.rect
-    const regionRight = region.x + region.width
-    const regionBottom = region.y + region.height
     const seen = new Set<Element>()
     const results: ReturnType<typeof inspectionPayload>[] = []
 
@@ -486,16 +486,9 @@ ipcRenderer.on(
         const el = node as Element
         if (!isVisibleForSnapshot(el)) return NodeFilter.FILTER_REJECT
         const box = el.getBoundingClientRect()
-        if (box.right < region.x || box.left > regionRight || box.bottom < region.y || box.top > regionBottom) {
+        if (!rectIntersectsRegion(box, region)) return NodeFilter.FILTER_SKIP
+        if (REGION_SELECT_FULL_CONTAINMENT && !rectFullyContainedInRegion(box, region)) {
           return NodeFilter.FILTER_SKIP
-        }
-        if (REGION_SELECT_FULL_CONTAINMENT) {
-          const fullyInside =
-            box.left >= region.x &&
-            box.right <= regionRight &&
-            box.top >= region.y &&
-            box.bottom <= regionBottom
-          if (!fullyInside) return NodeFilter.FILTER_SKIP
         }
         if (isInteractiveForSnapshot(el)) return NodeFilter.FILTER_ACCEPT
         return NodeFilter.FILTER_SKIP

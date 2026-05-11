@@ -1,7 +1,19 @@
 # Canvas Stacking and the Sidebar Tree — Research
 
-Status: research / proposal. Not yet an ADR.
-Branch: `claude/research-canvas-stacking-NQ7Lh`.
+Status: **Resolved by [ADR 0006 — Canvas stack order and the Notes/Pages sidebar](./adr/0006-canvas-stack-order.md).** Kept in-tree as the historical research note that seeded the ADR.
+Origin branch: `claude/research-canvas-stacking-NQ7Lh`. Decisions locked during the grilling session on `claude/plan-canvas-stacking-s1th2`.
+
+## Resolution summary (read ADR 0006 for the full picture)
+
+- §3's open question: **Option C** (flat `entityOrder` + group contiguity invariant), with the group's own id pinned to the front of its run, recursive across nested groups.
+- §6.1 (page WCV stacking): in scope and resolved — re-`addChildView` in `entityOrder` order on every mutation + load + undo.
+- §6.2 (hit-test): no design change; the existing `collectBodyTargets` already iterates `entityOrder`. Added smoke tests for the user-mutable case.
+- §6.3 (what belongs in `entityOrder`): the 6 entity kinds **plus edges** (FigJam-parity stack mutations). Annotations and anchors stay out.
+- Net-new decisions captured in the ADR: the user-facing term **Stack order**; **Notes** / **Pages** sidebar sections that surface the cross-surface architectural limitation directly; **split representation** for mixed groups (two linked sidebar rows for one entity); rules for new-entity placement, multi-selection block moves, and eager group-contiguity migration.
+
+The rest of this document remains as originally written — it captures the codebase evidence and reasoning that led to the ADR.
+
+---
 
 ## 1. Why this exists
 

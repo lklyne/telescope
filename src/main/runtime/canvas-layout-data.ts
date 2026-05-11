@@ -23,6 +23,7 @@ import {
   aboveView,
   cursorOverlayWindow,
   leftSidebarView,
+  win,
 } from './view-refs'
 import { safeSend } from './safe-send'
 import { layoutCache } from './layout-cache'
@@ -49,7 +50,13 @@ import {
   selectedGroupId as uiSelectedGroupId,
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
-import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
+import {
+  LEFT_SIDEBAR_WIDTH,
+  TOOLBAR_PAD_LEFT_MAC,
+  TOOLBAR_PAD_LEFT_OTHER,
+  TOOLBAR_PAD_RIGHT_MAC,
+  TOOLBAR_PAD_RIGHT_OTHER,
+} from './runtime-constants'
 import { currentKeyboardTargetPageId } from './selection-controller'
 import {
   pageContentSize,
@@ -334,11 +341,17 @@ export function buildCanvasLayoutData(
   const origin = localCanvasOrigin()
   const pendingPlacementData = buildPlacementPreview(tool)
   const groupEntities = buildUserGroupSceneEntities(origin)
+  const windowWidth = win?.getBounds().width ?? 0
+  const isMac = process.platform === 'darwin'
+  const padLeft = isMac ? TOOLBAR_PAD_LEFT_MAC : TOOLBAR_PAD_LEFT_OTHER
+  const padRight = isMac ? TOOLBAR_PAD_RIGHT_MAC : TOOLBAR_PAD_RIGHT_OTHER
+  const toolbarCenterX = (padLeft + Math.max(0, windowWidth - padRight)) / 2
   return {
     zoom,
     pan,
     canvasOrigin: origin,
     leftChromeWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
+    toolbarCenterX,
     entities: [
       ...pages,
       ...textEntities.map((te) =>

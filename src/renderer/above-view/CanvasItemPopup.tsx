@@ -102,13 +102,14 @@ function popupStyle(
 
 /**
  * Viewport-anchored mode (ADR 0006 §1). Positions a fixed strip below the
- * toolbar, horizontally centered inside the canvas area (i.e. between the
- * left sidebar edge and the devtools panel edge).
+ * toolbar, horizontally centered on the toolbar's tool cluster.
  *
- * aboveView's own origin already sits below the toolbar, so `top` is just a
- * small offset within aboveView. Horizontal centering subtracts the left
- * sidebar width and the right devtools width so the strip lands over the
- * visible canvas, not over chrome.
+ * The popup reads `layout.toolbarCenterX` (window-coord pixels, computed in
+ * main from the toolbar's padding constants and current window width).
+ * aboveView's left edge sits at x=0 in window coords, so the value is used
+ * verbatim as an offset within aboveView — no compensation for the right
+ * devtools panel is needed because the toolbar layout, not the visible
+ * canvas, is what determines popup placement.
  */
 function ViewportAnchor({
   layout,
@@ -123,22 +124,18 @@ function ViewportAnchor({
   children: ReactNode
 }) {
   if (!open) return null
-  const leftInset = layout.leftChromeWidth
-  const rightInset = layout.devtoolsOpen ? layout.devtoolsWidth : 0
   return (
     <div
       data-overlay-ui
       className="pointer-events-auto absolute"
       style={{
         top: offset,
-        left: leftInset,
-        right: rightInset,
-        display: 'flex',
-        justifyContent: 'center',
-        pointerEvents: 'none',
+        left: layout.toolbarCenterX,
+        transform: 'translateX(-50%)',
+        pointerEvents: 'auto',
       }}
     >
-      <div style={{ pointerEvents: 'auto' }}>{children}</div>
+      {children}
     </div>
   )
 }

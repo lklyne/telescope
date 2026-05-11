@@ -114,8 +114,13 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
         }
       `}</style>
 
+      {/* NOTE: padding values (`pl-[86px] pr-4` mac, `px-4` other) are mirrored
+          in `runtime-constants.ts` (TOOLBAR_PAD_*) so main can compute the
+          tool-center x for popup alignment. Keep in sync. */}
       <div
-        className={`toolbar-bar fixed top-0 left-0 right-0 grid h-[44px] grid-cols-[auto_1fr_auto] items-center gap-1 ${
+        className={`toolbar-bar fixed top-0 left-0 right-0 grid h-[44px] ${
+          showCenterActionsOnly ? 'grid-cols-[1fr_auto_1fr]' : 'grid-cols-[auto_1fr_auto]'
+        } items-center gap-1 ${
           isMac ? 'pl-[86px] pr-4' : 'px-4'
         } select-none [-webkit-app-region:drag] border-b border-[var(--surface-toolbar-border)] bg-[var(--surface-toolbar)] text-[var(--surface-toolbar-foreground)]`}
       >

@@ -392,6 +392,18 @@ export interface LayoutUpdateData {
    * centering, tab-bar insets) read this instead of canvasOrigin.x.
    */
   leftChromeWidth: number
+  /**
+   * X-coordinate (in window pixels) of the centerpoint of the toolbar's tool
+   * cluster, when the toolbar is in `showCenterActionsOnly` mode. Popups that
+   * anchor below the toolbar (tool-mode popups, ADR 0006 §1) read this to
+   * align with the tools regardless of platform padding (mac traffic-lights
+   * inset) or sidebar state.
+   *
+   * Computed in main from `TOOLBAR_PAD_*` constants and the current window
+   * width; mirrors the `grid-cols-[1fr_auto_1fr]` layout the toolbar uses in
+   * that mode.
+   */
+  toolbarCenterX: number
   entities: CanvasSceneEntity[]
   browserTabs: WorkspaceTabPageSummary[]
   browserFillViewport: {

@@ -136,6 +136,20 @@ Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Ann
 
 **Pending composer** — single component that mounts after the gesture and before the comment is committed. Placement is a thin function over the anchor: above-right of the element bbox, adjacent to the click point, or above-right of the region rect. Esc cancels; click outside commits (if non-empty) or discards (if empty); only one pending composer exists at a time.
 
+## Keyboard bindings
+
+A **Binding** is one entry in the keyboard registry: `{ id, defaultKey, scope, target, when?, firesWhileTyping?, firesFromPageFocus?, label }`. The registry is the single source of truth — the dispatcher reads it, the app menu reads it, future tooltips and Bindings settings read it. See [ADR 0010](./docs/adr/0010-main-as-sole-shortcut-dispatch-site.md) and [`docs/plans/keyboard-binding-registry.md`](./docs/plans/keyboard-binding-registry.md).
+
+- **BindingId** — string-literal union of every shortcut's canonical name (e.g. `'tool-comment'`, `'undo'`, `'select-all'`). Lives in `src/shared/bindings.ts`.
+- **NormalizedKey** — `{ key, cmd, alt, shift }` where `key` is lowercased and `cmd` collapses `Cmd`/`Ctrl` per platform. The cross-process key representation; both Electron `Input` events and DOM `KeyboardEvent`s normalise to this.
+- **Binding dispatcher** — pure function `dispatchKey(table, key, ctx) → BindingId | null` in `src/shared/bindings.ts`. The only dispatch happens in main's `before-input-event` listener, attached to every WebContentsView (see ADR 0010).
+- **Keyboard source view** — which WebContentsView produced a keystroke (`'aboveView' | 'canvasBg' | 'toolbar' | 'leftSidebar' | 'rightDetailsPanel' | 'devtoolsHeader' | 'devtoolsResizeHandle' | 'page'`). Each binding declares the source views it can fire from via `scope: KeyboardSourceView[]`. Distinct from **page focus** (ADR 0001): page focus says "which page receives native input"; keyboard source view says "which view produced this keystroke."
+- **Binding target** — `'main' | KeyboardSourceView`. Where the handler runs. Most bindings run in main; a few (annotation overlay) run in a renderer because their state is renderer-local React `useState`.
+- **`firesWhileTyping`** — opt-in flag for a binding to fire when `isTextEditing` is true. Default `false`. Only `undo`, `redo`, `reset-viewport`, and `escape-tool` opt in.
+- **`firesFromPageFocus`** — opt-in flag for a binding to fire when a page has keyboard focus (per [ADR 0011](./docs/adr/0011-page-focus-respects-native-shortcuts.md)). Default `false`. Only `escape-page-focus` and `reset-viewport` opt in.
+
+**Keyboard shortcuts and tools.** Every `Tool['kind']` has a default key, enforced by TypeScript exhaustiveness. Variant keys (e.g. Shift+R for diamond, Shift+M for highlight) activate the tool *and* write the variant to **tool defaults** per ADR 0009. Pressing a tool's key while that tool is already active is a no-op (FigJam reference); Escape is the only keyboard path back to `select`.
+
 ## UI copy voice
 
 - **Sentence case** — capitalize the first word only. Default for menus, buttons, dialog text, chrome labels: "Reveal codebase in finder", "Delete project…", "Rename".

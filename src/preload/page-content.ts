@@ -436,10 +436,8 @@ ipcRenderer.on('take-dom-snapshot', (_event, payload: { requestId: string; maxDe
 ipcRenderer.on(
   'query-element-at-point',
   (_event, payload: { requestId: string; x: number; y: number }) => {
-    // ADR 0006 — comment tool's click-vs-element resolver. The page is
-    // non-interactive while the comment tool is active, so we drill past
-    // Specular's own overlays instead of relying on `elementFromPoint`
-    // (which would always land on `#__canvas-blocking-overlay`).
+    // ADR 0006 — comment tool's click-vs-element resolver. See
+    // pickContentElementAtPoint for the overlay-skip rationale.
     const target = pickContentElementAtPoint(payload.x, payload.y)
     if (!target) {
       ipcRenderer.send('query-element-at-point-response', {

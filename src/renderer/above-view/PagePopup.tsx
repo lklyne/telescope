@@ -87,6 +87,7 @@ export function PagePopup({
       layout={layout}
       open={open}
       placement="above"
+      align={isSingle ? 'stretch' : 'center'}
       offset={POPUP_OFFSET_Y}
     >
       <CanvasItemPopup.Frame isDark={isDark}>
@@ -124,7 +125,7 @@ export function PagePopup({
                 <RotateCw size={12} className={single.isLoading ? 'animate-spin' : ''} />
               </CanvasItemPopup.IconButton>
             </CanvasItemPopup.Section>
-            <CanvasItemPopup.Section>
+            <CanvasItemPopup.Section grow>
               <input
                 ref={inputRef}
                 type="text"
@@ -144,7 +145,7 @@ export function PagePopup({
                   }
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
-                className={`min-w-0 rounded-[6px] border px-2 py-1 text-xs outline-none focus:ring-1 ${
+                className={`min-w-0 flex-1 rounded-[6px] border px-2 py-1 text-xs outline-none focus:ring-1 ${
                   isDark
                     ? 'border-zinc-700 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500 focus:ring-blue-500/40'
                     : 'border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-400 focus:ring-blue-500/40'

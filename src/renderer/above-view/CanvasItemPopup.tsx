@@ -36,8 +36,11 @@ type RootProps = {
   /**
    * Horizontal alignment for `above`/`below` placements.
    * `center` (default) positions the popup over the anchor's horizontal
-   * midpoint at its intrinsic width. `stretch` forces the popup width to
-   * match the anchor rect — useful for inline strips. `overlay` ignores this.
+   * midpoint at its intrinsic width. `stretch` keeps the popup centered on
+   * the anchor but grows it to at least the anchor's width — letting an
+   * inner flex-1 child absorb the extra space on large/zoomed anchors,
+   * while still falling back to intrinsic content width on tiny anchors.
+   * `overlay` ignores this.
    */
   align?: Align
   /** Pixel gap between anchor edge and popup. Ignored for `overlay`. */
@@ -91,7 +94,12 @@ function popupStyle(
   const top = isAbove ? rect.y - offset : rect.y + rect.height + offset
   const verticalTransform = isAbove ? 'translateY(-100%)' : ''
   if (align === 'stretch') {
-    return { left: rect.x, top, width: rect.width, transform: verticalTransform || undefined }
+    return {
+      left: rect.x + rect.width / 2,
+      top,
+      minWidth: rect.width,
+      transform: `translateX(-50%) ${verticalTransform}`.trim(),
+    }
   }
   return {
     left: rect.x + rect.width / 2,
@@ -179,9 +187,15 @@ function Frame({
 /**
  * Section — a horizontal group of related controls inside the Frame. Use one
  * per logical block (color swatches, action buttons, variant pickers).
+ * Pass `grow` to make this section absorb extra width when the Frame is
+ * stretched wider than its intrinsic content (see `align="stretch"`).
  */
-function Section({ children }: { children: ReactNode }) {
-  return <div className="flex items-center gap-1.5">{children}</div>
+function Section({ children, grow = false }: { children: ReactNode; grow?: boolean }) {
+  return (
+    <div className={`flex items-center gap-1.5${grow ? ' min-w-0 flex-1' : ''}`}>
+      {children}
+    </div>
+  )
 }
 
 function popupIconButtonClass(isDark: boolean, active = false): string {

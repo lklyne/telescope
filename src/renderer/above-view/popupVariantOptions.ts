@@ -1,10 +1,4 @@
-/**
- * Shared visual helpers for popup variant pickers (ADR 0008 §5).
- *
- * The shape popup (selection + tool mode) and drawing popup share these so
- * the toolbar, popups, and sidebar all render the same shapeKind / brushType /
- * strokeWidth affordances.
- */
+// ADR 0008 §5 — shared variant/stroke-width options across popups + toolbar.
 
 import { Circle, Diamond, Highlighter, PencilLine, Square } from 'lucide-react'
 import type { ComponentType } from 'react'
@@ -29,11 +23,7 @@ export const BRUSH_VARIANT_OPTIONS: Array<{
   { kind: 'highlight', label: 'Highlighter', Icon: Highlighter },
 ]
 
-/**
- * Stroke-width presets shown in popup pickers. Shapes and pen-brush drawings
- * share the thin set; the highlighter uses a thicker set so it reads as a
- * marker rather than a colored line. Keep ordered thin → thick.
- */
+// Ordered thin → thick.
 export const STROKE_WIDTH_PRESETS = [2, 8] as const
 const HIGHLIGHT_STROKE_WIDTH_PRESETS = [8, 16] as const
 

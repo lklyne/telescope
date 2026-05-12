@@ -1,15 +1,7 @@
-/**
- * Renderer-side dispatch for file popup plugin contributions (ADR 0008 §7).
- *
- * Each contribution tag broadcast on `CanvasSceneFileEntity.popupContributions`
- * maps to a React component declared here. The `FilePopup` calls
- * `renderPopupContributions(entity, ctx)` and drops the returned nodes into
- * its frame between the rename row and the dup/del row.
- *
- * Adding a contribution tag: declare it in `PopupContributionTag` in
- * `src/shared/types.ts`, declare it in the main-side plugin claim, and add
- * a case in the switch below.
- */
+// ADR 0008 §7 — renderer-side dispatch for file popup plugin contributions.
+// To add a contribution: declare the tag in `PopupContributionTag`
+// (src/shared/types.ts), declare it in the main-side plugin claim, and add a
+// case in the switch below.
 
 import type { ReactNode } from 'react'
 import type {

@@ -1,14 +1,5 @@
-/**
- * PagePopup — selection-driven popup for page entities (ADR 0008). Adds the
- * page kind's popup surface (URL + nav + dup + del on single-select; dup + del
- * only on multi-select) alongside the existing `PageChrome`. Per ADR §6, the
- * URL/nav redundancy between chrome and popup is acceptable for now; a future
- * ADR may consolidate.
- *
- * Mounts on single OR same-kind multi-select (ADR 0008 §4). URL editing and
- * nav buttons hide when multi — those don't have a meaningful multi-page
- * semantic. Dup/del fan out across the selection.
- */
+// ADR 0008 — page selection popup. URL/nav redundancy with PageChrome is
+// accepted per §6.
 
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Copy, RotateCw, Trash2 } from 'lucide-react'
@@ -48,9 +39,7 @@ export function PagePopup({
   const ids = selectedPages.map((p) => p.id).join('|')
   const open = usePopupDelayedKey(ids, interactionIdle && count > 0)
 
-  // URL draft local to single-select; commits via blur/Enter. The navigate IPC
-  // → broadcast round-trip takes a frame, so after commit we hold the optimistic
-  // value in `draftUrl` and clear it once `single.url` catches up.
+  // Hold optimistic URL until the navigate IPC → broadcast round-trip catches up.
   const [draftUrl, setDraftUrl] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -62,9 +51,7 @@ export function PagePopup({
 
   if (count === 0) return null
   const isSingle = count === 1
-  const isBlank = single ? single.url === 'about:blank' : false
-  const displayUrl = single ? (isBlank ? '' : single.url) : ''
-  const value = draftUrl !== null ? draftUrl : displayUrl
+  const value = draftUrl ?? (single && single.url !== 'about:blank' ? single.url : '')
 
   const commitUrl = () => {
     if (!single || draftUrl === null) return

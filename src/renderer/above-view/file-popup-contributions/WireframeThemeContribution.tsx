@@ -1,12 +1,6 @@
-/**
- * WireframeThemeContribution — popup row that lets the user swap a wireframe
- * file's theme. Reads/writes the underlying JSON directly through
- * `api.writeNoteFile` and pings the renderer body via the
- * `wireframe-file-changed` CustomEvent so it picks up the disk change
- * without waiting for a layout broadcast.
- *
- * Migrated out of the legacy `FileChrome` wireframe Popover (ADR 0008 §7).
- */
+// ADR 0008 §7 — wireframe theme swap. Writes JSON via `api.writeNoteFile`
+// and pings the body via `wireframe-file-changed` so it picks up the disk
+// change without waiting for a layout broadcast.
 
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasBgElectronAPI, CanvasSceneFileEntity } from '../../../shared/types'

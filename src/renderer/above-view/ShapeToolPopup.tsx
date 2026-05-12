@@ -1,10 +1,4 @@
-/**
- * ShapeToolPopup — viewport-anchored tool-mode popup for the `add-shape` tool
- * (ADR 0008 §1, §5; ADR 0009). Picks the variant + color + stroke width that
- * the next stamped shape will use; values persist via tool defaults.
- *
- * Mounted in `above-view/App.tsx` when `activeTool.kind === 'add-shape'`.
- */
+// ADR 0008 §1/§5, ADR 0009 — add-shape tool popup; persists via tool defaults.
 
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
 import type {

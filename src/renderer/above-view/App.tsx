@@ -234,13 +234,10 @@ export default function App({
     commentInputRef,
     activeStrokeRef,
   })
-  // Mirror draft state so the pointerdown effect can read fresh values
-  // without rebinding on every keystroke.
   const draftStateRef = useRef({ pendingAnnotation, pendingRegionRect, commentText, clearDraft })
-  draftStateRef.current.pendingAnnotation = pendingAnnotation
-  draftStateRef.current.pendingRegionRect = pendingRegionRect
-  draftStateRef.current.commentText = commentText
-  draftStateRef.current.clearDraft = clearDraft
+  useEffect(() => {
+    draftStateRef.current = { pendingAnnotation, pendingRegionRect, commentText, clearDraft }
+  }, [pendingAnnotation, pendingRegionRect, commentText, clearDraft])
   const {
     closeThread,
     openThread,

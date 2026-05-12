@@ -1,9 +1,5 @@
-/**
- * Shared primitives for canvas-item popups (ADR 0008). Each kind's popup
- * (Sticky/Group/Shape/Drawing/Page/File) uses these to gate mount on a
- * show-delay, anchor at the same offset, and collapse multi-selected
- * properties into a single "shared" value or null.
- */
+// ADR 0008 — shared primitives for canvas-item popups (mount delay,
+// shared-property collapse).
 
 import { useEffect, useState } from 'react'
 import { POPUP_SHOW_DELAY_MS } from '../../shared/popupTiming'

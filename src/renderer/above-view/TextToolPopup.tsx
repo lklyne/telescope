@@ -1,13 +1,4 @@
-/**
- * TextToolPopup — viewport-anchored tool-mode popup for the `add-text` tool
- * (ADR 0008 §1, §5). Surfaces the color swatch for the active text style;
- * picking a swatch writes to per-style tool defaults so the next stamped
- * entity inherits the chosen color.
- *
- * Mounted in `above-view/App.tsx` when `activeTool.kind === 'add-text'`.
- * Selection-mode popups are suppressed by the mutex rule (ADR §2) so this
- * is the only popup visible while the tool is active.
- */
+// ADR 0008 §1/§5 — add-text tool popup; writes to per-style tool defaults.
 
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
 import type {

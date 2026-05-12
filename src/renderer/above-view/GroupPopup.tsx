@@ -1,11 +1,4 @@
-/**
- * GroupPopup — selection-driven popup for the single-selected group (ADR 0008).
- * Anchored above the group body via `CanvasItemPopup.Root`, tracks pan/zoom
- * with the rest of aboveView. Replaces the screen-coords `GroupInlineMenu`
- * that previously lived in canvas-bg.
- *
- * Contents unchanged: color swatches, duplicate, delete.
- */
+// ADR 0008 — group selection popup. Replaces canvas-bg GroupInlineMenu.
 
 import { Copy, Trash2 } from 'lucide-react'
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'

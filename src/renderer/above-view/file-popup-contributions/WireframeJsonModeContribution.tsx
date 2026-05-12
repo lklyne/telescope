@@ -1,11 +1,4 @@
-/**
- * WireframeJsonModeContribution — popup button that toggles a wireframe file
- * between visual mode and raw-JSON edit mode. State is owned by aboveView's
- * `App` so the `FileBodyLayer` can read it directly; this component reads
- * the current value and asks the parent to flip it.
- *
- * Migrated out of the legacy `FileChrome` wireframe Popover (ADR 0008 §7).
- */
+// ADR 0008 §7 — wireframe JSON-mode toggle (state owned by aboveView App).
 
 import type { CanvasSceneFileEntity } from '../../../shared/types'
 import { CanvasItemPopup } from '../CanvasItemPopup'

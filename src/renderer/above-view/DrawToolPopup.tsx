@@ -1,10 +1,4 @@
-/**
- * DrawToolPopup — viewport-anchored tool-mode popup for the `draw` tool
- * (ADR 0008 §1, §5; ADR 0009). Picks the brush + color + stroke width that
- * the next stroke will use; values persist via tool defaults.
- *
- * Mounted in `above-view/App.tsx` when `activeTool.kind === 'draw'`.
- */
+// ADR 0008 §1/§5, ADR 0009 — draw tool popup; persists via tool defaults.
 
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
 import type {

@@ -1,19 +1,4 @@
-/**
- * CanvasItemPopup — compound component for the unified canvas-item popup
- * (ADR 0008). Two anchor modes:
- *
- *   - <CanvasItemPopup.Root> — entity-anchored (selection mode). Tracks an
- *     entity's screen rect via `useAnchoredPosition`, so it follows pan/zoom.
- *
- *   - <CanvasItemPopup.ViewportAnchor> — viewport-anchored (tool mode). Fixed
- *     strip below the toolbar, centered in the canvas area.
- *
- * Composition primitives (`Frame`, `Section`, `ColorSwatch`, `IconButton`,
- * `DestructiveButton`) factor out shared chrome so every kind-specific popup
- * renders with the same panel styling and button affordances.
- *
- * Right-click context menus are out of scope (ADR 0002 §4).
- */
+// ADR 0008 — unified canvas-item popup compound component.
 
 import { type ReactNode } from 'react'
 import {
@@ -29,21 +14,9 @@ type Align = 'stretch' | 'center'
 type RootProps = {
   layout: LayoutUpdateData
   open: boolean
-  /** Anchor slot — popup hangs off this rect. Defaults to body. */
   slot?: AnchorSlot
-  /** How the popup positions relative to the anchor rect. */
   placement?: Placement
-  /**
-   * Horizontal alignment for `above`/`below` placements.
-   * `center` (default) positions the popup over the anchor's horizontal
-   * midpoint at its intrinsic width. `stretch` keeps the popup centered on
-   * the anchor but grows it to at least the anchor's width — letting an
-   * inner flex-1 child absorb the extra space on large/zoomed anchors,
-   * while still falling back to intrinsic content width on tiny anchors.
-   * `overlay` ignores this.
-   */
   align?: Align
-  /** Pixel gap between anchor edge and popup. Ignored for `overlay`. */
   offset?: number
   children: ReactNode
 } & (
@@ -108,17 +81,9 @@ function popupStyle(
   }
 }
 
-/**
- * Viewport-anchored mode (ADR 0008 §1). Positions a fixed strip below the
- * toolbar, horizontally centered on the toolbar's tool cluster.
- *
- * The popup reads `layout.toolbarCenterX` (window-coord pixels, computed in
- * main from the toolbar's padding constants and current window width).
- * aboveView's left edge sits at x=0 in window coords, so the value is used
- * verbatim as an offset within aboveView — no compensation for the right
- * devtools panel is needed because the toolbar layout, not the visible
- * canvas, is what determines popup placement.
- */
+// ADR 0008 §1 — viewport-anchored (tool mode) strip below toolbar.
+// Uses `layout.toolbarCenterX` (window-coord px from main) verbatim; no
+// devtools-panel compensation needed because toolbar layout drives placement.
 function ViewportAnchor({
   layout,
   open,
@@ -127,7 +92,6 @@ function ViewportAnchor({
 }: {
   layout: LayoutUpdateData
   open: boolean
-  /** Pixel gap from the toolbar's bottom edge. */
   offset?: number
   children: ReactNode
 }) {
@@ -158,11 +122,7 @@ function ViewportAnchor({
   )
 }
 
-/**
- * Frame — the visual chrome (rounded border, panel bg, padding, shadow) that
- * every popup wears. Stops mousedown so clicks inside don't fall through to
- * canvas gestures (marquee/deselect).
- */
+// Stops mousedown so clicks inside don't fall through to canvas gestures.
 function Frame({
   isDark,
   className = '',
@@ -184,12 +144,6 @@ function Frame({
   )
 }
 
-/**
- * Section — a horizontal group of related controls inside the Frame. Use one
- * per logical block (color swatches, action buttons, variant pickers).
- * Pass `grow` to make this section absorb extra width when the Frame is
- * stretched wider than its intrinsic content (see `align="stretch"`).
- */
 function Section({ children, grow = false }: { children: ReactNode; grow?: boolean }) {
   return (
     <div className={`flex items-center gap-1.5${grow ? ' min-w-0 flex-1' : ''}`}>
@@ -224,7 +178,6 @@ function IconButton({
   children,
 }: {
   isDark: boolean
-  /** Highlights the button as the currently-selected variant. */
   active?: boolean
   title: string
   ariaLabel: string
@@ -271,11 +224,6 @@ function DestructiveButton({
   )
 }
 
-/**
- * ColorSwatch — single color circle. `active` highlights the current
- * selection; pass `active={false}` for all when the selection has mixed
- * colors (per ADR 0008 §4).
- */
 function ColorSwatch({
   isDark,
   active,
@@ -285,7 +233,6 @@ function ColorSwatch({
 }: {
   isDark: boolean
   active: boolean
-  /** Resolved CSS color value to render in the circle. */
   color: string
   ariaLabel: string
   onClick: () => void

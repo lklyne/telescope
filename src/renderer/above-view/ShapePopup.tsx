@@ -1,10 +1,4 @@
-/**
- * ShapePopup — selection-driven popup for shape entities (ADR 0008, ADR 0009).
- * Lets the user morph the shape's variant (per ADR 0009 §Selection-mode
- * consequences), change color and stroke width, and dup/del. Mounts on
- * single OR same-kind multi-select (ADR 0008 §4) — variant/color/width edits
- * fan out across the selection.
- */
+// ADR 0008/0009 — shape selection popup. Variant morph per ADR 0009.
 
 import { Copy, Trash2 } from 'lucide-react'
 import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'

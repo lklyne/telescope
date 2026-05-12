@@ -15,7 +15,7 @@ import {
   zoom,
 } from '../runtime/surface-layout'
 import { saveImageBuffer } from '../runtime/image-assets'
-import { imageSizeFromBuffer } from '../runtime/image-sizing'
+import { htmlDefaultSize, imageSizeFromBuffer } from '../runtime/image-sizing'
 import {
   focusSelectedPage,
   getSelectedEntityIds,
@@ -465,7 +465,7 @@ export function registerCanvasIpc(): void {
       }
 
       const file = saveImageBuffer(buffer, ext)
-      const { width, height } = imageSizeFromBuffer(buffer)
+      const { width, height } = htmlDefaultSize(`.${ext}`) ?? imageSizeFromBuffer(buffer)
       createFileEntity({ canvasX, canvasY, file, width, height })
     },
   )

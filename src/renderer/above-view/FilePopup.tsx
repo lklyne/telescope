@@ -63,12 +63,13 @@ export function FilePopup({
       layout={layout}
       open={open}
       placement="above"
+      align={isSingle ? 'stretch' : 'center'}
       offset={POPUP_OFFSET_Y}
     >
       <CanvasItemPopup.Frame isDark={isDark}>
         {single ? (
-          <CanvasItemPopup.Section>
-            <span className="flex items-center gap-1.5">
+          <CanvasItemPopup.Section grow>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
               {(() => {
                 const FileIcon = iconForFilePath(single.file)
                 return <FileIcon size={13} className="shrink-0 text-zinc-400" />
@@ -84,7 +85,7 @@ export function FilePopup({
                 onCancel={() => setIsRenaming(false)}
                 variant="canvas-chrome"
                 isDark={isDark}
-                titleClassName="min-w-0 truncate text-xs font-medium"
+                titleClassName="min-w-0 flex-1 truncate text-xs font-medium"
                 onTitleClick={() => setIsRenaming(true)}
               />
             </span>

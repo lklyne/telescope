@@ -1,5 +1,6 @@
 import type { CanvasSceneFileEntity } from '../../../shared/types'
 import {
+  HTML_EXTENSIONS,
   IMAGE_EXTENSIONS,
   MARKDOWN_EXTENSIONS,
   VIDEO_EXTENSIONS,
@@ -7,6 +8,7 @@ import {
 } from '../entityConstants'
 import { ComponentPlaceholderRenderer } from './ComponentPlaceholderRenderer'
 import { FileFallbackRenderer } from './FileFallbackRenderer'
+import { HtmlInlineRenderer } from './HtmlInlineRenderer'
 import { ImageInlineRenderer } from './ImageInlineRenderer'
 import { MarkdownInlineRenderer } from './MarkdownInlineRenderer'
 import { VideoInlineRenderer } from './VideoInlineRenderer'
@@ -24,6 +26,7 @@ function resolveTag(entity: CanvasSceneFileEntity): CanvasSceneFileEntity['rende
   if (VIDEO_EXTENSIONS.test(entity.file)) return 'video'
   if (WIREFRAME_EXTENSIONS.test(entity.file)) return 'wireframe'
   if (MARKDOWN_EXTENSIONS.test(entity.file)) return 'markdown'
+  if (HTML_EXTENSIONS.test(entity.file)) return 'html'
   return undefined
 }
 
@@ -31,12 +34,14 @@ export function RendererSwitch({
   entity,
   canEdit,
   isDark,
+  isSelected,
   wireframeJsonMode,
   onTextEditingChange,
 }: {
   entity: CanvasSceneFileEntity
   canEdit: boolean
   isDark: boolean
+  isSelected: boolean
   wireframeJsonMode: boolean
   onTextEditingChange: (active: boolean) => void
 }) {
@@ -66,6 +71,8 @@ export function RendererSwitch({
       )
     case 'component':
       return <ComponentPlaceholderRenderer entity={entity} isDark={isDark} />
+    case 'html':
+      return <HtmlInlineRenderer entity={entity} isSelected={isSelected} />
     default:
       return <FileFallbackRenderer entity={entity} isDark={isDark} />
   }

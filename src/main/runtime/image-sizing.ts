@@ -1,6 +1,7 @@
 import { nativeImage } from 'electron'
 import { execFileSync } from 'child_process'
-import { VIDEO_EXTENSIONS } from '../../shared/file-extensions'
+import { HTML_EXTENSIONS, VIDEO_EXTENSIONS } from '../../shared/file-extensions'
+import { DESKTOP_PRESET_INDEX, deviceForPresetIndex } from '../../shared/device-catalog'
 import { DEFAULT_FILE_WIDTH, DEFAULT_FILE_HEIGHT } from './file-entity-state'
 
 const DEFAULT_FALLBACK = { width: DEFAULT_FILE_WIDTH, height: DEFAULT_FILE_HEIGHT }
@@ -15,6 +16,15 @@ export function imageSizeFromPath(filePath: string): { width: number; height: nu
   const img = nativeImage.createFromPath(filePath)
   if (img.isEmpty()) return null
   return img.getSize()
+}
+
+// HTML files have no intrinsic pixel dimensions. Default to the Desktop
+// viewport preset so charts, mockups, and generated viz land readably.
+export function htmlDefaultSize(filePath: string): { width: number; height: number } | null {
+  if (!HTML_EXTENSIONS.test(filePath)) return null
+  const desktop = deviceForPresetIndex(DESKTOP_PRESET_INDEX)
+  if (!desktop) return null
+  return { width: desktop.viewport.width, height: desktop.viewport.height }
 }
 
 export function videoSizeFromPath(filePath: string): { width: number; height: number } | null {

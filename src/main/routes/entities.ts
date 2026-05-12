@@ -14,7 +14,7 @@ import { createNoteFile } from '../runtime/note-assets'
 import { createPages } from '../workspace-pages'
 import { deletePages } from '../workspace-entities'
 import { findPageById } from '../runtime/runtime-context'
-import { imageSizeFromPath, videoSizeFromPath } from '../runtime/image-sizing'
+import { htmlDefaultSize, imageSizeFromPath, videoSizeFromPath } from '../runtime/image-sizing'
 import {
   animateCursorScan,
   allEntityPositions,
@@ -160,8 +160,8 @@ export const entityRoutes: Route[] = [
       }
       const resolveFileDimensions = (item: { file: string; width?: number; height?: number }) => {
         if (item.width != null && item.height != null) return { width: item.width, height: item.height }
-        const fromImage = imageSizeFromPath(item.file) ?? videoSizeFromPath(item.file)
-        return fromImage ?? { width: item.width, height: item.height }
+        const detected = imageSizeFromPath(item.file) ?? videoSizeFromPath(item.file) ?? htmlDefaultSize(item.file)
+        return detected ?? { width: item.width, height: item.height }
       }
       const items = payload.items ?? [payload]
       if (items.length <= 1) {

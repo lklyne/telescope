@@ -21,6 +21,7 @@ export type EntityRendererTag =
   | 'image'
   | 'video'
   | 'component'
+  | 'html'
 
 interface BaseRendererClaim {
   /** Stable id used for telemetry, debugging, and unregister. */

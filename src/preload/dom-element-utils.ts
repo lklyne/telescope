@@ -2,6 +2,7 @@ import type { AgentSnapshotNode } from '../shared/types'
 import {
   getInspectableNodeIdForElement,
 } from './component-inspector'
+import { isPageOverlayTarget } from './gesture-forwarding'
 
 export function elementClasses(element: Element): string[] {
   return [...element.classList]
@@ -124,6 +125,28 @@ export function deepElementFromPoint(x: number, y: number): Element | null {
     const nested = root.elementFromPoint(x, y)
     if (!nested || nested === current) return current
     current = nested
+  }
+  return null
+}
+
+/**
+ * Pick the deepest *content* element under (x, y), skipping Specular's own
+ * page-injected overlays (blocking overlay, comment badges, preview layer,
+ * inspect overlay) and drilling into open shadow roots. Used by the comment
+ * tool's hover painter and click resolver — without the overlay skip we'd
+ * always hit `#__canvas-blocking-overlay` while the page is non-interactive.
+ */
+export function pickContentElementAtPoint(x: number, y: number): Element | null {
+  const stack = document.elementsFromPoint(x, y)
+  for (const el of stack) {
+    if (isPageOverlayTarget(el)) continue
+    let current: Element = el
+    while (current.shadowRoot) {
+      const nested = current.shadowRoot.elementFromPoint(x, y)
+      if (!nested || nested === current) break
+      current = nested
+    }
+    return current
   }
   return null
 }

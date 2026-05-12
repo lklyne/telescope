@@ -106,7 +106,7 @@ describe('shouldFocusSelectedPage — tools other than select exclude', () => {
     { kind: 'add-page' },
     { kind: 'add-text', style: 'plain' },
     { kind: 'add-document' },
-    { kind: 'add-shape', shapeKind: 'rectangle' },
+    { kind: 'add-shape' },
   ]
   for (const tool of tools) {
     it(`returns null when activeTool=${tool.kind}`, () => {

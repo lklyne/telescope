@@ -80,7 +80,6 @@ export function setActiveTool(tool: Tool): Tool {
 function toolsEqual(a: Tool, b: Tool): boolean {
   if (a.kind !== b.kind) return false
   if (a.kind === 'add-text' && b.kind === 'add-text') return a.style === b.style
-  if (a.kind === 'add-shape' && b.kind === 'add-shape') return a.shapeKind === b.shapeKind
   if (a.kind === 'add-page' && b.kind === 'add-page') {
     return (
       a.presetIndex === b.presetIndex &&

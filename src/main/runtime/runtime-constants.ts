@@ -13,6 +13,15 @@ export const TOOLBAR_BORDER_DARK = '#3f3f46'
 export const BROWSER_HEADER_HEIGHT = 36
 export const LEFT_SIDEBAR_WIDTH = 256
 
+// --- Toolbar padding (mirrors `src/renderer/toolbar/App.tsx`) ---
+// Mac reserves space at the left for traffic-light buttons; other platforms
+// pad evenly. Kept here so main can compute the toolbar's tool-center x
+// without having to ask the renderer.
+export const TOOLBAR_PAD_LEFT_MAC = 86
+export const TOOLBAR_PAD_RIGHT_MAC = 16
+export const TOOLBAR_PAD_LEFT_OTHER = 16
+export const TOOLBAR_PAD_RIGHT_OTHER = 16
+
 // --- DevTools panel ---
 export const DEVTOOLS_DEFAULT_WIDTH = 400
 export const DEVTOOLS_MIN_WIDTH = 280

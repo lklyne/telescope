@@ -23,6 +23,7 @@ import {
   aboveView,
   cursorOverlayWindow,
   leftSidebarView,
+  win,
 } from './view-refs'
 import { safeSend } from './safe-send'
 import { layoutCache } from './layout-cache'
@@ -37,6 +38,7 @@ import {
   zoom,
 } from './runtime-context'
 import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
+import { getToolDefaults } from './tool-defaults'
 import {
   activeBrowserPageId as uiActiveBrowserPageId,
   activeTool as uiActiveTool,
@@ -48,7 +50,13 @@ import {
   selectedGroupId as uiSelectedGroupId,
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
-import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
+import {
+  LEFT_SIDEBAR_WIDTH,
+  TOOLBAR_PAD_LEFT_MAC,
+  TOOLBAR_PAD_LEFT_OTHER,
+  TOOLBAR_PAD_RIGHT_MAC,
+  TOOLBAR_PAD_RIGHT_OTHER,
+} from './runtime-constants'
 import { currentKeyboardTargetPageId } from './selection-controller'
 import {
   pageContentSize,
@@ -288,7 +296,10 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
   const presetIndex = tool.kind === 'add-page' ? tool.presetIndex : undefined
   const customSize = tool.kind === 'add-page' ? tool.customSize === true : false
   const sourcePageId = tool.kind === 'add-page' ? tool.sourcePageId : undefined
-  const shapeKind = tool.kind === 'add-shape' ? tool.shapeKind : undefined
+  // shapeKind moved to tool defaults per ADR 0009 — preview reads the persisted
+  // default so the user sees the variant they last picked in the popup.
+  const shapeKind =
+    tool.kind === 'add-shape' ? getToolDefaults()['add-shape'].shapeKind : undefined
   const sourcePage = sourcePageId ? findPageById(sourcePageId) : null
   const preset = (isText || isFile || isShape)
     ? null
@@ -330,11 +341,17 @@ export function buildCanvasLayoutData(
   const origin = localCanvasOrigin()
   const pendingPlacementData = buildPlacementPreview(tool)
   const groupEntities = buildUserGroupSceneEntities(origin)
+  const windowWidth = win?.getBounds().width ?? 0
+  const isMac = process.platform === 'darwin'
+  const padLeft = isMac ? TOOLBAR_PAD_LEFT_MAC : TOOLBAR_PAD_LEFT_OTHER
+  const padRight = isMac ? TOOLBAR_PAD_RIGHT_MAC : TOOLBAR_PAD_RIGHT_OTHER
+  const toolbarCenterX = (padLeft + Math.max(0, windowWidth - padRight)) / 2
   return {
     zoom,
     pan,
     canvasOrigin: origin,
     leftChromeWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
+    toolbarCenterX,
     entities: [
       ...pages,
       ...textEntities.map((te) =>
@@ -357,6 +374,7 @@ export function buildCanvasLayoutData(
     selection: uiSelectedCanvasTargets(),
     activeSelection,
     activeTool: tool,
+    toolDefaults: getToolDefaults(),
     annotations: [...workspaceAnnotations],
     fixProgress: getFixProgress(),
     viewMode,

@@ -80,7 +80,7 @@ interface UseCanvasPointerRouterOptions {
   api: CanvasBgElectronAPI
   layoutRef: React.MutableRefObject<LayoutUpdateData>
   /** When false, the router does not intercept anything. Useful while
-   *  annotations / drawing / region-select own pointer input. */
+   *  annotations / drawing own pointer input. */
   enabled: boolean
   /** Hit kinds the router should consume. */
   consume: ReadonlySet<CanvasPointerAction['kind']>

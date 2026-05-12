@@ -1,7 +1,8 @@
-// Unified Tool concept — see ADR 0005, amended by ADR 0006.
-
-// Mirror of `ShapeKind` to avoid types.ts → tool.ts circular import.
-type ToolShapeKind = 'rectangle' | 'ellipse' | 'diamond'
+// Unified Tool concept — see ADR 0005, amended by ADR 0006 (comment tool).
+// Per ADR 0009, `add-shape` and `draw` no longer carry sub-kind variants;
+// those move to tool defaults (ADR 0008 §9) and are surfaced through the
+// tool-mode popup. `add-text.style` stays as a deliberate exception
+// (ADR 0009 §Decision).
 
 export type DrawingBrushType = 'pen' | 'highlight'
 
@@ -10,18 +11,10 @@ export type Tool =
   | { kind: 'add-page'; presetIndex?: number; customSize?: boolean; sourcePageId?: string }
   | { kind: 'add-text'; style: 'plain' | 'sticky' }
   | { kind: 'add-document' }
-  | { kind: 'add-shape'; shapeKind: ToolShapeKind }
+  | { kind: 'add-shape' }
   | { kind: 'comment' }
-  | { kind: 'draw'; brush?: DrawingBrushType }
+  | { kind: 'draw' }
   | { kind: 'inspect' }
-
-// Returns the active brush for a draw tool (defaulting to 'pen'), or null if
-// the tool isn't a draw tool. Use this everywhere instead of re-deriving the
-// `kind === 'draw' && brush === ...` discriminator inline.
-export function activeDrawBrush(tool: Tool): DrawingBrushType | null {
-  if (tool.kind !== 'draw') return null
-  return tool.brush ?? 'pen'
-}
 
 export type ToolKind = Tool['kind']
 
@@ -44,6 +37,17 @@ export function isOneShot(kind: ToolKind): boolean {
 
 export function isPersistent(kind: ToolKind): boolean {
   return toolDuration[kind] === 'persistent'
+}
+
+/**
+ * Tools that own a viewport-anchored tool-mode popup (ADR 0008 §1, §2). When
+ * any of these is active, selection-driven popups are suppressed (mutex rule
+ * §2) so the user sees one popup at a time — the tool's, not the previous
+ * selection's. `add-page`, `add-document`, `comment`, `inspect`, and `select`
+ * have no popup and don't suppress anything.
+ */
+export function toolHasPopup(tool: Tool): boolean {
+  return tool.kind === 'add-text' || tool.kind === 'add-shape' || tool.kind === 'draw'
 }
 
 export function isAnnotationTool(tool: Tool): boolean {

@@ -25,6 +25,7 @@ import {
 import type { Rect } from '../../shared/hit-regions'
 import type {
   CanvasSceneEntity,
+  CanvasSceneGroupEntity,
   LayoutUpdateData,
 } from '../../shared/types'
 
@@ -37,7 +38,7 @@ export function anchoredSlotRect(
   entityId: string,
   slot: AnchorSlot,
 ): AnchoredRect | null {
-  const entity = findEntity(layout, entityId)
+  const entity = findAnchorTarget(layout, entityId)
   if (!entity) return null
   const entityRect = entityRectFor(entity)
   const layoutResult = entityChromeSlots(entity.kind, entityRect)
@@ -57,8 +58,49 @@ export function useAnchoredPosition(
   return useMemo(() => anchoredSlotRect(layout, entityId, slot), [layout, entityId, slot])
 }
 
-function findEntity(layout: LayoutUpdateData, id: string): CanvasSceneEntity | undefined {
-  return layout.entities.find((e) => e.id === id)
+/**
+ * Multi-entity union rect for same-kind multi-select popups (ADR 0008 §4).
+ * Returns the bounding box of every resolved entity's slot rect. The popup
+ * anchors against this union so it visually spans the selection.
+ *
+ * Returns `null` only when `entityIds` is empty. Off-screen entities still
+ * contribute their rect — the popup mounts at the (possibly clipped) bbox
+ * edge by design.
+ */
+export function useMultiAnchoredPosition(
+  layout: LayoutUpdateData,
+  entityIds: readonly string[],
+  slot: AnchorSlot,
+): AnchoredRect | null {
+  const key = entityIds.join('|')
+  return useMemo(() => {
+    if (entityIds.length === 0) return null
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    let any = false
+    for (const id of entityIds) {
+      const rect = anchoredSlotRect(layout, id, slot)
+      if (!rect) continue
+      any = true
+      if (rect.x < minX) minX = rect.x
+      if (rect.y < minY) minY = rect.y
+      if (rect.x + rect.width > maxX) maxX = rect.x + rect.width
+      if (rect.y + rect.height > maxY) maxY = rect.y + rect.height
+    }
+    if (!any) return null
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, key, slot])
+}
+
+type AnchorTarget = CanvasSceneEntity | CanvasSceneGroupEntity
+
+function findAnchorTarget(layout: LayoutUpdateData, id: string): AnchorTarget | undefined {
+  const entity = layout.entities.find((e) => e.id === id)
+  if (entity) return entity
+  return (layout.groups ?? []).find((g) => g.id === id)
 }
 
 /**
@@ -68,7 +110,7 @@ function findEntity(layout: LayoutUpdateData, id: string): CanvasSceneEntity | u
  * `CHROME_HEADER_HEIGHT` for kinds that have chrome. After ADR 0002's rect
  * unification this becomes a one-liner returning the entity rect as-is.
  */
-function entityRectFor(entity: CanvasSceneEntity): Rect {
+function entityRectFor(entity: AnchorTarget): Rect {
   const hasHeader = entity.kind === 'page' || entity.kind === 'file' || entity.kind === 'group'
   const headerExtension = hasHeader ? CHROME_HEADER_HEIGHT : 0
   return {

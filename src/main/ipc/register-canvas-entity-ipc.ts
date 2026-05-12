@@ -23,6 +23,11 @@ import { fileEntities } from '../runtime/file-entity-state'
 import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from '../runtime/drawing-entity-state'
 import { shapeEntities } from '../runtime/shape-entity-state'
 import {
+  getStickyDefaultColor,
+  getPlainTextDefaultColor,
+  getShapeDefaults,
+} from '../runtime/tool-defaults'
+import {
   createFileEntity,
   createShapeEntity,
   createTextEntity,
@@ -153,10 +158,15 @@ export function registerCanvasEntityIpc(): void {
       const dragRect = payload.dragRect ?? null
       const tool = activeTool()
       if (tool.kind === 'add-text') {
+        const defaultColor =
+          tool.style === 'sticky'
+            ? getStickyDefaultColor()
+            : getPlainTextDefaultColor() ?? undefined
         createTextEntity({
           canvasX,
           canvasY,
           textStyle: tool.style,
+          color: defaultColor,
         })
       } else if (tool.kind === 'add-document') {
         try {
@@ -166,16 +176,24 @@ export function registerCanvasEntityIpc(): void {
           console.error('Failed to create note file:', error)
         }
       } else if (tool.kind === 'add-shape') {
-        const shapeKind = tool.shapeKind
+        const defaults = getShapeDefaults()
         const created = dragRect
           ? createShapeEntity({
               canvasX: dragRect.x,
               canvasY: dragRect.y,
               width: dragRect.width,
               height: dragRect.height,
-              shapeKind,
+              shapeKind: defaults.shapeKind,
+              color: defaults.color,
+              strokeWidth: defaults.strokeWidth,
             })
-          : createShapeEntity({ canvasX, canvasY, shapeKind })
+          : createShapeEntity({
+              canvasX,
+              canvasY,
+              shapeKind: defaults.shapeKind,
+              color: defaults.color,
+              strokeWidth: defaults.strokeWidth,
+            })
         selectEntity(created.id, 'shape')
         beginEditingEntity(created.id)
       } else if (tool.kind === 'add-page') {
@@ -663,13 +681,29 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(
     'canvas-update-drawing-entity',
-    (_event, { id, patch }: { id: string; patch: { width?: number; height?: number; canvasX?: number; canvasY?: number } }) => {
+    (
+      _event,
+      { id, patch }: {
+        id: string
+        patch: {
+          width?: number
+          height?: number
+          canvasX?: number
+          canvasY?: number
+          strokes?: import('../../shared/types').AnnotationDrawingStroke[]
+        }
+      },
+    ) => {
       updateDrawingEntity(id, patch)
     },
   )
 
   ipcMain.on('canvas-delete-drawing-entity', (_event, { id }: { id: string }) => {
     deleteDrawingEntity(id)
+  })
+
+  ipcMain.on('canvas-duplicate-drawing-entity', (_event, { id }: { id: string }) => {
+    duplicateEntity({ entityId: id, focus: true })
   })
 
   ipcMain.on('canvas-duplicate-text-entity', (_event, { id }: { id: string }) => {
@@ -706,6 +740,10 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on('canvas-delete-shape', (_event, { id }: { id: string }) => {
     deleteShapeEntity(id)
+  })
+
+  ipcMain.on('canvas-duplicate-shape', (_event, { id }: { id: string }) => {
+    duplicateEntity({ entityId: id, focus: true })
   })
 
   // --- File Entity IPC ---

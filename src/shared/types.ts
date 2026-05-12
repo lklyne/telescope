@@ -11,6 +11,7 @@ import type { PresenceDebugEntry } from './presence-debug'
 import type { DrawingBrushType, Tool } from './tool'
 
 export type { DrawingBrushType, Tool, ToolKind, ToolDuration } from './tool'
+export type { ToolDefaults, ToolDefaultPatch } from './tool-defaults'
 
 // --- IPC Channel Types ---
 
@@ -60,6 +61,17 @@ export interface PageConfig {
 export type CanvasEntityKind = 'page' | 'text' | 'file' | 'group' | 'edge' | 'drawing' | 'shape'
 
 export type ShapeKind = 'rectangle' | 'ellipse' | 'diamond'
+
+/**
+ * Renderer plugin popup contribution tags (ADR 0008 §7). Each tag names a
+ * single piece of UI a renderer plugin can opt into in the file selection
+ * popup. The main-side registry declares which tags a renderer claims; the
+ * renderer-side `renderPopupContributions` switch picks the React component.
+ *
+ * Adding a tag requires both ends: a literal here + a case in
+ * `src/renderer/above-view/file-popup-contributions/index.tsx`.
+ */
+export type PopupContributionTag = 'wireframe-theme' | 'wireframe-json-mode'
 
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
@@ -163,6 +175,14 @@ export interface CanvasSceneFileEntity {
   objectFit?: FileObjectFit
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
   rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component'
+  /**
+   * Static contribution tags declared by the picked renderer plugin (ADR 0008
+   * §7). The `FilePopup` reads these to compose plugin-specific controls
+   * (e.g. wireframe theme picker). Empty array means no contributions. The
+   * tag → component switch lives renderer-side; this string list is the
+   * cross-layer contract.
+   */
+  popupContributions?: PopupContributionTag[]
   /** Whether the resolved renderer has a meaningful inline-edit affordance.
    *  Drives both the dblclick and click-on-solo-selected paths in the
    *  pointer router. Undefined for unclaimed (fallback) entities — treated
@@ -372,6 +392,18 @@ export interface LayoutUpdateData {
    * centering, tab-bar insets) read this instead of canvasOrigin.x.
    */
   leftChromeWidth: number
+  /**
+   * X-coordinate (in window pixels) of the centerpoint of the toolbar's tool
+   * cluster, when the toolbar is in `showCenterActionsOnly` mode. Popups that
+   * anchor below the toolbar (tool-mode popups, ADR 0008 §1) read this to
+   * align with the tools regardless of platform padding (mac traffic-lights
+   * inset) or sidebar state.
+   *
+   * Computed in main from `TOOLBAR_PAD_*` constants and the current window
+   * width; mirrors the `grid-cols-[1fr_auto_1fr]` layout the toolbar uses in
+   * that mode.
+   */
+  toolbarCenterX: number
   entities: CanvasSceneEntity[]
   browserTabs: WorkspaceTabPageSummary[]
   browserFillViewport: {
@@ -382,6 +414,8 @@ export interface LayoutUpdateData {
   selection: CanvasSelectableTarget[]
   activeSelection: ActiveCanvasEntitySelection | null
   activeTool: Tool
+  /** Per-tool persistent defaults (ADR 0008 §9). Tool-mode popup reads/writes. */
+  toolDefaults: import('./tool-defaults').ToolDefaults
   annotations: Annotation[]
   fixProgress: Record<string, FixProgressEntry>
   viewMode: WorkspaceViewMode
@@ -1616,6 +1650,7 @@ export interface CanvasBgElectronAPI {
   updatePageBounds: (pageId: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   placePendingEntity: (canvasX: number, canvasY: number) => void
   setTool: (tool: Tool) => void
+  setToolDefault: (patch: import('./tool-defaults').ToolDefaultPatch) => void
   startDragPage: (pageId: string, selection?: CanvasDragStartSelection) => void
   dragPage: (pageId: string, dx: number, dy: number) => void
   endDragPage: () => void
@@ -1638,10 +1673,13 @@ export interface CanvasBgElectronAPI {
   deleteTextEntity: (id: string) => void
   updateFileEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteFileEntity: (id: string) => void
-  updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  duplicateFileEntity: (id: string) => void
+  updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }) => void
   deleteDrawingEntity: (id: string) => void
+  duplicateDrawingEntity: (id: string) => void
   updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteShapeEntity: (id: string) => void
+  duplicateShapeEntity: (id: string) => void
   placePendingShape: (
     canvasX: number,
     canvasY: number,

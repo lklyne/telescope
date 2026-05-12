@@ -7,6 +7,7 @@ import type {
   EdgeSide,
   LayoutUpdateData,
   SelectionOverlayPayload,
+  ToolDefaultPatch,
 } from '../shared/types'
 
 function installSelectionOverlayBridge(): void {
@@ -95,6 +96,8 @@ const api: CanvasBgElectronAPI = {
   placePendingEntity: (canvasX, canvasY) =>
     ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY }),
   setTool: (tool) => ipcRenderer.send('toolbar-set-tool', tool),
+  setToolDefault: (patch: ToolDefaultPatch) =>
+    ipcRenderer.send('tool-defaults-set', patch),
   startDragPage: (pageId, selection) =>
     ipcRenderer.send('canvas-drag-page-start', { pageId, selection }),
   dragPage: (pageId, dx, dy) => ipcRenderer.send('canvas-drag-page', { pageId, dx, dy }),
@@ -126,14 +129,20 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-update-file-entity', { id, patch }),
   deleteFileEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-file-entity', { id }),
-  updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) =>
+  duplicateFileEntity: (id: string) =>
+    ipcRenderer.send('canvas-duplicate-file-entity', { id }),
+  updateDrawingEntity: (id, patch) =>
     ipcRenderer.send('canvas-update-drawing-entity', { id, patch }),
   deleteDrawingEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-drawing-entity', { id }),
+  duplicateDrawingEntity: (id) =>
+    ipcRenderer.send('canvas-duplicate-drawing-entity', { id }),
   updateShapeEntity: (id, patch) =>
     ipcRenderer.send('canvas-update-shape', { id, patch }),
   deleteShapeEntity: (id) =>
     ipcRenderer.send('canvas-delete-shape', { id }),
+  duplicateShapeEntity: (id) =>
+    ipcRenderer.send('canvas-duplicate-shape', { id }),
   placePendingShape: (canvasX, canvasY, dragRect) =>
     ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY, dragRect: dragRect ?? null }),
   requestEntityEdit: (entityId) =>

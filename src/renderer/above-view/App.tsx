@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
+  CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
   CanvasScenePageEntity,
   CanvasSceneShapeEntity,
@@ -21,7 +22,7 @@ import {
   squareConstrainedRect,
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
-import { isAnnotationTool } from '../../shared/tool'
+import { isAnnotationTool, toolHasPopup } from '../../shared/tool'
 import { DRAW_CURSOR } from '../canvas-bg/canvasBgConstants'
 import { ActivePageHighlightLayer } from '../canvas-bg/AgentCursorLayer'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
@@ -53,9 +54,17 @@ import {
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { PageChromeOverlay } from './PageChrome'
+import { PagePopup } from './PagePopup'
+import { FilePopup } from './FilePopup'
 import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
+import { DrawingPopup } from './DrawingPopup'
+import { DrawToolPopup } from './DrawToolPopup'
+import { GroupPopup } from './GroupPopup'
+import { ShapePopup } from './ShapePopup'
+import { ShapeToolPopup } from './ShapeToolPopup'
 import { StickyNotePopover } from './StickyNotePopover'
+import { TextToolPopup } from './TextToolPopup'
 import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
 import { useAnnotationOverlayShortcuts } from '../shared/hooks/useAnnotationOverlayShortcuts'
 import { useCanvasGlobalShortcuts } from '../shared/hooks/useCanvasGlobalShortcuts'
@@ -77,6 +86,26 @@ function electronCursorToCss(type: string | null): string {
   if (type === 'iBeam') return 'text'
   if (type.endsWith('-panning')) return 'all-scroll'
   return type
+}
+
+/**
+ * Same-kind multi-select detector (ADR 0008 §4). Returns the array of
+ * entities iff every selected id resolves to the requested kind; otherwise
+ * empty. The caller mounts the popup when length >= 1.
+ */
+function sameKindSelectedEntities<K extends CanvasSceneEntity['kind']>(
+  layout: LayoutUpdateData,
+  kind: K,
+): Extract<CanvasSceneEntity, { kind: K }>[] {
+  const ids = layout.selectedEntityIds
+  if (ids.length === 0) return []
+  const result: Extract<CanvasSceneEntity, { kind: K }>[] = []
+  for (const id of ids) {
+    const entity = layout.entities.find((e) => e.id === id)
+    if (!entity || entity.kind !== kind) return []
+    result.push(entity as Extract<CanvasSceneEntity, { kind: K }>)
+  }
+  return result
 }
 
 function overlayRectFromScreenRect(
@@ -122,11 +151,28 @@ export default function App({
   // Marquee preview ids — outline layer highlights entities that the in-flight
   // marquee currently overlaps. canvas-bg used to derive this; aboveView owns
   // the marquee gesture, so we derive locally from `selectionOverlay`.
-  const selectedTextEntity = useMemo<CanvasSceneTextEntity | null>(() => {
-    if (layoutData.selectedEntityIds.length !== 1) return null
-    const [selectedId] = layoutData.selectedEntityIds
-    const entity = layoutData.entities.find((e) => e.id === selectedId)
-    return entity?.kind === 'text' ? entity : null
+  //
+  // Selection-popup mounts on single OR same-kind multi-select (ADR 0008 §4).
+  // Each `selectedXxxEntities` is the non-empty array of selected entities iff
+  // every selected id resolves to that kind; otherwise empty.
+  const selectedTextEntities = useMemo<CanvasSceneTextEntity[]>(() => {
+    return sameKindSelectedEntities(layoutData, 'text')
+  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const selectedGroupEntity = useMemo(() => {
+    if (!layoutData.selectedGroupId) return null
+    return (layoutData.groups ?? []).find((g) => g.id === layoutData.selectedGroupId) ?? null
+  }, [layoutData.groups, layoutData.selectedGroupId])
+  const selectedShapeEntities = useMemo<CanvasSceneShapeEntity[]>(() => {
+    return sameKindSelectedEntities(layoutData, 'shape')
+  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const selectedDrawingEntities = useMemo<CanvasSceneDrawingEntity[]>(() => {
+    return sameKindSelectedEntities(layoutData, 'drawing')
+  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const selectedPageEntities = useMemo<CanvasScenePageEntity[]>(() => {
+    return sameKindSelectedEntities(layoutData, 'page')
+  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const selectedFileEntities = useMemo<CanvasSceneFileEntity[]>(() => {
+    return sameKindSelectedEntities(layoutData, 'file')
   }, [layoutData.selectedEntityIds, layoutData.entities])
   const selectedEntityIdSet = useMemo(
     () => new Set(layoutData.selectedEntityIds),
@@ -188,6 +234,10 @@ export default function App({
     commentInputRef,
     activeStrokeRef,
   })
+  const draftStateRef = useRef({ pendingAnnotation, pendingRegionRect, commentText, clearDraft })
+  useEffect(() => {
+    draftStateRef.current = { pendingAnnotation, pendingRegionRect, commentText, clearDraft }
+  }, [pendingAnnotation, pendingRegionRect, commentText, clearDraft])
   const {
     closeThread,
     openThread,
@@ -424,6 +474,7 @@ export default function App({
     layoutData.activeTool.kind !== 'draw' && layoutData.activeTool.kind !== 'comment'
   useEffect(() => {
     const clearHover = () => {
+      setPlacementCursor(null)
       if (lastHoverIdRef.current === null) return
       lastHoverIdRef.current = null
       api.hoverPage(null)
@@ -433,7 +484,10 @@ export default function App({
       return
     }
     const handleMove = (event: PointerEvent) => {
-      if (isOverlayUiTarget(event.target)) return
+      if (isOverlayUiTarget(event.target)) {
+        clearHover()
+        return
+      }
       if (pendingPlacement) {
         setPlacementCursor({
           clientX: event.clientX,
@@ -448,12 +502,17 @@ export default function App({
         }
       }
     }
+    // The top toolbar is a sibling WebContentsView, so when the cursor moves
+    // up into it the above-view stops receiving pointer events without
+    // window.pointerleave firing. mouseleave on documentElement is the
+    // reliable "cursor left this webcontents" signal.
+    const docEl = document.documentElement
     window.addEventListener('pointermove', handleMove)
-    window.addEventListener('pointerleave', clearHover)
+    docEl.addEventListener('mouseleave', clearHover)
     window.addEventListener('blur', clearHover)
     return () => {
       window.removeEventListener('pointermove', handleMove)
-      window.removeEventListener('pointerleave', clearHover)
+      docEl.removeEventListener('mouseleave', clearHover)
       window.removeEventListener('blur', clearHover)
       clearHover()
     }
@@ -475,8 +534,17 @@ export default function App({
   // canvas-point anchor. Drag past threshold → marquee → region anchor on
   // pointerup. Threshold matches the rest of the canvas pointer router.
   const COMMENT_DRAG_THRESHOLD = 4
+  // The comment tool needs to keep capturing pointerdowns while a pending
+  // annotation or region rect is open so the user can retarget by clicking a
+  // different element. `isOverlayUiTarget` below still filters out clicks on
+  // the composer / popups so typing isn't interrupted.
+  const commentToolBlocked = Boolean(
+    openThreadId || drawingSession || layoutData.activeTool.kind === 'draw',
+  )
+  const skipPointerCapture =
+    layoutData.activeTool.kind === 'comment' ? commentToolBlocked : overlayInteractive
   useEffect(() => {
-    if (overlayInteractive) return
+    if (skipPointerCapture) return
     if (!pendingPlacement && layoutData.activeTool.kind !== 'comment') return
 
     const onPointerDown = (event: PointerEvent) => {
@@ -603,13 +671,23 @@ export default function App({
         }
         if (current.activeTool.kind === 'comment') {
           if (crossedThreshold) {
-            // Drag past threshold → region anchor (matches today's region-select drag).
+            // Drag past threshold → region anchor.
             onDragEnd(startX, startY, ev.clientX, ev.clientY)
             return
           }
           // Click below threshold → element anchor if a page DOM element sits
           // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
           api.setSelectionOverlayRect(null)
+          const draft = draftStateRef.current
+          const hasEmptyDraft =
+            Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
+            !draft.commentText.trim()
+          if (hasEmptyDraft) {
+            // Empty composer open → click-away dismisses it without creating
+            // a new draft; comment mode stays active.
+            draft.clearDraft()
+            return
+          }
           api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
         }
       }
@@ -631,7 +709,7 @@ export default function App({
         capture: true,
       } as EventListenerOptions)
     }
-  }, [api, layoutData.activeTool.kind, layoutRef, onDragEnd, onDragMove, overlayInteractive, pendingPlacement])
+  }, [api, layoutData.activeTool.kind, layoutRef, onDragEnd, onDragMove, pendingPlacement, skipPointerCapture])
 
   const viewportWheelAndPanApi = useMemo(
     () => ({
@@ -1017,12 +1095,7 @@ export default function App({
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
 
           <PageChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
-          <FileChromeOverlay
-            api={api}
-            layoutData={layoutData}
-            isDark={isDark}
-            onJsonModeChange={setFileJsonMode}
-          />
+          <FileChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
           <GroupRenameOverlay
             api={api}
             layoutData={layoutData}
@@ -1031,13 +1104,74 @@ export default function App({
           />
 
           {layoutData.viewMode === 'canvas' ? (
-            <StickyNotePopover
-              api={api}
-              isDark={isDark}
-              layout={layoutData}
-              selectedTextEntity={selectedTextEntity}
-              interactionIdle={interactionIdle}
-            />
+            <>
+              {/* Tool-mode popups (ADR 0008 §2 mutex: tool wins when active). */}
+              {layoutData.activeTool.kind === 'add-text' ? (
+                <TextToolPopup
+                  api={api}
+                  isDark={isDark}
+                  layout={layoutData}
+                  style={layoutData.activeTool.style}
+                />
+              ) : null}
+              {layoutData.activeTool.kind === 'add-shape' ? (
+                <ShapeToolPopup api={api} isDark={isDark} layout={layoutData} />
+              ) : null}
+              {layoutData.activeTool.kind === 'draw' ? (
+                <DrawToolPopup api={api} isDark={isDark} layout={layoutData} />
+              ) : null}
+
+              {/* Selection-mode popups — suppressed while any tool with its own
+                  popup is active (ADR 0008 §2). */}
+              {!toolHasPopup(layoutData.activeTool) ? (
+                <>
+                  <StickyNotePopover
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedTextEntities={selectedTextEntities}
+                    interactionIdle={interactionIdle}
+                  />
+                  <GroupPopup
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedGroup={selectedGroupEntity}
+                    interactionIdle={interactionIdle}
+                  />
+                  <ShapePopup
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedShapes={selectedShapeEntities}
+                    interactionIdle={interactionIdle}
+                  />
+                  <DrawingPopup
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedDrawings={selectedDrawingEntities}
+                    interactionIdle={interactionIdle}
+                  />
+                  <PagePopup
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedPages={selectedPageEntities}
+                    interactionIdle={interactionIdle}
+                  />
+                  <FilePopup
+                    api={api}
+                    isDark={isDark}
+                    layout={layoutData}
+                    selectedFiles={selectedFileEntities}
+                    interactionIdle={interactionIdle}
+                    fileJsonModeMap={fileJsonModeMap}
+                    setFileJsonMode={setFileJsonMode}
+                  />
+                </>
+              ) : null}
+            </>
           ) : null}
         </>
       ) : null}

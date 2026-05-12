@@ -40,10 +40,10 @@ import {
   buildElementPath,
   buildStructuredDomSnapshot,
   compactText,
-  deepElementFromPoint,
   inspectionPayload,
   isInteractiveForSnapshot,
   isVisibleForSnapshot,
+  pickContentElementAtPoint,
   rectFullyContainedInRegion,
   rectIntersectsRegion,
 } from './dom-element-utils'
@@ -60,7 +60,6 @@ import {
 import {
   forwardMiddleDragPan,
   forwardViewportWheel,
-  isPageOverlayTarget,
 } from './gesture-forwarding'
 import {
   applyIncomingLinkedScroll,
@@ -437,13 +436,10 @@ ipcRenderer.on('take-dom-snapshot', (_event, payload: { requestId: string; maxDe
 ipcRenderer.on(
   'query-element-at-point',
   (_event, payload: { requestId: string; x: number; y: number }) => {
-    // ADR 0006 — comment tool's click-vs-element resolver. Main asks "what
-    // element is under (x,y) in this page's content rect?" on pointerup-
-    // without-drag. We mirror the comment-overlay's old self-firing path
-    // (inspectionPayload + deepElementFromPoint) without depending on the
-    // page receiving the click directly.
-    const target = deepElementFromPoint(payload.x, payload.y)
-    if (!target || isPageOverlayTarget(target)) {
+    // ADR 0006 — comment tool's click-vs-element resolver. See
+    // pickContentElementAtPoint for the overlay-skip rationale.
+    const target = pickContentElementAtPoint(payload.x, payload.y)
+    if (!target) {
       ipcRenderer.send('query-element-at-point-response', {
         requestId: payload.requestId,
         data: null,

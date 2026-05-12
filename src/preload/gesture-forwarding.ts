@@ -5,8 +5,13 @@ const PAGE_OVERLAY_ROOT_SELECTORS = [
   '[data-overlay-ui]',
   '#__canvas-comment-badges-layer',
   '#__canvas-comment-hover-summary',
+  '#__canvas-comment-preview-layer',
   '#__canvas-blocking-overlay',
   '#__canvas-resize-handle',
+  // `elementsFromPoint` returns elements regardless of `pointer-events: none`,
+  // so the comment tool's click resolver would otherwise land on these
+  // Specular-painted overlays instead of the page element underneath.
+  '[id^="__canvas-dom-inspection-"]',
 ]
 
 export function isPageOverlayTarget(target: Element | null): boolean {

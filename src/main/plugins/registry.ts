@@ -11,7 +11,7 @@
  * registerBuiltInPlugins() in src/main/plugins/index.ts.
  */
 
-import type { PersistedFileEntity } from '../../shared/types'
+import type { PersistedFileEntity, PopupContributionTag } from '../../shared/types'
 
 export type EntityRendererKind = 'inline' | 'wcv-page'
 
@@ -47,6 +47,13 @@ interface BaseRendererClaim {
    *  the dblclick and click-on-solo-selected → edit paths. Renderers that
    *  ignore `canEdit` declare `false` so those gestures stay a clean no-op. */
   editable: boolean
+  /**
+   * Popup contribution tags this renderer surfaces in the file selection
+   * popup (ADR 0008 §7). The renderer side owns the React components — the
+   * registry only declares which tags apply. Omit or empty for "no plugin
+   * contributions".
+   */
+  popupContributionTags?: readonly PopupContributionTag[]
 }
 
 export interface InlineRendererClaim extends BaseRendererClaim {
@@ -119,6 +126,18 @@ export function pickRenderer(entity: PersistedFileEntity): EntityRendererClaim |
 /** Convenience: tag broadcast to the renderer; null when no plugin claims. */
 export function getRendererTagFor(entity: PersistedFileEntity): EntityRendererTag | null {
   return pickRenderer(entity)?.rendererTag ?? null
+}
+
+/**
+ * Static popup contribution tags from the picked renderer. Broadcast to the
+ * file selection popup as part of the scene data (ADR 0008 §7). Returns an
+ * empty array when no plugin claims the entity, or when the picked plugin
+ * declares no contributions.
+ */
+export function getPopupContributionTagsFor(
+  entity: PersistedFileEntity,
+): readonly PopupContributionTag[] {
+  return pickRenderer(entity)?.popupContributionTags ?? []
 }
 
 /** Snapshot for debugging; not part of any IPC contract. */

@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
-import type { Tool } from '../../shared/types'
+import type { Tool, ToolDefaultPatch } from '../../shared/types'
+import { applyToolDefaultPatch } from '../runtime/tool-defaults'
 import {
   layoutCache,
   pan,
@@ -92,6 +93,12 @@ export function registerToolbarIpc(): void {
         : payload
     const result = setActiveTool(tool)
     if (result.kind === 'inspect') openInspectPanel()
+  })
+
+  ipcMain.on('tool-defaults-set', (_event, patch: ToolDefaultPatch) => {
+    if (!patch || typeof patch !== 'object') return
+    if (patch.scope !== 'add-text' && patch.scope !== 'add-shape' && patch.scope !== 'draw') return
+    applyToolDefaultPatch(patch)
   })
 
   ipcMain.on('toggle-devtools', () => {

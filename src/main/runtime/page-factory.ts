@@ -43,7 +43,7 @@ import {
   markNavigationSuppressed,
   propagateNavigationFromPage,
 } from '../navigation-sync'
-import { watchModifierKeys } from './keyboard-shortcuts'
+import { attachBindingDispatcher } from './binding-dispatcher'
 import { breadcrumb } from '../sentry-context'
 
 function hostOf(url: string | undefined): string | undefined {
@@ -259,7 +259,7 @@ export function createPage(config: PageConfig): Page {
     page.pageView.webContents.on('devtools-focused', () => log('page:devtools-focused'))
   }
 
-  watchModifierKeys(pageView.webContents, { handleShortcuts: false })
+  attachBindingDispatcher(pageView.webContents, 'page')
 
   markDirty('stack'); requestLayout()
 

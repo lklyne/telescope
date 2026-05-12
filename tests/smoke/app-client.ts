@@ -399,3 +399,18 @@ export function resetDropOwner() {
   return post<{ ok: true }>('/test/drop/reset')
 }
 
+// --- Tool state ---
+
+export function getCurrentTool() {
+  return get<{ tool: { kind: string } }>('/test/tool/current')
+}
+
+// --- Keyboard simulation ---
+
+export function sendKey(
+  key: string,
+  options: { cmd?: boolean; shift?: boolean; alt?: boolean; target?: 'aboveView' | 'bgView' | 'toolbar' } = {},
+) {
+  return post<{ ok: true }>('/test/keyboard/send', { key, ...options })
+}
+

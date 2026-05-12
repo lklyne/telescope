@@ -1,5 +1,6 @@
-import { File, FileText, Image, PenLine, Video, type LucideIcon } from 'lucide-react'
+import { Code, File, FileText, Image, PenLine, Video, type LucideIcon } from 'lucide-react'
 import {
+  HTML_EXTENSIONS,
   IMAGE_EXTENSIONS,
   MARKDOWN_EXTENSIONS,
   VIDEO_EXTENSIONS,
@@ -14,5 +15,6 @@ export function iconForFilePath(filePath: string): LucideIcon {
   if (IMAGE_EXTENSIONS.test(filePath)) return Image
   if (VIDEO_EXTENSIONS.test(filePath)) return Video
   if (WIREFRAME_EXTENSIONS.test(filePath)) return PenLine
+  if (HTML_EXTENSIONS.test(filePath)) return Code
   return File
 }

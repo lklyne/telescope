@@ -7,6 +7,7 @@
 
 import { registerEntityRenderer, unregisterEntityRenderer } from './registry'
 import { componentRenderPlugin } from './builtin/component-render'
+import { htmlRenderPlugin } from './builtin/html-render'
 import { imageRenderPlugin } from './builtin/image-render'
 import { markdownRenderPlugin } from './builtin/markdown-render'
 import { videoRenderPlugin } from './builtin/video-render'
@@ -14,6 +15,7 @@ import { wireframeRenderPlugin } from './builtin/wireframe-render'
 
 const builtIns = [
   componentRenderPlugin,
+  htmlRenderPlugin,
   imageRenderPlugin,
   markdownRenderPlugin,
   videoRenderPlugin,

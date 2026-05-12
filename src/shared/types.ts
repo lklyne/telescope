@@ -174,7 +174,7 @@ export interface CanvasSceneFileEntity {
   parentGroupId?: string
   objectFit?: FileObjectFit
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
-  rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component'
+  rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component' | 'html'
   /**
    * Static contribution tags declared by the picked renderer plugin (ADR 0008
    * §7). The `FilePopup` reads these to compose plugin-specific controls
@@ -791,7 +791,14 @@ export interface PanelTextEntityDetail {
   height: number
 }
 
-export type PanelFileType = 'image' | 'video' | 'markdown' | 'wireframe' | 'component' | 'other'
+export type PanelFileType =
+  | 'image'
+  | 'video'
+  | 'markdown'
+  | 'wireframe'
+  | 'component'
+  | 'html'
+  | 'other'
 
 export interface PanelFileEntityDetail {
   id: string

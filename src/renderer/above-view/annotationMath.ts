@@ -233,6 +233,38 @@ const PENDING_COMPOSER_MARGIN = 8
 const PENDING_COMPOSER_MIN_HEIGHT = 52
 
 /**
+ * Position the pending element composer adjacent to the element bbox itself
+ * (ADR 0006). Prefers below + left-aligned with the element; flips above when
+ * there's no room. Anchoring to the element keeps the composer near the click
+ * even when the page entity is much larger than the viewport — anchoring to
+ * the page bounds in that case bumped the composer to the top of the screen.
+ */
+export function elementAnchoredComposerPosition({
+  elementLeft,
+  elementTop,
+  elementHeight,
+  composerWidth,
+}: {
+  elementLeft: number
+  elementTop: number
+  elementHeight: number
+  composerWidth: number
+}): { composerX: number; composerY: number } {
+  const composerX = Math.min(
+    Math.max(elementLeft, PENDING_VIEWPORT_PADDING),
+    window.innerWidth - composerWidth - PENDING_VIEWPORT_PADDING,
+  )
+  const belowY = elementTop + elementHeight + PENDING_COMPOSER_MARGIN
+  const aboveY = elementTop - PENDING_COMPOSER_MARGIN - PENDING_COMPOSER_MIN_HEIGHT
+  const canRenderBelow =
+    belowY + PENDING_COMPOSER_MIN_HEIGHT <= window.innerHeight - PENDING_VIEWPORT_PADDING
+  const composerY = canRenderBelow
+    ? belowY
+    : Math.max(PENDING_VIEWPORT_PADDING, aboveY)
+  return { composerX, composerY }
+}
+
+/**
  * Translate a pending element annotation's bbox into an overlay-coord rect.
  * Prefers the live bbox the page reports on scroll (ADR 0006); falls back to
  * the click-time `anchor.boundingBox`. Returns null when neither is
@@ -294,23 +326,13 @@ export function pendingElementComposerPosition(
 
   const elementRect = pendingElementScreenRect(pending, layout, liveBboxes)
   if (!elementRect) return fallback
-  const page = layout.entities.find((candidate) => candidate.id === anchor.pageId)
-  if (!page) return fallback
-  const pageBottomOverlay = toOverlayY(layout, page.screenY + page.screenHeight)
-  const pageTopOverlay = toOverlayY(layout, page.screenY)
-  const elementBottom = Math.max(elementRect.top + elementRect.height, pageBottomOverlay)
-  const elementTopAnchor = Math.min(elementRect.top, pageTopOverlay)
   const composerWidth = pending.composerWidth
-  const composerX = Math.min(
-    Math.max(elementRect.left, PENDING_VIEWPORT_PADDING),
-    window.innerWidth - composerWidth - PENDING_VIEWPORT_PADDING,
-  )
-  const canRenderBelow =
-    elementBottom + PENDING_COMPOSER_MARGIN + PENDING_COMPOSER_MIN_HEIGHT <=
-    window.innerHeight - PENDING_VIEWPORT_PADDING
-  const belowY = elementBottom + PENDING_COMPOSER_MARGIN
-  const aboveY = elementTopAnchor - PENDING_COMPOSER_MARGIN - PENDING_COMPOSER_MIN_HEIGHT
-  const composerY = canRenderBelow ? belowY : Math.max(PENDING_VIEWPORT_PADDING, aboveY)
+  const { composerX, composerY } = elementAnchoredComposerPosition({
+    elementLeft: elementRect.left,
+    elementTop: elementRect.top,
+    elementHeight: elementRect.height,
+    composerWidth,
+  })
   return { left: composerX, top: composerY, width: composerWidth }
 }
 

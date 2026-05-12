@@ -530,8 +530,15 @@ export default function App({
   // canvas-point anchor. Drag past threshold → marquee → region anchor on
   // pointerup. Threshold matches the rest of the canvas pointer router.
   const COMMENT_DRAG_THRESHOLD = 4
+  // The comment tool needs to keep capturing pointerdowns while a pending
+  // annotation or region rect is open so the user can retarget by clicking a
+  // different element. `isOverlayUiTarget` below still filters out clicks on
+  // the composer / popups so typing isn't interrupted.
+  const commentToolBlocked = Boolean(
+    openThreadId || drawingSession || layoutData.activeTool.kind === 'draw',
+  )
   useEffect(() => {
-    if (overlayInteractive) return
+    if (layoutData.activeTool.kind === 'comment' ? commentToolBlocked : overlayInteractive) return
     if (!pendingPlacement && layoutData.activeTool.kind !== 'comment') return
 
     const onPointerDown = (event: PointerEvent) => {
@@ -686,7 +693,7 @@ export default function App({
         capture: true,
       } as EventListenerOptions)
     }
-  }, [api, layoutData.activeTool.kind, layoutRef, onDragEnd, onDragMove, overlayInteractive, pendingPlacement])
+  }, [api, commentToolBlocked, layoutData.activeTool.kind, layoutRef, onDragEnd, onDragMove, overlayInteractive, pendingPlacement])
 
   const viewportWheelAndPanApi = useMemo(
     () => ({

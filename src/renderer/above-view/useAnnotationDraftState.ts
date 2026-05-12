@@ -9,6 +9,7 @@ import type {
 import { canvasToScreenX, canvasToScreenY, toOverlayY } from '../../shared/gesture-utils'
 import {
   drawingBounds,
+  elementAnchoredComposerPosition,
   type DrawingSession,
   type PendingAnnotation,
 } from './annotationMath'
@@ -229,23 +230,13 @@ function buildPendingAnnotation(
     contentScreenY + (bb ? bb.y * scaleY : contentScreenHeight / 2),
   )
   const elementHeight = bb ? bb.height * scaleY : 0
-  // Anchor composer to outer shell bounds (device page when present) so it clears
-  // the chrome with a consistent gap regardless of whether the page is toggled on.
-  const pageBottomOverlay = toOverlayY(layout, page.screenY + page.screenHeight)
-  const pageTopOverlay = toOverlayY(layout, page.screenY)
-  const elementBottom = Math.max(elementTop + elementHeight, pageBottomOverlay)
-  const elementTopAnchor = Math.min(elementTop, pageTopOverlay)
   const composerWidth = Math.min(420, window.innerWidth - VIEWPORT_PADDING * 2)
-  const composerX = Math.min(
-    Math.max(elementLeft, VIEWPORT_PADDING),
-    window.innerWidth - composerWidth - VIEWPORT_PADDING,
-  )
-  const canRenderBelow =
-    elementBottom + COMPOSER_MARGIN + COMPOSER_MIN_HEIGHT <=
-    window.innerHeight - VIEWPORT_PADDING
-  const belowY = elementBottom + COMPOSER_MARGIN
-  const aboveY = elementTopAnchor - COMPOSER_MARGIN - COMPOSER_MIN_HEIGHT
-  const composerY = canRenderBelow ? belowY : Math.max(VIEWPORT_PADDING, aboveY)
+  const { composerX, composerY } = elementAnchoredComposerPosition({
+    elementLeft,
+    elementTop,
+    elementHeight,
+    composerWidth,
+  })
   const anchor: AnnotationAnchor = {
     type: 'element',
     pageId: payload.pageId,

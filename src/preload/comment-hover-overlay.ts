@@ -87,15 +87,6 @@ function buildOutline(rect: DOMRect | { left: number; top: number; width: number
   return outline
 }
 
-function isCommentPreviewOverlay(el: Element): boolean {
-  if (el.id === OVERLAY_LAYER_ID) return true
-  if ((el as HTMLElement).classList?.contains(OUTLINE_CLASS)) return true
-  // Inspect tool overlay (we render through it, so its own elements should
-  // never be considered hit targets either).
-  if (typeof el.id === 'string' && el.id.startsWith('__canvas-dom-inspection-')) return true
-  return false
-}
-
 /**
  * Pick the deepest *content* element under (x, y), drilling past Specular's
  * own page-injected overlays (the blocking overlay that suppresses native
@@ -108,7 +99,6 @@ function pickHoverTarget(x: number, y: number): Element | null {
   const stack = document.elementsFromPoint(x, y)
   for (const el of stack) {
     if (isPageOverlayTarget(el)) continue
-    if (isCommentPreviewOverlay(el)) continue
     // Drill into shadow roots from the topmost non-overlay match.
     let current: Element = el
     while (current.shadowRoot) {
@@ -148,7 +138,6 @@ function paintRegionIntersection(region: { x: number; y: number; width: number; 
       // viewport, would dominate the marquee), comment badges, the inspect
       // overlay we paint, and our own preview layer/outlines.
       if (isPageOverlayTarget(el)) return NodeFilter.FILTER_REJECT
-      if (isCommentPreviewOverlay(el)) return NodeFilter.FILTER_REJECT
       // FILTER_SKIP (not REJECT) for invisibility: a `display: contents`
       // wrapper has a 0×0 bbox while its children render normally, so we
       // need to keep walking into the subtree. REJECT here would prune the

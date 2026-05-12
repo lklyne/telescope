@@ -148,6 +148,7 @@ function FileBodyCard({
             entity={entity}
             canEdit={canEdit}
             isDark={isDark}
+            isSelected={isSelected}
             wireframeJsonMode={wireframeJsonMode}
             onTextEditingChange={onTextEditingChange}
           />

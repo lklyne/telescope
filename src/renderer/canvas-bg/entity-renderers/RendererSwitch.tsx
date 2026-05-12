@@ -34,12 +34,14 @@ export function RendererSwitch({
   entity,
   canEdit,
   isDark,
+  isSelected,
   wireframeJsonMode,
   onTextEditingChange,
 }: {
   entity: CanvasSceneFileEntity
   canEdit: boolean
   isDark: boolean
+  isSelected: boolean
   wireframeJsonMode: boolean
   onTextEditingChange: (active: boolean) => void
 }) {
@@ -70,7 +72,7 @@ export function RendererSwitch({
     case 'component':
       return <ComponentPlaceholderRenderer entity={entity} isDark={isDark} />
     case 'html':
-      return <HtmlInlineRenderer entity={entity} />
+      return <HtmlInlineRenderer entity={entity} isSelected={isSelected} />
     default:
       return <FileFallbackRenderer entity={entity} isDark={isDark} />
   }

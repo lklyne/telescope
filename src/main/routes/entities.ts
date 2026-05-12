@@ -15,6 +15,8 @@ import { createPages } from '../workspace-pages'
 import { deletePages } from '../workspace-entities'
 import { findPageById } from '../runtime/runtime-context'
 import { imageSizeFromPath, videoSizeFromPath } from '../runtime/image-sizing'
+import { HTML_EXTENSIONS } from '../../shared/file-extensions'
+import { deviceForPresetIndex, DESKTOP_PRESET_INDEX } from '../../shared/device-catalog'
 import {
   animateCursorScan,
   allEntityPositions,
@@ -161,7 +163,12 @@ export const entityRoutes: Route[] = [
       const resolveFileDimensions = (item: { file: string; width?: number; height?: number }) => {
         if (item.width != null && item.height != null) return { width: item.width, height: item.height }
         const fromImage = imageSizeFromPath(item.file) ?? videoSizeFromPath(item.file)
-        return fromImage ?? { width: item.width, height: item.height }
+        if (fromImage) return fromImage
+        if (HTML_EXTENSIONS.test(item.file)) {
+          const desktop = deviceForPresetIndex(DESKTOP_PRESET_INDEX)
+          if (desktop) return { width: desktop.viewport.width, height: desktop.viewport.height }
+        }
+        return { width: item.width, height: item.height }
       }
       const items = payload.items ?? [payload]
       if (items.length <= 1) {

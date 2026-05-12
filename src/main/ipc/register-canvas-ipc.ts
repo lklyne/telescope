@@ -16,6 +16,8 @@ import {
 } from '../runtime/surface-layout'
 import { saveImageBuffer } from '../runtime/image-assets'
 import { imageSizeFromBuffer } from '../runtime/image-sizing'
+import { HTML_EXTENSIONS } from '../../shared/file-extensions'
+import { deviceForPresetIndex, DESKTOP_PRESET_INDEX } from '../../shared/device-catalog'
 import {
   focusSelectedPage,
   getSelectedEntityIds,
@@ -78,6 +80,17 @@ import {
 import { consumeDragId } from '../runtime/drop-owner'
 import { registerCanvasDragIpc } from './register-canvas-drag-ipc'
 import { registerCanvasEntityIpc } from './register-canvas-entity-ipc'
+
+// HTML files don't carry intrinsic pixel dimensions like images do, so the
+// generic file fallback lands them as a small tile. Use the Desktop preset
+// (landscape) instead — sensible for charts, mockups, and generated viz.
+function defaultDropSizeForExt(ext: string, buffer: Buffer): { width: number; height: number } {
+  if (HTML_EXTENSIONS.test(`.${ext}`)) {
+    const desktop = deviceForPresetIndex(DESKTOP_PRESET_INDEX)
+    if (desktop) return { width: desktop.viewport.width, height: desktop.viewport.height }
+  }
+  return imageSizeFromBuffer(buffer)
+}
 
 export function registerCanvasIpc(): void {
   registerCanvasDragIpc()
@@ -465,7 +478,7 @@ export function registerCanvasIpc(): void {
       }
 
       const file = saveImageBuffer(buffer, ext)
-      const { width, height } = imageSizeFromBuffer(buffer)
+      const { width, height } = defaultDropSizeForExt(ext, buffer)
       createFileEntity({ canvasX, canvasY, file, width, height })
     },
   )

@@ -234,6 +234,12 @@ export default function App({
     commentInputRef,
     activeStrokeRef,
   })
+  // Mirror draft state into a ref so the pointerdown effect can read fresh
+  // values without rebinding on every keystroke.
+  const draftStateRef = useRef({ pendingAnnotation, pendingRegionRect, commentText, clearDraft })
+  useEffect(() => {
+    draftStateRef.current = { pendingAnnotation, pendingRegionRect, commentText, clearDraft }
+  }, [pendingAnnotation, pendingRegionRect, commentText, clearDraft])
   const {
     closeThread,
     openThread,
@@ -537,8 +543,10 @@ export default function App({
   const commentToolBlocked = Boolean(
     openThreadId || drawingSession || layoutData.activeTool.kind === 'draw',
   )
+  const skipPointerCapture =
+    layoutData.activeTool.kind === 'comment' ? commentToolBlocked : overlayInteractive
   useEffect(() => {
-    if (layoutData.activeTool.kind === 'comment' ? commentToolBlocked : overlayInteractive) return
+    if (skipPointerCapture) return
     if (!pendingPlacement && layoutData.activeTool.kind !== 'comment') return
 
     const onPointerDown = (event: PointerEvent) => {
@@ -672,6 +680,16 @@ export default function App({
           // Click below threshold → element anchor if a page DOM element sits
           // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
           api.setSelectionOverlayRect(null)
+          const draft = draftStateRef.current
+          const hasEmptyDraft =
+            Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
+            !draft.commentText.trim()
+          if (hasEmptyDraft) {
+            // Empty composer open → click-away dismisses it without creating
+            // a new draft; comment mode stays active.
+            draft.clearDraft()
+            return
+          }
           api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
         }
       }
@@ -693,7 +711,7 @@ export default function App({
         capture: true,
       } as EventListenerOptions)
     }
-  }, [api, commentToolBlocked, layoutData.activeTool.kind, layoutRef, onDragEnd, onDragMove, overlayInteractive, pendingPlacement])
+  }, [api, layoutData.activeTool.kind, layoutRef, onDragEnd, onDragMove, pendingPlacement, skipPointerCapture])
 
   const viewportWheelAndPanApi = useMemo(
     () => ({

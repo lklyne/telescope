@@ -43,6 +43,7 @@ import {
   inspectionPayload,
   isInteractiveForSnapshot,
   isVisibleForSnapshot,
+  pickContentElementAtPoint,
   rectFullyContainedInRegion,
   rectIntersectsRegion,
 } from './dom-element-utils'
@@ -59,7 +60,6 @@ import {
 import {
   forwardMiddleDragPan,
   forwardViewportWheel,
-  isPageOverlayTarget,
 } from './gesture-forwarding'
 import {
   applyIncomingLinkedScroll,
@@ -436,16 +436,11 @@ ipcRenderer.on('take-dom-snapshot', (_event, payload: { requestId: string; maxDe
 ipcRenderer.on(
   'query-element-at-point',
   (_event, payload: { requestId: string; x: number; y: number }) => {
-    // ADR 0006 — comment tool's click-vs-element resolver. Main asks "what
-    // element is under (x,y) in this page's content rect?" on pointerup-
-    // without-drag.
-    //
-    // Drill past Specular's own page-injected overlays (blocking overlay,
-    // comment-preview layer, etc.) using `elementsFromPoint` so element
-    // resolution still works when the page is non-interactive — without
-    // this, the comment tool falls back to a canvas-point anchor for every
-    // click on a non-selected page and the user sees no element outline.
-    const target = pickContentTarget(payload.x, payload.y)
+    // ADR 0006 — comment tool's click-vs-element resolver. The page is
+    // non-interactive while the comment tool is active, so we drill past
+    // Specular's own overlays instead of relying on `elementFromPoint`
+    // (which would always land on `#__canvas-blocking-overlay`).
+    const target = pickContentElementAtPoint(payload.x, payload.y)
     if (!target) {
       ipcRenderer.send('query-element-at-point-response', {
         requestId: payload.requestId,
@@ -459,21 +454,6 @@ ipcRenderer.on(
     })
   },
 )
-
-function pickContentTarget(x: number, y: number): Element | null {
-  const stack = document.elementsFromPoint(x, y)
-  for (const el of stack) {
-    if (isPageOverlayTarget(el)) continue
-    let current: Element = el
-    while (current.shadowRoot) {
-      const nested = current.shadowRoot.elementFromPoint(x, y)
-      if (!nested || nested === current) break
-      current = nested
-    }
-    return current
-  }
-  return null
-}
 
 ipcRenderer.on('query-dom-elements', (_event, payload: { requestId: string; selector: string; maxResults?: number }) => {
   const maxResults = payload.maxResults ?? 20

@@ -24,6 +24,7 @@ import {
 import {
   inspectionPayload,
   isVisibleForSnapshot,
+  pickContentElementAtPoint,
   rectFullyContainedInRegion,
   rectIntersectsRegion,
 } from './dom-element-utils'
@@ -87,33 +88,9 @@ function buildOutline(rect: DOMRect | { left: number; top: number; width: number
   return outline
 }
 
-/**
- * Pick the deepest *content* element under (x, y), drilling past Specular's
- * own page-injected overlays (the blocking overlay that suppresses native
- * input while the page is non-interactive, comment badges, the inspect
- * overlay we paint, etc.). Without this we'd always hit
- * `#__canvas-blocking-overlay` because the comment tool keeps the page
- * non-interactive (gate-closed).
- */
-function pickHoverTarget(x: number, y: number): Element | null {
-  const stack = document.elementsFromPoint(x, y)
-  for (const el of stack) {
-    if (isPageOverlayTarget(el)) continue
-    // Drill into shadow roots from the topmost non-overlay match.
-    let current: Element = el
-    while (current.shadowRoot) {
-      const nested = current.shadowRoot.elementFromPoint(x, y)
-      if (!nested || nested === current) break
-      current = nested
-    }
-    return current
-  }
-  return null
-}
-
 function paintPointerElement(x: number, y: number): void {
   clearMarqueeLayer()
-  const target = pickHoverTarget(x, y)
+  const target = pickContentElementAtPoint(x, y)
   if (!target) {
     hideDomInspectionOverlay()
     return

@@ -1,12 +1,19 @@
 # AFK worker — per-fire instructions
 
-You are running in a fresh cloud context. Repo is checked out on the feature branch. You have the variables `<OWNER/REPO>`, `<FEATURE_BRANCH>`, `<EPIC_ID>`, `<SELF_ROUTINE_ID>` from the kickoff prompt.
+You are running in a fresh cloud context. The repo is checked out on the feature branch. You have the variables `<OWNER/REPO>`, `<FEATURE_BRANCH>`, `<EPIC_ID>`, `<SELF_ROUTINE_ID>` from the kickoff prompt.
 
-Do **one** unit of work per fire, then exit. Never wait inside a fire. If there is nothing to do, exit quickly.
+Do **one** unit of work per fire, then exit. Never wait inside a fire. If there's nothing to do, exit quickly. The cron is hourly — long fires waste tokens. The fast path between steps is `RemoteTrigger run <SELF_ROUTINE_ID>` after a state advance.
+
+## Branch naming
+
+- Feature branch: `<FEATURE_BRANCH>` (already `claude/feat-<slug>`)
+- Step branch you create per task: `claude/task-<short-id>` (the short dex ID, e.g. `claude/task-j4p66k15`)
+
+Both prefixes are `claude/` so the routine's default branch permissions allow push.
 
 ## Decision tree
 
-Run each step in order. The first one that fires ends the fire (unless it says otherwise).
+Walk these in order. The first matching step ends the fire (unless it says "fall through").
 
 ### 1. Is the feature already done?
 
@@ -14,37 +21,31 @@ Run each step in order. The first one that fires ends the fire (unless it says o
 dex show <EPIC_ID> --json
 ```
 
-If all child tasks are completed → open the integration PR if it doesn't exist yet:
+If every child task is `completed`:
+- Check for an integration PR: `gh pr list --head <FEATURE_BRANCH> --base main --state open --json number`
+- If none exists, open it: title `<slug>: integration`, body lists every child task ID and its merged step PR.
+- Disable self: `RemoteTrigger update <SELF_ROUTINE_ID> body:{"enabled": false}`.
+- Exit. The user reviews and merges the integration PR.
+
+### 2. Is a step PR open against the feature branch?
 
 ```
-gh pr list --head <FEATURE_BRANCH> --base main --state open --json number
+gh pr list --base <FEATURE_BRANCH> --state open --json number,headRefName,mergeable,mergeStateStatus
 ```
 
-If no open PR: open it. Title `<feature slug>: integration`, body links to the epic and lists each step's PR. Then disable own cron:
+For each open PR targeting `<FEATURE_BRANCH>`:
+- If mergeable and CI green (`mergeStateStatus` is `CLEAN`): `gh pr merge --squash --auto <num>`. Then `dex complete <task-id>` for the linked task. Then `RemoteTrigger run <SELF_ROUTINE_ID>`. Exit.
+- Otherwise: exit. We're waiting for CI or human review.
 
-```
-RemoteTrigger update <SELF_ROUTINE_ID>  body: {"enabled": false}
-```
+### 3. Has an in-progress task's PR merged out of band?
 
-Exit. The user reviews and merges the integration PR.
-
-### 2. Is a step's PR open and unmerged?
-
-```
-gh pr list --base <FEATURE_BRANCH> --state open --json number,headRefName,mergeable
-```
-
-If any open PR targets `<FEATURE_BRANCH>`:
-  - If it's mergeable and CI green → merge it (`gh pr merge --squash --auto`), `dex complete` the linked task, then **self-trigger immediately** (`RemoteTrigger run <SELF_ROUTINE_ID>`) and exit. The next fire (or the immediate self-trigger) picks up the next task.
-  - Otherwise → exit. We're waiting for CI or human review.
-
-### 3. Has an in-progress task's PR already merged out of band?
+(Covers the case where a human merged a step PR while the worker wasn't running.)
 
 ```
 dex list --in-progress --json
 ```
 
-For each in-progress task, find its branch (`task-<short-id>` convention, see step 4) and check if it's merged into `<FEATURE_BRANCH>`. If merged → `dex complete <id> --commit <sha>`, self-trigger, exit.
+For each in-progress task, find its step branch and check `gh pr list --head claude/task-<id> --state merged --limit 1`. If merged, `dex complete <task-id> --commit <sha>`. After processing all of them, `RemoteTrigger run <SELF_ROUTINE_ID>` and exit.
 
 ### 4. Start the next pending task.
 
@@ -52,28 +53,39 @@ For each in-progress task, find its branch (`task-<short-id>` convention, see st
 dex list --json
 ```
 
-Find the first task with status `pending` whose `blocked_by` are all `completed`. Read its full description (`dex show <id> --full`).
-
-Branch off the feature branch:
+Filter to tasks whose `parent` is `<EPIC_ID>` and status is `pending`. Pick the first one in order whose dependencies (if any) are all `completed`. Skip tasks whose description starts with `BLOCKED:` — those are flagged for human attention. Read its full description: `dex show <task-id> --full`.
 
 ```
-git switch -c task-<short-id> <FEATURE_BRANCH>
+git switch -c claude/task-<short-id> <FEATURE_BRANCH>
 ```
 
-Implement the task per its description. Stay narrowly scoped to that step. Run `pnpm typecheck` and `pnpm test:unit` before committing — anything that touches runtime also needs `pnpm test:smoke`.
+Implement the task per its description. Stay narrowly scoped to that step — do not touch anything outside what the step describes.
+
+Before committing, run the checks the repo expects:
+- `pnpm typecheck`
+- `pnpm test:unit`
+- `pnpm test:smoke` only if your changes touched `src/main/`, IPC, or persistence
+
+If checks fail, see Failure handling below — do not commit broken code.
 
 Commit, push, open PR into `<FEATURE_BRANCH>`:
 
 ```
-gh pr create --base <FEATURE_BRANCH> --head task-<short-id> --title "..." --body "Closes dex task <id>. <one-paragraph summary>"
+git commit -m "<conventional message>"
+git push -u origin claude/task-<short-id>
+gh pr create --base <FEATURE_BRANCH> --head claude/task-<short-id> --title "<title>" --body "Closes dex task <task-id>.
+
+<one-paragraph summary of changes>"
 ```
 
-Mark the dex task in-progress and link the PR:
+Mark the dex task in-progress:
 
 ```
-dex start <id>
-dex edit <id> --commit <sha>   # optional, links the head commit
+dex start <task-id>
+git add .dex/ && git commit --amend --no-edit && git push --force-with-lease
 ```
+
+(The dex state-file update has to land on the step branch so subsequent fires see it. `--force-with-lease` is safe here because the branch is single-author and not yet merged.)
 
 Self-trigger and exit:
 
@@ -83,18 +95,23 @@ RemoteTrigger run <SELF_ROUTINE_ID>
 
 ### 5. Nothing to do.
 
-If none of the above apply (e.g. all tasks are blocked, or everything in_progress with PRs still in CI) — exit silently. The next cron fire will look again.
+If none of the above apply — exit silently. The next cron fire (or a self-trigger from elsewhere) will look again.
 
 ## Failure handling
 
-- **Typecheck or tests fail repeatedly** on a task: don't keep retrying blindly. Set the task to a blocked state by editing its description with a `BLOCKED: <reason>` prefix, then exit. The next fire will skip it (rule: pending tasks whose description starts with `BLOCKED:` are not picked up).
-- **Merge conflict** when opening a step PR: rebase onto latest `<FEATURE_BRANCH>` once. If the conflict isn't trivially resolvable, mark `BLOCKED: merge conflict, needs human` and exit.
-- **`gh` or `dex` command errors**: do not paper over. Exit. The next fire is a fresh attempt.
+- **Typecheck or tests fail on a task**: do not retry blindly. Mark the task blocked and exit.
+  ```
+  dex edit <task-id> --description "BLOCKED: <short reason>. Original description follows:\n\n<original>"
+  git add .dex/ && git commit -m "chore(afk): mark <task-id> blocked" && git push
+  ```
+  Decision rule 4 skips `BLOCKED:` tasks, so the worker moves on next fire.
+- **Merge conflict** opening a step PR: rebase the step branch onto latest `<FEATURE_BRANCH>` once. If it doesn't rebase cleanly, mark the task `BLOCKED: merge conflict, needs human` and exit.
+- **`gh` or `dex` returns an error you can't make sense of**: do not paper over. Exit the fire. Next cron tick is a fresh attempt.
 
 ## Hard rules
 
-- Never push to `main`. Only to `<FEATURE_BRANCH>` and step branches.
-- Never run `git reset --hard`, `git push --force`, or `git rebase -i`.
+- Never push to `main`.
+- Never `git reset --hard`, never `git push --force` (use `--force-with-lease` only on your own step branches before the PR is merged).
 - Never modify the dex epic itself (only child tasks).
-- Never create a new RemoteTrigger routine. You only call `run` and `update` on your own ID.
-- One PR per fire, maximum. If you opened one, you're done.
+- Never create new RemoteTrigger routines. Only call `run` and `update enabled:false` on your own ID.
+- One PR per fire, maximum. After opening or merging one, you're done — self-trigger if you advanced state, then exit.

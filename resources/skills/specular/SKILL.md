@@ -52,7 +52,7 @@ Annotations are a single concept (a comment thread) discriminated by **anchor ty
 |---|---|---|
 | page | `specular create page <url>` | Live web page rendered in a webview |
 | text | `specular create note <text>` | Short text note (sticky-note style) |
-| file | `specular upsert --json` | File entity — markdown (`.md`) or wireframe (`.wireframe.json`) |
+| file | `specular upsert --json` | File entity — markdown (`.md`), wireframe (`.wireframe.json`), or HTML (`.html`) |
 
 ### Upsert tips
 
@@ -155,6 +155,10 @@ EOF
 ```
 
 See [references/wireframes.md](references/wireframes.md) for the full node schema, layout patterns, and examples.
+
+### HTML pages
+
+Drop a `.html` file onto the canvas to render it inline (charts, mockups, generated visualizations). Write the file to disk, then upsert with `{ "kind": "file", "file": "/abs/path/viz.html" }`. Rendered display-only; edit the file to update.
 
 ## Passing URLs
 

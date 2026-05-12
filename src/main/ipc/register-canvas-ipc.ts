@@ -38,7 +38,7 @@ import {
   cancelEditingEntity,
   commitEditingEntity,
 } from '../runtime/editing-entity-runtime'
-import { setTextEditingActive } from '../runtime/keyboard-shortcuts'
+import { setTextEditingActive } from '../runtime/binding-dispatcher'
 import {
   forwardPointerToPage,
   forwardWheelToPage,

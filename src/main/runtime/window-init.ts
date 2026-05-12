@@ -29,7 +29,7 @@ import {
 } from './view-refs'
 import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
-import { requestLayout, setZoom, setPan, focusSelectedPage } from './viewport-control'
+import { requestLayout } from './viewport-control'
 import {
   consumeLegacyOriginBindings,
   isDark,
@@ -59,12 +59,7 @@ import {
 import {
   notifyDevtoolsChanged,
 } from './devtools-panel'
-import { watchModifierKeys, wireKeyboardShortcuts } from './keyboard-shortcuts'
-import { setActiveTool } from './tool-mode'
-import {
-  groupSelectedEntities,
-  ungroupSelectedGroup,
-} from './document-commands'
+import { attachBindingDispatcher } from './binding-dispatcher'
 import {
   APP_CONTROL_DISCOVERY_FILE,
 } from '../../shared/constants'
@@ -129,16 +124,6 @@ function mcpEmptyState() {
 
 export function initWindow(): void {
   wireMcpEmptyState(mcpEmptyState)
-  wireKeyboardShortcuts({
-    setActiveTool: (tool) => {
-      setActiveTool(tool)
-    },
-    setZoom,
-    setPan,
-    focusSelectedPage,
-    groupSelectedEntities,
-    ungroupSelectedGroup,
-  })
   loadPreferences()
   const legacyBindings = consumeLegacyOriginBindings()
   if (legacyBindings) {
@@ -243,7 +228,7 @@ export function initWindow(): void {
   })
   currentWin.contentView.addChildView(currentLeftSidebarView)
   currentLeftSidebarView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  watchModifierKeys(currentLeftSidebarView.webContents, { handleShortcuts: false })
+  attachBindingDispatcher(currentLeftSidebarView.webContents, 'leftSidebar')
 
   // Consolidated above-pages WCV. Loads the merged 'above-view' bundle
   // (marquee + comments + presence + annotations + drawing + floating-ui).
@@ -404,12 +389,12 @@ export function initWindow(): void {
   currentWin.contentView.addChildView(currentDevtoolsResizeHandleView)
   currentDevtoolsResizeHandleView.setBounds(devtoolsPrewarmBounds)
 
-  // Register modifier key detection on all initial views
-  watchModifierKeys(currentBgView.webContents)
-  watchModifierKeys(currentToolbarView.webContents, { handleShortcuts: false })
-  watchModifierKeys(currentAboveView.webContents)
-  watchModifierKeys(currentDevtoolsHeaderView.webContents, { handleShortcuts: false })
-  watchModifierKeys(currentDevtoolsResizeHandleView.webContents, { handleShortcuts: false })
+  // Attach binding dispatcher to all initial views
+  attachBindingDispatcher(currentBgView.webContents, 'canvasBg')
+  attachBindingDispatcher(currentToolbarView.webContents, 'toolbar')
+  attachBindingDispatcher(currentAboveView.webContents, 'aboveView')
+  attachBindingDispatcher(currentDevtoolsHeaderView.webContents, 'rightDetailsPanel')
+  attachBindingDispatcher(currentDevtoolsResizeHandleView.webContents, 'devtoolsResizeHandle')
 
   markDirty('stack'); requestLayout()
 }

@@ -57,6 +57,10 @@ import {
   persistShapeEntity,
 } from './shape-entity-state'
 import { persistGroupEntity } from './group-entity-state'
+import {
+  getEntityOrderRuntime,
+  reconcileEntityOrder,
+} from './entity-order-state'
 
 export function workspaceSnapshot(): WorkspaceSnapshot {
   const pageIds = pages.map((p) => p.id)
@@ -96,43 +100,33 @@ export function workspaceSnapshot(): WorkspaceSnapshot {
     groups: workspaceGroups,
     edges: workspaceEdges,
   })
-  // Add text entities to the entity store
+  // Persist each entity into the `entities` map. The order is owned by the
+  // runtime mirror — we drive `entityOrder` from it below so user-driven
+  // stack-order mutations survive the round-trip.
+  snapshot.entities = snapshot.entities ?? {}
   for (const te of textEntities) {
-    const entity = persistTextEntity(te)
-    if (!snapshot.entities) snapshot.entities = {}
-    if (!snapshot.entityOrder) snapshot.entityOrder = []
-    snapshot.entities[entity.id] = entity
-    snapshot.entityOrder.push(entity.id)
+    snapshot.entities[te.id] = persistTextEntity(te)
   }
-  // Add file entities to the entity store
   for (const fe of fileEntities) {
-    const entity = persistFileEntity(fe)
-    if (!snapshot.entities) snapshot.entities = {}
-    if (!snapshot.entityOrder) snapshot.entityOrder = []
-    snapshot.entities[entity.id] = entity
-    snapshot.entityOrder.push(entity.id)
+    snapshot.entities[fe.id] = persistFileEntity(fe)
   }
   for (const de of drawingEntities) {
-    const entity = persistDrawingEntity(de)
-    if (!snapshot.entities) snapshot.entities = {}
-    if (!snapshot.entityOrder) snapshot.entityOrder = []
-    snapshot.entities[entity.id] = entity
-    snapshot.entityOrder.push(entity.id)
+    snapshot.entities[de.id] = persistDrawingEntity(de)
   }
   for (const se of shapeEntities) {
-    const entity = persistShapeEntity(se)
-    if (!snapshot.entities) snapshot.entities = {}
-    if (!snapshot.entityOrder) snapshot.entityOrder = []
-    snapshot.entities[entity.id] = entity
-    snapshot.entityOrder.push(entity.id)
+    snapshot.entities[se.id] = persistShapeEntity(se)
   }
   for (const group of workspaceGroups) {
-    const entity = persistGroupEntity(group)
-    if (!snapshot.entities) snapshot.entities = {}
-    if (!snapshot.entityOrder) snapshot.entityOrder = []
-    snapshot.entities[entity.id] = entity
-    snapshot.entityOrder.push(entity.id)
+    snapshot.entities[group.id] = persistGroupEntity(group)
   }
+
+  reconcileEntityOrder()
+  const order = getEntityOrderRuntime()
+  // Pages live in `snapshot.pages`, not `snapshot.entities`. They still
+  // participate in `entityOrder` for paint-order purposes.
+  snapshot.entityOrder = order.filter(
+    (id) => snapshot.entities!.hasOwnProperty(id) || pages.some((p) => p.id === id),
+  )
   return snapshot
 }
 

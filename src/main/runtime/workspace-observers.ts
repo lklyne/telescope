@@ -27,12 +27,18 @@ import {
   isDocSyncSuppressed,
   syncRuntimeToDoc,
   withSuppressedDocSync,
+  DOC_ARRAY_ENTITY_ORDER,
   DOC_MAP_PAGES,
   DOC_MAP_ENTITIES,
   DOC_MAP_GROUPS,
   DOC_MAP_EDGES,
   DOC_MAP_ANNOTATIONS,
 } from './workspace-doc'
+import {
+  getEntityOrderRuntime,
+  reconcileEntityOrder,
+  setEntityOrderRuntime,
+} from './entity-order-state'
 import { getActiveUndoManager } from './workspace-undo'
 import { makeEmptyTabSnapshot } from './workspace-tabs'
 
@@ -139,6 +145,7 @@ export function requestDocSync(): void {
 function requestDocSyncImmediate(): void {
   if (!_refs) return
   const doc = getActiveDoc()
+  reconcileEntityOrder()
   syncRuntimeToDoc(doc, {
     pages: _refs.pages,
     textEntities: _refs.textEntities,
@@ -148,6 +155,7 @@ function requestDocSyncImmediate(): void {
     workspaceGroups: _refs.workspaceGroups,
     workspaceEdges: _refs.workspaceEdges,
     workspaceAnnotations: _refs.workspaceAnnotations,
+    entityOrder: getEntityOrderRuntime(),
     zoom: _refs.getZoom(),
     pan: _refs.getPan(),
   }, _refs.serializePage as (page: { id: string }) => Record<string, unknown>)
@@ -274,6 +282,11 @@ function syncDocToRuntime(doc: Y.Doc): void {
     rebuildArrayFromYMap(_refs!.workspaceGroups, doc.getMap(DOC_MAP_GROUPS) as Y.Map<Y.Map<unknown>>)
     rebuildArrayFromYMap(_refs!.workspaceEdges, doc.getMap(DOC_MAP_EDGES) as Y.Map<Y.Map<unknown>>)
     rebuildArrayFromYMap(_refs!.workspaceAnnotations, doc.getMap(DOC_MAP_ANNOTATIONS) as Y.Map<Y.Map<unknown>>)
+
+    // Mirror the persisted entityOrder back into the runtime mirror so the
+    // sidebar and paint order match Y.Doc after undo/redo.
+    setEntityOrderRuntime(doc.getArray<string>(DOC_ARRAY_ENTITY_ORDER).toArray())
+    reconcileEntityOrder()
 
     // Phase 5d-v2 E1: gesture cancellation flows through the controller,
     // which is reentrancy-safe, so the undo observer can cancel + mark

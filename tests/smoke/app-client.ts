@@ -260,6 +260,28 @@ export function deleteTextEntities(ids: string[]) {
   return post<{ deleted: string[] }>('/text-entities/delete', { ids })
 }
 
+// --- Stack order ---
+
+export function getStackOrder() {
+  return get<{ entityOrder: string[] }>('/stack-order')
+}
+
+export function bringStackToFront(ids: string[]) {
+  return post<{ changed: boolean; entityOrder: string[] }>('/stack-order/bring-to-front', { ids })
+}
+
+export function sendStackToBack(ids: string[]) {
+  return post<{ changed: boolean; entityOrder: string[] }>('/stack-order/send-to-back', { ids })
+}
+
+export function bringStackForward(ids: string[]) {
+  return post<{ changed: boolean; entityOrder: string[] }>('/stack-order/bring-forward', { ids })
+}
+
+export function sendStackBackward(ids: string[]) {
+  return post<{ changed: boolean; entityOrder: string[] }>('/stack-order/send-backward', { ids })
+}
+
 // --- Selection ---
 
 export function getSelection() {

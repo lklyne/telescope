@@ -38,7 +38,7 @@ import { shapeEntities, type ShapeEntity } from './shape-entity-state'
 import { pageDisplayLabel } from './runtime-serialization'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
-import { getEntityOrder } from './workspace-doc'
+import { getEntityOrder } from './entity-order-state'
 import {
   partitionSidebar,
   type PartitionLeaf,

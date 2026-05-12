@@ -85,8 +85,14 @@ export function setDocTabList(doc: Y.Doc, tabs: DocTabEntry[]): void {
   doc.getMap(DOC_MAP_WORKSPACE).set('tabs', tabs)
 }
 
-/** Snapshot of the current `entityOrder` array. Mutate via the runtime wrapper, not this return value. */
-export function getEntityOrder(): readonly string[] {
+/**
+ * Snapshot of the persisted `entityOrder` array straight from Y.Doc. Reads
+ * the Y.Doc value, not the runtime mirror — used by the diff-sync's
+ * comparison step. Runtime callers (sidebar, paint order, hit test) should
+ * use `getEntityOrder()` from `entity-order-state.ts` instead, which returns
+ * the reconciled runtime mirror.
+ */
+export function getDocEntityOrder(): readonly string[] {
   return getActiveDoc().getArray<string>(DOC_ARRAY_ENTITY_ORDER).toArray()
 }
 
@@ -198,6 +204,7 @@ export function syncRuntimeToDoc(
     workspaceGroups: ReadonlyArray<{ id: string }>
     workspaceEdges: ReadonlyArray<{ id: string }>
     workspaceAnnotations: ReadonlyArray<{ id: string }>
+    entityOrder: ReadonlyArray<string>
     zoom: number
     pan: { x: number; y: number }
   },
@@ -249,7 +256,7 @@ export function syncRuntimeToDoc(
       (a) => a as Record<string, unknown>,
     )
 
-    syncEntityOrder(doc, runtime)
+    syncEntityOrder(doc, runtime.entityOrder)
   }, 'user')
 }
 
@@ -286,29 +293,16 @@ function syncMapFromArray<T extends { id: string }>(
   }
 }
 
-function syncEntityOrder(
-  doc: Y.Doc,
-  runtime: {
-    pages: ReadonlyArray<{ id: string }>
-    textEntities: ReadonlyArray<{ id: string }>
-    fileEntities: ReadonlyArray<{ id: string }>
-    drawingEntities: ReadonlyArray<{ id: string }>
-    shapeEntities: ReadonlyArray<{ id: string }>
-    workspaceGroups: ReadonlyArray<{ id: string }>
-  },
-): void {
+function syncEntityOrder(doc: Y.Doc, desiredOrder: ReadonlyArray<string>): void {
   const order = doc.getArray<string>(DOC_ARRAY_ENTITY_ORDER)
-  const desiredOrder = [
-    ...runtime.pages.map((p) => p.id),
-    ...runtime.textEntities.map((e) => e.id),
-    ...runtime.fileEntities.map((e) => e.id),
-    ...runtime.drawingEntities.map((e) => e.id),
-    ...runtime.shapeEntities.map((e) => e.id),
-    ...runtime.workspaceGroups.map((g) => g.id),
-  ]
   const currentOrder = order.toArray()
-  if (JSON.stringify(currentOrder) !== JSON.stringify(desiredOrder)) {
-    order.delete(0, order.length)
-    if (desiredOrder.length) order.push(desiredOrder)
+  if (currentOrder.length === desiredOrder.length) {
+    let same = true
+    for (let i = 0; i < currentOrder.length; i++) {
+      if (currentOrder[i] !== desiredOrder[i]) { same = false; break }
+    }
+    if (same) return
   }
+  order.delete(0, order.length)
+  if (desiredOrder.length) order.push([...desiredOrder])
 }

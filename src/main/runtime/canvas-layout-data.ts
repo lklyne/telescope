@@ -93,7 +93,7 @@ import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { getPresenceCursors } from '../app-control-server'
 import { getFixProgress } from '../agent-fix/fix-progress'
-import { getEntityOrder } from './workspace-doc'
+import { getEntityOrder } from './entity-order-state'
 import { sortByStackOrder } from '../../shared/entity-order-math'
 
 // --- Exported data builders ---

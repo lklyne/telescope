@@ -74,6 +74,10 @@ import {
   createTextEntity as createTextEntityInState,
 } from './text-entity-state'
 import {
+  reconcileEntityOrder,
+  setEntityOrderRuntime,
+} from './entity-order-state'
+import {
   clearFileEntities,
   createFileEntity as createFileEntityInState,
 } from './file-entity-state'
@@ -125,6 +129,7 @@ export function destroyActivePages(): void {
   while (pages.length) {
     removePageAtIndex(pages.length - 1)
   }
+  setEntityOrderRuntime([])
 }
 
 function selectPageById(id: string): boolean {
@@ -276,6 +281,16 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
         }
       }
     }
+
+    // Seed the runtime entity-order mirror from the persisted snapshot. The
+    // reconciler will prune any ids that didn't make it back into the runtime
+    // arrays and append newly created ones at the top.
+    if (snapshot.entityOrder && snapshot.entityOrder.length) {
+      setEntityOrderRuntime(snapshot.entityOrder)
+    } else {
+      setEntityOrderRuntime([])
+    }
+    reconcileEntityOrder()
 
     if (snapshot.selectedPageId) {
       selectPageById(snapshot.selectedPageId)

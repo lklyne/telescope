@@ -20,7 +20,7 @@ import {
   win,
 } from './view-refs'
 import { findPageById } from './runtime-context'
-import { getEntityOrder } from './workspace-doc'
+import { getEntityOrder } from './entity-order-state'
 
 export type LayerId =
   | 'bgView'

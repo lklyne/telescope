@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { ThemeData } from '../../shared/types'
+import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { isPlainShortcutKey } from '../../shared/gesture-utils'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'

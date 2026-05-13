@@ -1,4 +1,5 @@
 import type { ThemeData } from '../../shared/types'
+import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DocumentPane } from './components/DocumentPane'

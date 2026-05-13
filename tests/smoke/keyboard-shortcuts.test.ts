@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  beginInteraction,
+  cancelActiveInteraction,
   createPages,
+  createTextEntities,
   deletePages,
+  deleteTextEntities,
   deselectSelection,
+  getInteractionMode,
   getSelection,
   getTextEntities,
   getWorkspace,
@@ -11,10 +16,12 @@ import {
   getCurrentTool,
   sendKey,
   resetSmokeState,
+  selectEntity,
 } from './app-client'
 import { wait, waitFor } from './test-utils'
 
 const createdPageIds: string[] = []
+const createdTextIds: string[] = []
 
 async function createPage(url = 'https://example.com') {
   const result = await createPages([{ url, canvasX: 0, canvasY: 0 }])
@@ -26,6 +33,10 @@ afterEach(async () => {
   if (createdPageIds.length) {
     const ids = createdPageIds.splice(0)
     await deletePages(ids).catch(() => {})
+  }
+  if (createdTextIds.length) {
+    const ids = createdTextIds.splice(0)
+    await deleteTextEntities(ids).catch(() => {})
   }
   await resetSmokeState()
 })
@@ -132,6 +143,45 @@ describe('keyboard shortcuts (binding dispatcher)', () => {
     // Remove from cleanup since it was deleted
     const idx = createdPageIds.indexOf(pageId)
     if (idx >= 0) createdPageIds.splice(idx, 1)
+  })
+
+  it('delete key removes selected sticky after exiting inline edit', async () => {
+    const { ids } = await createTextEntities([
+      { canvasX: 120, canvasY: 140, text: 'Delete me after edit' },
+    ])
+    const textId = ids[0]
+    createdTextIds.push(textId)
+    await selectEntity(textId, 'text')
+    await wait(50)
+
+    const token = await beginInteraction({ kind: 'editing-entity', entityId: textId })
+    expect('refused' in token).toBe(false)
+    await waitFor(
+      () => getInteractionMode(),
+      (state) => state.editingEntityId === textId,
+      'Timed out waiting for sticky inline edit to start',
+    )
+
+    await cancelActiveInteraction('escape')
+    await waitFor(
+      () => getInteractionMode(),
+      (state) => state.editingEntityId === null,
+      'Timed out waiting for sticky inline edit to end',
+    )
+
+    await sendKey('delete')
+    await waitFor(
+      () => getTextEntities(),
+      ({ textEntities }) => !textEntities.some((entity) => entity.id === textId),
+      'Timed out waiting for sticky Delete key removal',
+    )
+    await waitFor(
+      () => getSelection(),
+      (selection) => selection.selectedEntityId !== textId,
+      'Timed out waiting for deleted sticky selection to clear',
+    )
+    const idx = createdTextIds.indexOf(textId)
+    if (idx >= 0) createdTextIds.splice(idx, 1)
   })
 
   it('delete key removes a selected page from page focus', async () => {

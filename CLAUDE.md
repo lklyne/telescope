@@ -155,7 +155,19 @@ The HTTP API (src/main/routes/) remains available for runtime interaction.
 - **Unit tests** — pure logic, no Electron. `tests/unit/`
 - **Smoke tests** — full app via HTTP API, serial. `tests/smoke/`
 - **Agent tests** — scenario scripts. `tests/agent/`
-- **Smoke client** — `AppClient` in `tests/smoke/test-utils.ts` wraps the HTTP API
+- **Smoke client** — `AppClient` in `tests/smoke/app-client.ts` wraps the HTTP API
+
+Before writing a test, re-read `tests/README.md` — it documents the four-criterion bar a test must clear to earn its keep, the bucket selection guide, and the mutation-verification convention.
+
+## Test contract
+
+The suite stays small on purpose. To prevent drift back to a pile of low-value tests, the following apply:
+
+- Any new entity kind ships with smoke coverage of its persistence + undo round-trip.
+- Any new runtime mutator ships with forward/reverse sync coverage (one Y.Doc transaction per mutation; undo round-trips cleanly).
+- PRs touching `src/main/runtime/workspace-*.ts` require smoke coverage updates unless the change is pure refactor with no behavior delta.
+- No new `.todo()` test merged without a linked issue describing what would unblock it.
+- Before writing a test, re-read `tests/README.md` and confirm it clears the four-criterion bar.
 
 ## Specular CLI
 

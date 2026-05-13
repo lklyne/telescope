@@ -128,7 +128,6 @@ export function registerToolbarIpc(): void {
     const result = addPageFromSource({
       presetIndex: typeof presetIndex === 'number' ? presetIndex : 0,
       customSize: presetIndex === 'custom',
-      mode: 'add_from_toolbar',
       focus: true,
     })
     selectBrowserTab(result.pageId)

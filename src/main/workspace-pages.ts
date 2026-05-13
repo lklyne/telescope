@@ -140,7 +140,6 @@ export function addPageFromSource(input: {
   sourcePageId?: string
   presetIndex: number
   customSize?: boolean
-  mode: 'add_from_toolbar' | 'duplicate'
   focus?: boolean
 }): { pageId: string; groupId?: string } {
   const preset = VIEWPORT_PRESETS[input.presetIndex]
@@ -163,7 +162,7 @@ export function addPageFromSource(input: {
       source: 'manual',
       metadata: setDeviceIdMetadata(
         {
-          createdFrom: input.mode,
+          createdFrom: 'add_from_toolbar',
           deviceOrientation: defaultOrientationForDevice(device),
           showDeviceFrame: true,
         },
@@ -186,9 +185,10 @@ export function addPageFromSource(input: {
     : ensureManualRowGroup(sourcePage.id, url)
 
   const fallbackDevice = deviceForPresetIndex(input.presetIndex)
-  const duplicateMetadata = input.mode === 'duplicate' && sourcePage
-    ? { ...(cloneMetadata(sourcePage.metadata) ?? {}), createdFrom: input.mode }
-    : setDeviceIdMetadata({ createdFrom: input.mode, deviceOrientation: defaultOrientationForDevice(fallbackDevice) }, fallbackDevice?.id ?? null)
+  const metadata = setDeviceIdMetadata(
+    { createdFrom: 'add_from_toolbar', deviceOrientation: defaultOrientationForDevice(fallbackDevice) },
+    fallbackDevice?.id ?? null,
+  )
   const newPage = createPage({
     url,
     presetIndex: input.presetIndex,
@@ -198,7 +198,7 @@ export function addPageFromSource(input: {
     canvasY: sourcePage.canvasY,
     source: 'manual',
     parentGroupId: group.id,
-    metadata: duplicateMetadata,
+    metadata,
   })
   if (input.customSize) {
     newPage.metadata = setCustomPageSizeMetadata(newPage.metadata, pageContentSize(newPage))
@@ -266,49 +266,38 @@ export function createPageAtPosition(input: {
 export function duplicatePageFromSource(input: {
   sourcePageId: string
   focus?: boolean
-  /** When true, skip automatic row-group creation (context menu duplicate). */
-  skipGrouping?: boolean
-}): { pageId: string; groupId?: string } {
+}): { pageId: string } {
   const sourcePage = findPageById(input.sourcePageId)
   if (!sourcePage) {
     throw new Error(`Unknown page: ${input.sourcePageId}`)
   }
 
-  if (input.skipGrouping) {
-    const url = pageCurrentUrl(sourcePage.id) ?? 'about:blank'
-    const metadata = { ...(cloneMetadata(sourcePage.metadata) ?? {}), createdFrom: 'duplicate' }
-    const sourceSize = pageContentSize(sourcePage)
-    const placement = findDuplicatePlacement({
-      x: sourcePage.canvasX,
-      y: sourcePage.canvasY,
-      width: sourceSize.width,
-      height: sourceSize.height,
-    })
-    const newPage = createPage({
-      url,
-      presetIndex: sourcePage.presetIndex,
-      linked: false,
-      suppressInitialNavigationBroadcast: true,
-      canvasX: placement.canvasX,
-      canvasY: placement.canvasY,
-      source: 'manual',
-      parentGroupId: sourcePage.parentGroupId,
-      metadata,
-    })
-    if (input.focus ?? true) {
-      selectPageById(newPage.id)
-    }
-    layoutAllViews()
-    scheduleWorkspaceAutosave()
-    return { pageId: newPage.id }
-  }
-
-  return addPageFromSource({
-    sourcePageId: sourcePage.id,
-    presetIndex: sourcePage.presetIndex,
-    mode: 'duplicate',
-    focus: input.focus,
+  const url = pageCurrentUrl(sourcePage.id) ?? 'about:blank'
+  const metadata = { ...(cloneMetadata(sourcePage.metadata) ?? {}), createdFrom: 'duplicate' }
+  const sourceSize = pageContentSize(sourcePage)
+  const placement = findDuplicatePlacement({
+    x: sourcePage.canvasX,
+    y: sourcePage.canvasY,
+    width: sourceSize.width,
+    height: sourceSize.height,
   })
+  const newPage = createPage({
+    url,
+    presetIndex: sourcePage.presetIndex,
+    linked: false,
+    suppressInitialNavigationBroadcast: true,
+    canvasX: placement.canvasX,
+    canvasY: placement.canvasY,
+    source: 'manual',
+    parentGroupId: sourcePage.parentGroupId,
+    metadata,
+  })
+  if (input.focus ?? true) {
+    selectPageById(newPage.id)
+  }
+  layoutAllViews()
+  scheduleWorkspaceAutosave()
+  return { pageId: newPage.id }
 }
 
 export function createPages(input: CreatePagesRequest): CreatePagesResponse {

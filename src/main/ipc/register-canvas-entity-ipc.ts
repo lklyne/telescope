@@ -1,12 +1,8 @@
 import { clipboard, ipcMain, Menu, shell } from 'electron'
-import { DESKTOP_PRESET_INDEX, VIEWPORT_PRESETS } from '../../shared/constants'
-import { looksLikeUrl, normalizeUserUrl } from '../../shared/url'
+import { VIEWPORT_PRESETS } from '../../shared/constants'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
-import type {
-  AnnotationCreateRequest,
-  ClipboardPageSelectionPayload,
-  ClipboardEntitySelectionPayload,
-} from '../../shared/types'
+import type { AnnotationCreateRequest } from '../../shared/types'
+import { pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
 import { aboveView } from '../runtime/view-refs'
 import { beginEditingEntity } from '../runtime/editing-entity-runtime'
@@ -48,7 +44,6 @@ import {
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
 import { createNoteFile, readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
-import { saveImageBuffer } from '../runtime/image-assets'
 import {
   activeTool,
   finishOneShotPlacement,
@@ -96,52 +91,14 @@ import {
 } from '../workspace-pages'
 import { deleteGroups, duplicateGroup, ungroupUserGroup } from '../workspace-groups'
 import {
-  copyablePagePayload,
   copyableSelectionPayload,
   pasteEntitiesFromClipboard,
-  pastePagesFromClipboard,
 } from '../workspace-clipboard'
 import { workspaceGroups } from '../runtime/workspace-model'
 import { selectGroup } from '../runtime/selection-controller'
 import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
 
-const CLIPBOARD_PREFIX_V1 = 'web-canvas:pages:'
 const CLIPBOARD_PREFIX = 'web-canvas:entities:'
-
-function parseClipboardSelection(
-  rawText: string,
-): ClipboardEntitySelectionPayload | ClipboardPageSelectionPayload | null {
-  // Try v2 (entities) format first
-  if (rawText.startsWith(CLIPBOARD_PREFIX)) {
-    try {
-      const parsed = JSON.parse(
-        rawText.slice(CLIPBOARD_PREFIX.length),
-      ) as ClipboardEntitySelectionPayload
-      if (parsed?.version === 2 && Array.isArray(parsed.entities)) {
-        return parsed
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  // Backward compat: v1 (pages-only) format
-  if (rawText.startsWith(CLIPBOARD_PREFIX_V1)) {
-    try {
-      const parsed = JSON.parse(
-        rawText.slice(CLIPBOARD_PREFIX_V1.length),
-      ) as ClipboardPageSelectionPayload
-      if (parsed?.version === 1 && Array.isArray(parsed.pages)) {
-        return parsed
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  return null
-}
-
 
 export function registerCanvasEntityIpc(): void {
   ipcMain.on(
@@ -421,7 +378,7 @@ export function registerCanvasEntityIpc(): void {
       {
         label: 'Duplicate',
         click: () => {
-          duplicatePageFromSource({ sourcePageId: pageId, focus: true, skipGrouping: true })
+          duplicatePageFromSource({ sourcePageId: pageId, focus: true })
         },
       },
       {
@@ -493,42 +450,7 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on(
     'canvas-paste-selection',
     (_event, { canvasX, canvasY }: { canvasX: number; canvasY: number }) => {
-      // Check for image on clipboard first
-      const clipImage = clipboard.readImage()
-      if (!clipImage.isEmpty()) {
-        const file = saveImageBuffer(clipImage.toPNG(), 'png')
-        const { width, height } = clipImage.getSize()
-        createFileEntity({ canvasX, canvasY, file, width, height })
-        return
-      }
-
-      const text = clipboard.readText()
-      const payload = parseClipboardSelection(text)
-      if (payload) {
-        if (payload.version === 2) {
-          pasteEntitiesFromClipboard({ payload, canvasX, canvasY })
-        } else {
-          pastePagesFromClipboard({ payload, canvasX, canvasY })
-        }
-        return
-      }
-
-      const trimmed = text.trim()
-      if (trimmed && !trimmed.includes('\n') && looksLikeUrl(trimmed)) {
-        try {
-          const url = normalizeUserUrl(trimmed)
-          createPageAtPosition({
-            presetIndex: DESKTOP_PRESET_INDEX,
-            canvasX,
-            canvasY,
-            mode: 'paste_url',
-            focus: true,
-            url,
-          })
-        } catch {
-          // Not a valid URL after normalisation — ignore the paste.
-        }
-      }
+      pasteFromClipboard({ canvasX, canvasY })
     },
   )
 

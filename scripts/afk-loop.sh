@@ -70,9 +70,9 @@ Do this and only this:
 4. Follow its decision tree exactly ONCE, with the variables above substituted.
    - Skip every "RemoteTrigger run <SELF_ROUTINE_ID>" and "RemoteTrigger update" instruction in worker.md — we are running in a local shell loop, not a routine.
 
-Exit when you have done one unit of work (opened/merged one PR, advanced one task's state, or determined there is nothing to do).
+Exit when you have done one unit of work (opened/merged one PR, advanced one tasks state, or determined there is nothing to do).
 
-Do not invent extra work. Do not refactor outside the current step's scope. One PR per fire, max.
+Do not invent extra work. Do not refactor outside the current steps scope. One PR per fire, max.
 EOF
 )
 

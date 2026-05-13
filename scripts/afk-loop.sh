@@ -9,6 +9,7 @@
 # Env knobs:
 #   MAX_FIRES        max iterations before stopping (default 20)
 #   SLEEP_SECONDS    seconds to sleep between fires (default 5)
+#   AFK_WORKER       which CLI runs each fire: "claude" (default) or "codex"
 #
 # Stop with Ctrl+C. Each fire is a fresh context — no compaction, predictable cost.
 # This is the local equivalent of the cloud worker routine, without the 1h cron floor.
@@ -46,11 +47,26 @@ fi
 OWNER_REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 MAX_FIRES="${MAX_FIRES:-20}"
 SLEEP_SECONDS="${SLEEP_SECONDS:-5}"
+AFK_WORKER="${AFK_WORKER:-claude}"
+
+case "$AFK_WORKER" in
+  claude|codex) ;;
+  *)
+    echo "Error: AFK_WORKER must be 'claude' or 'codex' (got: $AFK_WORKER)" >&2
+    exit 1
+    ;;
+esac
+
+if ! command -v "$AFK_WORKER" >/dev/null 2>&1; then
+  echo "Error: '$AFK_WORKER' CLI is not on PATH." >&2
+  exit 1
+fi
 
 echo "=== AFK loop ==="
 echo "Repo:           $OWNER_REPO"
 echo "Feature branch: $FEATURE_BRANCH"
 echo "Epic:           $EPIC_ID"
+echo "Worker:         $AFK_WORKER"
 echo "Max fires:      $MAX_FIRES"
 echo "Sleep between:  ${SLEEP_SECONDS}s"
 echo ""
@@ -84,12 +100,22 @@ for i in $(seq 1 "$MAX_FIRES"); do
   git fetch origin "$FEATURE_BRANCH" >/dev/null 2>&1 || true
   git reset --hard "origin/$FEATURE_BRANCH" >/dev/null 2>&1 || true
 
-  if ! claude -p "$PROMPT" \
-      --allowedTools "Bash,Read,Write,Edit,Glob,Grep" \
-      --dangerously-skip-permissions; then
-    echo "claude -p exited non-zero, stopping" >&2
-    exit 1
-  fi
+  case "$AFK_WORKER" in
+    claude)
+      if ! claude -p "$PROMPT" \
+          --allowedTools "Bash,Read,Write,Edit,Glob,Grep" \
+          --dangerously-skip-permissions; then
+        echo "claude -p exited non-zero, stopping" >&2
+        exit 1
+      fi
+      ;;
+    codex)
+      if ! codex exec --full-auto "$PROMPT"; then
+        echo "codex exec exited non-zero, stopping" >&2
+        exit 1
+      fi
+      ;;
+  esac
 
   echo ""
 

@@ -1,15 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Mock runtime-context so the controller runs in isolation (no Electron).
-const state: { interactionState: { kind: string; [k: string]: unknown } } = {
-  interactionState: { kind: 'idle' },
-}
-vi.mock('../../src/main/runtime/runtime-context', () => ({
-  get interactionState() { return state.interactionState },
-  setInteractionState: (next: typeof state.interactionState) => { state.interactionState = next },
-}))
-vi.mock('../../src/main/runtime/layout-dirty', () => ({
-  markDirty: () => {},
+// viewport-control pulls in electron (screen, app) via layout-engine and
+// workspace-autosave; the controller only uses it to trigger layout passes,
+// which are external to the gesture state machine under test. No-op it.
+vi.mock('../../src/main/runtime/viewport-control', () => ({
+  requestLayout: () => {},
 }))
 
 import {
@@ -17,72 +12,75 @@ import {
   commit,
   cancel,
   cancelActive,
+  commitActive,
   peek,
   subscribe,
   __resetForTests,
   TOKEN_EXPIRY_MS,
+  type InteractionRefused,
 } from '../../src/main/runtime/interaction-controller'
+import { interactionState } from '../../src/main/runtime/runtime-context'
+import { clearInteractionState } from '../../src/main/runtime/interaction-state'
+import type { Token } from '../../src/shared/interaction-types'
 
-function resetAll() {
-  state.interactionState = { kind: 'idle' }
-  __resetForTests()
+function expectGranted(result: Token | InteractionRefused): Token {
+  if ('refused' in result) throw new Error(`expected token, got refused: ${result.reason}`)
+  return result
 }
 
-describe('InteractionController', () => {
-  beforeEach(resetAll)
+beforeEach(() => {
+  __resetForTests()
+  clearInteractionState()
+})
 
+describe('InteractionController', () => {
   it('starts idle', () => {
     expect(peek()).toEqual({ kind: 'idle' })
+    expect(interactionState.kind).toBe('idle')
   })
 
-  it('tryEnter returns a token and transitions mode', () => {
-    const tok = tryEnter({ kind: 'panning' })
-    expect('refused' in tok).toBe(false)
-    expect(state.interactionState.kind).toBe('panning-canvas')
+  it('tryEnter transitions runtime interactionState', () => {
+    expectGranted(tryEnter({ kind: 'panning' }))
+    expect(interactionState.kind).toBe('panning-canvas')
+    expect(peek().kind).toBe('panning')
   })
 
   it('refuses concurrent tryEnter', () => {
-    const a = tryEnter({ kind: 'panning' })
-    expect('refused' in a).toBe(false)
-    const b = tryEnter({ kind: 'marquee' })
-    expect('refused' in b).toBe(true)
-    if ('refused' in b) expect(b.reason).toMatch(/already/)
+    expectGranted(tryEnter({ kind: 'panning' }))
+    const second = tryEnter({ kind: 'marquee' })
+    expect('refused' in second).toBe(true)
+    if ('refused' in second) expect(second.reason).toMatch(/already/)
   })
 
-  it('commit returns to idle', () => {
-    const tok = tryEnter({ kind: 'marquee' })
-    if ('refused' in tok) throw new Error('refused')
+  it('commit returns to idle and clears runtime state', () => {
+    const tok = expectGranted(tryEnter({ kind: 'marquee' }))
     commit(tok)
-    expect(state.interactionState.kind).toBe('idle')
-    const next = tryEnter({ kind: 'panning' })
-    expect('refused' in next).toBe(false)
+    expect(interactionState.kind).toBe('idle')
+    expect(peek()).toEqual({ kind: 'idle' })
+    expectGranted(tryEnter({ kind: 'panning' }))
   })
 
   it('cancel is idempotent', () => {
-    const tok = tryEnter({ kind: 'panning' })
-    if ('refused' in tok) throw new Error('refused')
+    const tok = expectGranted(tryEnter({ kind: 'panning' }))
     cancel(tok, 'escape')
     cancel(tok, 'escape')
-    expect(state.interactionState.kind).toBe('idle')
+    expect(interactionState.kind).toBe('idle')
   })
 
   it('stale token after commit is a no-op', () => {
-    const tok = tryEnter({ kind: 'panning' })
-    if ('refused' in tok) throw new Error('refused')
+    const tok = expectGranted(tryEnter({ kind: 'panning' }))
     commit(tok)
-    const other = tryEnter({ kind: 'marquee' })
-    expect('refused' in other).toBe(false)
-    cancel(tok, 'escape') // stale — must not affect current
-    expect(state.interactionState.kind).toBe('marquee-select')
+    expectGranted(tryEnter({ kind: 'marquee' }))
+    cancel(tok, 'escape')
+    expect(interactionState.kind).toBe('marquee-select')
   })
 
-  it('token expiry force-cancels', () => {
+  it('token expiry force-cancels active gesture', () => {
     vi.useFakeTimers()
     try {
-      const tok = tryEnter({ kind: 'panning' })
-      expect('refused' in tok).toBe(false)
+      expectGranted(tryEnter({ kind: 'panning' }))
       vi.advanceTimersByTime(TOKEN_EXPIRY_MS + 1)
-      expect(state.interactionState.kind).toBe('idle')
+      expect(interactionState.kind).toBe('idle')
     } finally {
       vi.useRealTimers()
     }
@@ -90,24 +88,43 @@ describe('InteractionController', () => {
 
   it('cancelActive on idle is a no-op', () => {
     cancelActive('external')
-    expect(state.interactionState.kind).toBe('idle')
+    expect(interactionState.kind).toBe('idle')
   })
 
   it('cancelActive cancels whatever is active', () => {
-    const tok = tryEnter({ kind: 'marquee' })
-    expect('refused' in tok).toBe(false)
+    expectGranted(tryEnter({ kind: 'marquee' }))
     cancelActive('external')
-    expect(state.interactionState.kind).toBe('idle')
-    const next = tryEnter({ kind: 'panning' })
-    expect('refused' in next).toBe(false)
+    expect(interactionState.kind).toBe('idle')
+    expectGranted(tryEnter({ kind: 'panning' }))
+  })
+
+  it('commitActive on idle is a no-op', () => {
+    commitActive()
+    expect(interactionState.kind).toBe('idle')
+  })
+
+  it('commitActive ends whatever is active', () => {
+    expectGranted(tryEnter({ kind: 'marquee' }))
+    commitActive()
+    expect(interactionState.kind).toBe('idle')
   })
 
   it('subscribers fire after transition, not during', async () => {
-    const calls: string[] = []
-    subscribe((m) => calls.push(m.kind))
+    const observed: string[] = []
+    subscribe((mode) => observed.push(mode.kind))
     tryEnter({ kind: 'panning' })
-    // microtask flush
+    expect(observed).toEqual([])
     await Promise.resolve()
-    expect(calls).toContain('panning')
+    expect(observed).toEqual(['panning'])
+  })
+
+  it('subscribers see idle on commit', async () => {
+    const observed: string[] = []
+    subscribe((mode) => observed.push(mode.kind))
+    const tok = expectGranted(tryEnter({ kind: 'marquee' }))
+    await Promise.resolve()
+    commit(tok)
+    await Promise.resolve()
+    expect(observed).toEqual(['marquee', 'idle'])
   })
 })

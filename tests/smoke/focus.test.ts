@@ -12,10 +12,7 @@ import { waitFor } from './test-utils'
  * Spec docs/interaction-layer.md §9.
  *
  * Phase A scaffold: tests the reconciler when it acts on explicit
- * pendingFocus intent (current Phase 3 conservative mode). Phase C
- * flips to unconditional derivation; the .todo tests below validate
- * that focus reconciles after operations that don't set explicit
- * intent today.
+ * pendingFocus intent (current Phase 3 conservative mode).
  */
 
 const createdPageIds: string[] = []
@@ -45,14 +42,4 @@ describe('FocusReconciler', () => {
     // No assertion on actual focus — see header comment.
   })
 
-  // Phase C flips: focus should land correctly after these operations
-  // without requiring explicit setPendingFocus calls. Today the relevant
-  // sites (page-factory, page-chrome, etc.) call webContents.focus()
-  // imperatively — Phase C migrates them to setPendingFocus + markDirty.
-  it.todo('focus lands on bgView after the last page is deleted (Phase C)')
-  it.todo('focus lands on selected page after page create (Phase C)')
-  it.todo('focus lands on toolbar after address-bar activation (Phase C)')
-  it.todo('focus lands on aboveView when entering text-edit mode (Phase C)')
-  it.todo('focus reconciles correctly across tab switches (Phase C)')
-  it.todo('focus reconciles correctly after window blur/focus cycle (Phase C)')
 })

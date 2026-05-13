@@ -5,7 +5,7 @@
  * default-open in canvas mode.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MutableRefObject } from 'react'
 import { ChevronLeft, ChevronRight, EllipsisVertical, RotateCw, Search } from 'lucide-react'
 import type {
   CanvasBgElectronAPI,
@@ -15,15 +15,20 @@ import type {
 import { normalizeUserUrl } from '../../shared/url'
 import { CanvasItemChrome } from './CanvasItemChrome'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
+import { startOptionAwareEntityDrag, type DragCopyPreviewBox } from './optionDragCopy'
 
 export function PageChromeOverlay({
   api,
   layoutData,
   isDark,
+  optionHeldRef,
+  setDragCopyPreview,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
   isDark: boolean
+  optionHeldRef: MutableRefObject<boolean>
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
   if (layoutData.viewMode !== 'canvas') return null
   const pages = layoutData.entities.filter(
@@ -48,6 +53,8 @@ export function PageChromeOverlay({
           isSelected={page.id === selectedPageId && isIdle}
           isActive={(page.id === selectedPageId && isIdle) || page.id === hoveredPageId}
           dragEnabled={dragEnabled}
+          optionHeldRef={optionHeldRef}
+          setDragCopyPreview={setDragCopyPreview}
         />
       ))}
     </>
@@ -62,6 +69,8 @@ function PageChromeItem({
   isSelected,
   isActive,
   dragEnabled,
+  optionHeldRef,
+  setDragCopyPreview,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
@@ -70,6 +79,8 @@ function PageChromeItem({
   isSelected: boolean
   isActive: boolean
   dragEnabled: boolean
+  optionHeldRef: MutableRefObject<boolean>
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [pendingUrl, setPendingUrl] = useState<string | null>(null)
@@ -120,13 +131,6 @@ function PageChromeItem({
         const modifiers = { shift: event.shiftKey, meta: event.metaKey, ctrl: event.ctrlKey }
         if (additive) {
           api.selectPage(page.id, modifiers)
-          return
-        }
-        const preserve = layoutData.selectedEntityIds.includes(page.id)
-        api.startDragPage(page.id, { entityKind: 'page', preserveSelection: preserve })
-        let lastX = event.screenX
-        let lastY = event.screenY
-        const cleanup = () => {
           try {
             if (captureTarget.hasPointerCapture(pointerId)) {
               captureTarget.releasePointerCapture(pointerId)
@@ -134,32 +138,20 @@ function PageChromeItem({
           } catch {
             /* ignore */
           }
-          window.removeEventListener('pointermove', onMove)
-          window.removeEventListener('pointerup', onUp)
-          window.removeEventListener('pointercancel', onCancel)
-          window.removeEventListener('blur', onCancel)
+          return
         }
-        const finish = () => {
-          cleanup()
-          api.endDragPage()
-        }
-        const onMove = (me: PointerEvent) => {
-          if (me.pointerId !== pointerId) return
-          const dx = me.screenX - lastX
-          const dy = me.screenY - lastY
-          lastX = me.screenX
-          lastY = me.screenY
-          if (dx !== 0 || dy !== 0) api.dragPage(page.id, dx, dy)
-        }
-        const onUp = (me: PointerEvent) => {
-          if (me.pointerId !== pointerId) return
-          finish()
-        }
-        const onCancel = () => finish()
-        window.addEventListener('pointermove', onMove)
-        window.addEventListener('pointerup', onUp)
-        window.addEventListener('pointercancel', onCancel)
-        window.addEventListener('blur', onCancel)
+        const preserve = layoutData.selectedEntityIds.includes(page.id)
+        startOptionAwareEntityDrag({
+          api,
+          layout: layoutData,
+          entityId: page.id,
+          entityKind: 'page',
+          preserveSelection: preserve,
+          event,
+          captureTarget,
+          isOptionHeld: () => optionHeldRef.current,
+          setPreview: setDragCopyPreview,
+        })
       }
     : undefined
 

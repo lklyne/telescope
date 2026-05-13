@@ -45,6 +45,7 @@ import {
   pastePagesFromClipboard,
 } from '../workspace-clipboard'
 import { descendantEntityIdsForGroup } from '../runtime/group-descendants'
+import { duplicateGroup } from '../workspace-groups'
 
 const VIEWPORT_EVENT_FRAME_MS = 16
 
@@ -245,6 +246,25 @@ export function registerCanvasDragIpc(): void {
       const payload = copyablePagePayload(entityIds)
       if (!payload) return
       pastePagesFromClipboard({ payload, canvasX, canvasY })
+    },
+  )
+
+  ipcMain.on(
+    'canvas-drag-copy-selection',
+    (_event, { canvasX, canvasY }: { canvasX: number; canvasY: number }) => {
+      const payload = copyableSelectionPayload()
+      if (!payload) return
+      pasteEntitiesFromClipboard({ payload, canvasX, canvasY })
+    },
+  )
+
+  ipcMain.on(
+    'canvas-drag-copy-group',
+    (
+      _event,
+      { groupId, canvasX, canvasY }: { groupId: string; canvasX: number; canvasY: number },
+    ) => {
+      duplicateGroup({ groupId, focus: true, placement: { canvasX, canvasY } })
     },
   )
 

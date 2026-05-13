@@ -151,6 +151,13 @@ function routeByPayload(
       if (isAdditive(context.modifiers)) {
         return { kind: 'toggle-select', entityId: payload.entityId, entityKind: 'page' }
       }
+      if (context.altHeld) {
+        return {
+          kind: 'page-body-press',
+          entityId: payload.entityId,
+          preserveSelection: context.selectedEntityIds.includes(payload.entityId),
+        }
+      }
       // PoC: on the single-selected page's body, forward the pointer event
       // into the page so the user interacts with web content directly.
       // Otherwise (unselected or multi-selected) keep the existing

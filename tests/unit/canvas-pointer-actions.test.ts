@@ -113,6 +113,17 @@ describe('routePointerDown', () => {
     expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'left' })
   })
 
+  it('alt-click on single-selected page body → page-body-press (alt-copy semantics preserved)', () => {
+    const f = page()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      altHeld: true,
+    })
+    expect(action).toEqual({ kind: 'page-body-press', entityId: 'f1', preserveSelection: true })
+  })
+
   it('right-click on single-selected page body → forward-pointer-down (right)', () => {
     const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })

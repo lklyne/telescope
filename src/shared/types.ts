@@ -1262,6 +1262,8 @@ export interface ClipboardEntityPayload {
   strokeWidth?: number
   theme?: string
   label?: string
+  // Drawing entity-specific; points are relative to the drawing origin.
+  strokes?: AnnotationDrawingStroke[]
 }
 
 export interface ClipboardEntitySelectionPayload {
@@ -1662,6 +1664,8 @@ export interface CanvasBgElectronAPI {
   dragPage: (pageId: string, dx: number, dy: number) => void
   endDragPage: () => void
   dragCopyPage: (pageId: string, canvasX: number, canvasY: number) => void
+  dragCopySelection: (canvasX: number, canvasY: number) => void
+  dragCopyGroup: (groupId: string, canvasX: number, canvasY: number) => void
   setPagePreset: (pageId: string, index: number) => void
   renamePage: (pageId: string, name: string) => void
   duplicatePage: (pageId: string) => void

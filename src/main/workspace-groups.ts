@@ -22,6 +22,8 @@ import {
 } from './runtime/ui-actions'
 import { textEntities, createTextEntity as createTextEntityInState } from './runtime/text-entity-state'
 import { fileEntities, createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
+import { shapeEntities, createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
+import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from './runtime/drawing-entity-state'
 import {
   layoutAllViews,
   requestLayout,
@@ -149,6 +151,7 @@ export function removeEntityFromUserGroups(entityId: string): void {
 export function duplicateGroup(input: {
   groupId: string
   focus?: boolean
+  placement?: { canvasX: number; canvasY: number }
 }): { groupId: string; entityIds: string[] } {
   const sourceGroup = groupById(input.groupId)
   if (!sourceGroup) {
@@ -156,9 +159,11 @@ export function duplicateGroup(input: {
   }
 
   const sourceBounds = groupBounds(sourceGroup)
-  const placement = sourceBounds
-    ? findDuplicatePlacement(sourceBounds)
-    : { canvasX: sourceGroup.canvasX + CLUSTER_HORIZONTAL_GUTTER, canvasY: sourceGroup.canvasY }
+  const placement = input.placement
+    ? { canvasX: snapToGrid(input.placement.canvasX), canvasY: snapToGrid(input.placement.canvasY) }
+    : sourceBounds
+      ? findDuplicatePlacement(sourceBounds)
+      : { canvasX: sourceGroup.canvasX + CLUSTER_HORIZONTAL_GUTTER, canvasY: sourceGroup.canvasY }
   const offsetX = placement.canvasX - sourceGroup.canvasX
   const offsetY = placement.canvasY - sourceGroup.canvasY
 
@@ -226,6 +231,44 @@ export function duplicateGroup(input: {
         presetIndex: entity.presetIndex,
         metadata: entity.metadata ? { ...entity.metadata } : undefined,
         objectFit: entity.objectFit,
+      })
+      entityIdMap.set(entity.id, duplicatedEntity.id)
+      duplicatedEntityIds.push(duplicatedEntity.id)
+    }
+
+    const childShapeEntities = shapeEntities.filter((entity) => entity.parentGroupId === group.id)
+    for (const entity of childShapeEntities) {
+      const duplicatedEntity = createShapeEntityInState({
+        canvasX: snapToGrid(entity.canvasX + offsetX),
+        canvasY: snapToGrid(entity.canvasY + offsetY),
+        shapeKind: entity.shapeKind,
+        text: entity.text,
+        color: entity.color,
+        strokeWidth: entity.strokeWidth,
+        theme: entity.theme,
+        width: entity.width,
+        height: entity.height,
+        parentGroupId: clonedGroup.id,
+        label: entity.label,
+      })
+      entityIdMap.set(entity.id, duplicatedEntity.id)
+      duplicatedEntityIds.push(duplicatedEntity.id)
+    }
+
+    const childDrawingEntities = drawingEntities.filter((entity) => entity.parentGroupId === group.id)
+    for (const entity of childDrawingEntities) {
+      const duplicatedEntity = createDrawingEntityInState({
+        canvasX: snapToGrid(entity.canvasX + offsetX),
+        canvasY: snapToGrid(entity.canvasY + offsetY),
+        width: entity.width,
+        height: entity.height,
+        strokes: entity.strokes.map((stroke) => ({
+          ...stroke,
+          id: `${stroke.id}_dup_${Math.random().toString(36).slice(2, 8)}`,
+          points: stroke.points.map((point) => ({ x: point.x + offsetX, y: point.y + offsetY })),
+        })),
+        parentGroupId: clonedGroup.id,
+        label: entity.label,
       })
       entityIdMap.set(entity.id, duplicatedEntity.id)
       duplicatedEntityIds.push(duplicatedEntity.id)

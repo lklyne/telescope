@@ -6,7 +6,7 @@
  * (ADR 0008 §7).
  */
 
-import { memo } from 'react'
+import { memo, type MutableRefObject } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneFileEntity,
@@ -15,15 +15,20 @@ import type {
 import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from '../canvas-bg/entityConstants'
 import { CanvasItemChrome } from './CanvasItemChrome'
 import { iconForFilePath } from '../shared/fileIcon'
+import { startOptionAwareEntityDrag, type DragCopyPreviewBox } from './optionDragCopy'
 
 export function FileChromeOverlay({
   api,
   layoutData,
   isDark,
+  optionHeldRef,
+  setDragCopyPreview,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
   isDark: boolean
+  optionHeldRef: MutableRefObject<boolean>
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
   if (layoutData.viewMode !== 'canvas') return null
   const fileEntities = layoutData.entities.filter(
@@ -43,6 +48,8 @@ export function FileChromeOverlay({
           entity={entity}
           isDark={isDark}
           isActive={(entity.id === selectedEntityId && isIdle) || entity.id === hoveredEntityId}
+          optionHeldRef={optionHeldRef}
+          setDragCopyPreview={setDragCopyPreview}
         />
       ))}
     </>
@@ -55,12 +62,16 @@ const FileChromeItem = memo(function FileChromeItem({
   entity,
   isDark,
   isActive,
+  optionHeldRef,
+  setDragCopyPreview,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
   entity: CanvasSceneFileEntity
   isDark: boolean
   isActive: boolean
+  optionHeldRef: MutableRefObject<boolean>
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
   const fileName = entity.file.split('/').pop() ?? entity.file
   const displayName = WIREFRAME_EXTENSIONS.test(entity.file)
@@ -86,13 +97,6 @@ const FileChromeItem = memo(function FileChromeItem({
     const modifiers = { shift: event.shiftKey, meta: event.metaKey, ctrl: event.ctrlKey }
     if (additive) {
       api.selectEntity(entity.id, 'file', modifiers)
-      return
-    }
-    const preserve = layoutData.selectedEntityIds.includes(entity.id)
-    api.startDragEntity(entity.id, { entityKind: 'file', preserveSelection: preserve })
-    let lastX = event.screenX
-    let lastY = event.screenY
-    const cleanup = () => {
       try {
         if (captureTarget.hasPointerCapture(pointerId)) {
           captureTarget.releasePointerCapture(pointerId)
@@ -100,32 +104,20 @@ const FileChromeItem = memo(function FileChromeItem({
       } catch {
         /* ignore */
       }
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onCancel)
-      window.removeEventListener('blur', onCancel)
+      return
     }
-    const finish = () => {
-      cleanup()
-      api.endDragEntity()
-    }
-    const onMove = (me: PointerEvent) => {
-      if (me.pointerId !== pointerId) return
-      const dx = me.screenX - lastX
-      const dy = me.screenY - lastY
-      lastX = me.screenX
-      lastY = me.screenY
-      if (dx !== 0 || dy !== 0) api.dragEntity(entity.id, dx, dy)
-    }
-    const onUp = (me: PointerEvent) => {
-      if (me.pointerId !== pointerId) return
-      finish()
-    }
-    const onCancel = () => finish()
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onCancel)
-    window.addEventListener('blur', onCancel)
+    const preserve = layoutData.selectedEntityIds.includes(entity.id)
+    startOptionAwareEntityDrag({
+      api,
+      layout: layoutData,
+      entityId: entity.id,
+      entityKind: 'file',
+      preserveSelection: preserve,
+      event,
+      captureTarget,
+      isOptionHeld: () => optionHeldRef.current,
+      setPreview: setDragCopyPreview,
+    })
   }
 
   return (

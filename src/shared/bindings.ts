@@ -76,16 +76,9 @@ export type BindingTarget = 'main' | KeyboardSourceView
 export type BindingContext = {
   activeTool: Tool
   isTextEditing: boolean
-  arrowNavigationLocked: boolean
-  hasKeyboardTargetPage: boolean
   pageFocusActive: boolean
-  canUndo: boolean
-  canRedo: boolean
-  selectionEmpty: boolean
   sourceView: KeyboardSourceView
   viewMode: 'canvas' | 'browser'
-  // Renderer-local annotation state surfaced so Escape resolution works correctly.
-  // Step B must populate these from IPC or default to false.
   hasOpenAnnotationThread: boolean
   hasPendingAnnotation: boolean
 }

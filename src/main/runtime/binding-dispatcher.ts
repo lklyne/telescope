@@ -6,11 +6,9 @@ import {
   type BindingContext,
   type KeyboardSourceView,
 } from '../../shared/bindings'
-import { arrowNavigationLocked, setSpaceModifierHeld } from './runtime-context'
+import { setSpaceModifierHeld } from './runtime-context'
 import { activeTool } from './tool-mode'
-import { canUndo, canRedo } from './workspace-undo'
-import { currentKeyboardTargetPageId } from './selection-controller'
-import { selectedEntityIds, workspaceViewMode } from '../ui-state'
+import { workspaceViewMode } from '../ui-state'
 import { aboveView } from './view-refs'
 import { mainHandlers } from './binding-handlers'
 
@@ -48,12 +46,7 @@ export function buildBindingContext(
   return {
     activeTool: activeTool(),
     isTextEditing: isTextEditingActive(),
-    arrowNavigationLocked,
-    hasKeyboardTargetPage: currentKeyboardTargetPageId() !== null,
     pageFocusActive,
-    canUndo: canUndo(),
-    canRedo: canRedo(),
-    selectionEmpty: selectedEntityIds().length === 0,
     sourceView,
     viewMode: workspaceViewMode(),
     hasOpenAnnotationThread,

@@ -16,7 +16,7 @@ import {
 } from './workspace-clipboard'
 
 const CLIPBOARD_PREFIX_V1 = 'web-canvas:pages:'
-const CLIPBOARD_PREFIX = 'web-canvas:entities:'
+export const CLIPBOARD_PREFIX = 'web-canvas:entities:'
 
 function parseClipboardSelection(
   rawText: string,

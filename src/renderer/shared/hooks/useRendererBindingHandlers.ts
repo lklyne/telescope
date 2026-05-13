@@ -14,7 +14,7 @@ export function useRendererBindingHandlers(
 
   useEffect(() => {
     return api.onBindingFire((id) => {
-      const handler = handlersRef.current[id as BindingId]
+      const handler = handlersRef.current[id]
       if (handler) handler()
     })
   }, [])

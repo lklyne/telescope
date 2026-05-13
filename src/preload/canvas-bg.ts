@@ -9,6 +9,7 @@ import type {
   SelectionOverlayPayload,
   ToolDefaultPatch,
 } from '../shared/types'
+import type { BindingId } from '../shared/bindings'
 
 function installSelectionOverlayBridge(): void {
   if (location.href !== 'about:blank') return
@@ -314,8 +315,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-set-text-editing', { active }),
   setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) =>
     ipcRenderer.send('canvas-set-annotation-state', { hasOpenThread, hasPending: hasPendingAnnotation }),
-  onBindingFire: (callback: (id: string) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, id: string) => callback(id)
+  onBindingFire: (callback: (id: BindingId) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, id: BindingId) => callback(id)
     ipcRenderer.on('binding-fire', handler)
     return () => ipcRenderer.removeListener('binding-fire', handler)
   },

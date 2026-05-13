@@ -9,6 +9,7 @@ import type {
 import type { CursorTuningParams } from './cursor-tuning'
 import type { PresenceDebugEntry } from './presence-debug'
 import type { DrawingBrushType, Tool } from './tool'
+import type { BindingId } from './bindings'
 
 export type { DrawingBrushType, Tool, ToolKind, ToolDuration } from './tool'
 export type { ToolDefaults, ToolDefaultPatch } from './tool-defaults'
@@ -1807,7 +1808,7 @@ export interface CanvasBgElectronAPI {
   hoverPage: (pageId: string | null) => void
   setTextEditing: (active: boolean) => void
   setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) => void
-  onBindingFire: (callback: (id: string) => void) => () => void
+  onBindingFire: (callback: (id: BindingId) => void) => () => void
   /** Forward a wheel event hitting the single-selected page's body to the
    *  page's webContents (aboveview-interactive-layer-poc.md). */
   forwardWheelToPage: (pageId: string, payload: ForwardWheelPayload) => void

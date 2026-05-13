@@ -2,7 +2,7 @@ import { clipboard, ipcMain, Menu, shell } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type { AnnotationCreateRequest } from '../../shared/types'
-import { pasteFromClipboard } from '../clipboard-paste'
+import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
 import { aboveView } from '../runtime/view-refs'
 import { beginEditingEntity } from '../runtime/editing-entity-runtime'
@@ -96,8 +96,6 @@ import {
 import { workspaceGroups } from '../runtime/workspace-model'
 import { selectGroup } from '../runtime/selection-controller'
 import { deleteSelection } from '../runtime/delete-selection'
-
-const CLIPBOARD_PREFIX = 'web-canvas:entities:'
 
 export function registerCanvasEntityIpc(): void {
   ipcMain.on(

@@ -13,12 +13,7 @@ import type { ToolKind } from '../../src/shared/tool'
 const BASE_CTX: BindingContext = {
   activeTool: { kind: 'select' },
   isTextEditing: false,
-  arrowNavigationLocked: false,
-  hasKeyboardTargetPage: false,
   pageFocusActive: false,
-  canUndo: true,
-  canRedo: true,
-  selectionEmpty: false,
   sourceView: 'canvasBg',
   viewMode: 'canvas',
   hasOpenAnnotationThread: false,

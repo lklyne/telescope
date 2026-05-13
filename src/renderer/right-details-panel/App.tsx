@@ -1,6 +1,4 @@
 import type { ThemeData } from '../../shared/types'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
-import { useAnnotateToggleShortcut } from '../shared/hooks/useAnnotateToggleShortcut'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DocumentPane } from './components/DocumentPane'
@@ -20,11 +18,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()
   const isDark = useTheme(initialTheme, rightDetailsPanelApi.onThemeChanged)
 
-  useAnnotateToggleShortcut({
-    setTool: rightDetailsPanelApi.setTool,
-    activeTool: panelData.activeTool,
-    drawingEnabled: DRAWING_FEATURE_ENABLED,
-  })
   useReportTextEditing(rightDetailsPanelApi.setTextEditing)
 
   const pageClass = isDark

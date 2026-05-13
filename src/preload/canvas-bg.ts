@@ -308,6 +308,13 @@ const api: CanvasBgElectronAPI = {
   },
   setTextEditing: (active: boolean) =>
     ipcRenderer.send('canvas-set-text-editing', { active }),
+  setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) =>
+    ipcRenderer.send('canvas-set-annotation-state', { hasOpenThread, hasPending: hasPendingAnnotation }),
+  onBindingFire: (callback: (id: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, id: string) => callback(id)
+    ipcRenderer.on('binding-fire', handler)
+    return () => ipcRenderer.removeListener('binding-fire', handler)
+  },
   readNoteFile: (filePath: string) =>
     ipcRenderer.invoke('read-note-file', { filePath }),
   writeNoteFile: (filePath: string, content: string) =>

@@ -1802,6 +1802,8 @@ export interface CanvasBgElectronAPI {
   selectEdge: (edgeId: string | null) => void
   hoverPage: (pageId: string | null) => void
   setTextEditing: (active: boolean) => void
+  setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) => void
+  onBindingFire: (callback: (id: string) => void) => () => void
   /** Forward a wheel event hitting the single-selected page's body to the
    *  page's webContents (aboveview-interactive-layer-poc.md). */
   forwardWheelToPage: (pageId: string, payload: ForwardWheelPayload) => void

@@ -38,7 +38,7 @@ import {
   cancelEditingEntity,
   commitEditingEntity,
 } from '../runtime/editing-entity-runtime'
-import { setTextEditingActive } from '../runtime/binding-dispatcher'
+import { setTextEditingActive, setAnnotationState } from '../runtime/binding-dispatcher'
 import {
   forwardPointerToPage,
   forwardWheelToPage,
@@ -275,6 +275,13 @@ export function registerCanvasIpc(): void {
   ipcMain.on('canvas-set-text-editing', (event, { active }: { active: boolean }) => {
     setTextEditingActive(event.sender, active)
   })
+
+  ipcMain.on(
+    'canvas-set-annotation-state',
+    (_event, { hasOpenThread, hasPending }: { hasOpenThread: boolean; hasPending: boolean }) => {
+      setAnnotationState(hasOpenThread, hasPending)
+    },
+  )
 
   // --- Browser mode ---
 

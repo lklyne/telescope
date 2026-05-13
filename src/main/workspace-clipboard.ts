@@ -19,6 +19,10 @@ import { shapeEntities } from './runtime/shape-entity-state'
 import { createTextEntity as createTextEntityInState } from './runtime/text-entity-state'
 import { createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
 import { createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
+import {
+  createDrawingEntity as createDrawingEntityInState,
+  drawingEntities,
+} from './runtime/drawing-entity-state'
 import { layoutAllViews, snapToGrid } from './runtime/surface-layout'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
 import { cloneMetadata } from './workspace-utils'
@@ -78,6 +82,11 @@ export function copyableSelectionPayload():
     const shape = shapeEntities.find((s) => s.id === id)
     if (shape) {
       allPositions.push({ canvasX: shape.canvasX, canvasY: shape.canvasY })
+      continue
+    }
+    const drawing = drawingEntities.find((d) => d.id === id)
+    if (drawing) {
+      allPositions.push({ canvasX: drawing.canvasX, canvasY: drawing.canvasY })
     }
   }
 
@@ -143,6 +152,25 @@ export function copyableSelectionPayload():
         height: shape.height,
         dx: shape.canvasX - minX,
         dy: shape.canvasY - minY,
+      })
+      continue
+    }
+    const drawing = drawingEntities.find((d) => d.id === id)
+    if (drawing) {
+      entities.push({
+        kind: 'drawing',
+        width: drawing.width,
+        height: drawing.height,
+        strokes: drawing.strokes.map((stroke) => ({
+          ...stroke,
+          points: stroke.points.map((point) => ({
+            x: point.x - drawing.canvasX,
+            y: point.y - drawing.canvasY,
+          })),
+        })),
+        label: drawing.label,
+        dx: drawing.canvasX - minX,
+        dy: drawing.canvasY - minY,
       })
     }
   }
@@ -265,6 +293,25 @@ export function pasteEntitiesFromClipboard(input: {
         height: entity.height,
       })
       entityIds.push(shape.id)
+    } else if (entity.kind === 'drawing') {
+      const canvasX = snapToGrid(input.canvasX + entity.dx)
+      const canvasY = snapToGrid(input.canvasY + entity.dy)
+      const drawing = createDrawingEntityInState({
+        canvasX,
+        canvasY,
+        width: entity.width ?? 0,
+        height: entity.height ?? 0,
+        strokes: (entity.strokes ?? []).map((stroke) => ({
+          ...stroke,
+          id: `${stroke.id}_paste_${Math.random().toString(36).slice(2, 8)}`,
+          points: stroke.points.map((point) => ({
+            x: point.x + canvasX,
+            y: point.y + canvasY,
+          })),
+        })),
+        label: entity.label,
+      })
+      entityIds.push(drawing.id)
     }
   }
 

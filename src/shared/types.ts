@@ -9,6 +9,7 @@ import type {
 import type { CursorTuningParams } from './cursor-tuning'
 import type { PresenceDebugEntry } from './presence-debug'
 import type { DrawingBrushType, Tool } from './tool'
+import type { BindingId } from './bindings'
 
 export type { DrawingBrushType, Tool, ToolKind, ToolDuration } from './tool'
 export type { ToolDefaults, ToolDefaultPatch } from './tool-defaults'
@@ -1262,6 +1263,8 @@ export interface ClipboardEntityPayload {
   strokeWidth?: number
   theme?: string
   label?: string
+  // Drawing entity-specific; points are relative to the drawing origin.
+  strokes?: AnnotationDrawingStroke[]
 }
 
 export interface ClipboardEntitySelectionPayload {
@@ -1662,6 +1665,8 @@ export interface CanvasBgElectronAPI {
   dragPage: (pageId: string, dx: number, dy: number) => void
   endDragPage: () => void
   dragCopyPage: (pageId: string, canvasX: number, canvasY: number) => void
+  dragCopySelection: (canvasX: number, canvasY: number) => void
+  dragCopyGroup: (groupId: string, canvasX: number, canvasY: number) => void
   setPagePreset: (pageId: string, index: number) => void
   renamePage: (pageId: string, name: string) => void
   duplicatePage: (pageId: string) => void
@@ -1802,6 +1807,8 @@ export interface CanvasBgElectronAPI {
   selectEdge: (edgeId: string | null) => void
   hoverPage: (pageId: string | null) => void
   setTextEditing: (active: boolean) => void
+  setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) => void
+  onBindingFire: (callback: (id: BindingId) => void) => () => void
   /** Forward a wheel event hitting the single-selected page's body to the
    *  page's webContents (aboveview-interactive-layer-poc.md). */
   forwardWheelToPage: (pageId: string, payload: ForwardWheelPayload) => void

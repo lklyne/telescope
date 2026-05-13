@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### New
+- Cmd+A selects every entity on the canvas. While typing, the native "select all text" wins.
+- Pasting plain text creates a sticky note at the cursor. Smart-paste resolution order is now: entity JSON → URL → image → plain text.
+
+### Behavior changes
+- Cmd+D and the context-menu "Duplicate" no longer auto-create a row group around source + duplicate. The duplicate lands next to the source as a free entity.
+- Page focus now respects native shortcuts (ADR 0011). When a page has keyboard focus, the page wins all keystrokes except `Escape` (exits page focus) and `Cmd+1` (reset viewport). Cmd+Z, Cmd+G, Cmd+W, arrows, and tool keys fall through to the page — press Escape first to use canvas shortcuts.
+
+
 ## [0.2.7] - 2026-04-23 — Cursor Trails, Multi-Select
 
 ### New

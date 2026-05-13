@@ -12,6 +12,7 @@
  */
 
 import { FolderOpen } from 'lucide-react'
+import type { MutableRefObject } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneGroupEntity,
@@ -19,6 +20,7 @@ import type {
 } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
+import { startOptionAwareGroupDrag, type DragCopyPreviewBox } from './optionDragCopy'
 
 const GROUP_DRAG_THRESHOLD = 4
 
@@ -27,11 +29,15 @@ export function GroupRenameOverlay({
   layoutData,
   isDark,
   editingEntityId,
+  optionHeldRef,
+  setDragCopyPreview,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
   isDark: boolean
   editingEntityId: string | null
+  optionHeldRef: MutableRefObject<boolean>
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
   if (layoutData.viewMode !== 'canvas') return null
   const groups = layoutData.groups ?? []
@@ -46,6 +52,8 @@ export function GroupRenameOverlay({
           group={group}
           isDark={isDark}
           isRenaming={editingEntityId === group.id}
+          optionHeldRef={optionHeldRef}
+          setDragCopyPreview={setDragCopyPreview}
         />
       ))}
     </>
@@ -58,12 +66,16 @@ function GroupRenameItem({
   group,
   isDark,
   isRenaming,
+  optionHeldRef,
+  setDragCopyPreview,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
   group: CanvasSceneGroupEntity
   isDark: boolean
   isRenaming: boolean
+  optionHeldRef: MutableRefObject<boolean>
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
   const labelColorClass = group.color
     ? isDark ? 'text-zinc-100' : 'text-zinc-900'
@@ -92,8 +104,6 @@ function GroupRenameItem({
         let dragging = false
         const startX = event.screenX
         const startY = event.screenY
-        let lastX = startX
-        let lastY = startY
         const onMove = (ev: MouseEvent) => {
           const totalDx = ev.screenX - startX
           const totalDy = ev.screenY - startY
@@ -106,13 +116,18 @@ function GroupRenameItem({
           }
           if (!dragging) {
             dragging = true
-            api.startDragGroup(group.id)
+            cleanup()
+            startOptionAwareGroupDrag({
+              api,
+              layout: layoutData,
+              groupId: group.id,
+              event,
+              initialPointer: ev,
+              isOptionHeld: () => optionHeldRef.current,
+              setPreview: setDragCopyPreview,
+            })
+            return
           }
-          const dx = ev.screenX - lastX
-          const dy = ev.screenY - lastY
-          lastX = ev.screenX
-          lastY = ev.screenY
-          if (dx !== 0 || dy !== 0) api.dragGroup(group.id, dx, dy)
         }
         const cleanup = () => {
           window.removeEventListener('mousemove', onMove)

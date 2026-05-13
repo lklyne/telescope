@@ -9,6 +9,7 @@ import type {
   SelectionOverlayPayload,
   ToolDefaultPatch,
 } from '../shared/types'
+import type { BindingId } from '../shared/bindings'
 
 function installSelectionOverlayBridge(): void {
   if (location.href !== 'about:blank') return
@@ -104,6 +105,10 @@ const api: CanvasBgElectronAPI = {
   endDragPage: () => ipcRenderer.send('canvas-drag-page-end'),
   dragCopyPage: (pageId, canvasX, canvasY) =>
     ipcRenderer.send('canvas-drag-copy-page', { pageId, canvasX, canvasY }),
+  dragCopySelection: (canvasX, canvasY) =>
+    ipcRenderer.send('canvas-drag-copy-selection', { canvasX, canvasY }),
+  dragCopyGroup: (groupId, canvasX, canvasY) =>
+    ipcRenderer.send('canvas-drag-copy-group', { groupId, canvasX, canvasY }),
   setPagePreset: (pageId, index) => ipcRenderer.send('canvas-set-page-preset', { pageId, index }),
   renamePage: (pageId, name) => ipcRenderer.send('canvas-rename-page', { pageId, name }),
   duplicatePage: (pageId) => ipcRenderer.send('canvas-duplicate-page', { pageId }),
@@ -308,6 +313,13 @@ const api: CanvasBgElectronAPI = {
   },
   setTextEditing: (active: boolean) =>
     ipcRenderer.send('canvas-set-text-editing', { active }),
+  setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) =>
+    ipcRenderer.send('canvas-set-annotation-state', { hasOpenThread, hasPending: hasPendingAnnotation }),
+  onBindingFire: (callback: (id: BindingId) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, id: BindingId) => callback(id)
+    ipcRenderer.on('binding-fire', handler)
+    return () => ipcRenderer.removeListener('binding-fire', handler)
+  },
   readNoteFile: (filePath: string) =>
     ipcRenderer.invoke('read-note-file', { filePath }),
   writeNoteFile: (filePath: string, content: string) =>

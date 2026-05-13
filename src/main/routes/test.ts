@@ -28,6 +28,9 @@ import { requestLayout } from '../runtime/viewport-control'
 import { aboveView, bgView, toolbarView, leftSidebarView } from '../runtime/view-refs'
 import type { Route } from './types'
 import type { Token, CancelReason, FocusTarget } from '../../shared/interaction-types'
+import { activeTool } from '../runtime/tool-mode'
+import { clipboard } from 'electron'
+import { pasteFromClipboard } from '../clipboard-paste'
 
 function currentlyFocusedKey(): string | null {
   if (bgView?.webContents.isFocused()) return 'bgView'
@@ -136,6 +139,83 @@ export const testRoutes: Route[] = [
     pattern: '/test/drop/reset',
     async handler({ response }) {
       resetDropOwnerForTests()
+      writeJson(response, 200, { ok: true })
+    },
+  },
+
+  // --- Tool state ---
+  {
+    method: 'GET',
+    pattern: '/test/tool/current',
+    async handler({ response }) {
+      writeJson(response, 200, { tool: activeTool() })
+    },
+  },
+
+  // --- Clipboard simulation ---
+  // Tests write text to the system clipboard and trigger smart-paste so they
+  // can exercise URL → page, plain text → sticky, etc., without IPC plumbing.
+  {
+    method: 'POST',
+    pattern: '/test/clipboard/paste',
+    async handler({ response, body }) {
+      const { text, canvasX = 0, canvasY = 0 } = body as {
+        text?: string
+        canvasX?: number
+        canvasY?: number
+      }
+      if (typeof text === 'string') clipboard.writeText(text)
+      pasteFromClipboard({ canvasX, canvasY })
+      writeJson(response, 200, { ok: true })
+    },
+  },
+
+  // --- Keyboard simulation ---
+  {
+    method: 'POST',
+    pattern: '/test/keyboard/send',
+    async handler({ response, body }) {
+      const {
+        key,
+        cmd = false,
+        shift = false,
+        alt = false,
+        target = 'aboveView',
+        pageId,
+      } = body as {
+        key: string
+        cmd?: boolean
+        shift?: boolean
+        alt?: boolean
+        target?: 'aboveView' | 'bgView' | 'toolbar' | 'page'
+        pageId?: string
+      }
+      let wc: Electron.WebContents | undefined
+      if (target === 'page') {
+        const page = pages.find((p) => p.id === pageId)
+        wc = page?.pageView.webContents
+      } else if (target === 'bgView') {
+        wc = bgView?.webContents
+      } else if (target === 'toolbar') {
+        wc = toolbarView?.webContents
+      } else {
+        wc = aboveView?.webContents
+      }
+      if (!wc || wc.isDestroyed()) {
+        writeJson(response, 500, { error: 'target webContents unavailable' })
+        return
+      }
+      // sendInputEvent triggers before-input-event in the main process, which
+      // the binding dispatcher picks up — no actual key is delivered to the page.
+      // Use 'meta' for cmd since Electron runs on macOS in this project.
+      const modifiers: string[] = []
+      if (cmd) modifiers.push('meta')
+      if (shift) modifiers.push('shift')
+      if (alt) modifiers.push('alt')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      wc.sendInputEvent({ type: 'keyDown', keyCode: key, modifiers } as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      wc.sendInputEvent({ type: 'keyUp', keyCode: key, modifiers } as any)
       writeJson(response, 200, { ok: true })
     },
   },

@@ -66,14 +66,46 @@ import { ShapeToolPopup } from './ShapeToolPopup'
 import { StickyNotePopover } from './StickyNotePopover'
 import { TextToolPopup } from './TextToolPopup'
 import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
-import { useAnnotationOverlayShortcuts } from '../shared/hooks/useAnnotationOverlayShortcuts'
-import { useCanvasGlobalShortcuts } from '../shared/hooks/useCanvasGlobalShortcuts'
+import type { DragCopyPreviewBox } from './optionDragCopy'
+import { useCanvasClipboard } from '../canvas-bg/useCanvasClipboard'
+import { buildAboveViewHandlers } from './binding-handlers'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
+import { useRendererBindingHandlers } from '../shared/hooks/useRendererBindingHandlers'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 const MIN_SHAPE_DRAG_SIZE = 24
+
+function DragCopyPreviewLayer({
+  previews,
+  isDark,
+}: {
+  previews: DragCopyPreviewBox[]
+  isDark: boolean
+}) {
+  return (
+    <>
+      {previews.map((preview) => (
+        <div
+          key={`drag-copy-preview-${preview.id}`}
+          className="pointer-events-none absolute rounded-[8px] border"
+          style={{
+            left: preview.left,
+            top: preview.top,
+            width: preview.width,
+            height: preview.height,
+            background: isDark ? 'rgba(244, 244, 245, 0.14)' : 'rgba(39, 39, 42, 0.08)',
+            borderColor: isDark ? 'rgba(244, 244, 245, 0.6)' : 'rgba(39, 39, 42, 0.42)',
+            boxShadow: isDark
+              ? '0 10px 30px rgba(0, 0, 0, 0.28)'
+              : '0 10px 30px rgba(24, 24, 27, 0.12)',
+          }}
+        />
+      ))}
+    </>
+  )
+}
 
 /** Map Electron's `cursor-changed` type strings onto CSS cursor values.
  *  Electron uses Blink-era names where `pointer` is the arrow and `hand` is
@@ -206,7 +238,7 @@ export default function App({
 
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
-  useCanvasGlobalShortcuts({ api, layoutRef })
+  useCanvasClipboard({ api, layoutRef })
 
   useEffect(() => {
     const cleanup = api.onLayoutUpdate((data) => {
@@ -364,16 +396,11 @@ export default function App({
     setPendingAnnotation,
   })
 
-  useAnnotationOverlayShortcuts({
-    active: Boolean(pendingAnnotation || pendingRegionRect || drawingSession || openThreadId),
-    annotationModeActive: isAnnotationTool(layoutData.activeTool),
-    drawInteractionEnabled,
-    drawingSessionActive: Boolean(pendingAnnotation || pendingRegionRect || drawingSession),
-    clearDraft,
-    clearToolMode: () => api.setTool({ kind: 'select' }),
-    closeThread,
-    deleteSelection: api.deleteSelection,
-  })
+  useEffect(() => {
+    api.setAnnotationState(Boolean(openThreadId), Boolean(pendingAnnotation || pendingRegionRect || drawingSession))
+  }, [openThreadId, pendingAnnotation, pendingRegionRect, drawingSession])
+
+  useRendererBindingHandlers(buildAboveViewHandlers(closeThread, clearDraft))
 
   // ADR 0006 page-paints contract: while the comment tool is active,
   // broadcast pointer-state to main so each page can paint a hover preview
@@ -839,26 +866,39 @@ export default function App({
   // `EdgeDragLayer` below renders the rubber-band line driven by the same
   // controller state.
   const spaceHeldRef = useRef(false)
+  const optionHeldRef = useRef(false)
   useEffect(() => {
     const onKey = (event: KeyboardEvent, down: boolean) => {
       if (event.code === 'Space') spaceHeldRef.current = down
+      if (event.key === 'Alt' || event.code === 'AltLeft' || event.code === 'AltRight') {
+        optionHeldRef.current = down
+      }
     }
     const onDown = (e: KeyboardEvent) => onKey(e, true)
     const onUp = (e: KeyboardEvent) => onKey(e, false)
+    const onBlur = () => {
+      spaceHeldRef.current = false
+      optionHeldRef.current = false
+    }
     window.addEventListener('keydown', onDown)
     window.addEventListener('keyup', onUp)
+    window.addEventListener('blur', onBlur)
     return () => {
       window.removeEventListener('keydown', onDown)
       window.removeEventListener('keyup', onUp)
+      window.removeEventListener('blur', onBlur)
     }
   }, [])
   const [edgeDragState, setEdgeDragState] = useState<EdgeDragState>(EDGE_DRAG_IDLE)
+  const [dragCopyPreview, setDragCopyPreview] = useState<DragCopyPreviewBox[]>([])
   useCanvasPointerRouter({
     api,
     layoutRef,
     enabled: routerOwnsCanvasPointers,
     consume: FULL_ROUTER_CONSUME,
     spaceHeldRef,
+    optionHeldRef,
+    setDragCopyPreview,
     setEdgeDragState,
   })
 
@@ -1099,14 +1139,29 @@ export default function App({
           ) : null}
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
+          <DragCopyPreviewLayer previews={dragCopyPreview} isDark={isDark} />
 
-          <PageChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
-          <FileChromeOverlay api={api} layoutData={layoutData} isDark={isDark} />
+          <PageChromeOverlay
+            api={api}
+            layoutData={layoutData}
+            isDark={isDark}
+            optionHeldRef={optionHeldRef}
+            setDragCopyPreview={setDragCopyPreview}
+          />
+          <FileChromeOverlay
+            api={api}
+            layoutData={layoutData}
+            isDark={isDark}
+            optionHeldRef={optionHeldRef}
+            setDragCopyPreview={setDragCopyPreview}
+          />
           <GroupRenameOverlay
             api={api}
             layoutData={layoutData}
             isDark={isDark}
             editingEntityId={editingEntityId}
+            optionHeldRef={optionHeldRef}
+            setDragCopyPreview={setDragCopyPreview}
           />
 
           {layoutData.viewMode === 'canvas' ? (

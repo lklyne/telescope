@@ -75,6 +75,11 @@ import type {
   LayoutUpdateData,
   SelectionModifiers,
 } from '../../shared/types'
+import {
+  startOptionAwareEntityDrag,
+  startOptionAwareGroupDrag,
+  type DragCopyPreviewBox,
+} from './optionDragCopy'
 
 interface UseCanvasPointerRouterOptions {
   api: CanvasBgElectronAPI
@@ -87,6 +92,10 @@ interface UseCanvasPointerRouterOptions {
   /** Space-modifier mirror — `useCanvasPointerRouter` reads this on each
    *  pointerdown to decide pan-on-background. */
   spaceHeldRef: React.MutableRefObject<boolean>
+  /** Option-modifier mirror. Pointer events can miss mid-drag key changes,
+   *  so drag-copy reads this live throughout the gesture. */
+  optionHeldRef: React.MutableRefObject<boolean>
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
   /** Edge-drag visual state setter. The router updates this so
    *  `EdgeDragLayer` can render the rubber-band. */
   setEdgeDragState: (state: EdgeDragState) => void
@@ -139,7 +148,16 @@ function capturePointer(event: PointerEvent): (() => void) | null {
 }
 
 export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): void {
-  const { api, layoutRef, enabled, consume, spaceHeldRef, setEdgeDragState } = options
+  const {
+    api,
+    layoutRef,
+    enabled,
+    consume,
+    spaceHeldRef,
+    optionHeldRef,
+    setDragCopyPreview,
+    setEdgeDragState,
+  } = options
   const apiRef = useRef(api)
   apiRef.current = api
   const consumeRef = useRef(consume)
@@ -213,7 +231,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
         modifiers,
         spaceHeld: spaceHeldRef.current,
-        altHeld: event.altKey,
+        altHeld: event.altKey || optionHeldRef.current,
         editingEntityId,
       }
 
@@ -225,6 +243,8 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         api: apiRef.current,
         event,
         layoutRef,
+        optionHeldRef,
+        setDragCopyPreview,
         setEdgeDragState: setEdgeDragStateRef.current,
       })
       if (dispatched) {
@@ -282,7 +302,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         capture: true,
       } as EventListenerOptions)
     }
-  }, [enabled, layoutRef, spaceHeldRef])
+  }, [enabled, layoutRef, optionHeldRef, setDragCopyPreview, spaceHeldRef])
 }
 
 // --- Dispatch ---
@@ -292,16 +312,18 @@ interface DispatchContext {
   api: CanvasBgElectronAPI
   event: PointerEvent
   layoutRef: React.MutableRefObject<LayoutUpdateData>
+  optionHeldRef: React.MutableRefObject<boolean>
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
   setEdgeDragState: (state: EdgeDragState) => void
 }
 
 function dispatchAction(ctx: DispatchContext): boolean {
-  const { action, api, event, layoutRef, setEdgeDragState } = ctx
+  const { action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setEdgeDragState } = ctx
   switch (action.kind) {
     case 'noop':
       return false
     case 'page-body-press':
-      return runPageBodyPress(action, api, event)
+      return runPageBodyPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
     case 'forward-pointer-down':
       return runForwardPointer(action, api, event, layoutRef)
     case 'toggle-select':
@@ -320,11 +342,11 @@ function dispatchAction(ctx: DispatchContext): boolean {
     case 'background-click':
       return runBackgroundSelectionGesture(api, event, layoutRef)
     case 'begin-entity-drag':
-      return runEntityDrag(action, api, event)
+      return runEntityDrag(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
     case 'begin-entity-press':
-      return runEntityPress(action, api, event)
+      return runEntityPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
     case 'begin-group-drag':
-      return runGroupDrag(action, api, event)
+      return runGroupDrag(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
     case 'begin-resize':
       return runResize(action, api, event, layoutRef)
     case 'begin-multi-resize':
@@ -344,49 +366,22 @@ function runEntityDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-entity-drag' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  optionHeldRef: React.MutableRefObject<boolean>,
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
-  const pointerId = event.pointerId
   const releasePointer = capturePointer(event)
-  const selection = {
+  startOptionAwareEntityDrag({
+    api,
+    layout: layoutRef.current,
+    entityId: action.entityId,
     entityKind: action.entityKind,
     preserveSelection: action.preserveSelection,
-  }
-  if (action.entityKind === 'page') api.startDragPage(action.entityId, selection)
-  else api.startDragEntity(action.entityId, selection)
-
-  let lastScreenX = event.screenX
-  let lastScreenY = event.screenY
-  const cleanup = () => {
-    releasePointer?.()
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('blur', onCancel)
-  }
-  const finish = () => {
-    cleanup()
-    if (action.entityKind === 'page') api.endDragPage()
-    else api.endDragEntity()
-  }
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    const dx = ev.screenX - lastScreenX
-    const dy = ev.screenY - lastScreenY
-    lastScreenX = ev.screenX
-    lastScreenY = ev.screenY
-    if (dx === 0 && dy === 0) return
-    if (action.entityKind === 'page') api.dragPage(action.entityId, dx, dy)
-    else api.dragEntity(action.entityId, dx, dy)
-  }
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    finish()
-  }
-  const onCancel = () => finish()
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-  window.addEventListener('blur', onCancel)
+    event,
+    releasePointer,
+    isOptionHeld: () => optionHeldRef.current,
+    setPreview: setDragCopyPreview,
+  })
   return true
 }
 
@@ -394,13 +389,14 @@ function runEntityPress(
   action: Extract<CanvasPointerAction, { kind: 'begin-entity-press' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  optionHeldRef: React.MutableRefObject<boolean>,
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
   const pointerId = event.pointerId
   const releasePointer = capturePointer(event)
   const startScreenX = event.screenX
   const startScreenY = event.screenY
-  let lastScreenX = event.screenX
-  let lastScreenY = event.screenY
   let dragging = false
 
   const cleanup = () => {
@@ -423,16 +419,21 @@ function runEntityPress(
         return
       }
       dragging = true
-      api.startDragEntity(action.entityId, {
+      cleanup()
+      startOptionAwareEntityDrag({
+        api,
+        layout: layoutRef.current,
+        entityId: action.entityId,
         entityKind: action.entityKind,
         preserveSelection: true,
+        event,
+        releasePointer,
+        initialPointer: ev,
+        isOptionHeld: () => optionHeldRef.current,
+        setPreview: setDragCopyPreview,
       })
+      return
     }
-    const dx = ev.screenX - lastScreenX
-    const dy = ev.screenY - lastScreenY
-    lastScreenX = ev.screenX
-    lastScreenY = ev.screenY
-    if (dx !== 0 || dy !== 0) api.dragEntity(action.entityId, dx, dy)
   }
 
   const onUp = (ev: PointerEvent) => {
@@ -466,13 +467,14 @@ function runPageBodyPress(
   action: Extract<CanvasPointerAction, { kind: 'page-body-press' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  optionHeldRef: React.MutableRefObject<boolean>,
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
   const pointerId = event.pointerId
   const releasePointer = capturePointer(event)
   const startScreenX = event.screenX
   const startScreenY = event.screenY
-  let lastScreenX = event.screenX
-  let lastScreenY = event.screenY
   let dragging = false
 
   const cleanup = () => {
@@ -496,16 +498,21 @@ function runPageBodyPress(
     }
     if (!dragging) {
       dragging = true
-      api.startDragPage(action.entityId, {
+      cleanup()
+      startOptionAwareEntityDrag({
+        api,
+        layout: layoutRef.current,
+        entityId: action.entityId,
         entityKind: 'page',
         preserveSelection: action.preserveSelection,
+        event,
+        releasePointer,
+        initialPointer: ev,
+        isOptionHeld: () => optionHeldRef.current,
+        setPreview: setDragCopyPreview,
       })
+      return
     }
-    const dx = ev.screenX - lastScreenX
-    const dy = ev.screenY - lastScreenY
-    lastScreenX = ev.screenX
-    lastScreenY = ev.screenY
-    if (dx !== 0 || dy !== 0) api.dragPage(action.entityId, dx, dy)
   }
 
   const onUp = (ev: PointerEvent) => {
@@ -551,12 +558,13 @@ function runGroupDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-group-drag' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  optionHeldRef: React.MutableRefObject<boolean>,
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
   const pointerId = event.pointerId
   const releasePointer = capturePointer(event)
   let dragging = false
-  let lastScreenX = event.screenX
-  let lastScreenY = event.screenY
   const startScreenX = event.screenX
   const startScreenY = event.screenY
 
@@ -573,13 +581,19 @@ function runGroupDrag(
     }
     if (!dragging) {
       dragging = true
-      api.startDragGroup(action.groupId)
+      cleanup()
+      startOptionAwareGroupDrag({
+        api,
+        layout: layoutRef.current,
+        groupId: action.groupId,
+        event,
+        releasePointer,
+        initialPointer: ev,
+        isOptionHeld: () => optionHeldRef.current,
+        setPreview: setDragCopyPreview,
+      })
+      return
     }
-    const dx = ev.screenX - lastScreenX
-    const dy = ev.screenY - lastScreenY
-    lastScreenX = ev.screenX
-    lastScreenY = ev.screenY
-    if (dx !== 0 || dy !== 0) api.dragGroup(action.groupId, dx, dy)
   }
   const cleanup = () => {
     releasePointer?.()

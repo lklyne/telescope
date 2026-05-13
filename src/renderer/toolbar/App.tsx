@@ -1,8 +1,7 @@
 import { useEffect } from 'react'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type { ThemeData } from '../../shared/types'
+import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { isPlainShortcutKey } from '../../shared/gesture-utils'
-import { useAnnotateToggleShortcut } from '../shared/hooks/useAnnotateToggleShortcut'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { toolbarApi } from './toolbarApi'
@@ -35,11 +34,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
 
   const isDark = useTheme(initialTheme, toolbarApi.onThemeChanged)
 
-  useAnnotateToggleShortcut({
-    setTool: toolbarApi.setTool,
-    activeTool,
-    drawingEnabled: DRAWING_FEATURE_ENABLED,
-  })
   useReportTextEditing(toolbarApi.setTextEditing)
 
   useEffect(() => {

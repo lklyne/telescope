@@ -19,6 +19,16 @@ import { mainHandlers } from './binding-handlers'
 const textEditingByWebContents = new WeakMap<WebContents, boolean>()
 let textEditingActiveCount = 0
 
+// Annotation state surfaced from above-view's renderer-local React state so
+// Escape resolution (annotation-close-thread / annotation-clear-draft) works.
+let hasOpenAnnotationThread = false
+let hasPendingAnnotation = false
+
+export function setAnnotationState(openThread: boolean, pendingAnnotation: boolean): void {
+  hasOpenAnnotationThread = openThread
+  hasPendingAnnotation = pendingAnnotation
+}
+
 export function setTextEditingActive(webContents: WebContents, active: boolean): void {
   const prev = textEditingByWebContents.get(webContents) ?? false
   if (prev === active) return
@@ -70,8 +80,8 @@ export function attachBindingDispatcher(
       selectionEmpty: selectedEntityIds().length === 0,
       sourceView,
       viewMode: workspaceViewMode(),
-      hasOpenAnnotationThread: false, // Step C wires renderer-local state
-      hasPendingAnnotation: false,    // Step C wires renderer-local state
+      hasOpenAnnotationThread,
+      hasPendingAnnotation,
     }
 
     const bindingId = dispatchKey(BINDINGS, normalizedKey, ctx)

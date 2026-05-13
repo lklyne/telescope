@@ -66,9 +66,10 @@ import { ShapeToolPopup } from './ShapeToolPopup'
 import { StickyNotePopover } from './StickyNotePopover'
 import { TextToolPopup } from './TextToolPopup'
 import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
-import { useAnnotationOverlayShortcuts } from '../shared/hooks/useAnnotationOverlayShortcuts'
-import { useCanvasGlobalShortcuts } from '../shared/hooks/useCanvasGlobalShortcuts'
+import { useCanvasClipboard } from '../canvas-bg/useCanvasClipboard'
+import { buildAboveViewHandlers } from './binding-handlers'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
+import { useRendererBindingHandlers } from '../shared/hooks/useRendererBindingHandlers'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
 
@@ -200,7 +201,7 @@ export default function App({
 
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
-  useCanvasGlobalShortcuts({ api, layoutRef })
+  useCanvasClipboard({ api, layoutRef })
 
   useEffect(() => {
     const cleanup = api.onLayoutUpdate((data) => {
@@ -358,16 +359,11 @@ export default function App({
     setPendingAnnotation,
   })
 
-  useAnnotationOverlayShortcuts({
-    active: Boolean(pendingAnnotation || pendingRegionRect || drawingSession || openThreadId),
-    annotationModeActive: isAnnotationTool(layoutData.activeTool),
-    drawInteractionEnabled,
-    drawingSessionActive: Boolean(pendingAnnotation || pendingRegionRect || drawingSession),
-    clearDraft,
-    clearToolMode: () => api.setTool({ kind: 'select' }),
-    closeThread,
-    deleteSelection: api.deleteSelection,
-  })
+  useEffect(() => {
+    api.setAnnotationState(Boolean(openThreadId), Boolean(pendingAnnotation || pendingRegionRect || drawingSession))
+  }, [openThreadId, pendingAnnotation, pendingRegionRect, drawingSession])
+
+  useRendererBindingHandlers(buildAboveViewHandlers(closeThread, clearDraft))
 
   // ADR 0006 page-paints contract: while the comment tool is active,
   // broadcast pointer-state to main so each page can paint a hover preview

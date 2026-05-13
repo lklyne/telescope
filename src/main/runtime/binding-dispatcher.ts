@@ -41,6 +41,26 @@ export function isTextEditingActive(): boolean {
   return textEditingActiveCount > 0
 }
 
+export function buildBindingContext(
+  sourceView: KeyboardSourceView,
+  pageFocusActive: boolean,
+): BindingContext {
+  return {
+    activeTool: activeTool(),
+    isTextEditing: isTextEditingActive(),
+    arrowNavigationLocked,
+    hasKeyboardTargetPage: currentKeyboardTargetPageId() !== null,
+    pageFocusActive,
+    canUndo: canUndo(),
+    canRedo: canRedo(),
+    selectionEmpty: selectedEntityIds().length === 0,
+    sourceView,
+    viewMode: workspaceViewMode(),
+    hasOpenAnnotationThread,
+    hasPendingAnnotation,
+  }
+}
+
 const attachedWebContents = new WeakSet<WebContents>()
 
 export function attachBindingDispatcher(
@@ -68,21 +88,7 @@ export function attachBindingDispatcher(
     if (!normalizedKey) return
 
     const pageFocusActive = sourceView === 'page'
-
-    const ctx: BindingContext = {
-      activeTool: activeTool(),
-      isTextEditing: isTextEditingActive(),
-      arrowNavigationLocked,
-      hasKeyboardTargetPage: currentKeyboardTargetPageId() !== null,
-      pageFocusActive,
-      canUndo: canUndo(),
-      canRedo: canRedo(),
-      selectionEmpty: selectedEntityIds().length === 0,
-      sourceView,
-      viewMode: workspaceViewMode(),
-      hasOpenAnnotationThread,
-      hasPendingAnnotation,
-    }
+    const ctx = buildBindingContext(sourceView, pageFocusActive)
 
     const bindingId = dispatchKey(BINDINGS, normalizedKey, ctx)
     if (!bindingId) return

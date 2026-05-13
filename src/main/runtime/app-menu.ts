@@ -1,9 +1,10 @@
 import { app, dialog, Menu, type WebContents } from 'electron'
-import { deletePages } from '../workspace-entities'
 import { pages, selectedPageId } from './runtime-context'
-import { selectedEntityIds, workspaceViewMode } from '../ui-state'
+import { selectedEntityIds } from '../ui-state'
 import { getComponentView } from './component-page-factory'
-import { selectBrowserTab } from './runtime-core'
+import { acceleratorFor } from './binding-accelerator'
+import { mainHandlers } from './binding-handlers'
+import { buildBindingContext } from './binding-dispatcher'
 import { checkForUpdatesManually } from '../auto-updater'
 import { showOnboardingWindow } from '../onboarding-window'
 import { showSettingsWindow } from '../settings-window'
@@ -92,26 +93,8 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
       submenu: [
         {
           label: 'Close Tab',
-          accelerator: 'CmdOrCtrl+W',
-          click: () => {
-            const pageId = selectedPageId()
-            if (!pageId) return
-
-            const isBrowser = workspaceViewMode() === 'browser'
-            let nextTabId: string | null = null
-
-            if (isBrowser) {
-              const idx = pages.findIndex((p) => p.id === pageId)
-              const next = pages[idx + 1] ?? pages[idx - 1] ?? null
-              nextTabId = next?.id ?? null
-            }
-
-            deletePages({ pageIds: [pageId] })
-
-            if (isBrowser && nextTabId) {
-              selectBrowserTab(nextTabId)
-            }
-          },
+          accelerator: acceleratorFor('close-tab'),
+          click: () => mainHandlers['close-tab'](buildBindingContext('canvasBg', false)),
         },
       ],
     },

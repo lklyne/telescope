@@ -2,11 +2,13 @@ import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
 import { deleteEdges } from '../workspace-edges'
 import { deletePages } from '../workspace-entities'
 import { deleteGroups } from '../workspace-groups'
+import {
+  deleteDrawingEntity,
+  deleteFileEntity,
+  deleteShapeEntity,
+  deleteTextEntity,
+} from './document-commands'
 import { layoutAllViews } from './layout-engine'
-import { deleteDrawingEntity } from './drawing-entity-state'
-import { deleteFileEntity } from './file-entity-state'
-import { deleteShapeEntity } from './shape-entity-state'
-import { deleteTextEntity } from './text-entity-state'
 
 export function deleteSelection(): void {
   const targets = uiSelectedCanvasTargets()

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest'
+import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import {
   createPages,
   deletePages,
@@ -10,6 +10,7 @@ import {
   takeScreenshot,
   takeSnapshot,
 } from './app-client'
+import { assertPersists, assertUndoable } from './test-utils'
 
 const createdPageIds: string[] = []
 
@@ -146,5 +147,43 @@ describe('pages', () => {
     const workspace = await getWorkspace()
     const pageIds = workspace.entities.filter((e) => e.kind === 'page').map((e) => e.id)
     expect(pageIds).not.toContain(pageId)
+  })
+})
+
+describe('pages — lifecycle', () => {
+  const lifecycleIds: string[] = []
+
+  afterEach(async () => {
+    if (lifecycleIds.length) {
+      await deletePages(lifecycleIds.splice(0))
+    }
+  })
+
+  it('persists a created page to disk', async () => {
+    await assertPersists(async () => {
+      const result = await createPages([
+        {
+          url: 'data:text/html,<p>persist</p>',
+          canvasX: 800,
+          canvasY: 100,
+          presetIndex: 9,
+        },
+      ])
+      lifecycleIds.push(...result.pageIds)
+    })
+  })
+
+  it('round-trips a created page through undo/redo', async () => {
+    await assertUndoable(async () => {
+      const result = await createPages([
+        {
+          url: 'data:text/html,<p>undoable</p>',
+          canvasX: 900,
+          canvasY: 100,
+          presetIndex: 9,
+        },
+      ])
+      lifecycleIds.push(...result.pageIds)
+    })
   })
 })

@@ -1,10 +1,11 @@
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import {
   applyLayoutDirective,
   createPages,
   deletePages,
   getWorkspace,
 } from './app-client'
+import { assertPersists, assertUndoable } from './test-utils'
 
 const trash: string[] = []
 
@@ -136,5 +137,56 @@ describe('layout directive — re-layout existing entities', () => {
     // Implicit origin = (min x, min y) of bbox = (500, 400). No snap.
     expect(result.positions[0].canvasX).toBe(500)
     expect(result.positions[0].canvasY).toBe(400)
+  })
+})
+
+describe('layout directive — lifecycle', () => {
+  const lifecyclePageIds: string[] = []
+
+  afterEach(async () => {
+    if (lifecyclePageIds.length) {
+      await deletePages(lifecyclePageIds.splice(0))
+    }
+  })
+
+  it('persists pages produced by a layout directive to disk', async () => {
+    // applyLayoutDirective computes positions but doesn't create entities;
+    // the setup creates the pages and the layout chooses where they land.
+    await assertPersists(async () => {
+      const result = await applyLayoutDirective({
+        layout: { kind: 'row', gap: 16, originX: 1200, originY: 1200 },
+        items: [
+          { width: 200, height: 200 },
+          { width: 200, height: 200 },
+        ],
+      })
+      const created = await createPages(
+        result.positions.map((p, i) => ({
+          url: `data:text/html,<div>persist-${i}</div>`,
+          canvasX: p.canvasX,
+          canvasY: p.canvasY,
+          presetIndex: 9,
+        })),
+      )
+      lifecyclePageIds.push(...created.pageIds)
+    })
+  })
+
+  it('round-trips a single layout-placed page through undo/redo', async () => {
+    await assertUndoable(async () => {
+      const result = await applyLayoutDirective({
+        layout: { kind: 'row', gap: 16, originX: 1600, originY: 1600 },
+        items: [{ width: 200, height: 200 }],
+      })
+      const created = await createPages([
+        {
+          url: 'data:text/html,<div>undo-layout</div>',
+          canvasX: result.positions[0].canvasX,
+          canvasY: result.positions[0].canvasY,
+          presetIndex: 9,
+        },
+      ])
+      lifecyclePageIds.push(...created.pageIds)
+    })
   })
 })

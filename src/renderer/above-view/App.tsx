@@ -186,6 +186,12 @@ export default function App({
     layoutData.interaction.kind === 'editing-entity'
       ? layoutData.interaction.entityId
       : null
+  const textPopupReady =
+    interactionIdle ||
+    Boolean(
+      editingEntityId &&
+        selectedTextEntities.some((entity) => entity.id === editingEntityId),
+    )
 
   const marqueePreviewIds = useMemo(() => {
     if (
@@ -1130,7 +1136,7 @@ export default function App({
                     isDark={isDark}
                     layout={layoutData}
                     selectedTextEntities={selectedTextEntities}
-                    interactionIdle={interactionIdle}
+                    popupReady={textPopupReady}
                   />
                   <GroupPopup
                     api={api}

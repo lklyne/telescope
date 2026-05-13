@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import type { TextEntityStyle } from '../../shared/types'
 import { buildCanvasGridStyle } from './canvasGridStyle'
 
 function previewBoxStyle(
@@ -83,12 +84,35 @@ export function PlacementPreviewLayer({
   preview,
 }: {
   isDark: boolean
-  preview: { entityKind?: string; shapeKind?: string; left: number; top: number; width: number; height: number } | null
+  preview: {
+    entityKind?: string
+    shapeKind?: string
+    textStyle?: TextEntityStyle
+    left: number
+    top: number
+    width: number
+    height: number
+  } | null
 }) {
   if (!preview) return null
   const isTextEntity = preview.entityKind === 'text'
   const isFileEntity = preview.entityKind === 'file'
   const isShape = preview.entityKind === 'shape'
+  if (isTextEntity && preview.textStyle === 'plain') {
+    return (
+      <div
+        className="pointer-events-none absolute select-none text-[12px] leading-[18px] font-normal"
+        style={{
+          left: preview.left,
+          top: preview.top,
+          color: isDark ? 'rgba(231, 229, 228, 0.58)' : 'rgba(28, 25, 23, 0.48)',
+          fontFamily: 'system-ui, sans-serif',
+        }}
+      >
+        Add text
+      </div>
+    )
+  }
   if (isShape) {
     const baseStyle = previewBoxStyle(isDark, preview)
     const stroke = isDark ? 'rgba(168, 162, 158, 0.6)' : 'rgba(120, 113, 108, 0.6)'
@@ -169,4 +193,3 @@ export function DragCopyPreviewLayer({
     </>
   )
 }
-

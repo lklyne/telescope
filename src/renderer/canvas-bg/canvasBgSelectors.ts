@@ -28,6 +28,7 @@ export function buildPendingPlacementPreview(
   return {
     entityKind: layoutData.pendingPlacement.entityKind,
     shapeKind: layoutData.pendingPlacement.shapeKind,
+    textStyle: layoutData.pendingPlacement.textStyle,
     left: layoutData.canvasOrigin.x + layoutData.pan.x + snappedX * layoutData.zoom,
     top: layoutData.canvasOrigin.y + layoutData.pan.y + snappedY * layoutData.zoom,
     width: layoutData.pendingPlacement.width * layoutData.zoom,

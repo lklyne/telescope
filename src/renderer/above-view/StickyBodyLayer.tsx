@@ -21,7 +21,8 @@ import type { CanvasSceneTextEntity, TextEntityStyle } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 
-const PLAIN_MIN_WIDTH = 40
+const PLAIN_TEXT_PLACEHOLDER = 'Add text'
+const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
 
 /**
@@ -218,7 +219,7 @@ function StickyCard({
   // CodeMirror renders dark text matching the view-mode color below.
   const editorIsDark = isPlain ? isDark : false
   const textColor = isPlain ? (isDark ? '#e7e5e4' : '#1c1917') : '#1c1917'
-  const placeholder = isPlain ? 'Type some text...' : 'Type a note...'
+  const placeholder = isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'
 
   const innerColumnStyle: React.CSSProperties = isPlain
     ? { display: 'flex', flexDirection: 'column' }

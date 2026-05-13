@@ -29,6 +29,8 @@ import { aboveView, bgView, toolbarView, leftSidebarView } from '../runtime/view
 import type { Route } from './types'
 import type { Token, CancelReason, FocusTarget } from '../../shared/interaction-types'
 import { activeTool } from '../runtime/tool-mode'
+import { clipboard } from 'electron'
+import { pasteFromClipboard } from '../clipboard-paste'
 
 function currentlyFocusedKey(): string | null {
   if (bgView?.webContents.isFocused()) return 'bgView'
@@ -150,24 +152,55 @@ export const testRoutes: Route[] = [
     },
   },
 
+  // --- Clipboard simulation ---
+  // Tests write text to the system clipboard and trigger smart-paste so they
+  // can exercise URL → page, plain text → sticky, etc., without IPC plumbing.
+  {
+    method: 'POST',
+    pattern: '/test/clipboard/paste',
+    async handler({ response, body }) {
+      const { text, canvasX = 0, canvasY = 0 } = body as {
+        text?: string
+        canvasX?: number
+        canvasY?: number
+      }
+      if (typeof text === 'string') clipboard.writeText(text)
+      pasteFromClipboard({ canvasX, canvasY })
+      writeJson(response, 200, { ok: true })
+    },
+  },
+
   // --- Keyboard simulation ---
   {
     method: 'POST',
     pattern: '/test/keyboard/send',
     async handler({ response, body }) {
-      const { key, cmd = false, shift = false, alt = false, target = 'aboveView' } = body as {
+      const {
+        key,
+        cmd = false,
+        shift = false,
+        alt = false,
+        target = 'aboveView',
+        pageId,
+      } = body as {
         key: string
         cmd?: boolean
         shift?: boolean
         alt?: boolean
-        target?: 'aboveView' | 'bgView' | 'toolbar'
+        target?: 'aboveView' | 'bgView' | 'toolbar' | 'page'
+        pageId?: string
       }
-      const wc =
-        target === 'bgView'
-          ? bgView?.webContents
-          : target === 'toolbar'
-            ? toolbarView?.webContents
-            : aboveView?.webContents
+      let wc: Electron.WebContents | undefined
+      if (target === 'page') {
+        const page = pages.find((p) => p.id === pageId)
+        wc = page?.pageView.webContents
+      } else if (target === 'bgView') {
+        wc = bgView?.webContents
+      } else if (target === 'toolbar') {
+        wc = toolbarView?.webContents
+      } else {
+        wc = aboveView?.webContents
+      }
       if (!wc || wc.isDestroyed()) {
         writeJson(response, 500, { error: 'target webContents unavailable' })
         return

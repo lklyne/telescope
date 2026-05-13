@@ -162,7 +162,7 @@ function duplicateSelection(): void {
   const target = targets[0]
   if (!target) return
   if (target.kind === 'page') {
-    duplicatePageFromSource({ sourcePageId: target.id, focus: true, skipGrouping: true })
+    duplicatePageFromSource({ sourcePageId: target.id, focus: true })
   } else {
     duplicateEntity({ entityId: target.id, focus: true })
   }

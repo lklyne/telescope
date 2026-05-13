@@ -10,11 +10,11 @@ and [ADR 0011](../adr/0011-page-focus-respects-native-shortcuts.md).
 
 | Step | Status |
 |---|---|
-| A — registry + dispatch + tests, no callers | ⬜ not started |
-| B — port main's `keyboard-shortcuts.ts` to the registry | ⬜ not started |
-| C — delete renderer keydown hooks; port to registry | ⬜ not started |
-| D — `app-menu.ts` accelerators read from the registry | ⬜ not started |
-| E — adjacent: `Cmd+A` select-all, Cmd+D no-grouping, paste-smart, P2 page focus | ⬜ not started |
+| A — registry + dispatch + tests, no callers | ✅ done |
+| B — port main's `keyboard-shortcuts.ts` to the registry | ✅ done |
+| C — delete renderer keydown hooks; port to registry | ✅ done |
+| D — `app-menu.ts` accelerators read from the registry | ✅ done |
+| E — adjacent: `Cmd+A` select-all, Cmd+D no-grouping, paste-smart, P2 page focus | ✅ done |
 
 Each step ends in a working app. Each ships as one PR.
 

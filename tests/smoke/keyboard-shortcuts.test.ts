@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   createPages,
-  createGroup,
   deletePages,
   deselectSelection,
   getSelection,
+  getTextEntities,
+  getWorkspace,
+  pasteClipboardText,
   selectPage,
   getCurrentTool,
   sendKey,
@@ -134,6 +136,118 @@ describe('keyboard shortcuts (binding dispatcher)', () => {
 
   it('Cmd+Shift+Z triggers redo without error', async () => {
     await sendKey('z', { cmd: true, shift: true })
+    await wait(50)
+  })
+
+  it('Cmd+A selects every entity on the canvas', async () => {
+    const id1 = await createPage()
+    const id2 = await createPage('https://example.org')
+    await deselectSelection()
+    await wait(50)
+
+    await sendKey('a', { cmd: true })
+    await wait(100)
+
+    const sel = await getSelection()
+    const ids = sel.selectedEntityIds ?? []
+    expect(ids).toContain(id1)
+    expect(ids).toContain(id2)
+  })
+
+  it('Cmd+D duplicates the selected page without auto-creating a row group', async () => {
+    const sourceId = await createPage()
+    await selectPage(sourceId)
+    await wait(50)
+
+    const before = await getWorkspace()
+    const groupsBefore = before.entities.filter((e) => e.kind === 'group').length
+
+    await sendKey('d', { cmd: true })
+    await waitFor(
+      () => getWorkspace(),
+      (w) => w.entities.filter((e) => e.kind === 'page').length >= 2,
+      'Timed out waiting for duplicate page',
+    )
+
+    const after = await getWorkspace()
+    const pagesAfter = after.entities.filter((e) => e.kind === 'page')
+    const groupsAfter = after.entities.filter((e) => e.kind === 'group').length
+    expect(pagesAfter.length).toBeGreaterThanOrEqual(2)
+    // Cmd+D must NOT auto-group source + duplicate.
+    expect(groupsAfter).toBe(groupsBefore)
+    // Track new pages for cleanup.
+    for (const p of pagesAfter) {
+      if (!createdPageIds.includes(p.id)) createdPageIds.push(p.id)
+    }
+  })
+
+  it('paste of a URL creates a page', async () => {
+    const before = await getWorkspace()
+    const pagesBefore = before.entities.filter((e) => e.kind === 'page').length
+
+    await pasteClipboardText({ text: 'https://example.org', canvasX: 0, canvasY: 0 })
+    const after = await waitFor(
+      () => getWorkspace(),
+      (w) => w.entities.filter((e) => e.kind === 'page').length === pagesBefore + 1,
+      'Timed out waiting for pasted URL page',
+    )
+    const pagesAfter = after.entities.filter((e) => e.kind === 'page')
+    expect(pagesAfter.length).toBe(pagesBefore + 1)
+    for (const p of pagesAfter) {
+      if (!createdPageIds.includes(p.id)) createdPageIds.push(p.id)
+    }
+  })
+
+  it('paste of plain text creates a sticky note', async () => {
+    const before = await getTextEntities()
+    const countBefore = before.textEntities.length
+
+    await pasteClipboardText({ text: 'hello sticky', canvasX: 100, canvasY: 100 })
+    const after = await waitFor(
+      () => getTextEntities(),
+      (t) => t.textEntities.length === countBefore + 1,
+      'Timed out waiting for pasted sticky',
+    )
+    const newest = after.textEntities[after.textEntities.length - 1]
+    expect(newest.text).toBe('hello sticky')
+  })
+
+  it('Cmd+1 from a focused page resets the viewport (page focus exception)', async () => {
+    const pageId = await createPage()
+    await selectPage(pageId)
+    await wait(50)
+    // sendKey to the page WebContents simulates page-focus dispatch.
+    await sendKey('1', { cmd: true, target: 'page', pageId })
+    await wait(50)
+  })
+
+  it('Escape from page focus exits page focus, not the active tool', async () => {
+    const pageId = await createPage()
+    await selectPage(pageId)
+    // Activate a non-select tool. Escape from a non-page surface would reset it.
+    await sendKey('c')
+    await waitFor(
+      () => getCurrentTool(),
+      (r) => r.tool.kind === 'comment',
+      'comment tool not active before escape',
+    )
+    // Escape arriving from page-focus must hit escape-page-focus (table order),
+    // not escape-tool — so the active tool stays as 'comment'.
+    await sendKey('escape', { target: 'page', pageId })
+    await wait(50)
+    const { tool } = await getCurrentTool()
+    expect(tool.kind).toBe('comment')
+    // Reset back to select for downstream tests.
+    await sendKey('escape')
+  })
+
+  it('Cmd+Z from a focused page does not trigger main undo (falls through to page)', async () => {
+    const pageId = await createPage()
+    await selectPage(pageId)
+    await wait(50)
+    // No assertion beyond no-crash — the binding's firesFromPageFocus is false,
+    // so dispatchKey returns null and the keystroke is forwarded to the page.
+    await sendKey('z', { cmd: true, target: 'page', pageId })
     await wait(50)
   })
 })

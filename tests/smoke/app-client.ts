@@ -409,8 +409,31 @@ export function getCurrentTool() {
 
 export function sendKey(
   key: string,
-  options: { cmd?: boolean; shift?: boolean; alt?: boolean; target?: 'aboveView' | 'bgView' | 'toolbar' } = {},
+  options: {
+    cmd?: boolean
+    shift?: boolean
+    alt?: boolean
+    target?: 'aboveView' | 'bgView' | 'toolbar' | 'page'
+    pageId?: string
+  } = {},
 ) {
   return post<{ ok: true }>('/test/keyboard/send', { key, ...options })
+}
+
+export function pasteClipboardText(input: { text: string; canvasX?: number; canvasY?: number }) {
+  return post<{ ok: true }>('/test/clipboard/paste', input)
+}
+
+export function getFileEntities() {
+  return get<{
+    fileEntities: Array<{
+      id: string
+      file: string
+      width: number
+      height: number
+      canvasX: number
+      canvasY: number
+    }>
+  }>('/file-entities')
 }
 

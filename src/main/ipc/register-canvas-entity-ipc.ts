@@ -77,7 +77,6 @@ import {
   setDeviceIdMetadata,
 } from '../runtime/runtime-entities'
 import { createAnnotation, moveAnnotation } from '../workspace-annotations'
-import { deleteEdges } from '../workspace-edges'
 import {
   deletePages,
   groupBoundsForEntityIds,
@@ -96,7 +95,7 @@ import {
 } from '../workspace-clipboard'
 import { workspaceGroups } from '../runtime/workspace-model'
 import { selectGroup } from '../runtime/selection-controller'
-import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
+import { deleteSelection } from '../runtime/delete-selection'
 
 const CLIPBOARD_PREFIX = 'web-canvas:entities:'
 
@@ -171,30 +170,7 @@ export function registerCanvasEntityIpc(): void {
   )
 
   ipcMain.on('canvas-delete-selection', () => {
-    const targets = uiSelectedCanvasTargets()
-    if (!targets.length) return
-    const edgeIds = targets.filter((target) => target.kind === 'edge').map((target) => target.id)
-    if (edgeIds.length) {
-      deleteEdges({ edgeIds })
-    }
-    const entityIds = targets
-      .filter((target) => target.kind !== 'edge')
-      .map((target) => target.id)
-    if (!entityIds.length) {
-      layoutAllViews()
-      return
-    }
-    // Split entity IDs into pages, text entities, file entities, and drawing entities by checking collections
-    const pageIds = entityIds.filter((id) => pages.some((p) => p.id === id))
-    const textIds = entityIds.filter((id) => textEntities.some((n) => n.id === id))
-    const fileIds = entityIds.filter((id) => fileEntities.some((f) => f.id === id))
-    const drawingIds = entityIds.filter((id) => drawingEntities.some((d) => d.id === id))
-    const shapeIds = entityIds.filter((id) => shapeEntities.some((s) => s.id === id))
-    if (pageIds.length) deletePages({ pageIds })
-    for (const id of textIds) deleteTextEntity(id)
-    for (const id of fileIds) deleteFileEntity(id)
-    for (const id of drawingIds) deleteDrawingEntity(id)
-    for (const id of shapeIds) deleteShapeEntity(id)
+    deleteSelection()
   })
 
   ipcMain.on('canvas-delete-page', (_event, { pageId }: { pageId: string }) => {

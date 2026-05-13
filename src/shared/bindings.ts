@@ -18,6 +18,11 @@ export const CANVAS_REGION: KeyboardSourceView[] = [
   'rightDetailsPanel',
 ]
 
+const CANVAS_OR_PAGE_REGION: KeyboardSourceView[] = [
+  ...CANVAS_REGION,
+  'page',
+]
+
 export const ALL_VIEWS: KeyboardSourceView[] = [
   'aboveView',
   'canvasBg',
@@ -137,8 +142,22 @@ export const BINDINGS: readonly Binding[] = [
   { id: 'duplicate', defaultKey: k('d', true), scope: CANVAS_REGION, target: 'main', label: 'Duplicate' },
 
   // Canvas-region plain shortcuts
-  { id: 'delete-selection', defaultKey: k('delete'), scope: CANVAS_REGION, target: 'main', label: 'Delete' },
-  { id: 'delete-selection', defaultKey: k('backspace'), scope: CANVAS_REGION, target: 'main', label: 'Delete' },
+  {
+    id: 'delete-selection',
+    defaultKey: k('delete'),
+    scope: CANVAS_OR_PAGE_REGION,
+    target: 'main',
+    firesFromPageFocus: true,
+    label: 'Delete',
+  },
+  {
+    id: 'delete-selection',
+    defaultKey: k('backspace'),
+    scope: CANVAS_OR_PAGE_REGION,
+    target: 'main',
+    firesFromPageFocus: true,
+    label: 'Delete',
+  },
   { id: 'nav-left', defaultKey: k('arrowleft'), scope: CANVAS_REGION, target: 'main', label: 'Navigate left' },
   { id: 'nav-right', defaultKey: k('arrowright'), scope: CANVAS_REGION, target: 'main', label: 'Navigate right' },
   { id: 'nav-up', defaultKey: k('arrowup'), scope: CANVAS_REGION, target: 'main', label: 'Navigate up' },

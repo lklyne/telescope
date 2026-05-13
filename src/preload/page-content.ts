@@ -75,6 +75,7 @@ let canvasZoom = 1
 let annotateEnabled = false
 let cleanupBlockingOverlayListeners: (() => void) | null = null
 const SELECTION_DEBUG = process.env.CANVAS_DEBUG_SELECTION === '1'
+let lastReportedTextEditing = false
 
 function selectionDebug(event: string, details?: Record<string, unknown>): void {
   if (!SELECTION_DEBUG) return
@@ -128,6 +129,52 @@ window.addEventListener('error', (event) => {
 window.addEventListener('unhandledrejection', (event) => {
   debugLog('error', 'unhandledrejection', event.reason)
 })
+
+function isTypingTarget(element: Element | null): boolean {
+  if (!element) return false
+  const tag = element.tagName.toLowerCase()
+  if (tag === 'textarea') return true
+  if (tag === 'input') {
+    const input = element as HTMLInputElement
+    const type = input.type.toLowerCase()
+    return ![
+      'button',
+      'checkbox',
+      'color',
+      'file',
+      'hidden',
+      'image',
+      'radio',
+      'range',
+      'reset',
+      'submit',
+    ].includes(type)
+  }
+  return element instanceof HTMLElement && element.isContentEditable
+}
+
+function reportTextEditing(active: boolean): void {
+  if (lastReportedTextEditing === active) return
+  lastReportedTextEditing = active
+  ipcRenderer.send('canvas-set-text-editing', { active })
+}
+
+function reportCurrentTextEditing(): void {
+  try {
+    reportTextEditing(isTypingTarget(document.activeElement))
+  } catch {
+    reportTextEditing(false)
+  }
+}
+
+window.addEventListener('focusin', reportCurrentTextEditing, true)
+window.addEventListener('focusout', reportCurrentTextEditing, true)
+window.addEventListener('focus', reportCurrentTextEditing, true)
+window.addEventListener('DOMContentLoaded', reportCurrentTextEditing, true)
+window.addEventListener('load', reportCurrentTextEditing, true)
+window.addEventListener('blur', () => reportTextEditing(false), true)
+queueMicrotask(reportCurrentTextEditing)
+window.setTimeout(reportCurrentTextEditing, 50)
 
 const originalConsole = {
   log: console.log.bind(console),

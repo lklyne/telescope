@@ -331,6 +331,25 @@ describe('dispatchKey — firesFromPageFocus', () => {
     ).toBeNull()
   })
 
+  it('fires delete-selection from page focus when the page is not typing', () => {
+    const ctx: BindingContext = { ...BASE_CTX, pageFocusActive: true, sourceView: 'page' }
+    expect(
+      dispatchKey(BINDINGS, { key: 'delete', cmd: false, alt: false, shift: false }, ctx),
+    ).toBe('delete-selection')
+  })
+
+  it('suppresses delete-selection from page focus while typing', () => {
+    const ctx: BindingContext = {
+      ...BASE_CTX,
+      isTextEditing: true,
+      pageFocusActive: true,
+      sourceView: 'page',
+    }
+    expect(
+      dispatchKey(BINDINGS, { key: 'delete', cmd: false, alt: false, shift: false }, ctx),
+    ).toBeNull()
+  })
+
   it('fires reset-viewport from page focus', () => {
     const ctx: BindingContext = { ...BASE_CTX, pageFocusActive: true, sourceView: 'page' }
     expect(

@@ -134,6 +134,21 @@ describe('keyboard shortcuts (binding dispatcher)', () => {
     if (idx >= 0) createdPageIds.splice(idx, 1)
   })
 
+  it('delete key removes a selected page from page focus', async () => {
+    const pageId = await createPage()
+    await selectPage(pageId)
+    await wait(50)
+    await sendKey('delete', { target: 'page', pageId })
+
+    await waitFor(
+      () => getWorkspace(),
+      (workspace) => !workspace.entities.some((entity) => entity.id === pageId),
+      'Timed out waiting for focused-page Delete to remove selected page',
+    )
+    const idx = createdPageIds.indexOf(pageId)
+    if (idx >= 0) createdPageIds.splice(idx, 1)
+  })
+
   it('Cmd+Shift+Z triggers redo without error', async () => {
     await sendKey('z', { cmd: true, shift: true })
     await wait(50)

@@ -13,13 +13,13 @@ import { requestLayout } from './surface-layout'
 import { arrowNavigationLocked, setArrowNavigationLocked, pages, selectedPageId } from './runtime-context'
 import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
 import { deletePages } from '../workspace-entities'
-import { deleteEdges } from '../workspace-edges'
-import { deleteTextEntity, textEntities } from './text-entity-state'
-import { deleteFileEntity, fileEntities } from './file-entity-state'
-import { deleteDrawingEntity, drawingEntities } from './drawing-entity-state'
-import { deleteShapeEntity, shapeEntities } from './shape-entity-state'
+import { textEntities } from './text-entity-state'
+import { fileEntities } from './file-entity-state'
+import { drawingEntities } from './drawing-entity-state'
+import { shapeEntities } from './shape-entity-state'
 import { duplicatePageFromSource, duplicateEntity } from '../workspace-pages'
 import { selectBrowserTab } from './runtime-core'
+import { deleteSelection } from './delete-selection'
 
 type MainBindingId = Exclude<BindingId, 'annotation-close-thread' | 'annotation-clear-draft'>
 
@@ -166,26 +166,4 @@ function duplicateSelection(): void {
   } else {
     duplicateEntity({ entityId: target.id, focus: true })
   }
-}
-
-function deleteSelection(): void {
-  const targets = uiSelectedCanvasTargets()
-  if (!targets.length) return
-  const edgeIds = targets.filter((t) => t.kind === 'edge').map((t) => t.id)
-  if (edgeIds.length) deleteEdges({ edgeIds })
-  const entityIds = targets.filter((t) => t.kind !== 'edge').map((t) => t.id)
-  if (!entityIds.length) {
-    layoutAllViews()
-    return
-  }
-  const pageIds = entityIds.filter((id) => pages.some((p) => p.id === id))
-  const textIds = entityIds.filter((id) => textEntities.some((n) => n.id === id))
-  const fileIds = entityIds.filter((id) => fileEntities.some((f) => f.id === id))
-  const drawingIds = entityIds.filter((id) => drawingEntities.some((d) => d.id === id))
-  const shapeIds = entityIds.filter((id) => shapeEntities.some((s) => s.id === id))
-  if (pageIds.length) deletePages({ pageIds })
-  for (const id of textIds) deleteTextEntity(id)
-  for (const id of fileIds) deleteFileEntity(id)
-  for (const id of drawingIds) deleteDrawingEntity(id)
-  for (const id of shapeIds) deleteShapeEntity(id)
 }

@@ -59,6 +59,15 @@ Conventions:
 - **Body sub-rect** — the part of the entity rect that holds the entity's content (the live document for a page, the image for a file, etc.). Resize handles and edge anchors attach here.
 - **Chrome slot** — the part of the entity rect reserved for canvas-anchored overlay UI. Per-kind, runtime-derived, **not persisted** in the `.canvas` schema.
 
+## Drag affordances
+
+Modifiers and visual feedback that ride on top of entity drag (and resize) gestures. The single magnetic pull on the canvas is grid-snap (`snapToGrid`, 20 px); everything below either projects the delta before the snap (axis lock) or renders informationally after it (alignment / distribution guides). See [ADR 0012](./docs/adr/0012-alignment-guides-are-visual-only.md).
+
+- **Axis lock** — holding `Shift` during an entity drag (with or without `Alt`/`Option` for copy) constrains movement to a single axis. Live: the dominant axis is recomputed every frame from cursor offset to drag origin, so the lock can flip H↔V mid-drag without releasing the mouse. Projection happens in main: `aboveView` adds a `shiftKey` flag to each `canvas-drag-entity` IPC update, and `applyDragDelta` zeros the smaller-magnitude axis. The locked axis bypasses grid-snap (entity holds its exact origin coordinate); the free axis still grid-snaps. Multi-select drag applies the same constrained delta to all entities.
+- **Snap candidate** — an entity that contributes alignment edges during a drag or resize. Snapshot is taken once at gesture begin from the current viewport-visible entity set (rect intersects the available canvas viewport rect), excluding entities in the active selection. Pages and groups (snap to bbox) are included; group children inside an included group don't double-contribute. Pan is locked during drag, so the snapshot is stable.
+- **Alignment guide** — a 1 px solid line in the canvas accent color, rendered in `aboveView`'s drag overlay layer, that confirms the dragged (or resized) entity's edge or center coincides with a snap candidate's edge or center within 0.5 px. Each candidate contributes 6 edges: top, bottom, left, right, horizontal-center, vertical-center; the dragged entity contributes its own 6 reference points (only the moving edge for resize). Guides are detected after grid-snap runs — they confirm an alignment, never create one — so they appear honestly and never lie. The line spans from min to max of the candidate and dragged rects on the snapping axis.
+- **Distribution guide** — `==` measure marks rendered alongside alignment guides when the dragged entity sits at equal distance from two or more snap candidates along an axis (post-grid-snap). Same visual-only contract: detection only, no pull.
+
 ## Input authority
 
 - **Page focus** — runtime state `{ id, since } | null` in main. When set, the focused page receives native pointer input; aboveView's gate is closed. When null, aboveView is the sole input authority. See [ADR 0001](./docs/adr/0001-click-to-enter-frame-focus.md). (ADR 0001 was authored under the old "frame" name; the runtime variable is currently `frameFocus` and renames to `pageFocus` in the migration.)

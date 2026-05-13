@@ -17,11 +17,11 @@
 
 import { memo, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
+import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { CanvasSceneTextEntity, TextEntityStyle } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 
-const PLAIN_TEXT_PLACEHOLDER = 'Add text'
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
 

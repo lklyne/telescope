@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { TextEntityStyle } from '../../shared/types'
 import { buildCanvasGridStyle } from './canvasGridStyle'
 
@@ -109,7 +110,7 @@ export function PlacementPreviewLayer({
           fontFamily: 'system-ui, sans-serif',
         }}
       >
-        Add text
+        {PLAIN_TEXT_PLACEHOLDER}
       </div>
     )
   }

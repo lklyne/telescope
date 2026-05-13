@@ -218,7 +218,7 @@ function StickyCard({
   // CodeMirror renders dark text matching the view-mode color below.
   const editorIsDark = isPlain ? isDark : false
   const textColor = isPlain ? (isDark ? '#e7e5e4' : '#1c1917') : '#1c1917'
-  const placeholder = isPlain ? 'Type some text...' : 'Type a note...'
+  const placeholder = isPlain ? 'Add text' : 'Type a note...'
 
   const innerColumnStyle: React.CSSProperties = isPlain
     ? { display: 'flex', flexDirection: 'column' }

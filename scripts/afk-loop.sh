@@ -93,19 +93,38 @@ for i in $(seq 1 "$MAX_FIRES"); do
 
   echo ""
 
-  # Check if epic is now complete
-  EPIC_DONE="$(dex show "$EPIC_ID" --json 2>/dev/null | python3 -c '
+  # Check if epic is now complete. Two exit paths:
+  #   1. dex marks the epic completed (only happens after integration PR merges)
+  #   2. Every child task is completed AND an integration PR is open against main
+  #      (the worker can't merge the integration PR itself — that's the human's job —
+  #      so once it's open, every further fire is a no-op and we should stop early)
+  EPIC_STATE="$(dex show "$EPIC_ID" --json 2>/dev/null | python3 -c '
 import sys, json
 try:
     t = json.load(sys.stdin)
-    print("yes" if t.get("completed") else "no")
+    if t.get("completed"):
+        print("done")
+    else:
+        children = t.get("subtasks", {}).get("children", []) or t.get("children", [])
+        if children and all(c.get("completed") for c in children):
+            print("children-done")
+        else:
+            print("in-progress")
 except Exception:
-    print("no")
+    print("in-progress")
 ')"
 
-  if [[ "$EPIC_DONE" == "yes" ]]; then
+  if [[ "$EPIC_STATE" == "done" ]]; then
     echo "✓ Epic $EPIC_ID complete. Loop done."
     exit 0
+  fi
+
+  if [[ "$EPIC_STATE" == "children-done" ]]; then
+    INTEGRATION_PR="$(gh pr list --head "$FEATURE_BRANCH" --base main --state open --json number -q '.[0].number' 2>/dev/null || true)"
+    if [[ -n "$INTEGRATION_PR" ]]; then
+      echo "✓ All child tasks complete; integration PR #$INTEGRATION_PR is open against main. Loop done."
+      exit 0
+    fi
   fi
 
   echo "Sleeping ${SLEEP_SECONDS}s before next fire..."

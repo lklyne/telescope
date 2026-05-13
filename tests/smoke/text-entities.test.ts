@@ -1,5 +1,11 @@
-import { describe, it, expect, afterAll } from 'vitest'
-import { createTextEntities, getTextEntities, updateTextEntities, deleteTextEntities } from './app-client'
+import { describe, it, expect, afterAll, afterEach } from 'vitest'
+import {
+  createTextEntities,
+  deleteTextEntities,
+  getTextEntities,
+  updateTextEntities,
+} from './app-client'
+import { assertPersists, assertUndoable } from './test-utils'
 
 const createdIds: string[] = []
 
@@ -40,5 +46,33 @@ describe('text entities', () => {
 
     const { textEntities } = await getTextEntities()
     expect(textEntities.find((e) => e.id === id)).toBeUndefined()
+  })
+})
+
+describe('text entities — lifecycle', () => {
+  const lifecycleIds: string[] = []
+
+  afterEach(async () => {
+    if (lifecycleIds.length) {
+      await deleteTextEntities(lifecycleIds.splice(0))
+    }
+  })
+
+  it('persists a created text entity to disk', async () => {
+    await assertPersists(async () => {
+      const result = await createTextEntities([
+        { canvasX: 320, canvasY: 320, text: 'persisted text' },
+      ])
+      lifecycleIds.push(...result.ids)
+    })
+  })
+
+  it('round-trips a created text entity through undo/redo', async () => {
+    await assertUndoable(async () => {
+      const result = await createTextEntities([
+        { canvasX: 360, canvasY: 360, text: 'undoable text' },
+      ])
+      lifecycleIds.push(...result.ids)
+    })
   })
 })

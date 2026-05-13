@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   createPages,
   createGroup,
+  deleteGroups,
   deletePages,
   getSidebar,
+  getWorkspace,
 } from './app-client'
+import { assertPersists, assertUndoable } from './test-utils'
 
 const createdPageIds: string[] = []
 
@@ -66,6 +69,52 @@ describe('left sidebar hierarchy', () => {
     expect(outerChildren[1]).toMatchObject({
       kind: 'page',
       id: outerOnly,
+    })
+  })
+})
+
+describe('left sidebar hierarchy — lifecycle', () => {
+  afterEach(async () => {
+    const graph = await getWorkspace()
+    const groupIds = graph.entities.filter((e) => e.kind === 'group').map((e) => e.id)
+    if (groupIds.length) await deleteGroups(groupIds)
+    if (createdPageIds.length) {
+      await deletePages(createdPageIds.splice(0))
+    }
+  })
+
+  it('persists nested groups to disk', async () => {
+    const innerLeft = await createPage({
+      url: 'https://example.com',
+      canvasX: 180,
+      canvasY: 320,
+    })
+    const innerRight = await createPage({
+      url: 'https://example.org',
+      canvasX: 540,
+      canvasY: 320,
+    })
+    const inner = await createGroup([innerLeft, innerRight], 'Inner persist')
+    await assertPersists(async () => {
+      await createGroup([innerLeft, innerRight], 'Outer persist')
+    })
+    expect(inner).toBeDefined()
+  })
+
+  it('round-trips a nested group creation through undo/redo', async () => {
+    const innerLeft = await createPage({
+      url: 'https://example.com',
+      canvasX: 180,
+      canvasY: 520,
+    })
+    const innerRight = await createPage({
+      url: 'https://example.org',
+      canvasX: 540,
+      canvasY: 520,
+    })
+    await createGroup([innerLeft, innerRight], 'Inner undo')
+    await assertUndoable(async () => {
+      await createGroup([innerLeft, innerRight], 'Outer undo')
     })
   })
 })

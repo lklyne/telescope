@@ -1,9 +1,14 @@
 import WebSocket from 'ws'
+import { expect } from 'vitest'
 import {
   flushWorkspaceAutosave,
   getDiskSnapshot,
+  getUndoState,
+  getWorkspace,
+  redoWorkspace,
   startTransactionCounter,
   stopTransactionCounter,
+  undoWorkspace,
   type DiskSnapshot,
 } from './app-client'
 
@@ -87,4 +92,109 @@ export function closeWebSocket(socket: WebSocket): Promise<void> {
     socket.once('close', () => resolve())
     socket.close()
   })
+}
+
+// --- Lifecycle helpers ---
+//
+// The two helpers below codify the Phase 3 lifecycle contract: persisted
+// entities round-trip through the .canvas file, and entity-shaped mutations
+// round-trip through the undo stack. Reach for them when you want a smoke
+// test to assert "this mutation survives a relaunch" or "this mutation is
+// undoable", instead of only asserting "this mutation appeared in a
+// snapshot once."
+
+// JSON Canvas spec uses `link` for live-page nodes; the runtime calls the
+// same entity a `page`. Normalise both sides to a single representation so
+// the disk/runtime comparison is one set equality, not a kind-by-kind
+// crosswalk.
+const DISK_TYPE_TO_RUNTIME_KIND: Record<string, string> = {
+  link: 'page',
+  text: 'text',
+  file: 'file',
+  group: 'group',
+}
+
+type EntityFingerprint = { id: string; kind: string }
+
+function sortFingerprints(items: EntityFingerprint[]): EntityFingerprint[] {
+  return [...items].sort((a, b) => a.id.localeCompare(b.id))
+}
+
+async function captureRuntimeFingerprints(): Promise<EntityFingerprint[]> {
+  const ws = await getWorkspace()
+  return sortFingerprints(
+    (ws.entities as Array<{ id: string; kind: string }>).map((e) => ({
+      id: e.id,
+      kind: e.kind,
+    })),
+  )
+}
+
+async function captureDiskFingerprints(): Promise<EntityFingerprint[]> {
+  await flushWorkspaceAutosave()
+  const disk = await getDiskSnapshot()
+  return sortFingerprints(
+    (disk.doc?.nodes ?? []).map((node) => ({
+      id: node.id,
+      kind: DISK_TYPE_TO_RUNTIME_KIND[node.type] ?? node.type,
+    })),
+  )
+}
+
+/**
+ * Runs `setup`, then asserts the post-setup runtime entities round-trip to
+ * the .canvas file on disk after the autosave is flushed.
+ *
+ * Proves the post-setup state would survive a dirty quit + relaunch — if
+ * the autosave drops the mutation (e.g. forward sync didn't fire, or
+ * `scheduleWorkspaceAutosave()` is commented out), disk and runtime
+ * diverge and the assertion fails.
+ *
+ * Use this on tests that create entities the user expects to persist
+ * (pages, text, files, groups, edges).
+ */
+export async function assertPersists(setup: () => Promise<void>): Promise<void> {
+  await setup()
+  // queueMicrotask in workspace-observers schedules the forward sync; wait
+  // a tick so the disk snapshot taken below sees the post-setup state.
+  await wait(50)
+  const runtime = await captureRuntimeFingerprints()
+  const disk = await captureDiskFingerprints()
+  expect(disk).toEqual(runtime)
+}
+
+/**
+ * Runs `setup`, then exercises the undo/redo stack: `undoCount` undos must
+ * restore the pre-setup runtime entities, and the matching number of redos
+ * must restore the post-setup entities.
+ *
+ * `undoCount` defaults to 1 — most setups create a single undoable step.
+ * Pass a higher number for setups that issue multiple distinct mutations
+ * (e.g. create two entities one at a time). The single-item create path is
+ * deterministic; batch creates go through `staggerOperation` and leave the
+ * stack non-deterministic, so prefer single creates inside `setup`.
+ */
+export async function assertUndoable(
+  setup: () => Promise<void>,
+  { undoCount = 1 }: { undoCount?: number } = {},
+): Promise<void> {
+  const pre = await captureRuntimeFingerprints()
+  await setup()
+  await wait(50)
+  const post = await captureRuntimeFingerprints()
+  expect(post).not.toEqual(pre)
+
+  for (let i = 0; i < undoCount; i++) {
+    if (!(await getUndoState()).canUndo) break
+    await undoWorkspace()
+  }
+  const afterUndo = await captureRuntimeFingerprints()
+  expect(afterUndo).toEqual(pre)
+
+  for (let i = 0; i < undoCount; i++) {
+    if (!(await getUndoState()).canRedo) break
+    await redoWorkspace()
+  }
+  const afterRedo = await captureRuntimeFingerprints()
+  expect(afterRedo).toEqual(post)
 }

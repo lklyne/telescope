@@ -162,12 +162,14 @@ export function registerCanvasEntityIpc(): void {
           tool.style === 'sticky'
             ? getStickyDefaultColor()
             : getPlainTextDefaultColor() ?? undefined
-        createTextEntity({
+        const created = createTextEntity({
           canvasX,
           canvasY,
           textStyle: tool.style,
           color: defaultColor,
         })
+        selectEntity(created.id, 'text')
+        beginEditingEntity(created.id)
       } else if (tool.kind === 'add-document') {
         try {
           const filePath = createNoteFile()

@@ -16,7 +16,7 @@ export function StickyNotePopover({
   isDark,
   layout,
   selectedTextEntities,
-  interactionIdle,
+  popupReady,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
@@ -25,11 +25,11 @@ export function StickyNotePopover({
   isDark: boolean
   layout: LayoutUpdateData
   selectedTextEntities: CanvasSceneTextEntity[]
-  interactionIdle: boolean
+  popupReady: boolean
 }) {
   const count = selectedTextEntities.length
   const ids = selectedTextEntities.map((e) => e.id).join('|')
-  const open = usePopupDelayedKey(ids, interactionIdle && count > 0)
+  const open = usePopupDelayedKey(ids, popupReady && count > 0)
   if (count === 0) return null
 
   const sharedColor = sharedValue(

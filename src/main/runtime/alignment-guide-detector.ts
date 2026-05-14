@@ -38,6 +38,16 @@ function spanForAxis(axis: AlignmentAxis, dragged: SnapCandidate, candidate: Sna
   }
 }
 
+const CENTER_REF: Record<AlignmentAxis, AlignmentReferenceName> = {
+  horizontal: 'hCenter',
+  vertical: 'vCenter',
+}
+
+const EDGE_REFS: Record<AlignmentAxis, [AlignmentReferenceName, AlignmentReferenceName]> = {
+  horizontal: ['top', 'bottom'],
+  vertical: ['left', 'right'],
+}
+
 export function alignmentGuideDetector(
   draggedRects: AlignmentDraggedRect[],
   candidates: SnapCandidate[],
@@ -78,5 +88,26 @@ export function alignmentGuideDetector(
     }
   }
 
-  return guides
+  return dropRedundantCenterGuides(guides)
+}
+
+function dropRedundantCenterGuides(guides: AlignmentGuide[]): AlignmentGuide[] {
+  const edgesByPair = new Map<string, Set<AlignmentReferenceName>>()
+  for (const guide of guides) {
+    const key = `${guide.axis}:${guide.draggedId}:${guide.candidateId}`
+    let edges = edgesByPair.get(key)
+    if (!edges) {
+      edges = new Set()
+      edgesByPair.set(key, edges)
+    }
+    edges.add(guide.draggedReference)
+  }
+
+  return guides.filter((guide) => {
+    if (guide.draggedReference !== CENTER_REF[guide.axis]) return true
+    const [edgeA, edgeB] = EDGE_REFS[guide.axis]
+    const edges = edgesByPair.get(`${guide.axis}:${guide.draggedId}:${guide.candidateId}`)
+    if (!edges) return true
+    return !(edges.has(edgeA) && edges.has(edgeB))
+  })
 }

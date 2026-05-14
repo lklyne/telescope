@@ -25,7 +25,7 @@ function rect(input: {
 }
 
 describe('alignmentGuideDetector', () => {
-  it('detects all top, bottom, and horizontal-center reference alignments', () => {
+  it('detects top and bottom alignments and drops the implied horizontal-center guide', () => {
     const dragged = rect({ id: 'dragged', left: 200, top: 100, width: 80, height: 40 })
     const candidate = rect({ id: 'candidate', left: 20, top: 100, width: 100, height: 40 })
 
@@ -33,10 +33,10 @@ describe('alignmentGuideDetector', () => {
       .filter((guide) => guide.axis === 'horizontal')
       .map((guide) => `${guide.draggedReference}:${guide.candidateReference}`)
 
-    expect(refs).toEqual(['top:top', 'bottom:bottom', 'hCenter:hCenter'])
+    expect(refs).toEqual(['top:top', 'bottom:bottom'])
   })
 
-  it('detects all left, right, and vertical-center reference alignments', () => {
+  it('detects left and right alignments and drops the implied vertical-center guide', () => {
     const dragged = rect({ id: 'dragged', left: 100, top: 180, width: 80, height: 40 })
     const candidate = rect({ id: 'candidate', left: 100, top: 20, width: 80, height: 100 })
 
@@ -44,7 +44,18 @@ describe('alignmentGuideDetector', () => {
       .filter((guide) => guide.axis === 'vertical')
       .map((guide) => `${guide.draggedReference}:${guide.candidateReference}`)
 
-    expect(refs).toEqual(['left:left', 'right:right', 'vCenter:vCenter'])
+    expect(refs).toEqual(['left:left', 'right:right'])
+  })
+
+  it('keeps the center guide when only the center aligns', () => {
+    const dragged = rect({ id: 'dragged', left: 200, top: 90, width: 80, height: 60 })
+    const candidate = rect({ id: 'candidate', left: 20, top: 100, width: 100, height: 40 })
+
+    const refs = alignmentGuideDetector([dragged], [candidate])
+      .filter((guide) => guide.axis === 'horizontal')
+      .map((guide) => `${guide.draggedReference}:${guide.candidateReference}`)
+
+    expect(refs).toEqual(['hCenter:hCenter'])
   })
 
   it('honors the 0.5 px tolerance boundary', () => {

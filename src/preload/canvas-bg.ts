@@ -10,6 +10,7 @@ import type {
   ToolDefaultPatch,
 } from '../shared/types'
 import type { BindingId } from '../shared/bindings'
+import type { CanvasGuidesPayload } from '../shared/canvas-guides'
 
 function installSelectionOverlayBridge(): void {
   if (location.href !== 'about:blank') return
@@ -320,6 +321,12 @@ const api: CanvasBgElectronAPI = {
     const handler = (_event: Electron.IpcRendererEvent, id: BindingId) => callback(id)
     ipcRenderer.on('binding-fire', handler)
     return () => ipcRenderer.removeListener('binding-fire', handler)
+  },
+  onCanvasGuides: (callback: (payload: CanvasGuidesPayload) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: CanvasGuidesPayload) =>
+      callback(payload)
+    ipcRenderer.on('canvas-guides', handler)
+    return () => ipcRenderer.removeListener('canvas-guides', handler)
   },
   readNoteFile: (filePath: string) =>
     ipcRenderer.invoke('read-note-file', { filePath }),

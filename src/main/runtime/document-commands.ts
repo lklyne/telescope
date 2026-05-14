@@ -65,7 +65,15 @@ import {
 } from './runtime-entities'
 import { selectEntities, selectGroup } from './selection-controller'
 import { cancelEditingEntityIfMatches } from './editing-entity-runtime'
-import { layoutAllViews, pageContentSize, requestLayout, snapToGrid, zoom } from './surface-layout'
+import {
+  canvasOrigin,
+  layoutAllViews,
+  pageContentSize,
+  pan,
+  requestLayout,
+  snapToGrid,
+  zoom,
+} from './surface-layout'
 import {
   createTextEntity as createTextEntityInState,
   updateTextEntity as updateTextEntityInState,
@@ -81,10 +89,23 @@ import {
   type ShapeEntity,
 } from './shape-entity-state'
 import { axisLockDominantAxis, axisLockProjector } from './axis-lock-projector'
+import { alignmentGuideDetector } from './alignment-guide-detector'
+import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
 import { beginBatch, endBatch } from './workspace-observers'
 import { scheduleWorkspaceAutosave } from './workspace-session'
 import { markUndoBoundary } from './workspace-undo'
+import {
+  boundAvailableCanvasViewportRect,
+  pageOuterCanvasBounds,
+} from './runtime-geometry'
+import {
+  snapCandidateFromRect,
+  snapCandidateSnapshot,
+  type SnapCandidate,
+  type SnapCandidateSnapshotEntity,
+  type SnapRect,
+} from './snap-candidate-snapshot'
 
 // --- Page Commands ---
 
@@ -140,9 +161,117 @@ type DragDeltaOptions = {
 }
 
 const dragAccumulatorById = new Map<string, DragAccumulator>()
+let activeDragCandidates: SnapCandidate[] = []
+let activeDraggedGuideIds: string[] = []
+
+function currentCanvasViewportRect(): SnapRect {
+  const viewport = boundAvailableCanvasViewportRect()
+  const origin = canvasOrigin()
+  return {
+    x: (viewport.x - origin.x - pan.x) / zoom,
+    y: (viewport.y - origin.y - pan.y) / zoom,
+    width: viewport.width / zoom,
+    height: viewport.height / zoom,
+  }
+}
+
+function currentSnapSnapshotEntities(): SnapCandidateSnapshotEntity[] {
+  return [
+    ...pages.map((page) => {
+      const bounds = pageOuterCanvasBounds(page)
+      return {
+        id: page.id,
+        kind: 'page' as const,
+        canvasX: bounds.x,
+        canvasY: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+        parentGroupId: page.parentGroupId,
+      }
+    }),
+    ...textEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'text' as const,
+      canvasX: entity.canvasX,
+      canvasY: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+      parentGroupId: entity.parentGroupId,
+    })),
+    ...fileEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'file' as const,
+      canvasX: entity.canvasX,
+      canvasY: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+      parentGroupId: entity.parentGroupId,
+    })),
+    ...drawingEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'drawing' as const,
+      canvasX: entity.canvasX,
+      canvasY: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+      parentGroupId: entity.parentGroupId,
+    })),
+    ...shapeEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'shape' as const,
+      canvasX: entity.canvasX,
+      canvasY: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+      parentGroupId: entity.parentGroupId,
+    })),
+    ...workspaceGroups.map((group) => ({
+      id: group.id,
+      kind: 'group' as const,
+      canvasX: group.canvasX,
+      canvasY: group.canvasY,
+      width: group.width,
+      height: group.height,
+      parentGroupId: group.parentGroupId,
+    })),
+  ]
+}
+
+function currentSnapCandidateForEntity(id: string): SnapCandidate | null {
+  const page = pages.find((candidate) => candidate.id === id)
+  if (page) {
+    return snapCandidateFromRect(
+      { id: page.id, kind: 'page' },
+      pageOuterCanvasBounds(page),
+    )
+  }
+
+  const entity = currentSnapSnapshotEntities().find((candidate) => candidate.id === id)
+  if (!entity) return null
+  return snapCandidateFromRect(entity, {
+    x: entity.canvasX,
+    y: entity.canvasY,
+    width: entity.width,
+    height: entity.height,
+  })
+}
+
+function guideEntityIdsForDrag(entityIds: string[]): string[] {
+  const dragged = new Set(entityIds)
+  return currentSnapSnapshotEntities()
+    .filter((entity) => dragged.has(entity.id))
+    .filter((entity) => !entity.parentGroupId || !dragged.has(entity.parentGroupId))
+    .map((entity) => entity.id)
+}
 
 export function initializeDrag(entityIds: string[]): void {
   dragAccumulatorById.clear()
+  activeDraggedGuideIds = guideEntityIdsForDrag(entityIds)
+  activeDragCandidates = snapCandidateSnapshot(
+    { entities: currentSnapSnapshotEntities() },
+    currentCanvasViewportRect(),
+    entityIds,
+  )
   beginBatch()
   for (const id of entityIds) {
     const entity = findMovableEntity(id)
@@ -221,6 +350,12 @@ export function applyDragDelta(
     shiftDrawingStrokes(id, entity.canvasX - prevX, entity.canvasY - prevY)
   }
   if (entityIds.length) {
+    const draggedRects = activeDraggedGuideIds
+      .map(currentSnapCandidateForEntity)
+      .filter((candidate): candidate is SnapCandidate => candidate !== null)
+    broadcastCanvasGuides({
+      alignmentGuides: alignmentGuideDetector(draggedRects, activeDragCandidates),
+    })
     markDirty('canvas', 'sidebar')
     scheduleWorkspaceAutosave()
   }
@@ -244,6 +379,9 @@ function shiftDrawingStrokes(entityId: string, deltaX: number, deltaY: number): 
 
 export function finalizeDrag(): void {
   dragAccumulatorById.clear()
+  activeDragCandidates = []
+  activeDraggedGuideIds = []
+  clearCanvasGuides()
   endBatch()
   markUndoBoundary()
 }

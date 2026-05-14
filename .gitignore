@@ -26,6 +26,7 @@ tmp/
 tmp-page*.png
 dogfood-output/
 regression-screenshots/
+.afk-logs/
 
 # Claude Code runtime state (active process lock — not user content)
 .claude/scheduled_tasks.lock

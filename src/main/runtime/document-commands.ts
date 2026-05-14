@@ -20,6 +20,8 @@
 import { GRID_SIZE, VIEWPORT_PRESETS } from '../../shared/constants'
 import type { DeviceOrientation } from '../../shared/device-catalog'
 import { deviceForPresetIndex } from '../../shared/device-catalog'
+import type { AlignmentReferenceName } from '../../shared/canvas-guides'
+import type { ResizeHandle } from '../../shared/resize-accumulator'
 import type { EdgeEnd, EdgeSide } from '../../shared/types'
 import type { WorkspaceGroup } from '../../shared/types'
 import {
@@ -91,6 +93,8 @@ import {
 import { axisLockDominantAxis, axisLockProjector } from './axis-lock-projector'
 import { alignmentGuideDetector } from './alignment-guide-detector'
 import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
+import { descendantEntityIdsForGroup } from './group-descendants'
+import { resizeGuideReferencesForHandle } from './resize-guide-adapter'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
 import { beginBatch, endBatch } from './workspace-observers'
 import { scheduleWorkspaceAutosave } from './workspace-session'
@@ -163,6 +167,11 @@ type DragDeltaOptions = {
 const dragAccumulatorById = new Map<string, DragAccumulator>()
 let activeDragCandidates: SnapCandidate[] = []
 let activeDraggedGuideIds: string[] = []
+let activeResizeGuideSession: {
+  entityId: string
+  references: AlignmentReferenceName[]
+  candidates: SnapCandidate[]
+} | null = null
 
 function currentCanvasViewportRect(): SnapRect {
   const viewport = boundAvailableCanvasViewportRect()
@@ -386,6 +395,57 @@ export function finalizeDrag(): void {
   markUndoBoundary()
 }
 
+function resizeGuideExcludedIds(entityId: string): string[] {
+  const excluded = new Set<string>([entityId])
+  for (const selectedId of uiSelectedEntityIds()) excluded.add(selectedId)
+
+  const selectedGroup = uiSelectedGroupId()
+  if (selectedGroup) excluded.add(selectedGroup)
+
+  const groupIds = [entityId, ...excluded].filter((id) => (
+    workspaceGroups.some((group) => group.id === id)
+  ))
+  for (const groupId of groupIds) {
+    descendantEntityIdsForGroup(groupId).forEach((id) => excluded.add(id))
+  }
+
+  return [...excluded]
+}
+
+export function initializeResizeGuides(entityId: string, handle: ResizeHandle): void {
+  activeResizeGuideSession = {
+    entityId,
+    references: resizeGuideReferencesForHandle(handle),
+    candidates: snapCandidateSnapshot(
+      { entities: currentSnapSnapshotEntities() },
+      currentCanvasViewportRect(),
+      resizeGuideExcludedIds(entityId),
+    ),
+  }
+}
+
+export function updateResizeGuides(entityId: string): void {
+  if (!activeResizeGuideSession || activeResizeGuideSession.entityId !== entityId) return
+
+  const dragged = currentSnapCandidateForEntity(entityId)
+  if (!dragged) {
+    clearCanvasGuides()
+    return
+  }
+
+  broadcastCanvasGuides({
+    alignmentGuides: alignmentGuideDetector(
+      [{ ...dragged, references: activeResizeGuideSession.references }],
+      activeResizeGuideSession.candidates,
+    ),
+  })
+}
+
+export function finalizeResizeGuides(): void {
+  activeResizeGuideSession = null
+  clearCanvasGuides()
+}
+
 /**
  * Move entities by a screen-pixel delta. For use outside of drag flows
  * (e.g., keyboard arrow movement).
@@ -511,6 +571,7 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
   if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
   const entity = updateTextEntityInState(id, snapped)
   if (entity) {
+    updateResizeGuides(id)
     scheduleWorkspaceAutosave()
     requestLayout()
   }
@@ -557,6 +618,7 @@ export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id
   if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
   const entity = updateFileEntityInState(id, snapped)
   if (entity) {
+    updateResizeGuides(id)
     scheduleWorkspaceAutosave()
     requestLayout()
   }
@@ -590,6 +652,7 @@ export function updateDrawingEntity(
   if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
   const entity = updateDrawingEntityInState(id, snapped)
   if (entity) {
+    updateResizeGuides(id)
     scheduleWorkspaceAutosave()
     requestLayout()
   }
@@ -638,6 +701,7 @@ export function updateShapeEntity(
   if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
   const entity = updateShapeEntityInState(id, snapped)
   if (entity) {
+    updateResizeGuides(id)
     scheduleWorkspaceAutosave()
     requestLayout()
   }
@@ -671,6 +735,7 @@ export function updateGroupEntity(
   if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
   const entity = updateGroupEntityInState(id, snapped)
   if (entity) {
+    updateResizeGuides(id)
     scheduleWorkspaceAutosave()
     requestLayout()
   }

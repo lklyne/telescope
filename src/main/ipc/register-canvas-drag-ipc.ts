@@ -4,7 +4,9 @@ import { pages } from '../runtime/page-runtime'
 import {
   applyDragDelta,
   finalizeDrag,
+  finalizeResizeGuides,
   initializeDrag,
+  initializeResizeGuides,
 } from '../runtime/document-commands'
 import {
   getSelectedEntityIds,
@@ -18,6 +20,7 @@ import {
 import { tryEnter, commitActive, cancelActive } from '../runtime/interaction-controller'
 import { setHoverEntity } from '../runtime/runtime-core'
 import type { EdgeSide } from '../../shared/types'
+import type { ResizeHandle } from '../../shared/resize-accumulator'
 import {
   canvasOrigin,
   layoutAllViews,
@@ -328,7 +331,15 @@ export function registerCanvasDragIpc(): void {
     'canvas-resize-begin',
     (
       _event,
-      { entityId, entityKind }: { entityId: string; entityKind: import('../../shared/types').CanvasEntityKind },
+      {
+        entityId,
+        entityKind,
+        handle,
+      }: {
+        entityId: string
+        entityKind: import('../../shared/types').CanvasEntityKind
+        handle: ResizeHandle
+      },
     ) => {
       // Resize gesture begin. The renderer dispatches this BEFORE its first
       // entity-bounds mutation so the layout pass triggered by that mutation
@@ -338,10 +349,12 @@ export function registerCanvasDragIpc(): void {
       // listener cancels the gesture after one pixel. Same gotcha as the
       // drag-start ordering — see runtime/CLAUDE.md.
       tryEnter({ kind: 'resizing-entity', target: { id: entityId, kind: entityKind } })
+      initializeResizeGuides(entityId, handle)
     },
   )
 
   ipcMain.on('canvas-resize-end', () => {
+    finalizeResizeGuides()
     commitActive()
   })
 

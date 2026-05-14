@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { axisLockProjector } from '../../src/main/runtime/axis-lock-projector'
+import { axisLockProjector } from '../../src/shared/axis-lock-projector'
 
 describe('axisLockProjector', () => {
   it('passes raw deltas through when shift is not held', () => {

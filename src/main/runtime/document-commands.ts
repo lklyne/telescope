@@ -90,7 +90,7 @@ import {
   shapeEntities,
   type ShapeEntity,
 } from './shape-entity-state'
-import { axisLockDominantAxis, axisLockProjector } from './axis-lock-projector'
+import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
 import { alignmentGuideDetector } from './alignment-guide-detector'
 import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
 import { distributionGuideDetector } from './distribution-guide-detector'

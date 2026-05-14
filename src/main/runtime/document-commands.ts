@@ -93,6 +93,7 @@ import {
 import { axisLockDominantAxis, axisLockProjector } from './axis-lock-projector'
 import { alignmentGuideDetector } from './alignment-guide-detector'
 import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
+import { distributionGuideDetector } from './distribution-guide-detector'
 import { descendantEntityIdsForGroup } from './group-descendants'
 import { resizeGuideReferencesForHandle } from './resize-guide-adapter'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
@@ -364,6 +365,10 @@ export function applyDragDelta(
       .filter((candidate): candidate is SnapCandidate => candidate !== null)
     broadcastCanvasGuides({
       alignmentGuides: alignmentGuideDetector(draggedRects, activeDragCandidates),
+      distributionGuides: draggedRects.flatMap((dragged) => [
+        ...distributionGuideDetector(dragged, activeDragCandidates, 'horizontal'),
+        ...distributionGuideDetector(dragged, activeDragCandidates, 'vertical'),
+      ]),
     })
     markDirty('canvas', 'sidebar')
     scheduleWorkspaceAutosave()
@@ -438,6 +443,10 @@ export function updateResizeGuides(entityId: string): void {
       [{ ...dragged, references: activeResizeGuideSession.references }],
       activeResizeGuideSession.candidates,
     ),
+    distributionGuides: [
+      ...distributionGuideDetector(dragged, activeResizeGuideSession.candidates, 'horizontal'),
+      ...distributionGuideDetector(dragged, activeResizeGuideSession.candidates, 'vertical'),
+    ],
   })
 }
 

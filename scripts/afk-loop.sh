@@ -110,7 +110,10 @@ for i in $(seq 1 "$MAX_FIRES"); do
       fi
       ;;
     codex)
-      if ! codex exec --full-auto "$PROMPT"; then
+      # Disable user-level MCP servers: codex 0.23.0 spawns every entry in
+      # ~/.codex/config.toml at startup (even ones marked `enabled = false`)
+      # and blocks waiting on their handshake. The worker doesn't need MCP.
+      if ! codex exec --full-auto -c 'mcp_servers={}' "$PROMPT"; then
         echo "codex exec exited non-zero, stopping" >&2
         exit 1
       fi

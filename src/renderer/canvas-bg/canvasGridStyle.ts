@@ -1,15 +1,36 @@
 import { GRID_SIZE } from '../../shared/constants'
 
-function snapToDevicePixel(value: number, devicePixelRatio: number) {
-  const step = 1 / Math.max(devicePixelRatio, 1)
-  return Math.max(step, Math.round(value / step) * step)
+const MIN_GRID_SPACING_PX = 8
+const FULL_OPACITY_SPACING_PX = 18
+const MAX_GRID_STEP_MULTIPLIER = 64
+
+function devicePixelRatioOrOne(devicePixelRatio: number) {
+  return Math.max(devicePixelRatio, 1)
 }
 
-function normalizeOffset(offset: number, spacing: number) {
-  return ((offset % spacing) + spacing) % spacing
+export function snapToDevicePixel(value: number, devicePixelRatio: number) {
+  const dpr = devicePixelRatioOrOne(devicePixelRatio)
+  return Math.round(value * dpr) / dpr
 }
 
-export function buildCanvasGridStyle({
+function gridStepMultiplierForZoom(zoom: number) {
+  let multiplier = 1
+  while (
+    GRID_SIZE * zoom * multiplier < MIN_GRID_SPACING_PX &&
+    multiplier < MAX_GRID_STEP_MULTIPLIER
+  ) {
+    multiplier *= 2
+  }
+  return multiplier
+}
+
+function gridAlpha(spacing: number, isDark: boolean) {
+  const minAlpha = isDark ? 0.56 : 0.52
+  const alpha = spacing / FULL_OPACITY_SPACING_PX
+  return Math.max(minAlpha, Math.min(1, alpha))
+}
+
+export function buildCanvasGridMetrics({
   canvasOrigin,
   pan,
   zoom,
@@ -22,14 +43,89 @@ export function buildCanvasGridStyle({
   isDark: boolean
   devicePixelRatio: number
 }) {
-  const spacing = snapToDevicePixel(GRID_SIZE * zoom, devicePixelRatio)
-  const offsetX = normalizeOffset(canvasOrigin.x + pan.x, spacing)
-  const offsetY = normalizeOffset(canvasOrigin.y + pan.y, spacing)
+  const stepMultiplier = gridStepMultiplierForZoom(zoom)
+  const spacing = GRID_SIZE * zoom * stepMultiplier
+  const originX = canvasOrigin.x + pan.x
+  const originY = canvasOrigin.y + pan.y
 
   return {
-    backgroundColor: 'var(--surface-canvas)',
-    backgroundImage: 'radial-gradient(circle, var(--surface-canvas-grid) 0.75px, transparent 0.75px)',
-    backgroundSize: `${spacing}px ${spacing}px`,
-    backgroundPosition: `${offsetX}px ${offsetY}px`,
+    originX,
+    originY,
+    spacing,
+    stepMultiplier,
+    dotRadius: Math.max(
+      0.6,
+      Math.round(0.7 * devicePixelRatioOrOne(devicePixelRatio)) /
+        devicePixelRatioOrOne(devicePixelRatio),
+    ),
+    alpha: gridAlpha(spacing, isDark),
   }
+}
+
+export function buildCanvasGridStyle() {
+  return {
+    backgroundColor: 'var(--surface-canvas)',
+  }
+}
+
+export function drawCanvasGrid({
+  canvas,
+  color,
+  canvasOrigin,
+  pan,
+  zoom,
+  isDark,
+  devicePixelRatio,
+}: {
+  canvas: HTMLCanvasElement
+  color: string
+  canvasOrigin: { x: number; y: number }
+  pan: { x: number; y: number }
+  zoom: number
+  isDark: boolean
+  devicePixelRatio: number
+}) {
+  const dpr = devicePixelRatioOrOne(devicePixelRatio)
+  const width = canvas.clientWidth
+  const height = canvas.clientHeight
+  const targetWidth = Math.max(1, Math.ceil(width * dpr))
+  const targetHeight = Math.max(1, Math.ceil(height * dpr))
+
+  if (canvas.width !== targetWidth) canvas.width = targetWidth
+  if (canvas.height !== targetHeight) canvas.height = targetHeight
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.clearRect(0, 0, width, height)
+
+  const metrics = buildCanvasGridMetrics({
+    canvasOrigin,
+    pan,
+    zoom,
+    isDark,
+    devicePixelRatio: dpr,
+  })
+
+  const { spacing, originX, originY, dotRadius, alpha } = metrics
+  if (!Number.isFinite(spacing) || spacing <= 0) return
+
+  const startX = originX + Math.ceil((0 - originX) / spacing) * spacing
+  const startY = originY + Math.ceil((0 - originY) / spacing) * spacing
+
+  ctx.fillStyle = color
+  ctx.globalAlpha = alpha
+
+  for (let y = startY; y <= height; y += spacing) {
+    const snappedY = snapToDevicePixel(y, dpr)
+    for (let x = startX; x <= width; x += spacing) {
+      const snappedX = snapToDevicePixel(x, dpr)
+      ctx.beginPath()
+      ctx.arc(snappedX, snappedY, dotRadius, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
+  ctx.globalAlpha = 1
 }

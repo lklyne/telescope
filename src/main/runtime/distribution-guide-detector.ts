@@ -38,6 +38,10 @@ function nearlyEqual(a: number, b: number, tolerance: number): boolean {
   return Math.abs(a - b) <= tolerance
 }
 
+function crossOverlaps(a: DistributionItem, b: DistributionItem): boolean {
+  return Math.min(a.crossEnd, b.crossEnd) > Math.max(a.crossStart, b.crossStart)
+}
+
 function chainKey(items: DistributionItem[]): string {
   return items.map((item) => item.id).join('\0')
 }
@@ -88,17 +92,20 @@ export function distributionGuideDetector(
   const adjacentGaps = items.slice(0, -1).map((item, index) => ({
     index,
     gap: items[index + 1].start - item.end,
+    crossOverlap: crossOverlaps(item, items[index + 1]),
   }))
   const guides: DistributionGuide[] = []
   const seen = new Set<string>()
 
   for (const anchor of adjacentGaps) {
     if (anchor.gap < 0) continue
+    if (!anchor.crossOverlap) continue
 
     let firstGapIndex = anchor.index
     while (
       firstGapIndex > 0 &&
       adjacentGaps[firstGapIndex - 1].gap >= 0 &&
+      adjacentGaps[firstGapIndex - 1].crossOverlap &&
       nearlyEqual(adjacentGaps[firstGapIndex - 1].gap, anchor.gap, tolerance)
     ) {
       firstGapIndex -= 1
@@ -108,6 +115,7 @@ export function distributionGuideDetector(
     while (
       lastGapIndex < adjacentGaps.length - 1 &&
       adjacentGaps[lastGapIndex + 1].gap >= 0 &&
+      adjacentGaps[lastGapIndex + 1].crossOverlap &&
       nearlyEqual(adjacentGaps[lastGapIndex + 1].gap, anchor.gap, tolerance)
     ) {
       lastGapIndex += 1

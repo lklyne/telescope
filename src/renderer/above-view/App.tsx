@@ -122,7 +122,9 @@ function GuideOverlayLayer({
   const color = selectionColor(isDark)
   const toScreenX = (x: number) => x * layoutData.zoom + layoutData.pan.x + layoutData.canvasOrigin.x
   const toOverlayY = (y: number) => y * layoutData.zoom + layoutData.pan.y
-  const measureFontSize = 12
+  const distributionColor = '#EC4899'
+  const distributionCapHalf = 9
+  const distributionCapInset = 1
 
   return (
     <svg
@@ -155,24 +157,31 @@ function GuideOverlayLayer({
         )
       ))}
       {guides.distributionGuides.flatMap((guide, guideIndex) => (
-        guide.gaps.map((gap, gapIndex) => (
-          <text
-            key={`${guide.draggedId}-${guide.axis}-${guideIndex}-${gapIndex}`}
-            x={guide.axis === 'horizontal'
-              ? toScreenX((gap.start + gap.end) / 2)
-              : toScreenX(gap.cross)}
-            y={guide.axis === 'horizontal'
-              ? toOverlayY(gap.cross)
-              : toOverlayY((gap.start + gap.end) / 2)}
-            fill={color}
-            fontSize={measureFontSize}
-            fontWeight={700}
-            textAnchor="middle"
-            dominantBaseline="central"
-          >
-            ==
-          </text>
-        ))
+        guide.gaps.map((gap, gapIndex) => {
+          const keyBase = `${guide.draggedId}-${guide.axis}-${guideIndex}-${gapIndex}`
+          if (guide.axis === 'horizontal') {
+            const y = toOverlayY(gap.cross)
+            const xStart = toScreenX(gap.start) + distributionCapInset
+            const xEnd = toScreenX(gap.end) - distributionCapInset
+            return (
+              <g key={keyBase} stroke={distributionColor} strokeWidth={1.5} vectorEffect="non-scaling-stroke">
+                <line x1={xStart} y1={y} x2={xEnd} y2={y} />
+                <line x1={xStart} y1={y - distributionCapHalf} x2={xStart} y2={y + distributionCapHalf} />
+                <line x1={xEnd} y1={y - distributionCapHalf} x2={xEnd} y2={y + distributionCapHalf} />
+              </g>
+            )
+          }
+          const x = toScreenX(gap.cross)
+          const yStart = toOverlayY(gap.start) + distributionCapInset
+          const yEnd = toOverlayY(gap.end) - distributionCapInset
+          return (
+            <g key={keyBase} stroke={distributionColor} strokeWidth={1.5} vectorEffect="non-scaling-stroke">
+              <line x1={x} y1={yStart} x2={x} y2={yEnd} />
+              <line x1={x - distributionCapHalf} y1={yStart} x2={x + distributionCapHalf} y2={yStart} />
+              <line x1={x - distributionCapHalf} y1={yEnd} x2={x + distributionCapHalf} y2={yEnd} />
+            </g>
+          )
+        })
       ))}
     </svg>
   )

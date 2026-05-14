@@ -213,14 +213,17 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on(
     'canvas-drag-page',
-    (_event, { pageId, dx, dy }: { pageId: string; dx: number; dy: number }) => {
+    (
+      _event,
+      { pageId, dx, dy, shiftKey }: { pageId: string; dx: number; dy: number; shiftKey?: boolean },
+    ) => {
       const pageIds = activeDragIds('page', pageId)
       if (!pageIds) return
       if (pageIds.length === 1) {
         const idx = pages.findIndex((candidate) => candidate.id === pageId)
         if (idx !== -1) selectPage(idx)
       }
-      applyDragDelta(pageIds, dx, dy)
+      applyDragDelta(pageIds, dx, dy, { shiftKey })
       requestLayout()
     },
   )
@@ -283,10 +286,13 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on(
     'canvas-drag-entity',
-    (_event, { entityId, dx, dy }: { entityId: string; dx: number; dy: number }) => {
+    (
+      _event,
+      { entityId, dx, dy, shiftKey }: { entityId: string; dx: number; dy: number; shiftKey: boolean },
+    ) => {
       const entityIds = activeDragIds('entity', entityId)
       if (!entityIds) return
-      applyDragDelta(entityIds, dx, dy)
+      applyDragDelta(entityIds, dx, dy, { shiftKey })
       requestLayout()
     },
   )
@@ -302,10 +308,13 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on(
     'canvas-drag-group',
-    (_event, { groupId, dx, dy }: { groupId: string; dx: number; dy: number }) => {
+    (
+      _event,
+      { groupId, dx, dy, shiftKey }: { groupId: string; dx: number; dy: number; shiftKey?: boolean },
+    ) => {
       const entityIds = activeDragIds('group', groupId)
       if (!entityIds) return
-      applyDragDelta(entityIds, dx, dy)
+      applyDragDelta(entityIds, dx, dy, { shiftKey })
       requestLayout()
     },
   )

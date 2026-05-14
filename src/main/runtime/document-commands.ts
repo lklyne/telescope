@@ -80,6 +80,7 @@ import {
   shapeEntities,
   type ShapeEntity,
 } from './shape-entity-state'
+import { axisLockDominantAxis, axisLockProjector } from './axis-lock-projector'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
 import { beginBatch, endBatch } from './workspace-observers'
 import { scheduleWorkspaceAutosave } from './workspace-session'
@@ -125,7 +126,20 @@ export function findMovableEntity(id: string): { canvasX: number; canvasY: numbe
  * When undo/redo is added, the drag-start snapshot and drag-end snapshot
  * form a single undoable operation.
  */
-const dragAccumulatorById = new Map<string, { rawX: number; rawY: number }>()
+type DragAccumulator = {
+  originX: number
+  originY: number
+  rawX: number
+  rawY: number
+  appliedX: number
+  appliedY: number
+}
+
+type DragDeltaOptions = {
+  shiftKey?: boolean
+}
+
+const dragAccumulatorById = new Map<string, DragAccumulator>()
 
 export function initializeDrag(entityIds: string[]): void {
   dragAccumulatorById.clear()
@@ -133,32 +147,77 @@ export function initializeDrag(entityIds: string[]): void {
   for (const id of entityIds) {
     const entity = findMovableEntity(id)
     if (!entity) continue
-    dragAccumulatorById.set(id, { rawX: entity.canvasX, rawY: entity.canvasY })
+    dragAccumulatorById.set(id, {
+      originX: entity.canvasX,
+      originY: entity.canvasY,
+      rawX: entity.canvasX,
+      rawY: entity.canvasY,
+      appliedX: entity.canvasX,
+      appliedY: entity.canvasY,
+    })
   }
 }
 
-export function applyDragDelta(entityIds: string[], dx: number, dy: number): void {
+function dragPositionFromAccumulator(
+  acc: DragAccumulator,
+  options: DragDeltaOptions,
+): { x: number; y: number } {
+  const rawDelta = {
+    x: acc.rawX - acc.originX,
+    y: acc.rawY - acc.originY,
+  }
+  const projectedDelta = axisLockProjector(rawDelta, rawDelta, Boolean(options.shiftKey))
+  const dominantAxis = axisLockDominantAxis(rawDelta, Boolean(options.shiftKey))
+  const projectedX = acc.originX + projectedDelta.x
+  const projectedY = acc.originY + projectedDelta.y
+
+  return {
+    x: dominantAxis === 'vertical' ? projectedX : snapToGrid(projectedX),
+    y: dominantAxis === 'horizontal' ? projectedY : snapToGrid(projectedY),
+  }
+}
+
+export function applyDragDelta(
+  entityIds: string[],
+  dx: number,
+  dy: number,
+  options: DragDeltaOptions = {},
+): void {
   for (const id of entityIds) {
     const entity = findMovableEntity(id)
     if (!entity) continue
     let acc = dragAccumulatorById.get(id)
     if (!acc) {
-      acc = { rawX: entity.canvasX, rawY: entity.canvasY }
+      acc = {
+        originX: entity.canvasX,
+        originY: entity.canvasY,
+        rawX: entity.canvasX,
+        rawY: entity.canvasY,
+        appliedX: entity.canvasX,
+        appliedY: entity.canvasY,
+      }
       dragAccumulatorById.set(id, acc)
     } else {
-      const driftX = Math.abs(snapToGrid(acc.rawX) - entity.canvasX)
-      const driftY = Math.abs(snapToGrid(acc.rawY) - entity.canvasY)
+      const driftX = Math.abs(acc.appliedX - entity.canvasX)
+      const driftY = Math.abs(acc.appliedY - entity.canvasY)
       if (driftX > GRID_SIZE / 2 || driftY > GRID_SIZE / 2) {
+        acc.originX = entity.canvasX
+        acc.originY = entity.canvasY
         acc.rawX = entity.canvasX
         acc.rawY = entity.canvasY
+        acc.appliedX = entity.canvasX
+        acc.appliedY = entity.canvasY
       }
     }
     acc.rawX += dx / zoom
     acc.rawY += dy / zoom
     const prevX = entity.canvasX
     const prevY = entity.canvasY
-    entity.canvasX = snapToGrid(acc.rawX)
-    entity.canvasY = snapToGrid(acc.rawY)
+    const next = dragPositionFromAccumulator(acc, options)
+    entity.canvasX = next.x
+    entity.canvasY = next.y
+    acc.appliedX = next.x
+    acc.appliedY = next.y
     shiftDrawingStrokes(id, entity.canvasX - prevX, entity.canvasY - prevY)
   }
   if (entityIds.length) {

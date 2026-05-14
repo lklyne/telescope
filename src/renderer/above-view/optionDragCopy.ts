@@ -9,6 +9,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { canvasToScreenX, canvasToScreenY, snapToGrid } from '../../shared/gesture-utils'
+import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
 
 export type DragCopyPreviewBox = {
   id: string
@@ -28,6 +29,7 @@ type DragPointer = {
 
 type DragCopyCallbacks = {
   applyDelta: (dx: number, dy: number, shiftKey: boolean) => void
+  previewDelta: (totalDx: number, totalDy: number, shiftKey: boolean) => void
   endDrag: () => void
   copyAt: (canvasX: number, canvasY: number) => void
   setPreview: (preview: DragCopyPreviewBox[]) => void
@@ -124,10 +126,20 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
   let hasMoved = false
   let finished = false
 
-  const targetCanvasPoint = () => ({
-    canvasX: snapToGrid(anchorCanvasX + totalScreenDx / options.layout.zoom),
-    canvasY: snapToGrid(anchorCanvasY + totalScreenDy / options.layout.zoom),
-  })
+  const targetCanvasPoint = () => {
+    const rawDelta = {
+      x: totalScreenDx / options.layout.zoom,
+      y: totalScreenDy / options.layout.zoom,
+    }
+    const projected = axisLockProjector(rawDelta, rawDelta, shiftKey)
+    const dominant = axisLockDominantAxis(rawDelta, shiftKey)
+    const projectedX = anchorCanvasX + projected.x
+    const projectedY = anchorCanvasY + projected.y
+    return {
+      canvasX: dominant === 'vertical' ? projectedX : snapToGrid(projectedX),
+      canvasY: dominant === 'horizontal' ? projectedY : snapToGrid(projectedY),
+    }
+  }
 
   const buildPreview = (): DragCopyPreviewBox[] => {
     const target = targetCanvasPoint()
@@ -155,6 +167,7 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
         appliedScreenDy = 0
       }
       options.setPreview(buildPreview())
+      options.previewDelta(totalScreenDx, totalScreenDy, shiftKey)
       return
     }
 
@@ -188,7 +201,12 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
     setShiftKey(held: boolean) {
       if (finished || shiftKey === held) return
       shiftKey = held
-      if (!copyMode) options.applyDelta(0, 0, shiftKey)
+      if (copyMode) {
+        options.setPreview(buildPreview())
+        options.previewDelta(totalScreenDx, totalScreenDy, shiftKey)
+      } else {
+        options.applyDelta(0, 0, shiftKey)
+      }
     },
     setOptionHeld(held: boolean) {
       setCopyMode(held)
@@ -274,6 +292,7 @@ export function startOptionAwareEntityDrag(input: {
       if (input.entityKind === 'page') input.api.dragPage(input.entityId, dx, dy, shiftKey)
       else input.api.dragEntity(input.entityId, dx, dy, shiftKey)
     },
+    previewDelta: (totalDx, totalDy, shiftKey) => input.api.dragPreview(totalDx, totalDy, shiftKey),
     endDrag: () => {
       release()
       if (input.entityKind === 'page') input.api.endDragPage()
@@ -327,6 +346,7 @@ export function startOptionAwareGroupDrag(input: {
     isOptionHeld: input.isOptionHeld,
     setPreview: input.setPreview,
     applyDelta: (dx, dy, shiftKey) => input.api.dragGroup(input.groupId, dx, dy, shiftKey),
+    previewDelta: (totalDx, totalDy, shiftKey) => input.api.dragPreview(totalDx, totalDy, shiftKey),
     endDrag: () => {
       release()
       input.api.endDragGroup()

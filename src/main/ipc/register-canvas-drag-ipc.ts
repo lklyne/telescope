@@ -7,6 +7,7 @@ import {
   finalizeResizeGuides,
   initializeDrag,
   initializeResizeGuides,
+  previewDragGuides,
 } from '../runtime/document-commands'
 import {
   getSelectedEntityIds,
@@ -303,6 +304,16 @@ export function registerCanvasDragIpc(): void {
   ipcMain.on('canvas-drag-entity-end', () => {
     endDragSession('entity')
   })
+
+  ipcMain.on(
+    'canvas-drag-preview',
+    (
+      _event,
+      { dx, dy, shiftKey }: { dx: number; dy: number; shiftKey?: boolean },
+    ) => {
+      previewDragGuides(dx, dy, { shiftKey })
+    },
+  )
 
   ipcMain.on('canvas-drag-group-start', (_event, { groupId }: { groupId: string }) => {
     const entityIds = [groupId, ...descendantEntityIdsForGroup(groupId)]

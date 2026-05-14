@@ -1669,6 +1669,7 @@ export interface CanvasBgElectronAPI {
   dragCopyPage: (pageId: string, canvasX: number, canvasY: number) => void
   dragCopySelection: (canvasX: number, canvasY: number) => void
   dragCopyGroup: (groupId: string, canvasX: number, canvasY: number) => void
+  dragPreview: (dx: number, dy: number, shiftKey?: boolean) => void
   setPagePreset: (pageId: string, index: number) => void
   renamePage: (pageId: string, name: string) => void
   duplicatePage: (pageId: string) => void

@@ -391,6 +391,74 @@ function shiftDrawingStrokes(entityId: string, deltaX: number, deltaY: number): 
   }))
 }
 
+/**
+ * Compute alignment + distribution guides for a phantom drag position without
+ * mutating any entity. Used during option-drag copy, where the underlying
+ * entities stay in place while the user previews the copy target.
+ */
+export function previewDragGuides(
+  dx: number,
+  dy: number,
+  options: DragDeltaOptions = {},
+): void {
+  if (activeDraggedGuideIds.length === 0) return
+
+  const snapshotEntities = currentSnapSnapshotEntities()
+  const draggedRects: SnapCandidate[] = []
+  const originRects: SnapCandidate[] = []
+  for (const id of activeDraggedGuideIds) {
+    const acc = dragAccumulatorById.get(id)
+    if (!acc) continue
+    const snapshot = snapshotEntities.find((entity) => entity.id === id)
+    if (!snapshot) continue
+
+    const phantomAcc: DragAccumulator = {
+      originX: acc.originX,
+      originY: acc.originY,
+      rawX: acc.originX + dx / zoom,
+      rawY: acc.originY + dy / zoom,
+      appliedX: acc.originX,
+      appliedY: acc.originY,
+    }
+    const next = dragPositionFromAccumulator(phantomAcc, options)
+    const offsetX = next.x - acc.originX
+    const offsetY = next.y - acc.originY
+
+    draggedRects.push(snapCandidateFromRect(
+      { id, kind: snapshot.kind },
+      {
+        x: snapshot.canvasX + offsetX,
+        y: snapshot.canvasY + offsetY,
+        width: snapshot.width,
+        height: snapshot.height,
+      },
+    ))
+    originRects.push(snapCandidateFromRect(
+      { id: `${id}:origin`, kind: snapshot.kind },
+      {
+        x: snapshot.canvasX,
+        y: snapshot.canvasY,
+        width: snapshot.width,
+        height: snapshot.height,
+      },
+    ))
+  }
+
+  if (draggedRects.length === 0) {
+    clearCanvasGuides()
+    return
+  }
+
+  const candidates = [...activeDragCandidates, ...originRects]
+  broadcastCanvasGuides({
+    alignmentGuides: alignmentGuideDetector(draggedRects, candidates),
+    distributionGuides: draggedRects.flatMap((dragged) => [
+      ...distributionGuideDetector(dragged, candidates, 'horizontal'),
+      ...distributionGuideDetector(dragged, candidates, 'vertical'),
+    ]),
+  })
+}
+
 export function finalizeDrag(): void {
   dragAccumulatorById.clear()
   activeDragCandidates = []

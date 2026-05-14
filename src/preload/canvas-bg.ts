@@ -111,6 +111,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-drag-copy-selection', { canvasX, canvasY }),
   dragCopyGroup: (groupId, canvasX, canvasY) =>
     ipcRenderer.send('canvas-drag-copy-group', { groupId, canvasX, canvasY }),
+  dragPreview: (dx, dy, shiftKey = false) =>
+    ipcRenderer.send('canvas-drag-preview', { dx, dy, shiftKey }),
   setPagePreset: (pageId, index) => ipcRenderer.send('canvas-set-page-preset', { pageId, index }),
   renamePage: (pageId, name) => ipcRenderer.send('canvas-rename-page', { pageId, name }),
   duplicatePage: (pageId) => ipcRenderer.send('canvas-duplicate-page', { pageId }),

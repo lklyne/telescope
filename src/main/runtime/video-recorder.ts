@@ -11,7 +11,7 @@ import { captureFrameComposited } from './frame-compositor'
 import { getZoom, pan } from './runtime-context'
 import { focusCanvasBounds, requestLayout, setPan, setZoom } from './viewport-control'
 import { layoutAllViews } from './layout-engine'
-import { pageCanvasBounds } from './runtime-geometry'
+import { pageBodyCanvasBounds } from './runtime-geometry'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,7 +100,7 @@ class VideoRecorderInstance {
     this.savedCamera = { zoom: getZoom(), panX: pan.x, panY: pan.y }
     try {
       if (getZoom() !== 1) setZoom(1)
-      focusCanvasBounds(pageCanvasBounds(this.page))
+      focusCanvasBounds(pageBodyCanvasBounds(this.page))
       layoutAllViews()
       // Chromium re-rasters on the next frame after enableDeviceEmulation.
       // Give it room so the first captured frames aren't mid-transition.

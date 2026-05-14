@@ -25,8 +25,9 @@ export {
 export {
   boundCanvasOrigin as canvasOrigin,
   boundScreenBoundsForPage as screenBoundsForPage,
-  pageCanvasBounds,
-  pageOuterCanvasBounds,
+  pageBodyCanvasBounds,
+  pageSnapBounds,
+  pageVisualBounds,
   pageContentSize,
 } from './runtime-geometry'
 

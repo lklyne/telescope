@@ -4,7 +4,7 @@ import {
   bgView,
   aboveView,
   layoutAllViews,
-  pageCanvasBounds,
+  pageBodyCanvasBounds,
 } from '../runtime/surface-layout'
 import {
   findPageById,
@@ -72,20 +72,21 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
     case 'element': {
       const page = findPageById(anchor.pageId)
       if (!page) return null
+      const body = pageBodyCanvasBounds(page)
       if (anchor.boundingBox) {
         return {
-          x: page.canvasX + anchor.boundingBox.x,
-          y: page.canvasY + anchor.boundingBox.y,
+          x: body.x + anchor.boundingBox.x,
+          y: body.y + anchor.boundingBox.y,
           width: anchor.boundingBox.width,
           height: anchor.boundingBox.height,
         }
       }
-      return pageCanvasBounds(page)
+      return body
     }
     case 'page': {
       const page = findPageById(anchor.pageId)
       if (!page) return null
-      return pageCanvasBounds(page)
+      return pageBodyCanvasBounds(page)
     }
   }
 }

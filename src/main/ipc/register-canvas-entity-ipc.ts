@@ -66,7 +66,6 @@ import {
 } from '../runtime/surface-layout'
 import { markDirty } from '../runtime/layout-dirty'
 import { pageContentSize } from '../runtime/runtime-geometry'
-import { CHROME_HEADER_HEIGHT } from '../runtime/runtime-constants'
 import {
   scheduleWorkspaceAutosave,
 } from '../runtime/workspace-session'
@@ -155,7 +154,7 @@ export function registerCanvasEntityIpc(): void {
           presetIndex: tool.presetIndex ?? 0,
           customSize: tool.customSize ?? false,
           canvasX,
-          canvasY: canvasY - CHROME_HEADER_HEIGHT,
+          canvasY,
           mode: 'add_from_toolbar',
           focus: true,
         })

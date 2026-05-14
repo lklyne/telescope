@@ -102,7 +102,7 @@ import { scheduleWorkspaceAutosave } from './workspace-session'
 import { markUndoBoundary } from './workspace-undo'
 import {
   boundAvailableCanvasViewportRect,
-  pageOuterCanvasBounds,
+  pageSnapBounds,
 } from './runtime-geometry'
 import {
   snapCandidateFromRect,
@@ -188,7 +188,7 @@ function currentCanvasViewportRect(): SnapRect {
 function currentSnapSnapshotEntities(): SnapCandidateSnapshotEntity[] {
   return [
     ...pages.map((page) => {
-      const bounds = pageOuterCanvasBounds(page)
+      const bounds = pageSnapBounds(page)
       return {
         id: page.id,
         kind: 'page' as const,
@@ -252,7 +252,7 @@ function currentSnapCandidateForEntity(id: string): SnapCandidate | null {
   if (page) {
     return snapCandidateFromRect(
       { id: page.id, kind: 'page' },
-      pageOuterCanvasBounds(page),
+      pageSnapBounds(page),
     )
   }
 

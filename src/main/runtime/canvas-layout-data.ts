@@ -59,6 +59,7 @@ import {
 } from './runtime-constants'
 import { currentKeyboardTargetPageId } from './selection-controller'
 import {
+  pageBodyCanvasBounds,
   pageContentSize,
   boundEffectivePageContentSize as effectivePageContentSize,
   boundAvailableCanvasViewport as localAvailableCanvasViewport,
@@ -418,10 +419,10 @@ export function buildCanvasLayoutData(
             const clampedX = Math.max(0, Math.min(point.x, page.width))
             const clampedY = Math.max(0, Math.min(point.y, page.height))
             const pageWcv = findPageById(page.id)
-            const chromeHeight = pageWcv?.chromeHeight ?? 0
+            const body = pageWcv ? pageBodyCanvasBounds(pageWcv) : { x: page.canvasX, y: page.canvasY }
             return {
-              canvasX: page.canvasX + clampedX,
-              canvasY: page.canvasY + chromeHeight + clampedY,
+              canvasX: body.x + clampedX,
+              canvasY: body.y + clampedY,
             }
           }
         }

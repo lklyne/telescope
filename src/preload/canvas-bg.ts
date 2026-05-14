@@ -10,6 +10,7 @@ import type {
   ToolDefaultPatch,
 } from '../shared/types'
 import type { BindingId } from '../shared/bindings'
+import type { CanvasGuidesPayload } from '../shared/canvas-guides'
 
 function installSelectionOverlayBridge(): void {
   if (location.href !== 'about:blank') return
@@ -101,7 +102,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('tool-defaults-set', patch),
   startDragPage: (pageId, selection) =>
     ipcRenderer.send('canvas-drag-page-start', { pageId, selection }),
-  dragPage: (pageId, dx, dy) => ipcRenderer.send('canvas-drag-page', { pageId, dx, dy }),
+  dragPage: (pageId, dx, dy, shiftKey = false) =>
+    ipcRenderer.send('canvas-drag-page', { pageId, dx, dy, shiftKey }),
   endDragPage: () => ipcRenderer.send('canvas-drag-page-end'),
   dragCopyPage: (pageId, canvasX, canvasY) =>
     ipcRenderer.send('canvas-drag-copy-page', { pageId, canvasX, canvasY }),
@@ -109,6 +111,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-drag-copy-selection', { canvasX, canvasY }),
   dragCopyGroup: (groupId, canvasX, canvasY) =>
     ipcRenderer.send('canvas-drag-copy-group', { groupId, canvasX, canvasY }),
+  dragPreview: (dx, dy, shiftKey = false) =>
+    ipcRenderer.send('canvas-drag-preview', { dx, dy, shiftKey }),
   setPagePreset: (pageId, index) => ipcRenderer.send('canvas-set-page-preset', { pageId, index }),
   renamePage: (pageId, name) => ipcRenderer.send('canvas-rename-page', { pageId, name }),
   duplicatePage: (pageId) => ipcRenderer.send('canvas-duplicate-page', { pageId }),
@@ -185,16 +189,16 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-enter-group', { groupId }),
   startDragGroup: (groupId: string) =>
     ipcRenderer.send('canvas-drag-group-start', { groupId }),
-  dragGroup: (groupId: string, dx: number, dy: number) =>
-    ipcRenderer.send('canvas-drag-group', { groupId, dx, dy }),
+  dragGroup: (groupId: string, dx: number, dy: number, shiftKey = false) =>
+    ipcRenderer.send('canvas-drag-group', { groupId, dx, dy, shiftKey }),
   endDragGroup: () => ipcRenderer.send('canvas-drag-group-end'),
   startDragEntity: (entityId: string, selection) =>
     ipcRenderer.send('canvas-drag-entity-start', { entityId, selection }),
-  dragEntity: (entityId: string, dx: number, dy: number) =>
-    ipcRenderer.send('canvas-drag-entity', { entityId, dx, dy }),
+  dragEntity: (entityId: string, dx: number, dy: number, shiftKey: boolean) =>
+    ipcRenderer.send('canvas-drag-entity', { entityId, dx, dy, shiftKey }),
   endDragEntity: () => ipcRenderer.send('canvas-drag-entity-end'),
-  beginResize: (entityId, entityKind) =>
-    ipcRenderer.send('canvas-resize-begin', { entityId, entityKind }),
+  beginResize: (entityId, entityKind, handle) =>
+    ipcRenderer.send('canvas-resize-begin', { entityId, entityKind, handle }),
   endResize: () => ipcRenderer.send('canvas-resize-end'),
   commitRegionSelect: (canvasRect) => ipcRenderer.send('canvas-commit-region-select', canvasRect),
   commitCommentClickAt: (windowX, windowY) =>
@@ -319,6 +323,12 @@ const api: CanvasBgElectronAPI = {
     const handler = (_event: Electron.IpcRendererEvent, id: BindingId) => callback(id)
     ipcRenderer.on('binding-fire', handler)
     return () => ipcRenderer.removeListener('binding-fire', handler)
+  },
+  onCanvasGuides: (callback: (payload: CanvasGuidesPayload) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: CanvasGuidesPayload) =>
+      callback(payload)
+    ipcRenderer.on('canvas-guides', handler)
+    return () => ipcRenderer.removeListener('canvas-guides', handler)
   },
   readNoteFile: (filePath: string) =>
     ipcRenderer.invoke('read-note-file', { filePath }),

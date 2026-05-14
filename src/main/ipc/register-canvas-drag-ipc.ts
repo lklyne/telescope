@@ -4,7 +4,10 @@ import { pages } from '../runtime/page-runtime'
 import {
   applyDragDelta,
   finalizeDrag,
+  finalizeResizeGuides,
   initializeDrag,
+  initializeResizeGuides,
+  previewDragGuides,
 } from '../runtime/document-commands'
 import {
   getSelectedEntityIds,
@@ -18,6 +21,7 @@ import {
 import { tryEnter, commitActive, cancelActive } from '../runtime/interaction-controller'
 import { setHoverEntity } from '../runtime/runtime-core'
 import type { EdgeSide } from '../../shared/types'
+import type { ResizeHandle } from '../../shared/resize-accumulator'
 import {
   canvasOrigin,
   layoutAllViews,
@@ -213,14 +217,17 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on(
     'canvas-drag-page',
-    (_event, { pageId, dx, dy }: { pageId: string; dx: number; dy: number }) => {
+    (
+      _event,
+      { pageId, dx, dy, shiftKey }: { pageId: string; dx: number; dy: number; shiftKey?: boolean },
+    ) => {
       const pageIds = activeDragIds('page', pageId)
       if (!pageIds) return
       if (pageIds.length === 1) {
         const idx = pages.findIndex((candidate) => candidate.id === pageId)
         if (idx !== -1) selectPage(idx)
       }
-      applyDragDelta(pageIds, dx, dy)
+      applyDragDelta(pageIds, dx, dy, { shiftKey })
       requestLayout()
     },
   )
@@ -283,10 +290,13 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on(
     'canvas-drag-entity',
-    (_event, { entityId, dx, dy }: { entityId: string; dx: number; dy: number }) => {
+    (
+      _event,
+      { entityId, dx, dy, shiftKey }: { entityId: string; dx: number; dy: number; shiftKey: boolean },
+    ) => {
       const entityIds = activeDragIds('entity', entityId)
       if (!entityIds) return
-      applyDragDelta(entityIds, dx, dy)
+      applyDragDelta(entityIds, dx, dy, { shiftKey })
       requestLayout()
     },
   )
@@ -295,6 +305,16 @@ export function registerCanvasDragIpc(): void {
     endDragSession('entity')
   })
 
+  ipcMain.on(
+    'canvas-drag-preview',
+    (
+      _event,
+      { dx, dy, shiftKey }: { dx: number; dy: number; shiftKey?: boolean },
+    ) => {
+      previewDragGuides(dx, dy, { shiftKey })
+    },
+  )
+
   ipcMain.on('canvas-drag-group-start', (_event, { groupId }: { groupId: string }) => {
     const entityIds = [groupId, ...descendantEntityIdsForGroup(groupId)]
     beginDragSession('group', entityIds)
@@ -302,10 +322,13 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on(
     'canvas-drag-group',
-    (_event, { groupId, dx, dy }: { groupId: string; dx: number; dy: number }) => {
+    (
+      _event,
+      { groupId, dx, dy, shiftKey }: { groupId: string; dx: number; dy: number; shiftKey?: boolean },
+    ) => {
       const entityIds = activeDragIds('group', groupId)
       if (!entityIds) return
-      applyDragDelta(entityIds, dx, dy)
+      applyDragDelta(entityIds, dx, dy, { shiftKey })
       requestLayout()
     },
   )
@@ -319,7 +342,15 @@ export function registerCanvasDragIpc(): void {
     'canvas-resize-begin',
     (
       _event,
-      { entityId, entityKind }: { entityId: string; entityKind: import('../../shared/types').CanvasEntityKind },
+      {
+        entityId,
+        entityKind,
+        handle,
+      }: {
+        entityId: string
+        entityKind: import('../../shared/types').CanvasEntityKind
+        handle: ResizeHandle
+      },
     ) => {
       // Resize gesture begin. The renderer dispatches this BEFORE its first
       // entity-bounds mutation so the layout pass triggered by that mutation
@@ -329,10 +360,12 @@ export function registerCanvasDragIpc(): void {
       // listener cancels the gesture after one pixel. Same gotcha as the
       // drag-start ordering — see runtime/CLAUDE.md.
       tryEnter({ kind: 'resizing-entity', target: { id: entityId, kind: entityKind } })
+      initializeResizeGuides(entityId, handle)
     },
   )
 
   ipcMain.on('canvas-resize-end', () => {
+    finalizeResizeGuides()
     commitActive()
   })
 

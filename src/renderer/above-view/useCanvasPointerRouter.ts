@@ -649,7 +649,7 @@ function runResize(
   // reconcileFocus runs, focus moves to the selected page (pages only — they
   // populate focusedPageId), aboveView blurs, and the gesture is cancelled
   // after a single tick. Same gotcha as drag-start ordering.
-  api.beginResize(action.entityId, entity.kind)
+  api.beginResize(action.entityId, entity.kind, action.handle)
 
   let lastX = event.screenX
   let lastY = event.screenY

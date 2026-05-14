@@ -10,6 +10,8 @@ import type { CursorTuningParams } from './cursor-tuning'
 import type { PresenceDebugEntry } from './presence-debug'
 import type { DrawingBrushType, Tool } from './tool'
 import type { BindingId } from './bindings'
+import type { CanvasGuidesPayload } from './canvas-guides'
+import type { ResizeHandle } from './resize-accumulator'
 
 export type { DrawingBrushType, Tool, ToolKind, ToolDuration } from './tool'
 export type { ToolDefaults, ToolDefaultPatch } from './tool-defaults'
@@ -1662,11 +1664,12 @@ export interface CanvasBgElectronAPI {
   setTool: (tool: Tool) => void
   setToolDefault: (patch: import('./tool-defaults').ToolDefaultPatch) => void
   startDragPage: (pageId: string, selection?: CanvasDragStartSelection) => void
-  dragPage: (pageId: string, dx: number, dy: number) => void
+  dragPage: (pageId: string, dx: number, dy: number, shiftKey?: boolean) => void
   endDragPage: () => void
   dragCopyPage: (pageId: string, canvasX: number, canvasY: number) => void
   dragCopySelection: (canvasX: number, canvasY: number) => void
   dragCopyGroup: (groupId: string, canvasX: number, canvasY: number) => void
+  dragPreview: (dx: number, dy: number, shiftKey?: boolean) => void
   setPagePreset: (pageId: string, index: number) => void
   renamePage: (pageId: string, name: string) => void
   duplicatePage: (pageId: string) => void
@@ -1723,12 +1726,12 @@ export interface CanvasBgElectronAPI {
   selectGroup: (groupId: string) => void
   enterGroup: (groupId: string) => void
   startDragGroup: (groupId: string) => void
-  dragGroup: (groupId: string, dx: number, dy: number) => void
+  dragGroup: (groupId: string, dx: number, dy: number, shiftKey?: boolean) => void
   endDragGroup: () => void
   startDragEntity: (entityId: string, selection?: CanvasDragStartSelection) => void
-  dragEntity: (entityId: string, dx: number, dy: number) => void
+  dragEntity: (entityId: string, dx: number, dy: number, shiftKey: boolean) => void
   endDragEntity: () => void
-  beginResize: (entityId: string, entityKind: CanvasEntityKind) => void
+  beginResize: (entityId: string, entityKind: CanvasEntityKind, handle: ResizeHandle) => void
   endResize: () => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
   /** Comment tool click below the drag threshold. Main resolves the page +
@@ -1809,6 +1812,7 @@ export interface CanvasBgElectronAPI {
   setTextEditing: (active: boolean) => void
   setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) => void
   onBindingFire: (callback: (id: BindingId) => void) => () => void
+  onCanvasGuides: (callback: (payload: CanvasGuidesPayload) => void) => () => void
   /** Forward a wheel event hitting the single-selected page's body to the
    *  page's webContents (aboveview-interactive-layer-poc.md). */
   forwardWheelToPage: (pageId: string, payload: ForwardWheelPayload) => void

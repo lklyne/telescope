@@ -11,6 +11,7 @@ import type {
   SelectionOverlayPayload,
   ThemeData,
 } from '../../shared/types'
+import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
 import {
   canvasToScreenX,
   canvasToScreenY,
@@ -23,7 +24,7 @@ import {
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { isAnnotationTool, toolHasPopup } from '../../shared/tool'
-import { DRAW_CURSOR } from '../canvas-bg/canvasBgConstants'
+import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { ActivePageHighlightLayer } from '../canvas-bg/AgentCursorLayer'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
@@ -107,6 +108,85 @@ function DragCopyPreviewLayer({
   )
 }
 
+function GuideOverlayLayer({
+  guides,
+  layoutData,
+  isDark,
+}: {
+  guides: CanvasGuidesPayload
+  layoutData: LayoutUpdateData
+  isDark: boolean
+}) {
+  if (guides.alignmentGuides.length === 0 && guides.distributionGuides.length === 0) return null
+
+  const color = selectionColor(isDark)
+  const toScreenX = (x: number) => x * layoutData.zoom + layoutData.pan.x + layoutData.canvasOrigin.x
+  const toOverlayY = (y: number) => y * layoutData.zoom + layoutData.pan.y
+  const distributionColor = '#EC4899'
+  const distributionCapHalf = 9
+  const distributionCapInset = 1
+
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+      aria-hidden="true"
+    >
+      {guides.alignmentGuides.map((guide, index) => (
+        guide.axis === 'horizontal' ? (
+          <line
+            key={`${guide.draggedId}-${guide.candidateId}-${guide.draggedReference}-${guide.candidateReference}-${index}`}
+            x1={toScreenX(guide.start)}
+            y1={toOverlayY(guide.coordinate)}
+            x2={toScreenX(guide.end)}
+            y2={toOverlayY(guide.coordinate)}
+            stroke={color}
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : (
+          <line
+            key={`${guide.draggedId}-${guide.candidateId}-${guide.draggedReference}-${guide.candidateReference}-${index}`}
+            x1={toScreenX(guide.coordinate)}
+            y1={toOverlayY(guide.start)}
+            x2={toScreenX(guide.coordinate)}
+            y2={toOverlayY(guide.end)}
+            stroke={color}
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
+        )
+      ))}
+      {guides.distributionGuides.flatMap((guide, guideIndex) => (
+        guide.gaps.map((gap, gapIndex) => {
+          const keyBase = `${guide.draggedId}-${guide.axis}-${guideIndex}-${gapIndex}`
+          if (guide.axis === 'horizontal') {
+            const y = toOverlayY(gap.cross)
+            const xStart = toScreenX(gap.start) + distributionCapInset
+            const xEnd = toScreenX(gap.end) - distributionCapInset
+            return (
+              <g key={keyBase} stroke={distributionColor} strokeWidth={1.5} vectorEffect="non-scaling-stroke">
+                <line x1={xStart} y1={y} x2={xEnd} y2={y} />
+                <line x1={xStart} y1={y - distributionCapHalf} x2={xStart} y2={y + distributionCapHalf} />
+                <line x1={xEnd} y1={y - distributionCapHalf} x2={xEnd} y2={y + distributionCapHalf} />
+              </g>
+            )
+          }
+          const x = toScreenX(gap.cross)
+          const yStart = toOverlayY(gap.start) + distributionCapInset
+          const yEnd = toOverlayY(gap.end) - distributionCapInset
+          return (
+            <g key={keyBase} stroke={distributionColor} strokeWidth={1.5} vectorEffect="non-scaling-stroke">
+              <line x1={x} y1={yStart} x2={x} y2={yEnd} />
+              <line x1={x - distributionCapHalf} y1={yStart} x2={x + distributionCapHalf} y2={yStart} />
+              <line x1={x - distributionCapHalf} y1={yEnd} x2={x + distributionCapHalf} y2={yEnd} />
+            </g>
+          )
+        })
+      ))}
+    </svg>
+  )
+}
+
 /** Map Electron's `cursor-changed` type strings onto CSS cursor values.
  *  Electron uses Blink-era names where `pointer` is the arrow and `hand` is
  *  the link hand — the opposite of CSS. Most other types match CSS 1:1;
@@ -166,6 +246,10 @@ export default function App({
     initialLayoutData.fixProgress,
   )
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayPayload | null>(null)
+  const [canvasGuides, setCanvasGuides] = useState<CanvasGuidesPayload>({
+    alignmentGuides: [],
+    distributionGuides: [],
+  })
   const [captureMode, setCaptureMode] = useState(false)
   const [fileJsonModeMap, setFileJsonModeMap] = useState<FileJsonModeMap>(() => new Map())
   const setFileJsonMode = useCallback((entityId: string, jsonMode: boolean) => {
@@ -179,6 +263,7 @@ export default function App({
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
 
   useEffect(() => api.onSelectionOverlayChanged(setSelectionOverlay), [])
+  useEffect(() => api.onCanvasGuides(setCanvasGuides), [])
 
   // Marquee preview ids — outline layer highlights entities that the in-flight
   // marquee currently overlaps. canvas-bg used to derive this; aboveView owns
@@ -1140,6 +1225,7 @@ export default function App({
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
           <DragCopyPreviewLayer previews={dragCopyPreview} isDark={isDark} />
+          <GuideOverlayLayer guides={canvasGuides} layoutData={layoutData} isDark={isDark} />
 
           <PageChromeOverlay
             api={api}

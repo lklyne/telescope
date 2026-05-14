@@ -22,6 +22,12 @@ dex show <EPIC_ID> --json
 ```
 
 If every child task is `completed`:
+- Make sure the feature branch has any pending dex updates committed before opening the integration PR:
+  ```
+  if ! git diff --quiet .dex/ || ! git diff --cached --quiet .dex/; then
+    git add .dex/ && git commit -m "chore(afk): sync dex state" && git push
+  fi
+  ```
 - Check for an integration PR: `gh pr list --head <FEATURE_BRANCH> --base main --state open --json number`
 - If none exists, open it: title `<slug>: integration`, body lists every child task ID and its merged step PR.
 - Disable self: `RemoteTrigger update <SELF_ROUTINE_ID> body:{"enabled": false}`.
@@ -34,7 +40,12 @@ gh pr list --base <FEATURE_BRANCH> --state open --json number,headRefName,mergea
 ```
 
 For each open PR targeting `<FEATURE_BRANCH>`:
-- If mergeable and CI green (`mergeStateStatus` is `CLEAN`): `gh pr merge --squash --auto <num>`. Then `dex complete <task-id>` for the linked task. Then `RemoteTrigger run <SELF_ROUTINE_ID>`. Exit.
+- If mergeable and CI green (`mergeStateStatus` is `CLEAN`): `gh pr merge --squash --auto <num>`. Then `dex complete <task-id>` for the linked task. **Commit and push the dex state to the feature branch** so the next fire sees the completion — without this the loop's working-tree reset would wipe the change:
+  ```
+  git fetch origin <FEATURE_BRANCH> && git pull --ff-only
+  git add .dex/ && git commit -m "chore(afk): complete <task-id>" && git push
+  ```
+  Then `RemoteTrigger run <SELF_ROUTINE_ID>`. Exit.
 - Otherwise: exit. We're waiting for CI or human review.
 
 ### 3. Has an in-progress task's PR merged out of band?
@@ -45,7 +56,15 @@ For each open PR targeting `<FEATURE_BRANCH>`:
 dex list --in-progress --json
 ```
 
-For each in-progress task, find its step branch and check `gh pr list --head claude/task-<id> --state merged --limit 1`. If merged, `dex complete <task-id> --commit <sha>`. After processing all of them, `RemoteTrigger run <SELF_ROUTINE_ID>` and exit.
+For each in-progress task, find its step branch and check `gh pr list --head claude/task-<id> --state merged --limit 1`. If merged, `dex complete <task-id> --commit <sha>`. After processing all of them, **commit and push the dex state to the feature branch** so the next fire sees the completions:
+
+```
+if ! git diff --quiet .dex/; then
+  git add .dex/ && git commit -m "chore(afk): sync dex state" && git push
+fi
+```
+
+Then `RemoteTrigger run <SELF_ROUTINE_ID>` and exit.
 
 ### 4. Start the next pending task.
 

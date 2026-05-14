@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { TextEntityStyle } from '../../shared/types'
-import { buildCanvasGridStyle } from './canvasGridStyle'
+import { buildCanvasGridStyle, drawCanvasGrid } from './canvasGridStyle'
 
 function previewBoxStyle(
   isDark: boolean,
@@ -55,17 +55,36 @@ export function CanvasGridSurface({
   pan: { x: number; y: number }
   zoom: number
 }) {
-  const gridStyle = useMemo(
-    () =>
-      buildCanvasGridStyle({
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const gridStyle = useMemo(() => buildCanvasGridStyle(), [])
+
+  useEffect(() => {
+    const surface = bgRef.current
+    const canvas = canvasRef.current
+    if (!surface || !canvas) return
+
+    const draw = () => {
+      drawCanvasGrid({
+        canvas,
+        color: isDark ? '#78716c' : '#a8a29e',
         canvasOrigin,
         pan,
         zoom,
         isDark,
         devicePixelRatio: window.devicePixelRatio || 1,
-      }),
-    [canvasOrigin, isDark, pan, zoom],
-  )
+      })
+    }
+
+    draw()
+    const resizeObserver = new ResizeObserver(draw)
+    resizeObserver.observe(surface)
+    window.addEventListener('resize', draw)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', draw)
+    }
+  }, [bgRef, canvasOrigin, isDark, pan, zoom])
 
   return (
     <div
@@ -76,7 +95,13 @@ export function CanvasGridSurface({
         touchAction: 'none',
         ...gridStyle,
       }}
-    />
+    >
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 h-full w-full"
+      />
+    </div>
   )
 }
 

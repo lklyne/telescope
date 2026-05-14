@@ -31,6 +31,8 @@ import type { Token, CancelReason, FocusTarget } from '../../shared/interaction-
 import { activeTool } from '../runtime/tool-mode'
 import { clipboard } from 'electron'
 import { pasteFromClipboard } from '../clipboard-paste'
+import { applyDragDelta, finalizeDrag, initializeDrag } from '../runtime/document-commands'
+import { currentCanvasGuides } from '../runtime/canvas-guides'
 
 function currentlyFocusedKey(): string | null {
   if (bgView?.webContents.isFocused()) return 'bgView'
@@ -140,6 +142,46 @@ export const testRoutes: Route[] = [
     async handler({ response }) {
       resetDropOwnerForTests()
       writeJson(response, 200, { ok: true })
+    },
+  },
+
+  // --- Canvas drag simulation ---
+  {
+    method: 'POST',
+    pattern: '/test/canvas-drag/start',
+    async handler({ response, body }) {
+      const { entityIds } = body as { entityIds: string[] }
+      initializeDrag(entityIds)
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/canvas-drag/apply',
+    async handler({ response, body }) {
+      const {
+        entityIds,
+        dx,
+        dy,
+        shiftKey = false,
+      } = body as { entityIds: string[]; dx: number; dy: number; shiftKey?: boolean }
+      applyDragDelta(entityIds, dx, dy, { shiftKey })
+      writeJson(response, 200, { ok: true, guides: currentCanvasGuides() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/canvas-drag/end',
+    async handler({ response }) {
+      finalizeDrag()
+      writeJson(response, 200, { ok: true, guides: currentCanvasGuides() })
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/test/canvas-guides/current',
+    async handler({ response }) {
+      writeJson(response, 200, currentCanvasGuides())
     },
   },
 

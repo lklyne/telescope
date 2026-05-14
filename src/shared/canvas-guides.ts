@@ -12,6 +12,25 @@ export type AlignmentGuide = {
   candidateReference: AlignmentReferenceName
 }
 
+export type DistributionGuideGap = {
+  start: number
+  end: number
+  cross: number
+}
+
+export type DistributionGuide = {
+  axis: AlignmentAxis
+  gap: number
+  draggedId: string
+  candidateIds: string[]
+  spanStart: number
+  spanEnd: number
+  crossStart: number
+  crossEnd: number
+  gaps: DistributionGuideGap[]
+}
+
 export type CanvasGuidesPayload = {
   alignmentGuides: AlignmentGuide[]
+  distributionGuides: DistributionGuide[]
 }

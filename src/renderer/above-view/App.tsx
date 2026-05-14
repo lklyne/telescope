@@ -117,11 +117,12 @@ function GuideOverlayLayer({
   layoutData: LayoutUpdateData
   isDark: boolean
 }) {
-  if (guides.alignmentGuides.length === 0) return null
+  if (guides.alignmentGuides.length === 0 && guides.distributionGuides.length === 0) return null
 
   const color = selectionColor(isDark)
   const toScreenX = (x: number) => x * layoutData.zoom + layoutData.pan.x + layoutData.canvasOrigin.x
   const toOverlayY = (y: number) => y * layoutData.zoom + layoutData.pan.y
+  const measureFontSize = 12
 
   return (
     <svg
@@ -152,6 +153,26 @@ function GuideOverlayLayer({
             vectorEffect="non-scaling-stroke"
           />
         )
+      ))}
+      {guides.distributionGuides.flatMap((guide, guideIndex) => (
+        guide.gaps.map((gap, gapIndex) => (
+          <text
+            key={`${guide.draggedId}-${guide.axis}-${guideIndex}-${gapIndex}`}
+            x={guide.axis === 'horizontal'
+              ? toScreenX((gap.start + gap.end) / 2)
+              : toScreenX(gap.cross)}
+            y={guide.axis === 'horizontal'
+              ? toOverlayY(gap.cross)
+              : toOverlayY((gap.start + gap.end) / 2)}
+            fill={color}
+            fontSize={measureFontSize}
+            fontWeight={700}
+            textAnchor="middle"
+            dominantBaseline="central"
+          >
+            ==
+          </text>
+        ))
       ))}
     </svg>
   )
@@ -216,7 +237,10 @@ export default function App({
     initialLayoutData.fixProgress,
   )
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayPayload | null>(null)
-  const [canvasGuides, setCanvasGuides] = useState<CanvasGuidesPayload>({ alignmentGuides: [] })
+  const [canvasGuides, setCanvasGuides] = useState<CanvasGuidesPayload>({
+    alignmentGuides: [],
+    distributionGuides: [],
+  })
   const [captureMode, setCaptureMode] = useState(false)
   const [fileJsonModeMap, setFileJsonModeMap] = useState<FileJsonModeMap>(() => new Map())
   const setFileJsonMode = useCallback((entityId: string, jsonMode: boolean) => {

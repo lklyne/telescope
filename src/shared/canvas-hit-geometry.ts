@@ -1,6 +1,6 @@
 import type { EdgeSide } from './types'
 
-export const PAGE_CHROME_HEIGHT_PX = 36
+export { CHROME_HEADER_HEIGHT } from './entity-chrome-slots'
 
 export const EDGE_ANCHOR_DOT_OFFSET_PX = 8
 export const EDGE_ANCHOR_HIT_ALONG_PX = 56

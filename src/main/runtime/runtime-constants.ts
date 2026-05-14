@@ -5,7 +5,7 @@
 // --- Layout geometry ---
 export const CARD_BORDER_WIDTH = 1
 export const CARD_BORDER_RADIUS = 0
-export const CHROME_HEADER_HEIGHT = 44
+export { CHROME_HEADER_HEIGHT } from '../../shared/entity-chrome-slots'
 export const CHROME_PAGE_GAP = 0
 export { TOOLBAR_HEIGHT } from '../../shared/constants'
 export const TOOLBAR_BORDER_LIGHT = '#d4d4d8'

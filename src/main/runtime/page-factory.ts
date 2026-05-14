@@ -62,7 +62,6 @@ function isSelectedPage(page: Page): boolean {
 
 import {
   CARD_BORDER_RADIUS,
-  CHROME_HEADER_HEIGHT,
   selectionDebug,
 } from './runtime-constants'
 
@@ -110,7 +109,6 @@ export function createPage(config: PageConfig): Page {
     presetIndex,
     canvasX: config.canvasX,
     canvasY: config.canvasY,
-    chromeHeight: CHROME_HEADER_HEIGHT,
     linked: config.linked ?? false,
     source: config.source ?? 'manual',
     parentGroupId: config.parentGroupId ?? config.groupId,

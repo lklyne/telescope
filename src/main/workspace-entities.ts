@@ -31,13 +31,14 @@ import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
 import { shapeEntities } from './runtime/shape-entity-state'
 import {
-  pageOuterCanvasBounds,
   pageContentSize,
+  pageSnapBounds,
+  pageVisualBounds,
   pan,
   requestLayout,
   zoom,
 } from './runtime/surface-layout'
-import { pageShellInsets } from './runtime/runtime-geometry'
+import { CHROME_HEADER_HEIGHT } from '../shared/entity-chrome-slots'
 import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
 import { boundsOverlap } from './runtime/runtime-geometry'
@@ -50,19 +51,17 @@ import { cancelEditingEntityIfMatches } from './runtime/editing-entity-runtime'
 
 export function pageBoundsById(pageId: string): WorkspaceBounds | null {
   const page = findPageById(pageId)
-  return page ? pageOuterCanvasBounds(page) : null
+  return page ? pageSnapBounds(page) : null
 }
 
+/**
+ * Bounds for selection/hover/group-outline purposes: the snap rect extended
+ * upward by the chrome strip. Wraps everything the user can see.
+ */
 export function pageSelectableBounds(
   page: Exclude<ReturnType<typeof findPageById>, undefined>,
 ): WorkspaceBounds {
-  const outer = pageOuterCanvasBounds(page)
-  return {
-    x: outer.x,
-    y: outer.y,
-    width: outer.width,
-    height: outer.height + page.chromeHeight,
-  }
+  return pageVisualBounds(page)
 }
 
 export function unionBounds(boundsList: WorkspaceBounds[]): WorkspaceBounds | null {
@@ -87,24 +86,17 @@ export function entityBoundsById(entityId: string): WorkspaceBounds | null {
 
 /**
  * Offset from the entity's outer top-left (as returned by `entityBoundsById`)
- * to its data origin (`canvasX`/`canvasY`). For framed pages this is the
- * device-shell top/left insets; otherwise zero.
- *
- * Asymmetry to keep in mind: `entityBoundsById` for a page returns
- * `pageSelectableBounds` whose `height` includes `page.chromeHeight` (the
- * hover-only action band). This function does NOT include `chromeHeight` in
- * `insetY`, because the bounds' `y` is `outer.y` (no chrome band above the
- * top edge). The consequence is that re-layout against an existing page in
- * a column or below-`near` arrangement reserves an extra `chromeHeight` of
- * vertical space — by design, since the action band needs somewhere to live.
+ * to its data origin (`canvasX`/`canvasY`). For pages, `canvasY` is the
+ * snap-rect top and `pageSelectableBounds.y` is `canvasY - CHROME_HEADER_HEIGHT`,
+ * so the Y inset is the chrome strip; the snap rect's left edge already
+ * equals `canvasX` so the X inset is zero.
  */
 export function entityDataInsetsById(entityId: string): { insetX: number; insetY: number } {
   const page = findPageById(entityId)
   if (page) {
-    const insets = pageShellInsets(page)
     return {
-      insetX: insets?.left ?? 0,
-      insetY: insets?.top ?? 0,
+      insetX: 0,
+      insetY: CHROME_HEADER_HEIGHT,
     }
   }
   return { insetX: 0, insetY: 0 }

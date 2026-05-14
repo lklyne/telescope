@@ -17,7 +17,7 @@ import {
   EDGE_ANCHOR_HIT_ALONG_PX,
   EDGE_ANCHOR_HIT_GAP_PX,
   EDGE_SIDES,
-  PAGE_CHROME_HEIGHT_PX,
+  CHROME_HEADER_HEIGHT,
   MULTI_SELECTION_OUTLINE_PADDING_PX,
   RESIZE_HANDLE_HIT_PX,
   scaleEdgeAnchorHitSize,
@@ -341,9 +341,9 @@ function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
 function chromeRect(entity: CanvasSceneEntity): Rect {
   return {
     x: entity.screenX,
-    y: entity.screenY - PAGE_CHROME_HEIGHT_PX,
+    y: entity.screenY - CHROME_HEADER_HEIGHT,
     width: entity.screenWidth,
-    height: PAGE_CHROME_HEIGHT_PX,
+    height: CHROME_HEADER_HEIGHT,
   }
 }
 

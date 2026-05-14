@@ -5,6 +5,7 @@ import type { Page } from './runtime-entities'
 import {
   BROWSER_HEADER_HEIGHT,
   CARD_BORDER_WIDTH,
+  CHROME_HEADER_HEIGHT,
   CHROME_PAGE_GAP,
   LEFT_SIDEBAR_WIDTH,
   devtoolsPanelDebug,
@@ -65,18 +66,6 @@ export function pageContentSize(page: Pick<Page, 'presetIndex' | 'peekWidth' | '
   return sizeForOrientation(baseW, baseH, deviceOrientationFromMetadata(page.metadata))
 }
 
-export function pageCanvasBounds(
-  page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
-): WorkspaceBounds {
-  const size = pageContentSize(page)
-  return {
-    x: page.canvasX,
-    y: page.canvasY,
-    width: size.width,
-    height: size.height,
-  }
-}
-
 export function pageShellInsets(
   page: Pick<Page, 'metadata'>,
 ): { top: number; right: number; bottom: number; left: number } | null {
@@ -88,17 +77,64 @@ export function pageShellInsets(
   return shellInsetsForDevice(deviceId, orientation)
 }
 
-export function pageOuterCanvasBounds(
+/**
+ * Snap rect = body + device-frame insets, anchored at `canvasY`.
+ *
+ *   unframed: { x: canvasX,             y: canvasY,             w: bodyW, h: bodyH }
+ *   framed:   { x: canvasX,             y: canvasY,             w: bodyW + lr, h: bodyH + tb }
+ *
+ * This is the rect that alignment guides and grid snap should use. Chrome
+ * lives above it (see `pageVisualBounds`); the body sits inside it (see
+ * `pageBodyCanvasBounds`) — offset by the bezel insets when framed.
+ */
+export function pageSnapBounds(
   page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
 ): WorkspaceBounds {
-  const inner = pageCanvasBounds(page)
+  const size = pageContentSize(page)
   const insets = pageShellInsets(page)
-  if (!insets) return inner
+  if (!insets) {
+    return { x: page.canvasX, y: page.canvasY, width: size.width, height: size.height }
+  }
   return {
-    x: inner.x - insets.left,
-    y: inner.y - insets.top,
-    width: inner.width + insets.left + insets.right,
-    height: inner.height + insets.top + insets.bottom,
+    x: page.canvasX,
+    y: page.canvasY,
+    width: size.width + insets.left + insets.right,
+    height: size.height + insets.top + insets.bottom,
+  }
+}
+
+/**
+ * Body bounds = the webview content area, inside the bezel when framed.
+ *
+ *   unframed: body == snap rect
+ *   framed:   body is offset right/down by (insets.left, insets.top)
+ */
+export function pageBodyCanvasBounds(
+  page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
+): WorkspaceBounds {
+  const size = pageContentSize(page)
+  const insets = pageShellInsets(page)
+  return {
+    x: page.canvasX + (insets?.left ?? 0),
+    y: page.canvasY + (insets?.top ?? 0),
+    width: size.width,
+    height: size.height,
+  }
+}
+
+/**
+ * Visual bounds = snap rect extended upward by the chrome strip. Used for
+ * selection outlines that should wrap chrome and for placement claims.
+ */
+export function pageVisualBounds(
+  page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
+): WorkspaceBounds {
+  const snap = pageSnapBounds(page)
+  return {
+    x: snap.x,
+    y: snap.y - CHROME_HEADER_HEIGHT,
+    width: snap.width,
+    height: snap.height + CHROME_HEADER_HEIGHT,
   }
 }
 
@@ -213,8 +249,7 @@ export function computeScreenBoundsForPage(input: {
     input.currentViewMode() === 'browser' && input.selectedPageId() === input.page.id
   const isFillBrowserActive = input.isFillBrowserPage(input.page)
   const displayZoom = isFillBrowserActive ? 1 : input.zoom
-  const chromeH = Math.round(input.page.chromeHeight * input.zoom)
-  const gap = Math.round(input.chromePageGap * input.zoom)
+  const chromeH = Math.round(CHROME_HEADER_HEIGHT * input.zoom)
   const contentW = Math.round(w * displayZoom)
   const fullPageH = Math.round(h * displayZoom)
   const viewport = input.availableCanvasViewportRect()
@@ -226,11 +261,24 @@ export function computeScreenBoundsForPage(input: {
     : isBrowserActive
       ? Math.min(fullPageH, maxBrowserPageH)
       : fullPageH
+  const insets = pageShellInsets(input.page)
+  const insetLeft = Math.round((insets?.left ?? 0) * displayZoom)
+  const insetTop = Math.round((insets?.top ?? 0) * displayZoom)
+  const insetRight = Math.round((insets?.right ?? 0) * displayZoom)
+  const insetBottom = Math.round((insets?.bottom ?? 0) * displayZoom)
+
+  // `snapTopScreenY` is the snap-rect top in screen space: the bezel top
+  // when framed, body top when not. Body lives at snapTopScreenY + insetTop,
+  // chrome floats above at snapTopScreenY - chromeH.
+  const snapTopScreenY =
+    Math.round(input.page.canvasY * input.zoom + input.pan.y) + input.toolbarHeight
+  const snapLeftScreenX = Math.round(input.page.canvasX * input.zoom + input.pan.x)
+
   const rawChromeX = isBrowserActive
     ? isFillBrowserActive
       ? viewport.x
       : Math.round(viewport.x + (viewport.width - w * input.zoom) / 2)
-    : Math.round(input.page.canvasX * input.zoom + input.pan.x)
+    : snapLeftScreenX + insetLeft
   const browserMinPageY = browserViewportTop
   const centeredBrowserPageY = Math.round(
     browserViewportTop + (browserViewportHeight - pageH) / 2,
@@ -239,18 +287,16 @@ export function computeScreenBoundsForPage(input: {
     ? fullPageH >= maxBrowserPageH
       ? browserMinPageY
       : Math.max(browserMinPageY, centeredBrowserPageY)
-    : Math.round(input.page.canvasY * input.zoom + input.pan.y) + input.toolbarHeight + chromeH + gap
-  const chromeY = isBrowserActive
-    ? browserViewportTop
-    : Math.round(input.page.canvasY * input.zoom + input.pan.y) + input.toolbarHeight
-  // Compute shell rect (device page bezel) — skip in fill-browser mode
-  const insets = pageShellInsets(input.page)
+    : snapTopScreenY + insetTop
+  const chromeY = isBrowserActive ? browserViewportTop : snapTopScreenY - chromeH
+  // Shell rect (device page bezel) anchored at the snap-rect top — skip in
+  // fill-browser mode.
   const shellRect = insets && !isFillBrowserActive
     ? {
-        x: rawChromeX - Math.round(insets.left * displayZoom),
-        y: pageY - Math.round(insets.top * displayZoom),
-        width: contentW + Math.round((insets.left + insets.right) * displayZoom),
-        height: pageH + Math.round((insets.top + insets.bottom) * displayZoom),
+        x: snapLeftScreenX,
+        y: snapTopScreenY,
+        width: contentW + insetLeft + insetRight,
+        height: pageH + insetTop + insetBottom,
       }
     : {
         x: rawChromeX - bw,

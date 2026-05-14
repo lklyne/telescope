@@ -18,8 +18,12 @@ export interface Page {
   devtoolsHostAttached?: boolean
   presetIndex: number
   canvasX: number
+  /**
+   * Top-left of the page's snap rect in canvas coords. With a device frame
+   * this is the bezel top; without, it is the body top. Chrome renders
+   * above at (canvasY - CHROME_HEADER_HEIGHT).
+   */
   canvasY: number
-  chromeHeight: number
   linked: boolean
   source: WorkspacePageSource
   parentGroupId?: string

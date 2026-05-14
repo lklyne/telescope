@@ -8,7 +8,7 @@
 import { nativeImage, screen as electronScreen } from 'electron'
 import type { WorkspaceBounds } from '../../shared/types'
 import { captureFrameComposited, captureViewRegion } from './frame-compositor'
-import { boundCanvasOrigin, boundsOverlap, pageCanvasBounds } from './runtime-geometry'
+import { boundCanvasOrigin, boundsOverlap, pageBodyCanvasBounds } from './runtime-geometry'
 import { aboveView, bgView } from './view-refs'
 
 function setRendererCaptureMode(active: boolean): void {
@@ -84,9 +84,9 @@ async function captureRegionInternal(
   dpr: number,
 ): Promise<RegionCaptureResult> {
 
-  // Find pages whose canvas bounds intersect the region.
+  // Find pages whose body bounds intersect the region.
   const intersectingPages = pages.filter((page) => {
-    const bounds = pageCanvasBounds(page)
+    const bounds = pageBodyCanvasBounds(page)
     return boundsOverlap(canvasRect, bounds)
   })
 
@@ -132,13 +132,10 @@ async function captureRegionInternal(
     const capture = await captureFrameComposited(page, { dpr })
     if (!capture) continue
 
-    const pageBounds = pageCanvasBounds(page)
+    const pageBounds = pageBodyCanvasBounds(page)
 
-    // `page.canvasY` is the top of the page's chrome band, not the page
-    // content; content sits `chromeHeight` below (computeScreenBoundsForPage).
-    const contentCanvasY = pageBounds.y + page.chromeHeight
     const offsetX = Math.round((pageBounds.x - canvasRect.x) * zoom * dpr)
-    const offsetY = Math.round((contentCanvasY - canvasRect.y) * zoom * dpr)
+    const offsetY = Math.round((pageBounds.y - canvasRect.y) * zoom * dpr)
 
     // Blit the page capture into the output buffer.
     const srcW = capture.width

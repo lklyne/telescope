@@ -8,7 +8,7 @@ import { captureRegion } from './region-capture'
 import { extractRegionComponents } from './region-components'
 import { createAnnotation } from '../workspace-annotations'
 import { queryElementsInRect } from './page-queries'
-import { pageCanvasBounds } from './runtime-geometry'
+import { pageBodyCanvasBounds } from './runtime-geometry'
 import { pageDisplayLabel } from './runtime-serialization'
 
 /**
@@ -21,7 +21,7 @@ export async function executeRegionSelect(canvasRect: WorkspaceBounds, text?: st
   // Query DOM elements within the region for each intersecting page.
   const regionElements: RegionElementGroup[] = []
   for (const page of intersectingPages) {
-    const pageBounds = pageCanvasBounds(page)
+    const pageBounds = pageBodyCanvasBounds(page)
     // Convert canvas rect to page-local viewport coordinates.
     const viewportRect = {
       x: Math.max(0, canvasRect.x - pageBounds.x),

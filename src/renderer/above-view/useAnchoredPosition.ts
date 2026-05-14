@@ -106,9 +106,9 @@ function findAnchorTarget(layout: LayoutUpdateData, id: string): AnchorTarget | 
 /**
  * Returns the unified entity rect (body + chrome) in window-space coords.
  *
- * Today scene entities encode body-only geometry, so we extend upward by
- * `CHROME_HEADER_HEIGHT` for kinds that have chrome. After ADR 0002's rect
- * unification this becomes a one-liner returning the entity rect as-is.
+ * `entity.screenY` is the snap-rect top — bezel top for framed pages, body
+ * top otherwise. Chrome lives `CHROME_HEADER_HEIGHT` above it; extend the
+ * rect upward to include the strip for kinds that have chrome.
  */
 function entityRectFor(entity: AnchorTarget): Rect {
   const hasHeader = entity.kind === 'page' || entity.kind === 'file' || entity.kind === 'group'

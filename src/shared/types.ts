@@ -11,6 +11,7 @@ import type { PresenceDebugEntry } from './presence-debug'
 import type { DrawingBrushType, Tool } from './tool'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
+import type { ResizeHandle } from './resize-accumulator'
 
 export type { DrawingBrushType, Tool, ToolKind, ToolDuration } from './tool'
 export type { ToolDefaults, ToolDefaultPatch } from './tool-defaults'
@@ -1729,7 +1730,7 @@ export interface CanvasBgElectronAPI {
   startDragEntity: (entityId: string, selection?: CanvasDragStartSelection) => void
   dragEntity: (entityId: string, dx: number, dy: number, shiftKey: boolean) => void
   endDragEntity: () => void
-  beginResize: (entityId: string, entityKind: CanvasEntityKind) => void
+  beginResize: (entityId: string, entityKind: CanvasEntityKind, handle: ResizeHandle) => void
   endResize: () => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
   /** Comment tool click below the drag threshold. Main resolves the page +

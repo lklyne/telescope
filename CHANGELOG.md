@@ -6,13 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-14 — Shapes, Alignment Guides, Live Components
+
 ### New
-- Cmd+A selects every entity on the canvas. While typing, the native "select all text" wins.
-- Pasting plain text creates a sticky note at the cursor. Smart-paste resolution order is now: entity JSON → URL → image → plain text.
+- You can now add basic shapes like squares, circles, and diamonds with inner text to the canvas
+- Added a highlighter brush in addition to pen
+- Render local interactive HTML files to the canvas
+- Connect a local repo and drop live component views onto the canvas (hot-reloads as you edit)
+- Better markdown editing with CodeMirror — edit inline, styled view, file-type icons
+- Improved settings panel with Skills, Fix, and keyboard Bindings management
+- Alignment and spacing guides while you drag and resize
+- Axis-locked drag with shift
+- Option-drag to copy
+- Resize multiple entities at once with a single bounding box
+- Click a selected entity again to start editing it (text, stickies, files, drawings)
+- Cmd+A selects everything on the canvas
+- Paste a URL to drop a page, paste an image to drop a file, paste plain text to drop a sticky
+- Click anywhere with the text tool to drop a text node and start typing
+- New pages default to framed in a device shell
+- Inspector got a richer tooltip and a Chrome-style box-model overlay
+- Canvas grid fades smoothly across zoom levels and stays legible when zoomed out
+- Press p/t/s/r/o/i/m to switch tools
 
 ### Behavior changes
-- Cmd+D and the context-menu "Duplicate" no longer auto-create a row group around source + duplicate. The duplicate lands next to the source as a free entity.
-- Page focus now respects native shortcuts (ADR 0011). When a page has keyboard focus, the page wins all keystrokes except `Escape` (exits page focus) and `Cmd+1` (reset viewport). Cmd+Z, Cmd+G, Cmd+W, arrows, and tool keys fall through to the page — press Escape first to use canvas shortcuts.
+- Cmd+D drops the duplicate next to the source instead of wrapping both in a row group
+- When a page has keyboard focus, native shortcuts (Cmd+Z, Cmd+G, arrows, tool keys) go to the page. Press Escape first to use canvas shortcuts.
+
+### Fixes
+- Edges are easier to grab when zoomed out — hit targets scale with zoom
+- Cursor video recording captures at native resolution and includes the cursor
+- Drawing strokes keep uniform width regardless of how fast you draw
+- Sticky note resize and edit focus
+- Marquee box renders above page content instead of getting clipped
+- Cmd+D works on multi-selections and groups
+- Hotkeys keep working even when a page has an autofocused input
+- Wireframes survive malformed nodes instead of crashing
+- App-menu DevTools opens for the focused view
 
 
 ## [0.2.7] - 2026-04-23 — Cursor Trails, Multi-Select

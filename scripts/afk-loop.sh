@@ -110,10 +110,16 @@ for i in $(seq 1 "$MAX_FIRES"); do
       fi
       ;;
     codex)
-      # Disable user-level MCP servers: codex 0.23.0 spawns every entry in
-      # ~/.codex/config.toml at startup (even ones marked `enabled = false`)
-      # and blocks waiting on their handshake. The worker doesn't need MCP.
-      if ! codex exec --full-auto -c 'mcp_servers={}' "$PROMPT"; then
+      # --dangerously-bypass-approvals-and-sandbox: --full-auto's workspace-write
+      # sandbox blocks writes to .git/ (e.g. .git/index.lock) so the worker can't
+      # `git switch -c` a step branch. Matches the --dangerously-skip-permissions
+      # we already pass to claude.
+      # -c 'mcp_servers={}': wipe user-level MCP servers so codex doesn't hang
+      # waiting on their handshake.
+      if ! codex exec \
+          --dangerously-bypass-approvals-and-sandbox \
+          -c 'mcp_servers={}' \
+          "$PROMPT"; then
         echo "codex exec exited non-zero, stopping" >&2
         exit 1
       fi

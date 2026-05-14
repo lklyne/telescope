@@ -11,15 +11,14 @@ import { selectEntities, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
 import { requestLayout } from './surface-layout'
 import { arrowNavigationLocked, setArrowNavigationLocked, pages, selectedPageId } from './runtime-context'
-import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
 import { deletePages } from '../workspace-entities'
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
-import { duplicatePageFromSource, duplicateEntity } from '../workspace-pages'
 import { selectBrowserTab } from './runtime-core'
 import { deleteSelection } from './delete-selection'
+import { duplicateSelection } from './duplicate-selection'
 
 type MainBindingId = Exclude<BindingId, 'annotation-close-thread' | 'annotation-clear-draft'>
 
@@ -156,14 +155,3 @@ export function selectAllEntities(): void {
   selectEntities(entityIds)
 }
 
-function duplicateSelection(): void {
-  const targets = uiSelectedCanvasTargets()
-  if (!targets.length) return
-  const target = targets[0]
-  if (!target) return
-  if (target.kind === 'page') {
-    duplicatePageFromSource({ sourcePageId: target.id, focus: true })
-  } else {
-    duplicateEntity({ entityId: target.id, focus: true })
-  }
-}

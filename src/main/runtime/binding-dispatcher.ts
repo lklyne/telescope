@@ -12,10 +12,11 @@ import { workspaceViewMode } from '../ui-state'
 import { aboveView } from './view-refs'
 import { mainHandlers } from './binding-handlers'
 
-// Track text-editing state per webContents so renderers don't clobber each
-// other's flag. Any one source being active is enough to suppress shortcuts.
+// Track text-editing state per webContents. A keystroke can only land in the
+// webContents that has focus, so dispatch consults that source's flag — not
+// a global aggregate. Aggregating let unrelated webContents (e.g. a page
+// with an autofocused input) suppress canvas-region shortcuts.
 const textEditingByWebContents = new WeakMap<WebContents, boolean>()
-let textEditingActiveCount = 0
 
 // Annotation state surfaced from above-view's renderer-local React state so
 // Escape resolution (annotation-close-thread / annotation-clear-draft) works.
@@ -31,21 +32,20 @@ export function setTextEditingActive(webContents: WebContents, active: boolean):
   const prev = textEditingByWebContents.get(webContents) ?? false
   if (prev === active) return
   textEditingByWebContents.set(webContents, active)
-  textEditingActiveCount += active ? 1 : -1
-  if (textEditingActiveCount < 0) textEditingActiveCount = 0
 }
 
-export function isTextEditingActive(): boolean {
-  return textEditingActiveCount > 0
+export function isTextEditingFor(webContents: WebContents): boolean {
+  return textEditingByWebContents.get(webContents) ?? false
 }
 
 export function buildBindingContext(
   sourceView: KeyboardSourceView,
   pageFocusActive: boolean,
+  isTextEditing = false,
 ): BindingContext {
   return {
     activeTool: activeTool(),
-    isTextEditing: isTextEditingActive(),
+    isTextEditing,
     pageFocusActive,
     sourceView,
     viewMode: workspaceViewMode(),
@@ -64,9 +64,6 @@ export function attachBindingDispatcher(
   attachedWebContents.add(webContents)
 
   webContents.on('destroyed', () => {
-    if (textEditingByWebContents.get(webContents)) {
-      textEditingActiveCount = Math.max(0, textEditingActiveCount - 1)
-    }
     textEditingByWebContents.delete(webContents)
   })
 
@@ -81,7 +78,11 @@ export function attachBindingDispatcher(
     if (!normalizedKey) return
 
     const pageFocusActive = sourceView === 'page'
-    const ctx = buildBindingContext(sourceView, pageFocusActive)
+    const ctx = buildBindingContext(
+      sourceView,
+      pageFocusActive,
+      isTextEditingFor(webContents),
+    )
 
     const bindingId = dispatchKey(BINDINGS, normalizedKey, ctx)
     if (!bindingId) return

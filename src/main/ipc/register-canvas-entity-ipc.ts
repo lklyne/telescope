@@ -79,9 +79,7 @@ import {
 import { createAnnotation, moveAnnotation } from '../workspace-annotations'
 import {
   deletePages,
-  groupBoundsForEntityIds,
 } from '../workspace-entities'
-import { findDuplicatePlacement } from '../workspace-placement'
 import {
   createPageAtPosition,
   duplicateEntity,
@@ -89,13 +87,11 @@ import {
   tidySelectedPages,
 } from '../workspace-pages'
 import { deleteGroups, duplicateGroup, ungroupUserGroup } from '../workspace-groups'
-import {
-  copyableSelectionPayload,
-  pasteEntitiesFromClipboard,
-} from '../workspace-clipboard'
+import { copyableSelectionPayload } from '../workspace-clipboard'
 import { workspaceGroups } from '../runtime/workspace-model'
 import { selectGroup } from '../runtime/selection-controller'
 import { deleteSelection } from '../runtime/delete-selection'
+import { duplicateSelection } from '../runtime/duplicate-selection'
 
 export function registerCanvasEntityIpc(): void {
   ipcMain.on(
@@ -397,23 +393,7 @@ export function registerCanvasEntityIpc(): void {
   })
 
   ipcMain.on('canvas-duplicate-selection', () => {
-    const entityIds = getSelectedEntityIds()
-    if (!entityIds.length) return
-    // For single selection, duplicate the entity (page or text entity)
-    if (entityIds.length === 1) {
-      duplicateEntity({ entityId: entityIds[0], focus: true })
-      return
-    }
-    const payload = copyableSelectionPayload()
-    if (!payload) return
-    const bounds = groupBoundsForEntityIds(entityIds)
-    if (!bounds) return
-    const placement = findDuplicatePlacement(bounds)
-    pasteEntitiesFromClipboard({
-      payload,
-      canvasX: placement.canvasX,
-      canvasY: placement.canvasY,
-    })
+    duplicateSelection()
   })
 
   ipcMain.on('canvas-copy-selection', () => {

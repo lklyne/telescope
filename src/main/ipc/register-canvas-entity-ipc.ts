@@ -41,6 +41,7 @@ import {
   resizeMultiSelection,
   groupSelectedEntities,
   ungroupSelectedGroup,
+  updateResizeGuides,
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
 import { createNoteFile, readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
@@ -309,6 +310,7 @@ export function registerCanvasEntityIpc(): void {
       }
       if (patch.canvasX !== undefined) page.canvasX = snapToGrid(patch.canvasX)
       if (patch.canvasY !== undefined) page.canvasY = snapToGrid(patch.canvasY)
+      updateResizeGuides(pageId)
       scheduleWorkspaceAutosave()
       markDirty('canvas')
       requestLayout()

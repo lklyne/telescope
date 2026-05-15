@@ -1032,6 +1032,7 @@ export default function App({
         entities={layoutData.entities}
         layoutData={layoutData}
         selectedEntityIds={layoutData.selectedEntityIds}
+        isDark={isDark}
       />
 
       {placementPreview && selectionOverlay?.variant !== 'place-shape' ? (
@@ -1072,7 +1073,7 @@ export default function App({
             onOpenThread={openThreadById}
           />
 
-          {drawingSession ? <DrawingLayer drawing={{ version: 1, ...drawingSession }} layout={layoutData} active /> : null}
+          {drawingSession ? <DrawingLayer drawing={{ version: 1, ...drawingSession }} layout={layoutData} active isDark={isDark} /> : null}
 
           <PendingElementOutline
             pending={pendingAnnotation}

@@ -232,6 +232,63 @@ describe('json-canvas-serializer drawings', () => {
     })
   })
 
+  it('round-trips a neutral text entity via specular.colorRole', () => {
+    const text: PersistedTextEntity = {
+      kind: 'text',
+      id: 't-neutral',
+      text: 'recede',
+      color: 'neutral',
+      textStyle: 'sticky',
+      canvasX: 0,
+      canvasY: 0,
+      width: 200,
+      height: 200,
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['t-neutral'] = text
+    snapshot.entityOrder = ['t-neutral']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes[0]).toMatchObject({
+      type: 'text',
+      id: 't-neutral',
+      // ADR 0013 §1: cross-tool fallback is preset "1" (red) when neutral.
+      color: '1',
+      specular: { textStyle: 'sticky', colorRole: 'neutral' },
+    })
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['t-neutral']).toEqual(text)
+  })
+
+  it('round-trips a neutral shape entity via specular.colorRole', () => {
+    const shape: PersistedShapeEntity = {
+      kind: 'shape',
+      id: 'sh-neutral',
+      shapeKind: 'rectangle',
+      text: '',
+      color: 'neutral',
+      canvasX: 0,
+      canvasY: 0,
+      width: 200,
+      height: 120,
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['sh-neutral'] = shape
+    snapshot.entityOrder = ['sh-neutral']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes[0]).toMatchObject({
+      type: 'shape',
+      id: 'sh-neutral',
+      color: '1',
+      specular: { colorRole: 'neutral' },
+    })
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['sh-neutral']).toEqual(shape)
+  })
+
   it('preserves drawing z-order among other entities', () => {
     const snapshot = emptySnapshot()
     snapshot.entities!['t1'] = {

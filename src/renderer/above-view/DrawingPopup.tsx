@@ -2,7 +2,11 @@
 // drawings; legacy multi-stroke drawings accept uniform writes per stroke.
 
 import { Copy, Trash2 } from 'lucide-react'
-import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
+import {
+  CANVAS_COLOR_SLOTS,
+  resolveCanvasColor,
+  slotForStorage,
+} from '../../shared/canvas-colors'
 import type {
   AnnotationDrawingStroke,
   CanvasBgElectronAPI,
@@ -43,7 +47,9 @@ export function DrawingPopup({
   const allStrokes = selectedDrawings.flatMap((d) => d.strokes)
   const brush = sharedValue(allStrokes.map((s) => s.brushType ?? 'pen'))
   const colorRaw = sharedValue(allStrokes.map((s) => s.color))
-  const currentColor = colorRaw === null ? null : resolveCanvasColor(colorRaw)
+  const currentColor =
+    colorRaw === null ? null : resolveCanvasColor(colorRaw, { role: 'ink', isDark })
+  const activeSlot = slotForStorage(colorRaw)
   const widthRaw = sharedValue(allStrokes.map((s) => s.width))
   const widthPresets = strokeWidthPresetsFor(brush ?? undefined)
   const activeStrokeWidth =
@@ -99,16 +105,19 @@ export function DrawingPopup({
           ))}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_OPTIONS.map((option) => {
-            const resolved = resolveCanvasColor(option.id)
+          {CANVAS_COLOR_SLOTS.map((slot) => {
+            const swatch =
+              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'ink', isDark })
             return (
               <CanvasItemPopup.ColorSwatch
-                key={option.id}
+                key={slot.id}
                 isDark={isDark}
-                active={currentColor === resolved}
-                color={resolved}
-                ariaLabel={`Set ${noun} color to ${option.label}`}
-                onClick={() => writeStrokes((stroke) => ({ ...stroke, color: resolved }))}
+                active={activeSlot === slot.id}
+                color={swatch}
+                ariaLabel={`Set ${noun} color to ${slot.label}`}
+                onClick={() =>
+                  writeStrokes((stroke) => ({ ...stroke, color: slot.storage }))
+                }
               />
             )
           })}

@@ -2,7 +2,11 @@
 // for color so color edits apply uniformly across both in multi-select.
 
 import { Copy, Trash2 } from 'lucide-react'
-import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
+import {
+  CANVAS_COLOR_SLOTS,
+  resolveCanvasColor,
+  slotForStorage,
+} from '../../shared/canvas-colors'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneTextEntity,
@@ -32,9 +36,8 @@ export function StickyNotePopover({
   const open = usePopupDelayedKey(ids, popupReady && count > 0)
   if (count === 0) return null
 
-  const sharedColor = sharedValue(
-    selectedTextEntities.map((e) => resolveCanvasColor(e.color)),
-  )
+  const sharedColor = sharedValue(selectedTextEntities.map((e) => e.color))
+  const activeSlot = slotForStorage(sharedColor)
 
   const entityIds = selectedTextEntities.map((e) => e.id)
   const noun = count === 1 ? 'sticky note' : `${count} text entities`
@@ -49,18 +52,19 @@ export function StickyNotePopover({
     >
       <CanvasItemPopup.Frame isDark={isDark}>
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_OPTIONS.map((option) => {
-            const resolved = resolveCanvasColor(option.id)
+          {CANVAS_COLOR_SLOTS.map((slot) => {
+            const swatch =
+              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
             return (
               <CanvasItemPopup.ColorSwatch
-                key={option.id}
+                key={slot.id}
                 isDark={isDark}
-                active={sharedColor === resolved}
-                color={resolved}
-                ariaLabel={`Set color to ${option.label}`}
+                active={activeSlot === slot.id}
+                color={swatch}
+                ariaLabel={`Set color to ${slot.label}`}
                 onClick={() => {
                   for (const e of selectedTextEntities) {
-                    api.updateTextEntity(e.id, { color: option.id })
+                    api.updateTextEntity(e.id, { color: slot.storage })
                   }
                 }}
               />

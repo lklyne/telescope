@@ -1,6 +1,10 @@
 // ADR 0008 §1/§5, ADR 0009 — add-shape tool popup; persists via tool defaults.
 
-import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
+import {
+  CANVAS_COLOR_SLOTS,
+  resolveCanvasColor,
+  slotForStorage,
+} from '../../shared/canvas-colors'
 import type {
   CanvasBgElectronAPI,
   LayoutUpdateData,
@@ -24,7 +28,8 @@ export function ShapeToolPopup({
   layout: LayoutUpdateData
 }) {
   const defaults = layout.toolDefaults['add-shape']
-  const currentColor = resolveCanvasColor(defaults.color)
+  const currentColor = resolveCanvasColor(defaults.color, { role: 'fill', isDark })
+  const activeSlot = slotForStorage(defaults.color)
   const activeStrokeWidth = nearestStrokeWidthPreset(defaults.strokeWidth)
   return (
     <CanvasItemPopup.ViewportAnchor layout={layout} open offset={8}>
@@ -51,20 +56,21 @@ export function ShapeToolPopup({
           ))}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_OPTIONS.map((option) => {
-            const resolved = resolveCanvasColor(option.id)
+          {CANVAS_COLOR_SLOTS.map((slot) => {
+            const swatch =
+              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
             return (
               <CanvasItemPopup.ColorSwatch
-                key={option.id}
+                key={slot.id}
                 isDark={isDark}
-                active={currentColor === resolved}
-                color={resolved}
-                ariaLabel={`Set default shape color to ${option.label}`}
+                active={activeSlot === slot.id}
+                color={swatch}
+                ariaLabel={`Set default shape color to ${slot.label}`}
                 onClick={() => {
                   const patch: ToolDefaultPatch = {
                     scope: 'add-shape',
                     key: 'color',
-                    value: option.id,
+                    value: slot.storage,
                   }
                   api.setToolDefault(patch)
                 }}

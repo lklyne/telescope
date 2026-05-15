@@ -74,7 +74,10 @@ export type ShapeKind = 'rectangle' | 'ellipse' | 'diamond'
  * Adding a tag requires both ends: a literal here + a case in
  * `src/renderer/above-view/file-popup-contributions/index.tsx`.
  */
-export type PopupContributionTag = 'wireframe-theme' | 'wireframe-json-mode'
+export type PopupContributionTag =
+  | 'wireframe-theme'
+  | 'wireframe-json-mode'
+  | 'wireframe-device-controls'
 
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
@@ -1671,6 +1674,10 @@ export interface CanvasBgElectronAPI {
   dragCopyGroup: (groupId: string, canvasX: number, canvasY: number) => void
   dragPreview: (dx: number, dy: number, shiftKey?: boolean) => void
   setPagePreset: (pageId: string, index: number) => void
+  setDeviceOrientation: (pageId: string, orientation: string) => void
+  toggleDeviceShell: (pageId: string) => void
+  setFileDeviceOrientation: (fileId: string, orientation: string) => void
+  toggleFileDeviceShell: (fileId: string) => void
   renamePage: (pageId: string, name: string) => void
   duplicatePage: (pageId: string) => void
   toggleLinkedPage: (pageId: string) => void

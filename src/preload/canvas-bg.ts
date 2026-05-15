@@ -114,6 +114,14 @@ const api: CanvasBgElectronAPI = {
   dragPreview: (dx, dy, shiftKey = false) =>
     ipcRenderer.send('canvas-drag-preview', { dx, dy, shiftKey }),
   setPagePreset: (pageId, index) => ipcRenderer.send('canvas-set-page-preset', { pageId, index }),
+  setDeviceOrientation: (pageId, orientation) =>
+    ipcRenderer.send('canvas-set-device-orientation', { pageId, orientation }),
+  toggleDeviceShell: (pageId) =>
+    ipcRenderer.send('canvas-toggle-device-shell', { pageId }),
+  setFileDeviceOrientation: (fileId, orientation) =>
+    ipcRenderer.send('canvas-set-file-device-orientation', { fileId, orientation }),
+  toggleFileDeviceShell: (fileId) =>
+    ipcRenderer.send('canvas-toggle-file-device-shell', { fileId }),
   renamePage: (pageId, name) => ipcRenderer.send('canvas-rename-page', { pageId, name }),
   duplicatePage: (pageId) => ipcRenderer.send('canvas-duplicate-page', { pageId }),
   toggleLinkedPage: (pageId) => ipcRenderer.send('canvas-toggle-linked-page', { pageId }),

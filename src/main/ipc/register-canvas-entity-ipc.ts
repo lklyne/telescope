@@ -32,7 +32,11 @@ import {
   deleteTextEntity,
   deleteFileEntity,
   setPageCustom,
+  setDeviceOrientation,
+  setFileDeviceOrientation,
   setPagePreset,
+  toggleDeviceShell,
+  toggleFileDeviceShell,
   updateDrawingEntity,
   updateFileEntity,
   updateGroupEntity,
@@ -271,6 +275,18 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on('canvas-set-page-custom', (_event, { pageId }: { pageId: string }) => {
     setPageCustom(pageId)
+  })
+
+  ipcMain.on(
+    'canvas-set-device-orientation',
+    (_event, { pageId, orientation }: { pageId: string; orientation: string }) => {
+      if (orientation !== 'portrait' && orientation !== 'landscape') return
+      setDeviceOrientation(pageId, orientation)
+    },
+  )
+
+  ipcMain.on('canvas-toggle-device-shell', (_event, { pageId }: { pageId: string }) => {
+    toggleDeviceShell(pageId)
   })
 
   ipcMain.on(
@@ -641,6 +657,21 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on('canvas-duplicate-file-entity', (_event, { id }: { id: string }) => {
     duplicateEntity({ entityId: id, focus: true })
   })
+
+  ipcMain.on(
+    'canvas-set-file-device-orientation',
+    (_event, { fileId, orientation }: { fileId: string; orientation: string }) => {
+      if (orientation !== 'portrait' && orientation !== 'landscape') return
+      setFileDeviceOrientation(fileId, orientation)
+    },
+  )
+
+  ipcMain.on(
+    'canvas-toggle-file-device-shell',
+    (_event, { fileId }: { fileId: string }) => {
+      toggleFileDeviceShell(fileId)
+    },
+  )
 
   ipcMain.on('canvas-show-file-in-finder', (_event, { filePath }: { filePath: string }) => {
     shell.showItemInFolder(filePath)

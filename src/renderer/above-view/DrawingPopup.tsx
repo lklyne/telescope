@@ -94,7 +94,7 @@ export function DrawingPopup({
                 }))
               }}
             >
-              <Icon size={14} />
+              <Icon size={14} ink={currentColor ?? undefined} />
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>
@@ -114,12 +114,13 @@ export function DrawingPopup({
           })}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
-          {widthPresets.map((width) => (
+          {widthPresets.map((width, index) => (
             <StrokeWidthSwatch
               key={width}
               isDark={isDark}
               active={activeStrokeWidth === width}
-              width={width}
+              variant={index === 0 ? 'thin' : 'thick'}
+              ink={currentColor}
               ariaLabel={`Set ${noun} stroke width to ${width}px`}
               onClick={() => writeStrokes((stroke) => ({ ...stroke, width }))}
             />
@@ -136,7 +137,7 @@ export function DrawingPopup({
           >
             <Copy size={14} />
           </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.DestructiveButton
+          <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Delete ${noun}`}
             ariaLabel={`Delete ${noun}`}
@@ -145,7 +146,7 @@ export function DrawingPopup({
             }}
           >
             <Trash2 size={14} />
-          </CanvasItemPopup.DestructiveButton>
+          </CanvasItemPopup.IconButton>
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

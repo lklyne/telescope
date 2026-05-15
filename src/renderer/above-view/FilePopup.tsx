@@ -110,7 +110,7 @@ export function FilePopup({
           >
             <Copy size={14} />
           </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.DestructiveButton
+          <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Delete ${noun}`}
             ariaLabel={`Delete ${noun}`}
@@ -119,7 +119,7 @@ export function FilePopup({
             }}
           >
             <Trash2 size={14} />
-          </CanvasItemPopup.DestructiveButton>
+          </CanvasItemPopup.IconButton>
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

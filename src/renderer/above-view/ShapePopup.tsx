@@ -97,12 +97,13 @@ export function ShapePopup({
           })}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
-          {STROKE_WIDTH_PRESETS.map((width) => (
+          {STROKE_WIDTH_PRESETS.map((width, index) => (
             <StrokeWidthSwatch
               key={width}
               isDark={isDark}
               active={sharedStrokeWidth === width}
-              width={width}
+              variant={index === 0 ? 'thin' : 'thick'}
+              ink={sharedColor}
               ariaLabel={`Set ${noun} stroke width to ${width}px`}
               onClick={() => {
                 for (const s of selectedShapes) {
@@ -123,7 +124,7 @@ export function ShapePopup({
           >
             <Copy size={14} />
           </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.DestructiveButton
+          <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Delete ${noun}`}
             ariaLabel={`Delete ${noun}`}
@@ -132,7 +133,7 @@ export function ShapePopup({
             }}
           >
             <Trash2 size={14} />
-          </CanvasItemPopup.DestructiveButton>
+          </CanvasItemPopup.IconButton>
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

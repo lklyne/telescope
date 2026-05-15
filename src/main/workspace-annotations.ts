@@ -165,6 +165,10 @@ export function setOnAnnotationReply(
 }
 
 export function createAnnotation(request: AnnotationCreateRequest): Annotation {
+  const elementName =
+    request.anchor.type === 'element'
+      ? request.elementName?.trim() || undefined
+      : undefined
   const annotation: Annotation = {
     id: makeId('ann'),
     anchor: request.anchor,
@@ -173,6 +177,7 @@ export function createAnnotation(request: AnnotationCreateRequest): Annotation {
     status: 'pending',
     replies: [],
     createdAt: new Date().toISOString(),
+    ...(elementName ? { elementName } : {}),
     metadata: enrichedAnnotationMetadata(request),
   }
   workspaceAnnotations.push(annotation)

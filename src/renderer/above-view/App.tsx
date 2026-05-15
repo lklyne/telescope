@@ -341,12 +341,14 @@ export default function App({
     commentText,
     drawingSession,
     drawingStrokeActive,
+    elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
     resizeCommentInput,
     setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,
+    setElementNameDraft,
     setPendingAnnotation,
     submitPendingAnnotation,
     submitRegionAnnotation,
@@ -1082,12 +1084,14 @@ export default function App({
             clearDraft={clearDraft}
             commentInputRef={commentInputRef}
             commentText={commentText}
+            elementNameDraft={elementNameDraft}
             layoutData={layoutData}
             pendingAnnotation={pendingAnnotation}
             pendingPosition={pendingComposerPosition}
             pendingRegionRect={pendingRegionRect}
             resizeCommentInput={resizeCommentInput}
             setCommentText={setCommentText}
+            setElementNameDraft={setElementNameDraft}
             submitPendingAnnotation={submitPendingAnnotation}
             submitRegionAnnotation={submitRegionAnnotation}
           />

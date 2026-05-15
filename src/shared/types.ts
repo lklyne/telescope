@@ -2177,6 +2177,10 @@ export interface Annotation {
   status: AnnotationStatus
   replies: AnnotationReply[]
   createdAt: string
+  /** Element-anchored annotations only (ADR 0013 §6). User-curated label
+   *  like "Submit button" or "Hero CTA", displayed in the composer and thread.
+   *  Canvas-point and region anchors leave this undefined. */
+  elementName?: string
   metadata?: AnnotationMetadata
 }
 
@@ -2184,6 +2188,7 @@ export interface AnnotationCreateRequest {
   anchor: AnnotationAnchor
   author?: 'user' | 'agent'
   text: string
+  elementName?: string
   metadata?: AnnotationMetadata
 }
 

@@ -7,6 +7,7 @@ export type DrawingBrushType = 'pen' | 'highlight'
 
 export type Tool =
   | { kind: 'select' }
+  | { kind: 'hand' }
   | { kind: 'add-page'; presetIndex?: number; customSize?: boolean; sourcePageId?: string }
   | { kind: 'add-text' }
   | { kind: 'add-sticky' }
@@ -21,6 +22,7 @@ export type ToolDuration = 'one-shot' | 'persistent'
 
 export const toolDuration: Record<ToolKind, ToolDuration> = {
   select: 'persistent',
+  hand: 'persistent',
   'add-page': 'one-shot',
   'add-text': 'one-shot',
   'add-sticky': 'one-shot',
@@ -100,6 +102,8 @@ export function toolGerund(tool: Tool): string {
   switch (tool.kind) {
     case 'select':
       return 'selecting'
+    case 'hand':
+      return 'panning'
     case 'add-page':
       return 'adding page'
     case 'add-text':

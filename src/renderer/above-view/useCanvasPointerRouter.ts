@@ -92,6 +92,9 @@ interface UseCanvasPointerRouterOptions {
   /** Space-modifier mirror — `useCanvasPointerRouter` reads this on each
    *  pointerdown to decide pan-on-background. */
   spaceHeldRef: React.MutableRefObject<boolean>
+  /** Hand-tool mirror — when the toolbar's hand tool is active, pan-on-
+   *  background fires regardless of space. ADR 0013 §5 nav group. */
+  handToolActiveRef: React.MutableRefObject<boolean>
   /** Option-modifier mirror. Pointer events can miss mid-drag key changes,
    *  so drag-copy reads this live throughout the gesture. */
   optionHeldRef: React.MutableRefObject<boolean>
@@ -154,6 +157,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     enabled,
     consume,
     spaceHeldRef,
+    handToolActiveRef,
     optionHeldRef,
     setDragCopyPreview,
     setEdgeDragState,
@@ -230,7 +234,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         isPrimaryButton: event.button === 0,
         button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
         modifiers,
-        spaceHeld: spaceHeldRef.current,
+        spaceHeld: spaceHeldRef.current || handToolActiveRef.current,
         altHeld: event.altKey || optionHeldRef.current,
         editingEntityId,
       }
@@ -302,7 +306,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         capture: true,
       } as EventListenerOptions)
     }
-  }, [enabled, layoutRef, optionHeldRef, setDragCopyPreview, spaceHeldRef])
+  }, [enabled, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, spaceHeldRef])
 }
 
 // --- Dispatch ---

@@ -954,6 +954,8 @@ export default function App({
   // controller state.
   const spaceHeldRef = useRef(false)
   const optionHeldRef = useRef(false)
+  const handToolActiveRef = useRef(layoutData.activeTool.kind === 'hand')
+  handToolActiveRef.current = layoutData.activeTool.kind === 'hand'
   useEffect(() => {
     const onKey = (event: KeyboardEvent, down: boolean) => {
       if (event.code === 'Space') spaceHeldRef.current = down
@@ -984,6 +986,7 @@ export default function App({
     enabled: routerOwnsCanvasPointers,
     consume: FULL_ROUTER_CONSUME,
     spaceHeldRef,
+    handToolActiveRef,
     optionHeldRef,
     setDragCopyPreview,
     setEdgeDragState,

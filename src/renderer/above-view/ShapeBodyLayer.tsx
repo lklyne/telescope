@@ -177,7 +177,9 @@ function ShapeBody({
   }, [editing, shape.text])
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
-  const resolvedColor = shape.color ? resolveCanvasColor(shape.color) : NEUTRAL_SLATE
+  const resolvedColor = shape.color
+    ? resolveCanvasColor(shape.color, { role: 'fill', isDark })
+    : NEUTRAL_SLATE
   const fill = withAlpha(lightenHex(resolvedColor, FILL_LIGHTEN), FILL_OPACITY)
   const strokeColor = resolvedColor
   const textColor = isDark ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'

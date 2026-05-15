@@ -6,7 +6,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { canvasToScreenX, canvasToScreenY } from '../../shared/gesture-utils'
-import { withAlpha } from '../../shared/canvas-colors'
+import { resolveCanvasColor, withAlpha } from '../../shared/canvas-colors'
 import { PERFECT_FREEHAND_ENABLED } from '../../shared/featureFlags'
 import { pathD } from './annotationMath'
 
@@ -53,12 +53,14 @@ function HighlightStroke({
   visibleWidth,
   active,
   filterId,
+  inkColor,
 }: {
   stroke: AnnotationDrawingStroke
   points: { x: number; y: number }[]
   visibleWidth: number
   active: boolean
   filterId: string
+  inkColor: string
 }) {
   if (points.length === 0) return null
   // Render as a perfect-freehand outline filled with the gradient instead of a
@@ -92,7 +94,7 @@ function HighlightStroke({
           y2={y2}
         >
           {HIGHLIGHT_ALPHA_STOPS.map((s) => (
-            <stop key={s.offset} offset={s.offset} stopColor={withAlpha(stroke.color, s.alpha)} />
+            <stop key={s.offset} offset={s.offset} stopColor={withAlpha(inkColor, s.alpha)} />
           ))}
         </linearGradient>
       </defs>
@@ -112,13 +114,16 @@ function renderStrokeBody({
   strokedD,
   visibleWidth,
   active,
+  isDark,
 }: {
   stroke: AnnotationDrawingStroke
   points: { x: number; y: number }[]
   strokedD: string
   visibleWidth: number
   active: boolean
+  isDark: boolean
 }) {
+  const inkColor = resolveCanvasColor(stroke.color, { role: 'ink', isDark })
   if (stroke.brushType === 'highlight') {
     return (
       <HighlightStroke
@@ -127,6 +132,7 @@ function renderStrokeBody({
         visibleWidth={visibleWidth}
         active={active}
         filterId={GRAIN_FILTER_ID}
+        inkColor={inkColor}
       />
     )
   }
@@ -134,7 +140,7 @@ function renderStrokeBody({
     return (
       <path
         d={freehandPathD(points, visibleWidth)}
-        fill={stroke.color}
+        fill={inkColor}
         opacity={active ? 1 : 0.92}
       />
     )
@@ -143,7 +149,7 @@ function renderStrokeBody({
     <path
       d={strokedD}
       fill="none"
-      stroke={stroke.color}
+      stroke={inkColor}
       strokeWidth={visibleWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -157,11 +163,13 @@ export function DrawingLayer({
   layout,
   active,
   onSelect,
+  isDark,
 }: {
   drawing: AnnotationDrawing
   layout: LayoutUpdateData
   active?: boolean
   onSelect?: () => void
+  isDark: boolean
 }) {
   const hasHighlight = drawing.strokes.some((s) => s.brushType === 'highlight')
   return (
@@ -239,7 +247,7 @@ export function DrawingLayer({
                 }}
               />
             ) : null}
-            {renderStrokeBody({ stroke, points, strokedD, visibleWidth, active: active ?? false })}
+            {renderStrokeBody({ stroke, points, strokedD, visibleWidth, active: active ?? false, isDark })}
           </g>
         )
       })}
@@ -252,11 +260,13 @@ export function SavedDrawingEntities({
   layoutData,
   selectedEntityIds,
   onSelect,
+  isDark,
 }: {
   entities: CanvasSceneEntity[]
   layoutData: LayoutUpdateData
   selectedEntityIds: string[]
   onSelect?: (id: string) => void
+  isDark: boolean
 }) {
   const drawings = entities.filter(
     (e): e is import('../../shared/types').CanvasSceneDrawingEntity => e.kind === 'drawing',
@@ -274,6 +284,7 @@ export function SavedDrawingEntities({
             layout={layoutData}
             active={isSelected}
             onSelect={onSelect ? () => onSelect(drawing.id) : undefined}
+            isDark={isDark}
           />
         )
       })}

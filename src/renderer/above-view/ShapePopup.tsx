@@ -1,7 +1,11 @@
 // ADR 0008/0009 — shape selection popup. Variant morph per ADR 0009.
 
 import { Copy, Trash2 } from 'lucide-react'
-import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
+import {
+  CANVAS_COLOR_SLOTS,
+  resolveCanvasColor,
+  slotForStorage,
+} from '../../shared/canvas-colors'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneShapeEntity,
@@ -39,9 +43,12 @@ export function ShapePopup({
   if (count === 0) return null
 
   const sharedShapeKind = sharedValue(selectedShapes.map((s) => s.shapeKind))
-  const sharedColor = sharedValue(
-    selectedShapes.map((s) => (s.color ? resolveCanvasColor(s.color) : null)),
-  )
+  const sharedColorRaw = sharedValue(selectedShapes.map((s) => s.color ?? null))
+  const sharedColor =
+    sharedColorRaw === null
+      ? null
+      : resolveCanvasColor(sharedColorRaw, { role: 'fill', isDark })
+  const activeSlot = slotForStorage(sharedColorRaw)
   const sharedStrokeWidth = sharedValue(
     selectedShapes.map((s) =>
       s.strokeWidth !== undefined ? nearestStrokeWidthPreset(s.strokeWidth) : null,
@@ -78,18 +85,19 @@ export function ShapePopup({
           ))}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_OPTIONS.map((option) => {
-            const resolved = resolveCanvasColor(option.id)
+          {CANVAS_COLOR_SLOTS.map((slot) => {
+            const swatch =
+              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
             return (
               <CanvasItemPopup.ColorSwatch
-                key={option.id}
+                key={slot.id}
                 isDark={isDark}
-                active={sharedColor === resolved}
-                color={resolved}
-                ariaLabel={`Set ${noun} color to ${option.label}`}
+                active={activeSlot === slot.id}
+                color={swatch}
+                ariaLabel={`Set ${noun} color to ${slot.label}`}
                 onClick={() => {
                   for (const s of selectedShapes) {
-                    api.updateShapeEntity(s.id, { color: option.id })
+                    api.updateShapeEntity(s.id, { color: slot.storage })
                   }
                 }}
               />

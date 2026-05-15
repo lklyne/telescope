@@ -1,7 +1,11 @@
 // ADR 0008 — group selection popup. Replaces canvas-bg GroupInlineMenu.
 
 import { Copy, Trash2 } from 'lucide-react'
-import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
+import {
+  CANVAS_COLOR_SLOTS,
+  resolveCanvasColor,
+  slotForStorage,
+} from '../../shared/canvas-colors'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneGroupEntity,
@@ -41,18 +45,19 @@ export function GroupPopup({
     >
       <CanvasItemPopup.Frame isDark={isDark}>
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_OPTIONS.map((option) => {
-            const resolved = resolveCanvasColor(option.id)
-            const isActive = resolveCanvasColor(selectedGroup.color ?? '') === resolved
+          {CANVAS_COLOR_SLOTS.map((slot) => {
+            const swatch =
+              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
+            const isActive = slotForStorage(selectedGroup.color) === slot.id
             return (
               <CanvasItemPopup.ColorSwatch
-                key={option.id}
+                key={slot.id}
                 isDark={isDark}
                 active={isActive}
-                color={resolved}
-                ariaLabel={`Set group color to ${option.label}`}
+                color={swatch}
+                ariaLabel={`Set group color to ${slot.label}`}
                 onClick={() =>
-                  api.updateGroupEntity(selectedGroup.id, { color: option.id })
+                  api.updateGroupEntity(selectedGroup.id, { color: slot.storage })
                 }
               />
             )

@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react'
 import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
-import { resolveCanvasColor } from '../../shared/canvas-colors'
+import { NEUTRAL_STORAGE, resolveCanvasColor } from '../../shared/canvas-colors'
 import { isOverlayUiTarget, screenPointToCanvasPoint } from '../../shared/gesture-utils'
 import { drawingBounds, snapPointTo45Degrees, type DrawingSession } from './annotationMath'
 
@@ -92,14 +92,19 @@ export function useAnnotationDrawingGestures({
         setPendingAnnotation(null)
         // Brush, color, and stroke width come from per-tool defaults
         // (ADR 0009). The draw tool's popup writes them; the gesture reads
-        // them at stroke-start time. Resolve preset ids to hex here so the
-        // persisted stroke matches what DrawingPopup writes (SVG renders the
-        // raw value — preset ids would fall back to black).
+        // them at stroke-start time. Preserve the 'neutral' sentinel so the
+        // renderer resolves it against the active theme; resolve legacy
+        // presets to hex (SVG renders the raw value, so preset ids would
+        // otherwise fall back to black).
         const drawDefaults = layoutRef.current.toolDefaults.draw
+        const strokeColor =
+          drawDefaults.color === NEUTRAL_STORAGE
+            ? NEUTRAL_STORAGE
+            : resolveCanvasColor(drawDefaults.color)
         const nextStrokes = [
           {
             id: strokeId,
-            color: resolveCanvasColor(drawDefaults.color),
+            color: strokeColor,
             width: drawDefaults.strokeWidth,
             points: [startPoint],
             brushType: drawDefaults.brushType,

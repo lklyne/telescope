@@ -33,7 +33,7 @@ import type {
   JsonCanvasAppState,
 } from '../../shared/json-canvas-types'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import { resolveCanvasColor } from '../../shared/canvas-colors'
+import { resolveCanvasColor, NEUTRAL_STORAGE } from '../../shared/canvas-colors'
 import { pageCustomSizeFromMetadata } from './runtime-entities'
 
 // --- Serialize ---
@@ -134,6 +134,7 @@ function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvasLinkNod
 }
 
 function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNode {
+  const isNeutral = entity.color === NEUTRAL_STORAGE
   const node: JsonCanvasTextNode = {
     id: entity.id,
     type: 'text',
@@ -142,12 +143,22 @@ function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNod
     width: entity.width,
     height: entity.height,
     text: entity.text,
-    color: entity.color,
+    color: isNeutral ? '1' : entity.color,
   }
-  if (entity.textStyle !== undefined) {
-    node.specular = { textStyle: entity.textStyle }
-  }
+  const specular = buildSpecularExtensions(entity.textStyle, isNeutral)
+  if (specular) node.specular = specular
   return node
+}
+
+function buildSpecularExtensions(
+  textStyle: PersistedTextEntity['textStyle'] | undefined,
+  isNeutral: boolean,
+): JsonCanvasTextNode['specular'] {
+  if (textStyle === undefined && !isNeutral) return undefined
+  const ext: NonNullable<JsonCanvasTextNode['specular']> = {}
+  if (textStyle !== undefined) ext.textStyle = textStyle
+  if (isNeutral) ext.colorRole = 'neutral'
+  return ext
 }
 
 function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNode {
@@ -167,7 +178,8 @@ function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNod
 }
 
 function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCanvasShapeNode {
-  return {
+  const isNeutral = entity.color === NEUTRAL_STORAGE
+  const node: JsonCanvasShapeNode = {
     id: entity.id,
     type: 'shape',
     x: entity.canvasX,
@@ -176,12 +188,14 @@ function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCanvasShap
     height: entity.height,
     shapeKind: entity.shapeKind,
     text: entity.text,
-    color: entity.color,
+    color: isNeutral ? '1' : entity.color,
     strokeWidth: entity.strokeWidth,
     theme: entity.theme,
     label: entity.label,
     parentGroupId: entity.parentGroupId,
   }
+  if (isNeutral) node.specular = { colorRole: 'neutral' }
+  return node
 }
 
 function serializeDrawingToDrawingNode(entity: PersistedDrawingEntity): JsonCanvasDrawingNode {
@@ -327,11 +341,15 @@ function deserializeLinkNodeToPage(node: JsonCanvasLinkNode): PersistedPageEntit
 }
 
 function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTextEntity {
+  const color =
+    node.specular?.colorRole === 'neutral'
+      ? NEUTRAL_STORAGE
+      : resolveCanvasColor(node.color ?? '3')
   return {
     kind: 'text',
     id: node.id,
     text: node.text,
-    color: resolveCanvasColor(node.color ?? '3'),
+    color,
     textStyle: node.specular?.textStyle ?? 'sticky',
     canvasX: node.x,
     canvasY: node.y,
@@ -357,12 +375,14 @@ function deserializeFileNodeToFile(node: JsonCanvasFileNode): PersistedFileEntit
 }
 
 function deserializeShapeNodeToShape(node: JsonCanvasShapeNode): PersistedShapeEntity {
+  const color =
+    node.specular?.colorRole === 'neutral' ? NEUTRAL_STORAGE : node.color
   return {
     kind: 'shape',
     id: node.id,
     shapeKind: node.shapeKind,
     text: node.text ?? '',
-    color: node.color,
+    color,
     strokeWidth: node.strokeWidth,
     theme: node.theme,
     canvasX: node.x,

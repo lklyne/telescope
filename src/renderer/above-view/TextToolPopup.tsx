@@ -1,4 +1,7 @@
 // ADR 0008 §1/§5 — add-text tool popup; writes to per-style tool defaults.
+// ADR 0013 §3 — for the plain-text variant, the leading row is a short/long
+// toggle that picks whether `add-text` stamps a text entity or a markdown
+// file entity for the next creation.
 
 import {
   CANVAS_COLOR_SLOTS,
@@ -12,6 +15,7 @@ import type {
   ToolDefaultPatch,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { TextKindToggle } from './TextKindToggle'
 
 export function TextToolPopup({
   api,
@@ -31,9 +35,23 @@ export function TextToolPopup({
   const activeSlot = slotForStorage(currentRaw)
   // Sticky bodies are surface-fill role; plain text glyphs are ink role.
   const swatchRole = style === 'sticky' ? 'fill' : 'ink'
+  const textKind = layout.toolDefaults['add-text'].textKind
   return (
     <CanvasItemPopup.ViewportAnchor layout={layout} open offset={8}>
       <CanvasItemPopup.Frame isDark={isDark}>
+        {style === 'plain' ? (
+          <TextKindToggle
+            isDark={isDark}
+            active={textKind}
+            onPick={(kind) =>
+              api.setToolDefault({
+                scope: 'add-text',
+                key: 'textKind',
+                value: kind,
+              })
+            }
+          />
+        ) : null}
         <CanvasItemPopup.Section>
           {CANVAS_COLOR_SLOTS.map((slot) => {
             const swatch =

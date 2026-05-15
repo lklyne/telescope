@@ -344,6 +344,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.invoke('write-note-file', { filePath, content }),
   renameNoteFile: (filePath: string, newName: string) =>
     ipcRenderer.invoke('rename-note-file', { filePath, newName }),
+  morphTextFile: (entityId: string, direction: 'text-to-file' | 'file-to-text') =>
+    ipcRenderer.invoke('canvas-morph-text-file', { entityId, direction }),
   getInitialData: () => ipcRenderer.invoke('get-canvas-layout-bootstrap'),
   repoConnect: (absolutePath: string) =>
     ipcRenderer.invoke('repo-connect', { absolutePath }),

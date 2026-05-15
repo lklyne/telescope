@@ -18,12 +18,39 @@ describe('tool-defaults: normalizeToolDefaults', () => {
 
   it('round-trips a complete persisted blob', () => {
     const persisted = {
-      'add-text': { color: '5', textSize: 32 },
+      'add-text': { color: '5', textSize: 32, textKind: 'long' as const },
       'add-sticky': { color: '1', textSize: 18 },
       'add-shape': { shapeKind: 'ellipse' as const, color: '#abcdef', strokeWidth: 4 },
       draw: { brushType: 'highlight' as const, color: '#111111', strokeWidth: 6 },
     }
     expect(normalizeToolDefaults(persisted)).toEqual(persisted)
+  })
+
+  it('defaults textKind to short when absent', () => {
+    const out = normalizeToolDefaults({
+      'add-text': { color: '5', textSize: 32 },
+    })
+    expect(out['add-text'].textKind).toBe('short')
+  })
+
+  it('accepts textKind long and short overrides', () => {
+    expect(
+      normalizeToolDefaults({ 'add-text': { color: null, textSize: 18, textKind: 'long' } })[
+        'add-text'
+      ].textKind,
+    ).toBe('long')
+    expect(
+      normalizeToolDefaults({ 'add-text': { color: null, textSize: 18, textKind: 'short' } })[
+        'add-text'
+      ].textKind,
+    ).toBe('short')
+  })
+
+  it('rejects unknown textKind values and falls back to default', () => {
+    const out = normalizeToolDefaults({
+      'add-text': { color: null, textSize: 18, textKind: 'huge' },
+    })
+    expect(out['add-text'].textKind).toBe(DEFAULT_TOOL_DEFAULTS['add-text'].textKind)
   })
 
   it('fills gaps with defaults when only one scope is persisted', () => {

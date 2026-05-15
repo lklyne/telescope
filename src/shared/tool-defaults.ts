@@ -12,10 +12,18 @@
 
 import type { DrawingBrushType, ShapeKind } from './types'
 
+/**
+ * ADR 0013 §3 — the text popup's leading variant pair.
+ *   `short` stamps a plain-text entity.
+ *   `long` stamps a `file` entity backed by a new `.md` note.
+ */
+export type TextKind = 'short' | 'long'
+
 export interface ToolDefaults {
   'add-text': {
     color: string | null
     textSize: number
+    textKind: TextKind
   }
   'add-sticky': {
     color: string
@@ -45,6 +53,7 @@ export const DEFAULT_TOOL_DEFAULTS: ToolDefaults = {
   'add-text': {
     color: null,
     textSize: 18,
+    textKind: 'short',
   },
   'add-sticky': {
     color: '3', // yellow preset
@@ -77,6 +86,8 @@ export function normalizeToolDefaults(
     if (typeof t.color === 'string' || t.color === null) merged['add-text'].color = t.color
     if (typeof t.textSize === 'number' && Number.isFinite(t.textSize))
       merged['add-text'].textSize = t.textSize
+    if (t.textKind === 'short' || t.textKind === 'long')
+      merged['add-text'].textKind = t.textKind
     const legacy = t as { 'plain.color'?: unknown }
     if (typeof legacy['plain.color'] === 'string' || legacy['plain.color'] === null)
       merged['add-text'].color = legacy['plain.color']
@@ -127,6 +138,7 @@ function cloneToolDefaults(src: ToolDefaults): ToolDefaults {
 export type ToolDefaultPatch =
   | { scope: 'add-text'; key: 'color'; value: string | null }
   | { scope: 'add-text'; key: 'textSize'; value: number }
+  | { scope: 'add-text'; key: 'textKind'; value: TextKind }
   | { scope: 'add-sticky'; key: 'color'; value: string }
   | { scope: 'add-sticky'; key: 'textSize'; value: number }
   | { scope: 'add-shape'; key: 'shapeKind'; value: ShapeKind }

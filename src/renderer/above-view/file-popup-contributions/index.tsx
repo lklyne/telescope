@@ -9,6 +9,7 @@ import type {
   CanvasSceneFileEntity,
   PopupContributionTag,
 } from '../../../shared/types'
+import { MarkdownMorphContribution } from './MarkdownMorphContribution'
 import { WireframeThemeContribution } from './WireframeThemeContribution'
 import { WireframeJsonModeContribution } from './WireframeJsonModeContribution'
 import { WireframeDeviceControlsContribution } from './WireframeDeviceControlsContribution'
@@ -16,7 +17,10 @@ import { WireframeDeviceControlsContribution } from './WireframeDeviceControlsCo
 export interface FilePopupContributionCtx {
   api: Pick<
     CanvasBgElectronAPI,
-    'writeNoteFile' | 'setFileDeviceOrientation' | 'toggleFileDeviceShell'
+    | 'writeNoteFile'
+    | 'setFileDeviceOrientation'
+    | 'toggleFileDeviceShell'
+    | 'morphTextFile'
   >
   isDark: boolean
   jsonMode: boolean
@@ -59,6 +63,15 @@ function renderOne(
     case 'wireframe-device-controls':
       return (
         <WireframeDeviceControlsContribution
+          key={tag}
+          api={ctx.api}
+          isDark={ctx.isDark}
+          entity={entity}
+        />
+      )
+    case 'markdown-morph-to-text':
+      return (
+        <MarkdownMorphContribution
           key={tag}
           api={ctx.api}
           isDark={ctx.isDark}

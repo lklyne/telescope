@@ -30,6 +30,14 @@ Text and Sticky note are the same `text` kind with a render-style toggle. Docume
 
 Default `textStyle` when the field is absent is `'sticky'` — preserves rendering of legacy canvases without migration. New "Add text" placements stamp `'plain'`.
 
+**User-facing grouping in the popup.** Plain text and Document (`.md`) are presented as two flavors of one "text" concept — the popup's leading variant pair (`short` / `long`) toggles between them. Picking *short* produces a `text` entity with `textStyle: 'plain'`; picking *long* produces a `file` entity backed by a new `.md` document. Sticky is **not** in this toggle — it's its own toolbar entry with its own popup. The short/long popup applies the kind-aware content rules: short-text popup carries text size + color swatches; long-text (markdown) popup omits both — markdown content owns its own formatting on disk.
+
+**Cross-kind morph (text ↔ file).** Clicking the inactive variant in **selection mode** converts the entity across kinds:
+- *short → long*: write the text body to a new `.md` file in the workspace, replace the `text` entity with a `file` entity at the same rect, strip the color/size fields (markdown content owns its formatting).
+- *long → short*: read the `.md` content, strip markdown formatting (or preserve as plain text), replace the `file` entity with a `text` entity at the same rect.
+
+Both directions trigger file CRUD and are lossy in one or both directions (color/size discarded on short → long; markdown formatting flattened on long → short). One undo step reverses the morph including the file write/delete. No confirmation dialog — the popup tile is the affordance.
+
 ## Specular extensions to JSON Canvas
 
 JSON Canvas v1.0 tolerates additional fields on nodes; Specular adds its own under a single namespaced object so they don't collide with other tools' extensions and so this glossary can list them in one place:
@@ -95,12 +103,35 @@ Per-tool, persistent app settings (not per-canvas, not in `.canvas`). Read by cr
 
 | Tool | Defaults keys |
 |---|---|
-| `add-text` (plain) | `color` |
-| `add-text` (sticky) | `color` |
-| `add-shape` | `shapeKind`, `color`, `strokeWidth` |
+| `add-text` (plain) | `color`, `textSize` |
+| `add-text` (sticky) | `color`, `textSize` |
+| `add-shape` | `shapeKind`, `color`, `strokeWidth`, `textSize` |
 | `draw` | `brushType`, `color`, `strokeWidth` |
 
 Tool defaults never participate in undo/redo and never round-trip through Y.Doc — they're user preferences, not document data. See [ADR 0008](./docs/adr/0008-unified-canvas-item-popup.md) §"Tool defaults".
+
+## Color palette
+
+The popup color swatches expose **eight slots**, left → right: `neutral · purple · blue · cyan · green · yellow · orange · red`. Same lineup for every kind that picks a color. See [ADR 0013](./docs/adr/0013-popup-menus-v2.md) for the full encoding rationale.
+
+**Slot 1 ("neutral") is theme-aware *and* role-aware.** Same on-disk encoding resolves to a different RGB depending on (a) the active color mode (light vs dark) and (b) the entity role:
+
+| Role | Light mode | Dark mode |
+|---|---|---|
+| Surface-fill (sticky, shape fill, plain-text background if any) | Light | Dark |
+| Ink (pen / highlighter stroke, plain text glyphs) | Dark | Light |
+
+Stickies marked "neutral" recede into the canvas; pen strokes marked "neutral" stand out.
+
+**Disk format (JSON Canvas v1.0 compliant via hex + Specular extension):**
+- Neutral → `specular.colorRole: "neutral"` (the `color` field is omitted, or carries `"1"` as a fallback for other JSON Canvas readers).
+- Hues (purple…red) → 6-char hex string in `color` (per the spec's hex form). Other JSON Canvas apps render the literal RGB.
+
+Slots 2–8 are fixed hues whose muted saturation reads on both light and dark canvas. Resolution lives in `src/shared/canvas-colors.ts` (the existing module gains a role parameter).
+
+## Text size
+
+A per-entity property exposed by the popup for every kind that renders text — `text` (plain and sticky) and `shape` (the inner label rendered inside a rect/ellipse/diamond). Presented as a labeled dropdown in the popup ("Small ▾") with preset values **Small / Medium / Large / Extra large / Huge** (18 / 32 / 56 / 96 / 144 px) plus a raw-pixel input at the bottom for arbitrary values (8–256 range). Sentence case for the preset labels per the UI copy voice rule. The Pen popup deliberately does *not* use the labeled-dropdown pattern — pen stroke width stays as two inline preview buttons because the visual is the value. Shape **stroke width** is also future work and not in this pass; today's shape stroke width remains in the data model but isn't exposed in the new popup. See [ADR 0013](./docs/adr/0013-popup-menus-v2.md).
 
 ## Tools
 
@@ -108,21 +139,22 @@ A **Tool** is the single representation of "what does my next click/gesture do?"
 
 ```ts
 type Tool =
-  | { kind: 'select' }                              // default
-  | { kind: 'add-page' }                            // one-shot
-  | { kind: 'add-text', style: 'plain' | 'sticky' } // one-shot
-  | { kind: 'add-document' }                        // one-shot
-  | { kind: 'add-shape' }                           // one-shot — shapeKind in tool defaults
-  | { kind: 'comment' }                             // persistent — click for point/element comment, drag for region comment
-  | { kind: 'draw' }                                // persistent — brushType in tool defaults
-  | { kind: 'inspect' }                             // persistent
+  | { kind: 'select' }       // default
+  | { kind: 'add-page' }     // one-shot — "frame" in the toolbar (icon, not name)
+  | { kind: 'add-text' }     // one-shot — no style variant; popup picks short/long
+  | { kind: 'add-sticky' }   // one-shot — separate first-class tool, not a text style
+  | { kind: 'add-shape' }    // one-shot — shapeKind in tool defaults
+  | { kind: 'comment' }      // persistent — click for point/element comment, drag for region comment
+  | { kind: 'draw' }         // persistent — brushType in tool defaults
+  | { kind: 'inspect' }      // persistent
 ```
 
 - **One-shot tools** auto-revert to `select` after one placement.
 - **Persistent tools** stay active until toggled off, replaced, or Escape.
 - The toolbar does **not** visually distinguish one-shot from persistent — users learn the duration by use.
-- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `inspect` → "inspecting".
-- **Variants live in tool defaults, not in the union.** `add-shape` no longer carries `shapeKind`; `draw` no longer encodes `brushType` via implicit Tool state. Both are picked from the tool-mode popup and persisted to app settings (per ADR 0009). `add-text` is the deliberate exception — `style` stays in the union because plain vs sticky has been a long-established two-button affordance ([ADR 0004](./docs/adr/0004-text-affordances-and-spec-extensions.md)).
+- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `add-sticky` → "adding sticky", `comment` → "commenting", `draw` → "drawing", `inspect` → "inspecting".
+- **Toolbar grouping (left → right):** *nav* (`select`, `hand`) → *create* (`draw`, `add-sticky`, `add-shape`, `add-page`) → *annotate* (`add-text`, `comment`, `inspect`) → *view* (theme, zoom). Plain text sits in *annotate* because writing words on the canvas is an annotation act; sticky sits in *create* because the sticky is the thing itself. `add-document` is no longer a tool — markdown files are reached via the text popup's `short` → `long` toggle.
+- **Variants live in tool defaults, not in the union.** `add-shape` no longer carries `shapeKind`; `draw` no longer encodes `brushType` via implicit Tool state. Both are picked from the tool-mode popup and persisted to app settings (per ADR 0009). `add-text` no longer carries `style` either — sticky is its own `add-sticky` tool, and the inline-text-vs-markdown choice lives in the text popup's short/long toggle.
 
 Replaces three previously-parallel state machines: `pendingPlacement`, `AnnotationMode`, and the `inspect` boolean. The legacy term "annotation mode" no longer names a state — annotations themselves remain, but the *mode of being in the comment tool* is just a tool.
 
@@ -144,6 +176,8 @@ Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Ann
 - Canvas-point anchor → same as element — no resting visual; selection from the right panel reveals a temporary marker at the canvas point and opens the thread popover.
 
 **Pending composer** — single component that mounts after the gesture and before the comment is committed. Placement is a thin function over the anchor: above-right of the element bbox, adjacent to the click point, or above-right of the region rect. Esc cancels; click outside commits (if non-empty) or discards (if empty); only one pending composer exists at a time.
+
+**Element name** — a first-class label field on element-anchored annotations. The element composer surfaces a single-line "Element name" input above the body + thread, so the user names what they're commenting on (e.g. "Submit button", "Hero CTA") before adding their first message. Persisted on the annotation entity; visible in the right-panel comment list. Canvas-point and region anchors don't carry an element name (anchor itself is the identity).
 
 ## Keyboard bindings
 

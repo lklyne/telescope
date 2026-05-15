@@ -4,6 +4,7 @@
 **Implementation:** Landed. `PersistedTextEntity.textStyle` (optional, defaults to `'sticky'` on read) flows through `text-entity-state`, the JSON Canvas serializer reads/writes `specular.textStyle`, and `StickyBodyLayer` branches on the field — `'plain'` renders without card or background. The toolbar's "Add Text Block" + "Add Note" buttons are replaced by a single `Add text ▾` dropdown with Text / Sticky note / Document. IPC: `toolbar-add-text` carries `{ style: 'plain' | 'sticky' }`; `toolbar-add-document` replaces `toolbar-add-note`. Serializer round-trip and legacy-default behaviors covered by `tests/unit/json-canvas-serializer.test.ts`.
 **Date:** 2026-05-08
 **Supersedes premise of:** the toolbar's "Add Text Block" + "Add Note" buttons, and the implicit assumption that a single `text` kind has one render style.
+**Refined by:** [ADR 0013 — Popup menus v2](./0013-popup-menus-v2.md) splits sticky into its own `add-sticky` tool, drops `add-document` from the union, and removes the `Add text ▾` dropdown. Plain text + Document remain user-facing siblings via the text popup's short/long toggle.
 **Related:** [ADR 0003 — Page as canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md). Both ADRs originate from a single naming pass on canvas items and tools (CONTEXT.md update, 2026-05-08).
 
 ## Context

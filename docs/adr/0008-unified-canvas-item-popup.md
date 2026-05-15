@@ -3,7 +3,7 @@
 **Status:** Accepted (all 11 migration steps landed)
 **Date:** 2026-05-10
 **Builds on:** [ADR 0002 — Canvas-anchored overlay UI in aboveView](./0002-canvas-anchored-overlay-ui.md), [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md).
-**Refined by:** [ADR 0009 — Tool variants in popup state](./0009-tool-variants-in-popup-state.md) (companion change; tool variants move out of the `Tool` union into tool-mode popup state).
+**Refined by:** [ADR 0009 — Tool variants in popup state](./0009-tool-variants-in-popup-state.md) (companion change; tool variants move out of the `Tool` union into tool-mode popup state). [ADR 0013 — Popup menus v2](./0013-popup-menus-v2.md) further evolves palette, text size, cross-kind morph, and visual treatment.
 
 ## Context
 

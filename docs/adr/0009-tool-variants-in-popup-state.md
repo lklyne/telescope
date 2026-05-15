@@ -4,6 +4,7 @@
 **Date:** 2026-05-10
 **Refines:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). Tool variants for `add-shape` and `draw` move out of the discriminated union into tool-mode popup state (per [ADR 0008](./0008-unified-canvas-item-popup.md)). `add-text` is a deliberate exception.
 **Companion to:** [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md).
+**Refined by:** [ADR 0013 — Popup menus v2](./0013-popup-menus-v2.md) removes the `add-text.style` exception (sticky becomes its own `add-sticky` tool; `add-document` is dropped from the union).
 
 ## Context
 

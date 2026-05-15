@@ -5,20 +5,21 @@
  * in undo/redo). The next entity created by a tool stamps these values; the
  * tool-mode popup reads/writes them.
  *
- * Plain-text color is intentionally absent: plain text inherits canvas
- * foreground / `currentColor` by default. ADR 0008 reserves
- * `add-text.plain.color` for a future override but Step 4 only wires
- * `add-text.sticky.color`.
+ * Plain-text color remains nullable so text can inherit canvas foreground /
+ * `currentColor` by default. Sticky owns its own first-class defaults now that
+ * it is a separate creation tool.
  */
 
 import type { DrawingBrushType, ShapeKind } from './types'
 
 export interface ToolDefaults {
   'add-text': {
-    /** Stamp color for `add-text` style: 'sticky'. CanvasColor preset or hex. */
-    'sticky.color': string
-    /** Reserved — plain-text override stamp color. */
-    'plain.color': string | null
+    color: string | null
+    textSize: number
+  }
+  'add-sticky': {
+    color: string
+    textSize: number
   }
   'add-shape': {
     shapeKind: ShapeKind
@@ -36,14 +37,18 @@ export interface ToolDefaults {
  * First-time-launch defaults. ADR 0008 §"Tool defaults" originally specified
  * shape/draw at black; we shifted both to the red preset so a brand-new canvas
  * draws in colour rather than indistinguishable-from-text black.
- *   sticky yellow, plain transparent/inherit (null),
+ *   sticky yellow, plain transparent/inherit (null), text small,
  *   shape rectangle/red/2px,
  *   draw pen/red/2px.
  */
 export const DEFAULT_TOOL_DEFAULTS: ToolDefaults = {
   'add-text': {
-    'sticky.color': '3', // yellow preset
-    'plain.color': null,
+    color: null,
+    textSize: 18,
+  },
+  'add-sticky': {
+    color: '3', // yellow preset
+    textSize: 18,
   },
   'add-shape': {
     shapeKind: 'rectangle',
@@ -69,9 +74,23 @@ export function normalizeToolDefaults(
   const obj = raw as Partial<ToolDefaults>
   if (obj['add-text'] && typeof obj['add-text'] === 'object') {
     const t = obj['add-text']
-    if (typeof t['sticky.color'] === 'string') merged['add-text']['sticky.color'] = t['sticky.color']
-    if (typeof t['plain.color'] === 'string' || t['plain.color'] === null)
-      merged['add-text']['plain.color'] = t['plain.color']
+    if (typeof t.color === 'string' || t.color === null) merged['add-text'].color = t.color
+    if (typeof t.textSize === 'number' && Number.isFinite(t.textSize))
+      merged['add-text'].textSize = t.textSize
+    const legacy = t as { 'plain.color'?: unknown }
+    if (typeof legacy['plain.color'] === 'string' || legacy['plain.color'] === null)
+      merged['add-text'].color = legacy['plain.color']
+  }
+  if (obj['add-sticky'] && typeof obj['add-sticky'] === 'object') {
+    const s = obj['add-sticky']
+    if (typeof s.color === 'string') merged['add-sticky'].color = s.color
+    if (typeof s.textSize === 'number' && Number.isFinite(s.textSize))
+      merged['add-sticky'].textSize = s.textSize
+  } else if (obj['add-text'] && typeof obj['add-text'] === 'object') {
+    const legacy = obj['add-text'] as { 'sticky.color'?: unknown }
+    if (typeof legacy['sticky.color'] === 'string') {
+      merged['add-sticky'].color = legacy['sticky.color']
+    }
   }
   if (obj['add-shape'] && typeof obj['add-shape'] === 'object') {
     const s = obj['add-shape']
@@ -94,6 +113,7 @@ export function normalizeToolDefaults(
 function cloneToolDefaults(src: ToolDefaults): ToolDefaults {
   return {
     'add-text': { ...src['add-text'] },
+    'add-sticky': { ...src['add-sticky'] },
     'add-shape': { ...src['add-shape'] },
     draw: { ...src.draw },
   }
@@ -105,8 +125,10 @@ function cloneToolDefaults(src: ToolDefaults): ToolDefaults {
  * setter narrow without parsing.
  */
 export type ToolDefaultPatch =
-  | { scope: 'add-text'; key: 'sticky.color'; value: string }
-  | { scope: 'add-text'; key: 'plain.color'; value: string | null }
+  | { scope: 'add-text'; key: 'color'; value: string | null }
+  | { scope: 'add-text'; key: 'textSize'; value: number }
+  | { scope: 'add-sticky'; key: 'color'; value: string }
+  | { scope: 'add-sticky'; key: 'textSize'; value: number }
   | { scope: 'add-shape'; key: 'shapeKind'; value: ShapeKind }
   | { scope: 'add-shape'; key: 'color'; value: string }
   | { scope: 'add-shape'; key: 'strokeWidth'; value: number }

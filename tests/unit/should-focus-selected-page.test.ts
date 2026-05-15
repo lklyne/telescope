@@ -104,8 +104,8 @@ describe('shouldFocusSelectedPage — tools other than select exclude', () => {
     { kind: 'comment' },
     { kind: 'draw' },
     { kind: 'add-page' },
-    { kind: 'add-text', style: 'plain' },
-    { kind: 'add-document' },
+    { kind: 'add-text' },
+    { kind: 'add-sticky' },
     { kind: 'add-shape' },
   ]
   for (const tool of tools) {

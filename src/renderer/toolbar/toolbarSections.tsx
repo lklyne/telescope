@@ -15,16 +15,13 @@ import {
   PencilLine,
   Pipette,
   RotateCw,
-  FileText,
   Square,
   StickyNote,
   Sun,
   Type,
 } from 'lucide-react'
-import { Menu } from '@base-ui/react/menu'
 import type {
   AgentPresenceCursor,
-  TextEntityStyle,
   Tool,
   ToolbarSelectionData,
 } from '../../shared/types'
@@ -43,75 +40,6 @@ function toolbarActiveIconBtnClass(isDark: boolean): string {
   return isDark
     ? 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-[var(--surface-interactive)] p-1.5 text-zinc-100'
     : 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-[var(--surface-interactive)] p-1.5 text-zinc-900'
-}
-
-type AddTextItem =
-  | { kind: 'text'; style: TextEntityStyle; label: string; Icon: React.ComponentType<{ size?: number }> }
-  | { kind: 'document'; label: string; Icon: React.ComponentType<{ size?: number }> }
-
-const ADD_TEXT_ITEMS: AddTextItem[] = [
-  { kind: 'text', style: 'plain', label: 'Text', Icon: Type },
-  { kind: 'text', style: 'sticky', label: 'Sticky note', Icon: StickyNote },
-  { kind: 'document', label: 'Document', Icon: FileText },
-]
-
-function AddTextMenu({
-  isDark,
-  onAddText,
-  onAddDocument,
-  onDropdownOpenChange,
-}: {
-  isDark: boolean
-  onAddText: (style: TextEntityStyle) => void
-  onAddDocument: () => void
-  onDropdownOpenChange: (open: boolean) => void
-}) {
-  const triggerClassName = toolbarIconBtnClass(isDark)
-
-  const popupClassName = `z-50 min-w-[160px] rounded-[10px] border p-1 shadow-xl outline-none ${
-    isDark
-      ? 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-100'
-      : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900'
-  }`
-  const itemClassName = `flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-    isDark
-      ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
-      : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
-  }`
-
-  return (
-    <Menu.Root onOpenChange={onDropdownOpenChange}>
-      <Menu.Trigger
-        className={`${triggerClassName} flex items-center gap-0.5 pr-1`}
-        title="Add text"
-      >
-        <Type size={14} />
-        <ChevronDown size={10} className={isDark ? 'text-zinc-400' : 'text-zinc-500'} />
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner side="bottom" align="center" sideOffset={4}>
-          <Menu.Popup className={popupClassName}>
-            {ADD_TEXT_ITEMS.map((item) => (
-              <Menu.Item
-                key={item.kind === 'text' ? `text-${item.style}` : 'document'}
-                className={itemClassName}
-                onClick={() => {
-                  if (item.kind === 'text') {
-                    onAddText(item.style)
-                  } else {
-                    onAddDocument()
-                  }
-                }}
-              >
-                <item.Icon size={12} />
-                <span>{item.label}</span>
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
-  )
 }
 
 function AddPagePresetMenu({
@@ -228,8 +156,8 @@ export function CenterActions({
       presetIndex: typeof presetIndex === 'number' ? presetIndex : undefined,
       customSize: presetIndex === 'custom',
     })
-  const onAddText = (style: TextEntityStyle) => onSetTool({ kind: 'add-text', style })
-  const onAddDocument = () => onSetTool({ kind: 'add-document' })
+  const onAddText = () => onSetTool({ kind: 'add-text' })
+  const onAddSticky = () => onSetTool({ kind: 'add-sticky' })
   const onAddShape = () => onSetTool({ kind: 'add-shape' })
   const onClearToolMode = () => onSetTool({ kind: 'select' })
   const onToggleAnnotateMode = () =>
@@ -273,12 +201,25 @@ export function CenterActions({
         ) : null}
 
         {!isBrowserMode ? (
-          <AddTextMenu
-            isDark={isDark}
-            onAddText={onAddText}
-            onAddDocument={onAddDocument}
-            onDropdownOpenChange={onDropdownOpenChange}
-          />
+          <button
+            onClick={onAddSticky}
+            className={`${activeTool.kind === 'add-sticky' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+            title="Add sticky"
+            type="button"
+          >
+            <StickyNote size={14} />
+          </button>
+        ) : null}
+
+        {!isBrowserMode ? (
+          <button
+            onClick={onAddText}
+            className={`${activeTool.kind === 'add-text' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+            title="Add text"
+            type="button"
+          >
+            <Type size={14} />
+          </button>
         ) : null}
 
         {!isBrowserMode ? (

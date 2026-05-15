@@ -26,11 +26,11 @@ export function getToolDefaults(): ToolDefaults {
 }
 
 export function getStickyDefaultColor(): string {
-  return readToolDefaults()['add-text']['sticky.color']
+  return readToolDefaults()['add-sticky'].color
 }
 
 export function getPlainTextDefaultColor(): string | null {
-  return readToolDefaults()['add-text']['plain.color']
+  return readToolDefaults()['add-text'].color
 }
 
 export function getShapeDefaults(): ToolDefaults['add-shape'] {
@@ -53,13 +53,18 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
   if (currentValueFor(current, patch) === patch.value) return
   const next: ToolDefaults = {
     'add-text': { ...current['add-text'] },
+    'add-sticky': { ...current['add-sticky'] },
     'add-shape': { ...current['add-shape'] },
     draw: { ...current.draw },
   }
   switch (patch.scope) {
     case 'add-text':
-      if (patch.key === 'sticky.color') next['add-text']['sticky.color'] = patch.value
-      else next['add-text']['plain.color'] = patch.value
+      if (patch.key === 'color') next['add-text'].color = patch.value
+      else next['add-text'].textSize = patch.value
+      break
+    case 'add-sticky':
+      if (patch.key === 'color') next['add-sticky'].color = patch.value
+      else next['add-sticky'].textSize = patch.value
       break
     case 'add-shape':
       if (patch.key === 'shapeKind') next['add-shape'].shapeKind = patch.value
@@ -83,9 +88,13 @@ function currentValueFor(
 ): ToolDefaultPatch['value'] {
   switch (patch.scope) {
     case 'add-text':
-      return patch.key === 'sticky.color'
-        ? current['add-text']['sticky.color']
-        : current['add-text']['plain.color']
+      return patch.key === 'color'
+        ? current['add-text'].color
+        : current['add-text'].textSize
+    case 'add-sticky':
+      return patch.key === 'color'
+        ? current['add-sticky'].color
+        : current['add-sticky'].textSize
     case 'add-shape':
       if (patch.key === 'shapeKind') return current['add-shape'].shapeKind
       if (patch.key === 'color') return current['add-shape'].color

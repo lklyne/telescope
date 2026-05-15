@@ -134,6 +134,11 @@ export function CommentRow({
           <span className="font-medium">{authorLabel(annotation.author)}</span>
           <span className={mutedClass}>{formatCommentTime(annotation.createdAt)}</span>
         </div>
+        {annotation.anchor.type === 'element' && annotation.elementName ? (
+          <div className="mt-0.5 truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">
+            {annotation.elementName}
+          </div>
+        ) : null}
         <div className="mt-0.5 line-clamp-3 whitespace-pre-wrap text-xs">
           {annotation.text || '(No text)'}
         </div>

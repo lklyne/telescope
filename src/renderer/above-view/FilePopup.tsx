@@ -39,6 +39,7 @@ export function FilePopup({
     | 'writeNoteFile'
     | 'setFileDeviceOrientation'
     | 'toggleFileDeviceShell'
+    | 'morphTextFile'
   >
   isDark: boolean
   layout: LayoutUpdateData

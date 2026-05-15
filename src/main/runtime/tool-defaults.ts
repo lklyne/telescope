@@ -33,6 +33,10 @@ export function getPlainTextDefaultColor(): string | null {
   return readToolDefaults()['add-text'].color
 }
 
+export function getAddTextKind(): 'short' | 'long' {
+  return readToolDefaults()['add-text'].textKind
+}
+
 export function getShapeDefaults(): ToolDefaults['add-shape'] {
   return readToolDefaults()['add-shape']
 }
@@ -60,7 +64,8 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
   switch (patch.scope) {
     case 'add-text':
       if (patch.key === 'color') next['add-text'].color = patch.value
-      else next['add-text'].textSize = patch.value
+      else if (patch.key === 'textSize') next['add-text'].textSize = patch.value
+      else next['add-text'].textKind = patch.value
       break
     case 'add-sticky':
       if (patch.key === 'color') next['add-sticky'].color = patch.value
@@ -88,9 +93,9 @@ function currentValueFor(
 ): ToolDefaultPatch['value'] {
   switch (patch.scope) {
     case 'add-text':
-      return patch.key === 'color'
-        ? current['add-text'].color
-        : current['add-text'].textSize
+      if (patch.key === 'color') return current['add-text'].color
+      if (patch.key === 'textSize') return current['add-text'].textSize
+      return current['add-text'].textKind
     case 'add-sticky':
       return patch.key === 'color'
         ? current['add-sticky'].color

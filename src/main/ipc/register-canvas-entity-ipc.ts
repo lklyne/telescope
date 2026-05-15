@@ -22,8 +22,15 @@ import {
   getStickyDefaultColor,
   getPlainTextDefaultColor,
   getShapeDefaults,
+  getAddTextKind,
 } from '../runtime/tool-defaults'
 import {
+  morphMarkdownFileToTextEntity,
+  morphTextEntityToMarkdownFile,
+} from '../runtime/morph-text-file'
+import { createNoteFile } from '../runtime/note-assets'
+import {
+  createFileEntity,
   createShapeEntity,
   createTextEntity,
   deleteDrawingEntity,
@@ -111,14 +118,27 @@ export function registerCanvasEntityIpc(): void {
       const dragRect = payload.dragRect ?? null
       const tool = activeTool()
       if (tool.kind === 'add-text') {
-        const created = createTextEntity({
-          canvasX,
-          canvasY,
-          textStyle: 'plain',
-          color: getPlainTextDefaultColor() ?? undefined,
-        })
-        selectEntity(created.id, 'text')
-        beginEditingEntity(created.id)
+        // ADR 0013 §3 — `long` stamps a markdown file entity backed by a
+        // fresh empty `.md` note instead of a plain-text entity.
+        if (getAddTextKind() === 'long') {
+          const filePath = createNoteFile()
+          const created = createFileEntity({
+            canvasX,
+            canvasY,
+            file: filePath,
+          })
+          selectEntity(created.id, 'file')
+          beginEditingEntity(created.id)
+        } else {
+          const created = createTextEntity({
+            canvasX,
+            canvasY,
+            textStyle: 'plain',
+            color: getPlainTextDefaultColor() ?? undefined,
+          })
+          selectEntity(created.id, 'text')
+          beginEditingEntity(created.id)
+        }
       } else if (tool.kind === 'add-sticky') {
         const created = createTextEntity({
           canvasX,
@@ -695,6 +715,23 @@ export function registerCanvasEntityIpc(): void {
     }
     return newPath
   })
+
+  // ADR 0013 §3 — cross-kind morph between text and markdown file entities.
+  // One IPC, two directions; both halves (entity replacement + .md file
+  // write/delete) collapse into a single undo step.
+  ipcMain.handle(
+    'canvas-morph-text-file',
+    (
+      _event,
+      { entityId, direction }: { entityId: string; direction: 'text-to-file' | 'file-to-text' },
+    ) => {
+      const result =
+        direction === 'text-to-file'
+          ? morphTextEntityToMarkdownFile(entityId)
+          : morphMarkdownFileToTextEntity(entityId)
+      return result
+    },
+  )
 
   ipcMain.on(
     'canvas-update-group-entity',

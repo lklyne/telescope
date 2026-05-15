@@ -18,6 +18,19 @@ let activeUndoManager: UndoManager | null = null
 let readSelectionFn: (() => unknown) | null = null
 let restoreSelectionFn: ((selection: unknown) => void) | null = null
 
+// File-system side-effects that must reverse alongside an entity mutation
+// (ADR 0013 §3 — text/markdown morph). A mutation that creates or deletes a
+// note file pushes a paired (undo, redo) callback before scheduling the
+// Y.Doc sync; the next `stack-item-added` event drains the queue into the
+// fresh stack item's meta. On `stack-item-popped`, we replay whichever side
+// matches the event direction.
+type SideEffect = { undo: () => void; redo: () => void }
+const pendingSideEffects: SideEffect[] = []
+
+export function pushPendingUndoSideEffect(effect: SideEffect): void {
+  pendingSideEffects.push(effect)
+}
+
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
@@ -45,17 +58,35 @@ export function createCanvasUndoManager(doc: Y.Doc): UndoManager {
     if (readSelectionFn) {
       event.stackItem.meta.set('selection', readSelectionFn())
     }
+    if (pendingSideEffects.length > 0) {
+      event.stackItem.meta.set('side-effects', pendingSideEffects.slice())
+      pendingSideEffects.length = 0
+    }
     if (manager.undoStack.length > MAX_UNDO_STACK) {
       manager.undoStack.splice(0, manager.undoStack.length - MAX_UNDO_STACK)
     }
   })
 
-  manager.on('stack-item-popped', (event: { stackItem: { meta: Map<string, unknown> } }) => {
-    const saved = event.stackItem.meta.get('selection')
-    if (saved && restoreSelectionFn) {
-      restoreSelectionFn(saved)
-    }
-  })
+  manager.on(
+    'stack-item-popped',
+    (event: { stackItem: { meta: Map<string, unknown> }; type: 'undo' | 'redo' }) => {
+      const effects = event.stackItem.meta.get('side-effects') as SideEffect[] | undefined
+      if (effects) {
+        for (const effect of effects) {
+          try {
+            if (event.type === 'undo') effect.undo()
+            else effect.redo()
+          } catch {
+            /* best-effort — never let a file side-effect crash undo */
+          }
+        }
+      }
+      const saved = event.stackItem.meta.get('selection')
+      if (saved && restoreSelectionFn) {
+        restoreSelectionFn(saved)
+      }
+    },
+  )
 
   activeUndoManager = manager
   return manager

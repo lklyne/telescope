@@ -78,6 +78,7 @@ export type PopupContributionTag =
   | 'wireframe-theme'
   | 'wireframe-json-mode'
   | 'wireframe-device-controls'
+  | 'markdown-morph-to-text'
 
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
@@ -1835,6 +1836,16 @@ export interface CanvasBgElectronAPI {
   readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
+  /**
+   * ADR 0013 §3 — morph a plain-text entity into a markdown file entity
+   * (or vice versa) at the same canvas rect. Both halves of the swap (the
+   * entity replacement and the `.md` file write/delete) collapse into a
+   * single undo step on the main-side undo stack.
+   */
+  morphTextFile: (
+    entityId: string,
+    direction: 'text-to-file' | 'file-to-text',
+  ) => Promise<{ kind: 'morphed'; newEntityId: string } | { kind: 'noop'; reason: string }>
   getInitialData: () => Promise<CanvasLayoutBootstrapData>
   /** Connect a Vite repo at the given absolute folder path. Returns the
    *  connected repo, or null if connection fails. */

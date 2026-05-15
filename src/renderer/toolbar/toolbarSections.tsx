@@ -38,11 +38,13 @@ function toolbarIconBtnClass(isDark: boolean): string {
     : 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-600 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-900 active:bg-[var(--surface-interactive)] disabled:pointer-events-none disabled:opacity-45'
 }
 
-// Tool buttons in the central toolbar match the popup IconButton tokens
-// from ADR 0013 §8: 24×24, radius 6, single fill drives hover & active.
+// Tool buttons in the central toolbar follow the Figma toolbar spec:
+// 32×28 container, radius 6, single fill drives hover & active. Larger than
+// the popup IconButton (ADR 0013 §8, 24×24) — the toolbar is the primary
+// surface and its glyphs need to read at a glance.
 function toolbarToolBtnClass(isDark: boolean, active: boolean): string {
   const base =
-    'flex h-6 w-6 items-center justify-center rounded-[6px] border-0 transition-colors disabled:pointer-events-none disabled:opacity-45'
+    'flex h-7 w-8 items-center justify-center rounded-[6px] border-0 transition-colors disabled:pointer-events-none disabled:opacity-45'
   if (active) {
     return isDark
       ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
@@ -53,14 +55,23 @@ function toolbarToolBtnClass(isDark: boolean, active: boolean): string {
     : `${base} text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900`
 }
 
-// Toolbar icon glyphs render at 16px wide so the largest natural-aspect
-// asset (29×27 add-page) sits comfortably inside the 24×24 button.
-const TOOL_GLYPH_SIZE = 16
+// Toolbar icon glyphs render at 20px wide per the Figma spec; the largest
+// natural-aspect asset (29×27 add-page) sits comfortably inside the 32×28 button.
+const TOOL_GLYPH_SIZE = 20
 
 // Light-mode SVGs ship as monochrome dark glyphs; in dark mode we invert
 // them rather than maintaining a parallel asset set (ADR 0013 §Icons).
+// CSS drop-shadow is applied AFTER any invert so the shadow stays dark
+// regardless of theme, and follows each glyph's alpha rather than the
+// bounding box (which is what Figma's drop-shadow effect did wrong on
+// multi-element icons like add-page and add-sticky).
+const TOOLBAR_GLYPH_SHADOW = 'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.18))'
 function toolbarGlyphStyle(isDark: boolean): React.CSSProperties {
-  return isDark ? { filter: 'invert(1) hue-rotate(180deg)' } : {}
+  return {
+    filter: isDark
+      ? `invert(1) hue-rotate(180deg) ${TOOLBAR_GLYPH_SHADOW}`
+      : TOOLBAR_GLYPH_SHADOW,
+  }
 }
 
 function AddPagePresetMenu({
@@ -97,7 +108,7 @@ function AddPagePresetMenu({
 export function ToolbarDivider({ isDark }: { isDark: boolean }) {
   return (
     <div
-      className={`mx-1 h-3 w-px shrink-0 ${isDark ? 'bg-zinc-600' : 'bg-zinc-300'}`}
+      className={`mx-1 h-4 w-px shrink-0 ${isDark ? 'bg-zinc-600' : 'bg-zinc-300'}`}
     />
   )
 }
@@ -188,8 +199,8 @@ export function CenterActions({
   const buttonClass = (active: boolean) => toolbarToolBtnClass(isDark, active)
   const glyphStyle = toolbarGlyphStyle(isDark)
   const selectTriggerClassName = isDark
-    ? 'toolbar-squircle-btn flex w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent py-1 pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-[rgba(253,248,245,0.1)]'
-    : 'toolbar-squircle-btn flex w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent py-1 pl-2 pr-1 text-xs tabular-nums text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900'
+    ? 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-[rgba(253,248,245,0.1)]'
+    : 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900'
   const popupClassName =
     'z-50 min-w-[140px] rounded-md border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1 shadow-xl'
   const popupItemClassName = isDark

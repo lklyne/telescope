@@ -239,7 +239,14 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         editingEntityId,
       }
 
-      const action = routePointerDown(target, context)
+      // Hand tool: primary-button drag pans globally regardless of hit
+      // target. Space-held still defers to the routing matrix (pan on
+      // background, modifier elsewhere) — hand tool is the explicit
+      // pan-only mode that suppresses entity drag/resize/edge gestures.
+      const action: CanvasPointerAction =
+        handToolActiveRef.current && event.button === 0
+          ? { kind: 'begin-pan' }
+          : routePointerDown(target, context)
       if (!consumeRef.current.has(action.kind)) return
 
       const dispatched = dispatchAction({
@@ -1013,8 +1020,10 @@ function runPan(api: CanvasBgElectronAPI, event: PointerEvent): boolean {
   }
   const onMove = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return
-    const dx = ev.screenX - lastScreenX
-    const dy = ev.screenY - lastScreenY
+    // Match middleDragDelta convention (previous - next): main applies
+    // `panDeltaX -= deltaX`, so this sign makes content follow the drag.
+    const dx = lastScreenX - ev.screenX
+    const dy = lastScreenY - ev.screenY
     lastScreenX = ev.screenX
     lastScreenY = ev.screenY
     if (dx !== 0 || dy !== 0) api.canvasPan(dx, dy)

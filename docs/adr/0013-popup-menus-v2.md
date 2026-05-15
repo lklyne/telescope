@@ -234,21 +234,33 @@ The Figma toolbar visual order matches the §5 ordering (`select, hand, draw, ad
 
 ### Re-extracting from Figma
 
-If a designer changes a toolbar icon, re-pull via the Figma MCP plugin and overwrite the matching `.svg`:
+Toolbar SVGs match each Figma frame's nominal size (20×20, 18×18 for comment/inspect, 12×12 for the zoom chevron). Drop shadows are stripped from the SVGs and reapplied in CSS via `filter: drop-shadow(...)` on the rendered `<img>`. This keeps each glyph on a consistent grid and gives every icon an alpha-correct shadow — fixing the multi-element bounding-box shadow problem (an icon with two paths like `add-page` would otherwise get one rectangular shadow under both).
+
+When pulling fresh exports, clone the icon, set `clipsContent = true` so the SVG bounds match the frame, strip `DROP_SHADOW`/`INNER_SHADOW` from every node in the subtree, then export:
 
 ```ts
 mcp__plugin_figma_figma__use_figma({
   fileKey: 'hgwwoe0EzUrErdviULmRtb',
   code: `
-    const node = await figma.getNodeByIdAsync('362:614');
-    const bytes = await node.exportAsync({ format: 'SVG' });
+    function strip(n) {
+      if ('effects' in n) n.effects = n.effects.filter(e => e.type !== 'DROP_SHADOW' && e.type !== 'INNER_SHADOW');
+      if ('children' in n) for (const c of n.children) strip(c);
+    }
+    const original = await figma.getNodeByIdAsync('362:614');
+    const clone = original.clone();
+    clone.x = -10000; clone.y = -10000;
+    if ('clipsContent' in clone) clone.clipsContent = true;
+    strip(clone);
+    figma.currentPage.appendChild(clone);
+    const bytes = await clone.exportAsync({ format: 'SVG' });
+    clone.remove();
     let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
     return s;
   `,
 });
 ```
 
-The exported SVG can be saved as-is; no JSX conversion or id-rescoping needed because the toolbar icons render via `<img>`.
+The exported SVG can be saved as-is; no JSX conversion or id-rescoping needed because the toolbar icons render via `<img>`. The shared CSS shadow lives in `toolbarSections.tsx` (`TOOLBAR_GLYPH_SHADOW`).
 
 **Dark-mode toolbar.** Currently only light-mode SVGs are committed — the Figma file does not define dark-mode toolbar variants (only the pen popup has `360:66` etc.). Theme handling for the toolbar is deferred to Phase 8: either pull dark-mode equivalents into a parallel `icons/toolbar-dark/` set and theme-switch at render time, or use a CSS filter (e.g. `filter: invert()` with a per-icon tweak) on the existing assets.
 

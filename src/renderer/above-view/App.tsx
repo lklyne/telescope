@@ -1016,6 +1016,18 @@ export default function App({
     }
   }, [drawInteractionEnabled])
 
+  const handToolActive = layoutData.activeTool.kind === 'hand'
+  useEffect(() => {
+    if (!handToolActive) return
+    const style = document.createElement('style')
+    style.textContent = `html, body, body * { cursor: grab !important; }
+html:active, body:active, body *:active { cursor: grabbing !important; }`
+    document.head.appendChild(style)
+    return () => {
+      style.remove()
+    }
+  }, [handToolActive])
+
   return (
     <div
       className={`relative h-screen w-screen overflow-hidden bg-transparent ${

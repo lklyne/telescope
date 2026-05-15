@@ -13,12 +13,11 @@ import type {
   ShapeKind,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import {
-  SHAPE_VARIANT_OPTIONS,
-  STROKE_WIDTH_PRESETS,
-  nearestStrokeWidthPreset,
-} from './popupVariantOptions'
-import { StrokeWidthSwatch } from './StrokeWidthSwatch'
+import { SHAPE_VARIANT_OPTIONS } from './popupVariantOptions'
+// Stroke-width swatches deferred (ADR 0013 — Deferred). Imports retained as
+// comments so the diff to restore is one-line.
+// import { STROKE_WIDTH_PRESETS, nearestStrokeWidthPreset } from './popupVariantOptions'
+// import { StrokeWidthSwatch } from './StrokeWidthSwatch'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 
@@ -45,16 +44,12 @@ export function ShapePopup({
 
   const sharedShapeKind = sharedValue(selectedShapes.map((s) => s.shapeKind))
   const sharedColorRaw = sharedValue(selectedShapes.map((s) => s.color ?? null))
-  const sharedColor =
-    sharedColorRaw === null
-      ? null
-      : resolveCanvasColor(sharedColorRaw, { role: 'fill', isDark })
   const activeSlot = slotForStorage(sharedColorRaw)
-  const sharedStrokeWidth = sharedValue(
-    selectedShapes.map((s) =>
-      s.strokeWidth !== undefined ? nearestStrokeWidthPreset(s.strokeWidth) : null,
-    ),
-  )
+  // const sharedStrokeWidth = sharedValue(
+  //   selectedShapes.map((s) =>
+  //     s.strokeWidth !== undefined ? nearestStrokeWidthPreset(s.strokeWidth) : null,
+  //   ),
+  // )
   const sharedTextSize = sharedValue(
     selectedShapes.map((s) => s.textSize ?? TEXT_SIZE_DEFAULT),
   )
@@ -88,6 +83,20 @@ export function ShapePopup({
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <CanvasItemPopup.Section>
+          <TextSizeDropdown
+            isDark={isDark}
+            value={sharedTextSize ?? TEXT_SIZE_DEFAULT}
+            ariaLabel={`Set ${noun} text size`}
+            onPick={(size) => {
+              for (const s of selectedShapes) {
+                api.updateShapeEntity(s.id, { textSize: size })
+              }
+            }}
+          />
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           {CANVAS_COLOR_SLOTS.map((slot) => {
             const swatch =
@@ -108,6 +117,8 @@ export function ShapePopup({
             )
           })}
         </CanvasItemPopup.Section>
+        {/* Border-width swatches deferred — see ADR 0013 (Deferred).
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           {STROKE_WIDTH_PRESETS.map((width, index) => (
             <StrokeWidthSwatch
@@ -115,7 +126,6 @@ export function ShapePopup({
               isDark={isDark}
               active={sharedStrokeWidth === width}
               variant={index === 0 ? 'thin' : 'thick'}
-              ink={sharedColor}
               ariaLabel={`Set ${noun} stroke width to ${width}px`}
               onClick={() => {
                 for (const s of selectedShapes) {
@@ -125,18 +135,8 @@ export function ShapePopup({
             />
           ))}
         </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          <TextSizeDropdown
-            isDark={isDark}
-            value={sharedTextSize ?? TEXT_SIZE_DEFAULT}
-            ariaLabel={`Set ${noun} text size`}
-            onPick={(size) => {
-              for (const s of selectedShapes) {
-                api.updateShapeEntity(s.id, { textSize: size })
-              }
-            }}
-          />
-        </CanvasItemPopup.Section>
+        */}
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton
             isDark={isDark}

@@ -9,8 +9,10 @@ export const externalUpdate = Annotation.define<boolean>()
 
 // Shared metrics — must match `.text-block-markdown` rules in
 // shared/markdownStyles.css so view↔edit mode swap doesn't reflow.
+// fontSize is inherited from the editor's wrapper so per-entity `textSize`
+// (ADR 0013 §2) flows through to CodeMirror; heading sizes stay relative
+// via `em`.
 export const MARKDOWN_TOKENS = {
-  fontSize: '12px',
   fontFamily: 'system-ui, sans-serif',
   lineHeight: '1.5',
   headingWeight: '600',
@@ -47,7 +49,7 @@ function buildEditorTheme(isDark: boolean): Extension {
       '&': {
         backgroundColor: 'transparent',
         color: isDark ? '#e7e5e4' : '#1c1917',
-        fontSize: MARKDOWN_TOKENS.fontSize,
+        fontSize: 'inherit',
         fontFamily: MARKDOWN_TOKENS.fontFamily,
         height: '100%',
       },
@@ -76,23 +78,27 @@ export function reconfigureTheme(
   view.dispatch({ effects: compartment.reconfigure(buildEditorTheme(isDark)) })
 }
 
-export function createMarkdownExtensions(isDark: boolean): {
+export function createMarkdownExtensions(
+  isDark: boolean,
+  options: { lineWrap?: boolean } = {},
+): {
   extensions: Extension[]
   themeCompartment: Compartment
 } {
   const themeCompartment = new Compartment()
-  return {
-    extensions: [
-      // No `history()` extension: undo/redo is owned by the Yjs UndoManager
-      // in main, not by per-editor CodeMirror history. Cmd+Z falls through
-      // to the canvas keyboard handler so text and canvas edits share one
-      // unified undo stack.
-      keymap.of(defaultKeymap),
-      markdown(),
-      syntaxHighlighting(markdownHighlightStyle),
-      EditorView.lineWrapping,
-      themeCompartment.of(buildEditorTheme(isDark)),
-    ],
-    themeCompartment,
-  }
+  const lineWrap = options.lineWrap ?? true
+  const extensions: Extension[] = [
+    // No `history()` extension: undo/redo is owned by the Yjs UndoManager
+    // in main, not by per-editor CodeMirror history. Cmd+Z falls through
+    // to the canvas keyboard handler so text and canvas edits share one
+    // unified undo stack.
+    keymap.of(defaultKeymap),
+    markdown(),
+    syntaxHighlighting(markdownHighlightStyle),
+  ]
+  // When wrap is off (auto-width plain text), the editor's container shrinks
+  // to fit each line's natural width instead of forcing single-character wrap.
+  if (lineWrap) extensions.push(EditorView.lineWrapping)
+  extensions.push(themeCompartment.of(buildEditorTheme(isDark)))
+  return { extensions, themeCompartment }
 }

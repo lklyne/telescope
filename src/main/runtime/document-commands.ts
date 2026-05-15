@@ -630,6 +630,7 @@ export function createTextEntity(input: {
   text?: string
   color?: string
   textStyle?: import('../../shared/types').TextEntityStyle
+  widthMode?: import('../../shared/types').TextWidthMode
   textSize?: number
   width?: number
   height?: number

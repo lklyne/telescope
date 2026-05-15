@@ -15,7 +15,7 @@ import { lightenHex, resolveCanvasColor, withAlpha } from '../../shared/canvas-c
 
 const DEFAULT_STROKE_WIDTH = 2
 /** ADR 0013 §2 — shapes without textSize render their label at this size. */
-const DEFAULT_TEXT_SIZE = 18
+const DEFAULT_TEXT_SIZE = 14
 const FILL_OPACITY = 0.24
 const FILL_LIGHTEN = 0.5
 const NEUTRAL_SLATE = '#6b7280'

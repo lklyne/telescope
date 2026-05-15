@@ -27,6 +27,7 @@ export function MarkdownEditor({
   placeholder,
   className,
   style,
+  lineWrap = true,
 }: {
   value: string
   onChange: (value: string) => void
@@ -40,6 +41,8 @@ export function MarkdownEditor({
   placeholder?: string
   className?: string
   style?: React.CSSProperties
+  /** Disable to let the editor's container expand horizontally to fit content. */
+  lineWrap?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -59,7 +62,7 @@ export function MarkdownEditor({
     const container = containerRef.current
     if (!container) return
 
-    const { extensions, themeCompartment } = createMarkdownExtensions(isDark)
+    const { extensions, themeCompartment } = createMarkdownExtensions(isDark, { lineWrap })
     themeCompartmentRef.current = themeCompartment
 
     const editorExtensions: Extension[] = [

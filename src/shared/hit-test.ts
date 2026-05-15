@@ -146,10 +146,12 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   return out
 }
 
-// Plain text auto-fits to its content via a renderer-side ResizeObserver,
-// so manual resize would just be overwritten on the next layout tick.
-export function entityResizesAutomatically(entity: CanvasSceneEntity): boolean {
-  return entity.kind === 'text' && entity.textStyle === 'plain'
+// Reserved for entities whose bounds are purely content-driven and should
+// never show manual resize handles. Plain text in 'auto' widthMode used to
+// qualify, but resize is now wired to flip 'auto' → 'fixed' on drag-begin,
+// so it can be handled like any other entity.
+export function entityResizesAutomatically(_entity: CanvasSceneEntity): boolean {
+  return false
 }
 
 function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity): void {

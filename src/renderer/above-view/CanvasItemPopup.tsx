@@ -159,6 +159,15 @@ function Section({ children, grow = false }: { children: ReactNode; grow?: boole
   )
 }
 
+function Divider({ isDark }: { isDark: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={`mx-1 h-4 w-px shrink-0 ${isDark ? 'bg-white/20' : 'bg-zinc-900/20'}`}
+    />
+  )
+}
+
 function popupIconButtonClass(isDark: boolean, active = false): string {
   const base =
     'flex h-6 w-6 items-center justify-center rounded-[6px] border-0 transition-colors'
@@ -237,6 +246,7 @@ export const CanvasItemPopup = {
   ViewportAnchor,
   Frame,
   Section,
+  Divider,
   IconButton,
   ColorSwatch,
 }

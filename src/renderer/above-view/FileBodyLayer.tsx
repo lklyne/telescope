@@ -154,7 +154,7 @@ function FileBodyCard({
           />
         </ContextMenu.Trigger>
         <Menu.Portal>
-          <Menu.Positioner sideOffset={6}>
+          <Menu.Positioner sideOffset={6} style={{ zIndex: 50 }}>
             <Menu.Popup className={menuPopupClass}>
               <Menu.Item
                 className={menuItemClass}

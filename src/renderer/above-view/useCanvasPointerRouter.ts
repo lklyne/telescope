@@ -655,6 +655,13 @@ function runResize(
   const dispatchPatch = patchDispatcherForKind(entity.kind, action.entityId, api)
   if (!dispatchPatch) return false
 
+  // Plain text in 'auto' widthMode is content-driven; the renderer's
+  // ResizeObserver overwrites any width/height we'd dispatch. Flip to
+  // 'fixed' first so the upcoming width/height patches stick.
+  if (entity.kind === 'text' && entity.widthMode === 'auto') {
+    api.updateTextEntity(action.entityId, { widthMode: 'fixed' })
+  }
+
   // Enter resize mode in main BEFORE the first dispatchPatch. The bounds-update
   // IPC synchronously requestLayouts; if interactionState is still 'idle' when
   // reconcileFocus runs, focus moves to the selected page (pages only — they

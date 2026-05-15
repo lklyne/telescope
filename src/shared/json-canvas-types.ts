@@ -28,6 +28,8 @@ export interface JsonCanvasNodeBase {
 export interface SpecularNodeExtensions {
   /** 'plain' = unbacked text; 'sticky' = colored card. Missing → 'sticky'. */
   textStyle?: 'plain' | 'sticky'
+  /** Text auto-resize mode. Missing → plain defaults to 'auto', sticky to 'fixed'. */
+  widthMode?: 'auto' | 'fixed'
   /**
    * Theme/role-aware neutral marker. When set, the resolved RGB depends on
    * the active theme and the entity's color role; the spec `color` field
@@ -36,7 +38,7 @@ export interface SpecularNodeExtensions {
   colorRole?: 'neutral'
   /**
    * Per-entity text size in pixels. Used by text (plain + sticky) and shape
-   * (inner label). Missing → renderer defaults to 18 ("Small"). ADR 0013 §2.
+   * (inner label). Missing → renderer defaults to 14 ("Small"). ADR 0013 §2.
    */
   textSize?: number
 }

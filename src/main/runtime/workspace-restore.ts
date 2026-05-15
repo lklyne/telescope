@@ -230,6 +230,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             text: (entity as any).text,
             color: (entity as any).color,
             textStyle: (entity as any).textStyle,
+            widthMode: (entity as any).widthMode,
             textSize: (entity as any).textSize,
             width: (entity as any).width,
             height: (entity as any).height,

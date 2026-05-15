@@ -45,18 +45,36 @@ export function TextToolPopup({
     <CanvasItemPopup.ViewportAnchor layout={layout} open offset={8}>
       <CanvasItemPopup.Frame isDark={isDark}>
         {style === 'plain' ? (
-          <TextKindToggle
-            isDark={isDark}
-            active={textKind}
-            onPick={(kind) =>
-              api.setToolDefault({
-                scope: 'add-text',
-                key: 'textKind',
-                value: kind,
-              })
-            }
-          />
+          <>
+            <TextKindToggle
+              isDark={isDark}
+              active={textKind}
+              onPick={(kind) =>
+                api.setToolDefault({
+                  scope: 'add-text',
+                  key: 'textKind',
+                  value: kind,
+                })
+              }
+            />
+            <CanvasItemPopup.Divider isDark={isDark} />
+          </>
         ) : null}
+        <CanvasItemPopup.Section>
+          <TextSizeDropdown
+            isDark={isDark}
+            value={currentTextSize}
+            ariaLabel={`Set default ${style} text size`}
+            onPick={(size) => {
+              const patch: ToolDefaultPatch =
+                style === 'sticky'
+                  ? { scope: 'add-sticky', key: 'textSize', value: size }
+                  : { scope: 'add-text', key: 'textSize', value: size }
+              api.setToolDefault(patch)
+            }}
+          />
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           {CANVAS_COLOR_SLOTS.map((slot) => {
             const swatch =
@@ -78,20 +96,6 @@ export function TextToolPopup({
               />
             )
           })}
-        </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          <TextSizeDropdown
-            isDark={isDark}
-            value={currentTextSize}
-            ariaLabel={`Set default ${style} text size`}
-            onPick={(size) => {
-              const patch: ToolDefaultPatch =
-                style === 'sticky'
-                  ? { scope: 'add-sticky', key: 'textSize', value: size }
-                  : { scope: 'add-text', key: 'textSize', value: size }
-              api.setToolDefault(patch)
-            }}
-          />
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>

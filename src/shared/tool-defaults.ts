@@ -53,18 +53,18 @@ export interface ToolDefaults {
 export const DEFAULT_TOOL_DEFAULTS: ToolDefaults = {
   'add-text': {
     color: null,
-    textSize: 18,
+    textSize: 14,
     textKind: 'short',
   },
   'add-sticky': {
     color: '3', // yellow preset
-    textSize: 18,
+    textSize: 14,
   },
   'add-shape': {
     shapeKind: 'rectangle',
     color: '1', // red preset
     strokeWidth: 2,
-    textSize: 18,
+    textSize: 14,
   },
   draw: {
     brushType: 'pen',

@@ -391,6 +391,7 @@ export function duplicateEntity(input: {
       text: note.text,
       color: note.color,
       textStyle: note.textStyle,
+      widthMode: note.widthMode,
       textSize: note.textSize,
       width: note.width,
       height: note.height,

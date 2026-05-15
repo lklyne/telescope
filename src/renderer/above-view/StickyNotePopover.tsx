@@ -67,16 +67,32 @@ export function StickyNotePopover({
     >
       <CanvasItemPopup.Frame isDark={isDark}>
         {singlePlainText ? (
-          <TextKindToggle
+          <>
+            <TextKindToggle
+              isDark={isDark}
+              active="short"
+              onPick={(kind) => {
+                if (kind === 'long') {
+                  void api.morphTextFile(singlePlainText.id, 'text-to-file')
+                }
+              }}
+            />
+            <CanvasItemPopup.Divider isDark={isDark} />
+          </>
+        ) : null}
+        <CanvasItemPopup.Section>
+          <TextSizeDropdown
             isDark={isDark}
-            active="short"
-            onPick={(kind) => {
-              if (kind === 'long') {
-                void api.morphTextFile(singlePlainText.id, 'text-to-file')
+            value={sharedTextSize ?? TEXT_SIZE_DEFAULT}
+            ariaLabel={`Set ${noun} text size`}
+            onPick={(size) => {
+              for (const e of selectedTextEntities) {
+                api.updateTextEntity(e.id, { textSize: size })
               }
             }}
           />
-        ) : null}
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           {CANVAS_COLOR_SLOTS.map((slot) => {
             const swatch =
@@ -97,18 +113,7 @@ export function StickyNotePopover({
             )
           })}
         </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          <TextSizeDropdown
-            isDark={isDark}
-            value={sharedTextSize ?? TEXT_SIZE_DEFAULT}
-            ariaLabel={`Set ${noun} text size`}
-            onPick={(size) => {
-              for (const e of selectedTextEntities) {
-                api.updateTextEntity(e.id, { textSize: size })
-              }
-            }}
-          />
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton
             isDark={isDark}

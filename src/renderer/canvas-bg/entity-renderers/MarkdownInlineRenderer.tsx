@@ -116,13 +116,13 @@ export function MarkdownInlineRenderer({
           onBlur={handleBlur}
           isDark={isDark}
           autoFocus
-          style={{ width: '100%', height: '100%', color: textColor }}
+          style={{ width: '100%', height: '100%', fontSize: 14, color: textColor }}
         />
       ) : (
         <div
           className="text-block-markdown"
           style={{
-            fontSize: 12,
+            fontSize: 14,
             color: textColor,
             fontFamily: 'system-ui, sans-serif',
             wordBreak: 'break-word',

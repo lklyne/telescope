@@ -9,7 +9,6 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import { iconForFilePath } from '../shared/fileIcon'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from '../canvas-bg/entityConstants'
 import { renderPopupContributions } from './file-popup-contributions'
@@ -73,37 +72,42 @@ export function FilePopup({
       offset={POPUP_OFFSET_Y}
     >
       <CanvasItemPopup.Frame isDark={isDark}>
-        {single ? (
-          <CanvasItemPopup.Section grow>
-            <span className="flex min-w-0 flex-1 items-center gap-1.5">
-              {(() => {
-                const FileIcon = iconForFilePath(single.file)
-                return <FileIcon size={13} className="shrink-0 text-zinc-400" />
-              })()}
-              <InlineEditLabel
-                value={displayNameFor(single.file)}
-                isEditing={isRenaming}
-                onStartEdit={() => setIsRenaming(true)}
-                onCommit={(next) => {
-                  setIsRenaming(false)
-                  api.renameFileEntity(single.id, next)
-                }}
-                onCancel={() => setIsRenaming(false)}
-                variant="canvas-chrome"
-                isDark={isDark}
-                titleClassName="min-w-0 flex-1 truncate text-xs font-medium"
-                onTitleClick={() => setIsRenaming(true)}
-              />
-            </span>
-          </CanvasItemPopup.Section>
-        ) : null}
         {single
-          ? renderPopupContributions(single, {
-              api,
-              isDark,
-              jsonMode: fileJsonModeMap.get(single.id) ?? false,
-              onJsonModeChange: setFileJsonMode,
-            })
+          ? (() => {
+              const contributions = renderPopupContributions(single, {
+                api,
+                isDark,
+                jsonMode: fileJsonModeMap.get(single.id) ?? false,
+                onJsonModeChange: setFileJsonMode,
+              })
+              return (
+                <>
+                  {contributions.length > 0 ? (
+                    <>
+                      {contributions}
+                      <CanvasItemPopup.Divider isDark={isDark} />
+                    </>
+                  ) : null}
+                  <CanvasItemPopup.Section grow>
+                    <InlineEditLabel
+                      value={displayNameFor(single.file)}
+                      isEditing={isRenaming}
+                      onStartEdit={() => setIsRenaming(true)}
+                      onCommit={(next) => {
+                        setIsRenaming(false)
+                        api.renameFileEntity(single.id, next)
+                      }}
+                      onCancel={() => setIsRenaming(false)}
+                      variant="canvas-chrome"
+                      isDark={isDark}
+                      titleClassName="min-w-0 flex-1 truncate text-xs font-medium"
+                      onTitleClick={() => setIsRenaming(true)}
+                    />
+                  </CanvasItemPopup.Section>
+                  <CanvasItemPopup.Divider isDark={isDark} />
+                </>
+              )
+            })()
           : null}
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton

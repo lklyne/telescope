@@ -1,5 +1,6 @@
-import { RotateCcw, Smartphone } from 'lucide-react'
+import { Smartphone } from 'lucide-react'
 import type { DeviceOrientation } from '../../shared/device-catalog'
+import { RotateIcon } from '../shared/CustomIcons'
 import { CanvasItemPopup } from './CanvasItemPopup'
 
 export function DeviceViewportPopupControls({
@@ -37,7 +38,7 @@ export function DeviceViewportPopupControls({
         ariaLabel={`Rotate viewport for ${noun}`}
         onClick={() => onSetOrientation(nextOrientation)}
       >
-        <RotateCcw size={14} />
+        <RotateIcon size={14} />
       </CanvasItemPopup.IconButton>
     </CanvasItemPopup.Section>
   )

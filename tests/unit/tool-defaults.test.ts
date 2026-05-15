@@ -31,7 +31,7 @@ describe('tool-defaults: normalizeToolDefaults', () => {
     expect(normalizeToolDefaults(persisted)).toEqual(persisted)
   })
 
-  it('defaults add-shape.textSize to 18 when absent (legacy preferences)', () => {
+  it('defaults add-shape.textSize when absent (legacy preferences)', () => {
     const out = normalizeToolDefaults({
       'add-shape': { shapeKind: 'rectangle' as const, color: '1', strokeWidth: 2 },
     })

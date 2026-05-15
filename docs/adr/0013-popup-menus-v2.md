@@ -44,7 +44,7 @@ Every kind that renders text — `text` (plain and sticky) and `shape` (the inne
 
 | Preset | Pixels |
 |---|---|
-| Small | 18 |
+| Small | 14 |
 | Medium | 32 |
 | Large | 56 |
 | Extra large | 96 |
@@ -270,7 +270,7 @@ Vertical slices, each green on `typecheck` + `test:unit` + `test:smoke`. May shi
 
 1. **Palette resolver.** `canvas-colors.ts` gains the eight-slot definition + a `(slotIndex, role, theme) → rgb` function. Old six-digit mapping stays as a fallback path. New `specular.colorRole` and hex `color` values are read/written by serializer.
 2. **Tool union restructure.** `Tool` updates per §4. `add-document` removed, `add-sticky` added, `add-text.style` removed. Toolbar buttons re-bind; IPC channels (`setTool`) accept the new shape; keyboard shortcuts re-target.
-3. **Text size.** New `textSize` field on `text` and `shape` entities (and tool defaults). Renderer reads it. Old entities default to `Small` (18) if absent.
+3. **Text size.** New `textSize` field on `text` and `shape` entities (and tool defaults). Renderer reads it. Old entities default to `Small` (14) if absent.
 4. **Visual lock.** Container tokens, button styles, swatch primitives updated in `CanvasItemPopup` to match §8. Tailwind variables refreshed.
 5. **Cross-kind morph.** New IPC channel `morph-text-file` invokes file-create or file-delete + entity-replace transactionally. Selection-mode popup wires the toggle.
 6. **Text-size dropdown.** New popover component for the labeled dropdown (✓-prefixed presets + raw input). Wires to `textSize` on entity / tool defaults.
@@ -289,3 +289,7 @@ Vertical slices, each green on `typecheck` + `test:unit` + `test:smoke`. May shi
 - **Smoke:** Comment on a page element → composer surfaces "Element name" field → name appears in right-panel list.
 - **Smoke:** Page popup device-frame toggle and rotate-viewport produce the same visual result as the right-panel equivalents.
 - **Manual:** Eight-slot palette renders on light and dark canvas; neutral reads as theme-appropriate in both modes for sticky (recedes) and pen (contrasts).
+
+## Deferred
+
+- **Shape border width control.** The shape popup originally exposed two stroke-width swatches (thin / thick) alongside fill color and size. The current Figma lock for shapes omits the border-width row entirely, so the swatches are commented out in `ShapePopup.tsx` and `ShapeToolPopup.tsx`. The underlying `strokeWidth` property and `STROKE_WIDTH_PRESETS` helpers remain — when border width returns to the visual design (either as inline swatches, a numeric input, or a "Style" sub-popup), uncomment the section and revisit placement relative to `Size` and color.

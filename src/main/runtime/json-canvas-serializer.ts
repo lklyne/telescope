@@ -145,19 +145,33 @@ function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNod
     text: entity.text,
     color: isNeutral ? '1' : entity.color,
   }
-  const specular = buildSpecularExtensions(entity.textStyle, isNeutral, entity.textSize)
+  const specular = buildSpecularExtensions(
+    entity.textStyle,
+    entity.widthMode,
+    isNeutral,
+    entity.textSize,
+  )
   if (specular) node.specular = specular
   return node
 }
 
 function buildSpecularExtensions(
   textStyle: PersistedTextEntity['textStyle'] | undefined,
+  widthMode: PersistedTextEntity['widthMode'] | undefined,
   isNeutral: boolean,
   textSize: number | undefined,
 ): JsonCanvasTextNode['specular'] {
-  if (textStyle === undefined && !isNeutral && textSize === undefined) return undefined
+  if (
+    textStyle === undefined &&
+    widthMode === undefined &&
+    !isNeutral &&
+    textSize === undefined
+  ) {
+    return undefined
+  }
   const ext: NonNullable<JsonCanvasTextNode['specular']> = {}
   if (textStyle !== undefined) ext.textStyle = textStyle
+  if (widthMode !== undefined) ext.widthMode = widthMode
   if (isNeutral) ext.colorRole = 'neutral'
   if (textSize !== undefined) ext.textSize = textSize
   return ext
@@ -351,12 +365,19 @@ function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTextEntit
     node.specular?.colorRole === 'neutral'
       ? NEUTRAL_STORAGE
       : resolveCanvasColor(node.color ?? '3')
+  const textStyle = node.specular?.textStyle ?? 'sticky'
+  // Legacy canvases predate widthMode. Default to 'fixed' on read so saved
+  // bounds are preserved — the 'auto' default only applies to brand-new
+  // plain text created via the text tool. The runtime layer's
+  // `defaultWidthMode()` handles the new-entity path.
+  const widthMode = node.specular?.widthMode ?? 'fixed'
   return {
     kind: 'text',
     id: node.id,
     text: node.text,
     color,
-    textStyle: node.specular?.textStyle ?? 'sticky',
+    textStyle,
+    widthMode,
     textSize: node.specular?.textSize,
     canvasX: node.x,
     canvasY: node.y,

@@ -59,20 +59,13 @@ function toolbarToolBtnClass(isDark: boolean, active: boolean): string {
 // natural-aspect asset (29×27 add-page) sits comfortably inside the 32×28 button.
 const TOOL_GLYPH_SIZE = 20
 
-// Light-mode SVGs ship as monochrome dark glyphs; in dark mode we invert
-// them rather than maintaining a parallel asset set (ADR 0013 §Icons).
-// CSS drop-shadow is applied AFTER any invert so the shadow stays dark
-// regardless of theme, and follows each glyph's alpha rather than the
-// bounding box (which is what Figma's drop-shadow effect did wrong on
-// multi-element icons like add-page and add-sticky).
+// Light and dark glyphs ship as parallel SVG assets — see `makeToolbarIcon`
+// in CustomIcons.tsx, which picks the right URL from `isDark`. CSS only
+// applies the drop-shadow on top; we no longer invert the light asset for
+// dark mode because that pushed the light-grey gradient to near-black and
+// looked muddy against the dark toolbar.
 const TOOLBAR_GLYPH_SHADOW = 'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.18))'
-function toolbarGlyphStyle(isDark: boolean): React.CSSProperties {
-  return {
-    filter: isDark
-      ? `invert(1) hue-rotate(180deg) ${TOOLBAR_GLYPH_SHADOW}`
-      : TOOLBAR_GLYPH_SHADOW,
-  }
-}
+const TOOLBAR_GLYPH_STYLE: React.CSSProperties = { filter: TOOLBAR_GLYPH_SHADOW }
 
 function AddPagePresetMenu({
   isDark,
@@ -98,7 +91,11 @@ function AddPagePresetMenu({
       sideOffset={4}
       trigger={
         <button className={triggerClassName} title="Add page" type="button">
-          <AddPageToolIcon size={TOOL_GLYPH_SIZE} style={toolbarGlyphStyle(isDark)} />
+          <AddPageToolIcon
+            size={TOOL_GLYPH_SIZE}
+            isDark={isDark}
+            style={TOOLBAR_GLYPH_STYLE}
+          />
         </button>
       }
     />
@@ -108,7 +105,7 @@ function AddPagePresetMenu({
 export function ToolbarDivider({ isDark }: { isDark: boolean }) {
   return (
     <div
-      className={`mx-1 h-4 w-px shrink-0 ${isDark ? 'bg-zinc-600' : 'bg-zinc-300'}`}
+      className={`mx-1 h-4 w-px shrink-0 ${isDark ? 'bg-white/20' : 'bg-zinc-900/20'}`}
     />
   )
 }
@@ -197,7 +194,6 @@ export function CenterActions({
     onSetTool(activeTool.kind === 'inspect' ? { kind: 'select' } : { kind: 'inspect' })
 
   const buttonClass = (active: boolean) => toolbarToolBtnClass(isDark, active)
-  const glyphStyle = toolbarGlyphStyle(isDark)
   const selectTriggerClassName = isDark
     ? 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-[rgba(253,248,245,0.1)]'
     : 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900'
@@ -219,7 +215,7 @@ export function CenterActions({
           title="Select"
           type="button"
         >
-          <SelectToolIcon size={TOOL_GLYPH_SIZE} style={glyphStyle} />
+          <SelectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
         </button>
 
         {!isBrowserMode ? (
@@ -229,7 +225,7 @@ export function CenterActions({
             title="Hand"
             type="button"
           >
-            <HandToolIcon size={TOOL_GLYPH_SIZE} style={glyphStyle} />
+            <HandToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
           </button>
         ) : null}
 
@@ -243,7 +239,7 @@ export function CenterActions({
             disabled={!annotateAvailable}
             type="button"
           >
-            <DrawToolIcon size={TOOL_GLYPH_SIZE} style={glyphStyle} />
+            <DrawToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
           </button>
         ) : null}
 
@@ -254,7 +250,7 @@ export function CenterActions({
             title="Add sticky"
             type="button"
           >
-            <AddStickyToolIcon size={TOOL_GLYPH_SIZE} style={glyphStyle} />
+            <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} />
           </button>
         ) : null}
 
@@ -265,7 +261,7 @@ export function CenterActions({
             title="Add shape"
             type="button"
           >
-            <AddShapeToolIcon size={TOOL_GLYPH_SIZE} style={glyphStyle} />
+            <AddShapeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
           </button>
         ) : null}
 
@@ -287,7 +283,7 @@ export function CenterActions({
             title="Add text"
             type="button"
           >
-            <AddTextToolIcon size={TOOL_GLYPH_SIZE} style={glyphStyle} />
+            <AddTextToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
           </button>
         ) : null}
 
@@ -298,7 +294,7 @@ export function CenterActions({
           disabled={!annotateAvailable}
           type="button"
         >
-          <CommentToolIcon size={TOOL_GLYPH_SIZE} style={glyphStyle} />
+          <CommentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
         </button>
 
         <button
@@ -308,7 +304,7 @@ export function CenterActions({
           disabled={!inspectAvailable}
           type="button"
         >
-          <InspectToolIcon size={TOOL_GLYPH_SIZE} style={glyphStyle} />
+          <InspectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
         </button>
 
         <ToolbarDivider isDark={isDark} />
@@ -319,7 +315,7 @@ export function CenterActions({
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           type="button"
         >
-          <ThemeToolIcon size={TOOL_GLYPH_SIZE} style={glyphStyle} />
+          <ThemeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
         </button>
 
         <Select.Root
@@ -334,7 +330,7 @@ export function CenterActions({
               {() => <span>{zoomPercent}%</span>}
             </Select.Value>
             <Select.Icon className={isDark ? 'text-zinc-400' : 'text-zinc-500'}>
-              <ZoomChevronIcon size={10} style={glyphStyle} />
+              <ZoomChevronIcon size={10} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
             </Select.Icon>
           </Select.Trigger>
           <Select.Portal>

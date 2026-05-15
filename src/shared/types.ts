@@ -148,12 +148,21 @@ export interface CanvasScenePageEntity {
 /** 'plain' = unbacked text, 'sticky' = text in a colored card. See ADR 0004. */
 export type TextEntityStyle = 'plain' | 'sticky'
 
+/**
+ * 'auto' = shell hugs content (no wrap; width/height reflect rendered text).
+ * 'fixed' = explicit width/height; text wraps within bounds. Plain text
+ * defaults to 'auto' on creation; the first manual resize flips to 'fixed'.
+ * Sticky is always 'fixed'.
+ */
+export type TextWidthMode = 'auto' | 'fixed'
+
 export interface CanvasSceneTextEntity {
   kind: 'text'
   id: string
   text: string
   color: string
   textStyle: TextEntityStyle
+  widthMode: TextWidthMode
   /** Per-entity text size in px. Missing → renderer default (18). ADR 0013 §2. */
   textSize?: number
   canvasX: number
@@ -332,7 +341,9 @@ export interface PersistedTextEntity extends CanvasEntityBase {
   height: number
   /** Optional — reader defaults to 'sticky' when absent (legacy canvases). See ADR 0004. */
   textStyle?: TextEntityStyle
-  /** Optional — renderer defaults to 18 ("Small") when absent. ADR 0013 §2. */
+  /** Optional — reader defaults: plain → 'auto', sticky → 'fixed'. */
+  widthMode?: TextWidthMode
+  /** Optional — renderer defaults to 14 ("Small") when absent. ADR 0013 §2. */
   textSize?: number
   label?: string
 }
@@ -1701,7 +1712,7 @@ export interface CanvasBgElectronAPI {
   deleteSelectedEntities: () => void
   tidySelectedEntities: () => void
   createTextEntity: (canvasX: number, canvasY: number, text?: string, color?: string) => void
-  updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
   updateFileEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void

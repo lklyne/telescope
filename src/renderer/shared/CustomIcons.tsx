@@ -9,11 +9,12 @@ import { useId, type ComponentProps } from 'react'
 //     so the marker tip and cap can preview the active pen color.
 //   - Toolbar icons (Select / Hand / Draw / AddSticky / AddShape / AddPage /
 //     AddText / Comment / Inspect / Theme / ZoomChevron): rendered from raw
-//     SVG assets in ./icons/toolbar/*.svg. The SVGs match the Figma frame
-//     size exactly (20×20, 18×18 for comment/inspect, 12×12 for the zoom
-//     chevron) with drop shadows stripped — shadows are reapplied via the
-//     `filter: drop-shadow(...)` CSS on the toolbar `<img>` so each glyph
-//     gets its own alpha-correct shadow instead of a bounding-box shadow.
+//     SVG assets in ./icons/toolbar/*.svg (light) and ./icons/toolbar/dark/
+//     (dark variants generated via color-substitution: light gradient stops
+//     remap to #65625D → #484744, stroke flips to #C4BEBB). Caller passes
+//     `isDark` to pick the right asset. Shadows are still reapplied via CSS
+//     `filter: drop-shadow(...)` on the `<img>` so each glyph gets its own
+//     alpha-correct shadow instead of a bounding-box shadow.
 //
 // Re-extracting from Figma: see docs/adr/0013-popup-menus-v2.md §Icons for
 // the per-node id table and an mcp__plugin_figma_figma__use_figma recipe.
@@ -29,22 +30,34 @@ import inspectUrl from './icons/toolbar/inspect.svg'
 import selectUrl from './icons/toolbar/select.svg'
 import themeUrl from './icons/toolbar/theme.svg'
 import zoomChevronUrl from './icons/toolbar/zoom-chevron.svg'
+import addPageDarkUrl from './icons/toolbar/dark/add-page.svg'
+import addShapeDarkUrl from './icons/toolbar/dark/add-shape.svg'
+import addStickyDarkUrl from './icons/toolbar/dark/add-sticky.svg'
+import addTextDarkUrl from './icons/toolbar/dark/add-text.svg'
+import commentDarkUrl from './icons/toolbar/dark/comment.svg'
+import drawDarkUrl from './icons/toolbar/dark/draw.svg'
+import handDarkUrl from './icons/toolbar/dark/hand.svg'
+import inspectDarkUrl from './icons/toolbar/dark/inspect.svg'
+import selectDarkUrl from './icons/toolbar/dark/select.svg'
+import themeDarkUrl from './icons/toolbar/dark/theme.svg'
+import zoomChevronDarkUrl from './icons/toolbar/dark/zoom-chevron.svg'
 
 // ── Toolbar icons ──────────────────────────────────────────────────────────
 
 type ToolbarIconProps = {
   size?: number
+  isDark?: boolean
   className?: string
   style?: React.CSSProperties
 }
 
-function makeToolbarIcon(url: string, name: string) {
+function makeToolbarIcon(lightUrl: string, darkUrl: string, name: string) {
   // Render each glyph inside a fixed `size` × `size` box with object-fit:
   // contain so 18×18 (comment, inspect) and 12×12 (zoom chevron) SVGs sit
   // on the same nominal grid as the 20×20 ones at their natural Figma scale.
-  const Icon = ({ size = 20, className, style }: ToolbarIconProps) => (
+  const Icon = ({ size = 20, isDark = false, className, style }: ToolbarIconProps) => (
     <img
-      src={url}
+      src={isDark ? darkUrl : lightUrl}
       alt=""
       aria-hidden
       draggable={false}
@@ -59,17 +72,17 @@ function makeToolbarIcon(url: string, name: string) {
 }
 
 // Default size matches the 20×20 Figma toolbar slot.
-export const SelectToolIcon = makeToolbarIcon(selectUrl, 'SelectToolIcon')
-export const HandToolIcon = makeToolbarIcon(handUrl, 'HandToolIcon')
-export const DrawToolIcon = makeToolbarIcon(drawUrl, 'DrawToolIcon')
-export const AddStickyToolIcon = makeToolbarIcon(addStickyUrl, 'AddStickyToolIcon')
-export const AddShapeToolIcon = makeToolbarIcon(addShapeUrl, 'AddShapeToolIcon')
-export const AddPageToolIcon = makeToolbarIcon(addPageUrl, 'AddPageToolIcon')
-export const AddTextToolIcon = makeToolbarIcon(addTextUrl, 'AddTextToolIcon')
-export const CommentToolIcon = makeToolbarIcon(commentUrl, 'CommentToolIcon')
-export const InspectToolIcon = makeToolbarIcon(inspectUrl, 'InspectToolIcon')
-export const ThemeToolIcon = makeToolbarIcon(themeUrl, 'ThemeToolIcon')
-export const ZoomChevronIcon = makeToolbarIcon(zoomChevronUrl, 'ZoomChevronIcon')
+export const SelectToolIcon = makeToolbarIcon(selectUrl, selectDarkUrl, 'SelectToolIcon')
+export const HandToolIcon = makeToolbarIcon(handUrl, handDarkUrl, 'HandToolIcon')
+export const DrawToolIcon = makeToolbarIcon(drawUrl, drawDarkUrl, 'DrawToolIcon')
+export const AddStickyToolIcon = makeToolbarIcon(addStickyUrl, addStickyDarkUrl, 'AddStickyToolIcon')
+export const AddShapeToolIcon = makeToolbarIcon(addShapeUrl, addShapeDarkUrl, 'AddShapeToolIcon')
+export const AddPageToolIcon = makeToolbarIcon(addPageUrl, addPageDarkUrl, 'AddPageToolIcon')
+export const AddTextToolIcon = makeToolbarIcon(addTextUrl, addTextDarkUrl, 'AddTextToolIcon')
+export const CommentToolIcon = makeToolbarIcon(commentUrl, commentDarkUrl, 'CommentToolIcon')
+export const InspectToolIcon = makeToolbarIcon(inspectUrl, inspectDarkUrl, 'InspectToolIcon')
+export const ThemeToolIcon = makeToolbarIcon(themeUrl, themeDarkUrl, 'ThemeToolIcon')
+export const ZoomChevronIcon = makeToolbarIcon(zoomChevronUrl, zoomChevronDarkUrl, 'ZoomChevronIcon')
 
 // ── Pen-popup icons (inline JSX so `ink` can theme dynamically) ────────────
 
@@ -242,6 +255,31 @@ export function PenMarkerIcon({
           <stop offset="1" stopColor="#B5B5B5" />
         </linearGradient>
       </defs>
+    </svg>
+  )
+}
+
+export function RotateIcon({
+  size = 14,
+  ...props
+}: { size?: number } & Omit<ComponentProps<'svg'>, 'width' | 'height' | 'viewBox'>) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 14 14"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path
+        d="M1 6.88233V4.72047C1.00005 4.17449 1.21712 3.65103 1.60319 3.26496C1.98926 2.87888 2.5127 2.66181 3.05868 2.66176H5.89125L4.7838 1.55429C4.54272 1.3131 4.54272 0.922053 4.7838 0.680862C5.02498 0.439679 5.416 0.439746 5.65722 0.680862L7.81904 2.84272C7.93488 2.95856 8 3.11562 8 3.27943C8 3.44325 7.93488 3.60031 7.81904 3.71615L5.65722 5.878C5.416 6.11912 5.02498 6.11919 4.7838 5.878C4.54272 5.63681 4.54272 5.24577 4.7838 5.00458L5.89125 3.89711H3.05868C2.84033 3.89716 2.631 3.98398 2.4766 4.13839C2.32221 4.29279 2.23538 4.50212 2.23533 4.72047V6.88233C2.23533 7.22346 1.95879 7.5 1.61766 7.5C1.27654 7.5 1 7.22346 1 6.88233Z"
+        fill="currentColor"
+      />
+      <path
+        d="M13 6.11767L13 8.27953C12.9999 8.82552 12.7829 9.34897 12.3968 9.73504C12.0107 10.1211 11.4873 10.3382 10.9413 10.3382L8.10875 10.3382L9.2162 11.4457C9.45728 11.6869 9.45728 12.0779 9.2162 12.3191C8.97502 12.5603 8.584 12.5603 8.34278 12.3191L6.18096 10.1573C6.06512 10.0414 6 9.88438 6 9.72057C6 9.55675 6.06512 9.39969 6.18096 9.28385L8.34278 7.122C8.584 6.88088 8.97502 6.88081 9.2162 7.122C9.45728 7.36319 9.45728 7.75423 9.2162 7.99542L8.10875 9.10289L10.9413 9.10289C11.1597 9.10284 11.369 9.01602 11.5234 8.86161C11.6778 8.70721 11.7646 8.49788 11.7647 8.27953L11.7647 6.11767C11.7647 5.77654 12.0412 5.5 12.3823 5.5C12.7235 5.5 13 5.77654 13 6.11767Z"
+        fill="currentColor"
+      />
     </svg>
   )
 }

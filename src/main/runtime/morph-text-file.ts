@@ -99,6 +99,8 @@ export function morphMarkdownFileToTextEntity(entityId: string): MorphResult {
     height: file.height,
     text: body,
     textStyle: 'plain',
+    // Preserve the markdown file's existing bounds so the morph doesn't reflow.
+    widthMode: 'fixed',
     parentGroupId: file.parentGroupId,
     label: noteName,
   })

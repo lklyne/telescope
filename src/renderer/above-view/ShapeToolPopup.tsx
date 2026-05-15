@@ -11,12 +11,10 @@ import type {
   ToolDefaultPatch,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import {
-  SHAPE_VARIANT_OPTIONS,
-  STROKE_WIDTH_PRESETS,
-  nearestStrokeWidthPreset,
-} from './popupVariantOptions'
-import { StrokeWidthSwatch } from './StrokeWidthSwatch'
+import { SHAPE_VARIANT_OPTIONS } from './popupVariantOptions'
+// Stroke-width swatches deferred (ADR 0013 — Deferred).
+// import { STROKE_WIDTH_PRESETS, nearestStrokeWidthPreset } from './popupVariantOptions'
+// import { StrokeWidthSwatch } from './StrokeWidthSwatch'
 import { TextSizeDropdown } from './TextSizeDropdown'
 
 export function ShapeToolPopup({
@@ -29,9 +27,8 @@ export function ShapeToolPopup({
   layout: LayoutUpdateData
 }) {
   const defaults = layout.toolDefaults['add-shape']
-  const currentColor = resolveCanvasColor(defaults.color, { role: 'fill', isDark })
   const activeSlot = slotForStorage(defaults.color)
-  const activeStrokeWidth = nearestStrokeWidthPreset(defaults.strokeWidth)
+  // const activeStrokeWidth = nearestStrokeWidthPreset(defaults.strokeWidth)
   return (
     <CanvasItemPopup.ViewportAnchor layout={layout} open offset={8}>
       <CanvasItemPopup.Frame isDark={isDark}>
@@ -56,6 +53,23 @@ export function ShapeToolPopup({
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <CanvasItemPopup.Section>
+          <TextSizeDropdown
+            isDark={isDark}
+            value={defaults.textSize}
+            ariaLabel="Set default shape text size"
+            onPick={(size) => {
+              const patch: ToolDefaultPatch = {
+                scope: 'add-shape',
+                key: 'textSize',
+                value: size,
+              }
+              api.setToolDefault(patch)
+            }}
+          />
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           {CANVAS_COLOR_SLOTS.map((slot) => {
             const swatch =
@@ -79,6 +93,8 @@ export function ShapeToolPopup({
             )
           })}
         </CanvasItemPopup.Section>
+        {/* Border-width swatches deferred — see ADR 0013 (Deferred).
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           {STROKE_WIDTH_PRESETS.map((width, index) => (
             <StrokeWidthSwatch
@@ -86,7 +102,6 @@ export function ShapeToolPopup({
               isDark={isDark}
               active={activeStrokeWidth === width}
               variant={index === 0 ? 'thin' : 'thick'}
-              ink={currentColor}
               ariaLabel={`Set default shape stroke width to ${width}px`}
               onClick={() => {
                 const patch: ToolDefaultPatch = {
@@ -99,21 +114,7 @@ export function ShapeToolPopup({
             />
           ))}
         </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          <TextSizeDropdown
-            isDark={isDark}
-            value={defaults.textSize}
-            ariaLabel="Set default shape text size"
-            onPick={(size) => {
-              const patch: ToolDefaultPatch = {
-                scope: 'add-shape',
-                key: 'textSize',
-                value: size,
-              }
-              api.setToolDefault(patch)
-            }}
-          />
-        </CanvasItemPopup.Section>
+        */}
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>
   )

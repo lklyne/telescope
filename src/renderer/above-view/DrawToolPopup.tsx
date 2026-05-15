@@ -62,6 +62,27 @@ export function DrawToolPopup({
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <CanvasItemPopup.Section>
+          {widthPresets.map((width, index) => (
+            <StrokeWidthSwatch
+              key={width}
+              isDark={isDark}
+              active={activeStrokeWidth === width}
+              variant={index === 0 ? 'thin' : 'thick'}
+              ariaLabel={`Set default brush width to ${width}px`}
+              onClick={() => {
+                const patch: ToolDefaultPatch = {
+                  scope: 'draw',
+                  key: 'strokeWidth',
+                  value: width,
+                }
+                api.setToolDefault(patch)
+              }}
+            />
+          ))}
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           {CANVAS_COLOR_SLOTS.map((slot) => {
             const swatch =
@@ -84,26 +105,6 @@ export function DrawToolPopup({
               />
             )
           })}
-        </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          {widthPresets.map((width, index) => (
-            <StrokeWidthSwatch
-              key={width}
-              isDark={isDark}
-              active={activeStrokeWidth === width}
-              variant={index === 0 ? 'thin' : 'thick'}
-              ink={currentColor}
-              ariaLabel={`Set default brush width to ${width}px`}
-              onClick={() => {
-                const patch: ToolDefaultPatch = {
-                  scope: 'draw',
-                  key: 'strokeWidth',
-                  value: width,
-                }
-                api.setToolDefault(patch)
-              }}
-            />
-          ))}
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>

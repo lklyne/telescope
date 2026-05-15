@@ -13,7 +13,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 
 export const TEXT_SIZE_PRESETS = [
-  { label: 'Small', value: 18 },
+  { label: 'Small', value: 14 },
   { label: 'Medium', value: 32 },
   { label: 'Large', value: 56 },
   { label: 'Extra large', value: 96 },
@@ -22,7 +22,7 @@ export const TEXT_SIZE_PRESETS = [
 
 export const TEXT_SIZE_MIN = 8
 export const TEXT_SIZE_MAX = 256
-export const TEXT_SIZE_DEFAULT = 18
+export const TEXT_SIZE_DEFAULT = 14
 
 export function presetLabelForValue(value: number): string {
   const match = TEXT_SIZE_PRESETS.find((p) => p.value === value)
@@ -89,7 +89,7 @@ export function TextSizeDropdown({
         <ChevronDown size={12} />
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner align="start" sideOffset={6}>
+        <Menu.Positioner align="start" sideOffset={6} style={{ zIndex: 50 }}>
           <Menu.Popup
             className={popupClass(isDark)}
             onMouseDown={(event) => event.stopPropagation()}

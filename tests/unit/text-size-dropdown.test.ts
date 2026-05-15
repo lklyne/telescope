@@ -8,7 +8,7 @@ import {
 
 describe('TextSizeDropdown helpers', () => {
   it('labels every preset value with its preset name', () => {
-    expect(presetLabelForValue(18)).toBe('Small')
+    expect(presetLabelForValue(14)).toBe('Small')
     expect(presetLabelForValue(32)).toBe('Medium')
     expect(presetLabelForValue(56)).toBe('Large')
     expect(presetLabelForValue(96)).toBe('Extra large')
@@ -33,7 +33,7 @@ describe('TextSizeDropdown helpers', () => {
   })
 
   it('falls back to the default for non-finite inputs', () => {
-    expect(clampTextSize(Number.NaN)).toBe(18)
-    expect(clampTextSize(Number.POSITIVE_INFINITY)).toBe(18)
+    expect(clampTextSize(Number.NaN)).toBe(14)
+    expect(clampTextSize(Number.POSITIVE_INFINITY)).toBe(14)
   })
 })

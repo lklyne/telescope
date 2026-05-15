@@ -588,7 +588,7 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(
     'canvas-update-text-entity',
-    (_event, { id, patch }: { id: string; patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number } }) => {
+    (_event, { id, patch }: { id: string; patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: 'auto' | 'fixed' } }) => {
       updateTextEntity(id, patch)
     },
   )

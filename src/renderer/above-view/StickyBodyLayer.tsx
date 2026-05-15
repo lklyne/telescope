@@ -8,11 +8,16 @@
  * DOM events, and works because the cards mount inside aboveView's WCV
  * which already holds keyboard focus during edit.
  *
- * Plain text entities auto-size to their content. The shell has no fixed
+ * Plain text in `widthMode: 'auto'` hugs its content. The shell has no fixed
  * width/height; instead a ResizeObserver measures the rendered card and
  * pushes the size back to main via `onUpdateSize`, which keeps the stored
  * bounds in sync with what the user sees so the selection outline hugs
- * the text. Stickies keep fixed bounds and use the manual resize handles.
+ * the text. The CodeMirror editor disables `lineWrapping` in this mode so
+ * lines don't collapse to single characters when the container shrink-wraps.
+ *
+ * Once the user drags a resize handle, widthMode flips to 'fixed' (handled
+ * by the pointer router) and the entity behaves like a sticky: explicit
+ * width/height, wrap on. Stickies are always 'fixed'.
  */
 
 import { memo, useEffect, useRef, useState } from 'react'
@@ -25,7 +30,7 @@ import { MarkdownEditor } from '../shared/MarkdownEditor'
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
 /** ADR 0013 §2 — entities without textSize render at this size ("Small"). */
-const DEFAULT_TEXT_SIZE = 18
+const DEFAULT_TEXT_SIZE = 14
 
 /**
  * Wraps the sticky body cards in a viewport transform so they live in
@@ -67,6 +72,7 @@ function StickyShell({
   isSelected,
   background,
   textStyle,
+  isAuto,
   shellRef,
   children,
 }: {
@@ -79,6 +85,7 @@ function StickyShell({
   isSelected: boolean
   background: string
   textStyle: TextEntityStyle
+  isAuto: boolean
   shellRef?: React.Ref<HTMLDivElement>
   children: React.ReactNode
 }) {
@@ -89,7 +96,7 @@ function StickyShell({
       data-entity-id={id}
       className="absolute pointer-events-auto"
       style={
-        isPlain
+        isPlain && isAuto
           ? {
               left: canvasX,
               top: canvasY,
@@ -98,19 +105,28 @@ function StickyShell({
               cursor: 'default',
               touchAction: 'none',
             }
-          : {
-              left: canvasX,
-              top: canvasY,
-              width,
-              height,
-              background,
-              boxShadow: isDark
-                ? '0 2px 8px rgba(0, 0, 0, 0.3)'
-                : '0 2px 8px rgba(0, 0, 0, 0.08)',
-              overflow: isSelected ? 'visible' : 'hidden',
-              cursor: 'default',
-              touchAction: 'none',
-            }
+          : isPlain
+            ? {
+                left: canvasX,
+                top: canvasY,
+                width,
+                height,
+                cursor: 'default',
+                touchAction: 'none',
+              }
+            : {
+                left: canvasX,
+                top: canvasY,
+                width,
+                height,
+                background,
+                boxShadow: isDark
+                  ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+                  : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                overflow: isSelected ? 'visible' : 'hidden',
+                cursor: 'default',
+                touchAction: 'none',
+              }
       }
     >
       {children}
@@ -179,13 +195,15 @@ function StickyCard({
 
   const textStyle = note.textStyle
   const isPlain = textStyle === 'plain'
+  const isAuto = note.widthMode === 'auto'
 
   // Auto-size: measure the rendered card and push size back to main so the
-  // selection outline tracks the actual content. Plain text only — stickies
-  // keep their explicit width/height. Coalesces with rAF so a burst of
+  // selection outline tracks the actual content. Only active in 'auto' mode
+  // — once flipped to 'fixed' (sticky always, or after a manual resize), the
+  // entity keeps its explicit width/height. Coalesces with rAF so a burst of
   // ResizeObserver entries during typing only triggers one IPC.
   useEffect(() => {
-    if (!isPlain) return
+    if (!isAuto) return
     const el = shellRef.current
     if (!el) return
     let pendingFrame = 0
@@ -215,7 +233,7 @@ function StickyCard({
       observer.disconnect()
       if (pendingFrame) cancelAnimationFrame(pendingFrame)
     }
-  }, [isPlain, note.id, onUpdateSize])
+  }, [isAuto, note.id, onUpdateSize])
 
   // Stickies always sit on a light colored background; pass isDark=false so
   // CodeMirror renders dark text matching the view-mode color below.
@@ -223,14 +241,15 @@ function StickyCard({
   const textColor = isPlain ? (isDark ? '#e7e5e4' : '#1c1917') : '#1c1917'
   const placeholder = isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'
 
-  const innerColumnStyle: React.CSSProperties = isPlain
-    ? { display: 'flex', flexDirection: 'column' }
-    : {
-        width: note.width,
-        height: note.height,
-        display: 'flex',
-        flexDirection: 'column',
-      }
+  const innerColumnStyle: React.CSSProperties =
+    isPlain && isAuto
+      ? { display: 'flex', flexDirection: 'column' }
+      : {
+          width: note.width,
+          height: note.height,
+          display: 'flex',
+          flexDirection: 'column',
+        }
 
   const fontSize = note.textSize ?? DEFAULT_TEXT_SIZE
   const editorClassName = isPlain
@@ -265,6 +284,7 @@ function StickyCard({
       isSelected={isSelected}
       background={resolveCanvasColor(note.color, { role: 'fill', isDark })}
       textStyle={textStyle}
+      isAuto={isAuto}
       shellRef={shellRef}
     >
       <div style={innerColumnStyle}>
@@ -288,6 +308,7 @@ function StickyCard({
             placeholder={placeholder}
             className={editorClassName}
             style={editorStyle}
+            lineWrap={!isAuto}
           />
         ) : (
           <div className={viewClassName} style={viewStyle}>
@@ -305,6 +326,7 @@ const MemoStickyCard = memo(StickyCard, (prev, next) => {
     prev.note.text === next.note.text &&
     prev.note.color === next.note.color &&
     prev.note.textStyle === next.note.textStyle &&
+    prev.note.widthMode === next.note.widthMode &&
     prev.note.textSize === next.note.textSize &&
     prev.note.canvasX === next.note.canvasX &&
     prev.note.canvasY === next.note.canvasY &&

@@ -73,12 +73,13 @@ export function ShapeToolPopup({
           })}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
-          {STROKE_WIDTH_PRESETS.map((width) => (
+          {STROKE_WIDTH_PRESETS.map((width, index) => (
             <StrokeWidthSwatch
               key={width}
               isDark={isDark}
               active={activeStrokeWidth === width}
-              width={width}
+              variant={index === 0 ? 'thin' : 'thick'}
+              ink={currentColor}
               ariaLabel={`Set default shape stroke width to ${width}px`}
               onClick={() => {
                 const patch: ToolDefaultPatch = {

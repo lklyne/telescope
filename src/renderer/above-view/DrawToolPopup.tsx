@@ -53,7 +53,7 @@ export function DrawToolPopup({
                 }
               }}
             >
-              <Icon size={14} />
+              <Icon size={14} ink={currentColor} />
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>
@@ -80,12 +80,13 @@ export function DrawToolPopup({
           })}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
-          {widthPresets.map((width) => (
+          {widthPresets.map((width, index) => (
             <StrokeWidthSwatch
               key={width}
               isDark={isDark}
               active={activeStrokeWidth === width}
-              width={width}
+              variant={index === 0 ? 'thin' : 'thick'}
+              ink={currentColor}
               ariaLabel={`Set default brush width to ${width}px`}
               onClick={() => {
                 const patch: ToolDefaultPatch = {

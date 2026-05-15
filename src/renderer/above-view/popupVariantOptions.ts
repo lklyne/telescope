@@ -1,8 +1,9 @@
 // ADR 0008 §5 — shared variant/stroke-width options across popups + toolbar.
 
-import { Circle, Diamond, Highlighter, PencilLine, Square } from 'lucide-react'
+import { Circle, Diamond, Square } from 'lucide-react'
 import type { ComponentType } from 'react'
 import type { DrawingBrushType, ShapeKind } from '../../shared/types'
+import { PenMarkerIcon, PenSlimIcon } from '../shared/CustomIcons'
 
 export const SHAPE_VARIANT_OPTIONS: Array<{
   kind: ShapeKind
@@ -17,10 +18,10 @@ export const SHAPE_VARIANT_OPTIONS: Array<{
 export const BRUSH_VARIANT_OPTIONS: Array<{
   kind: DrawingBrushType
   label: string
-  Icon: ComponentType<{ size?: number }>
+  Icon: ComponentType<{ size?: number; ink?: string }>
 }> = [
-  { kind: 'pen', label: 'Pen', Icon: PencilLine },
-  { kind: 'highlight', label: 'Highlighter', Icon: Highlighter },
+  { kind: 'pen', label: 'Pen', Icon: PenSlimIcon },
+  { kind: 'highlight', label: 'Highlighter', Icon: PenMarkerIcon },
 ]
 
 // Ordered thin → thick.

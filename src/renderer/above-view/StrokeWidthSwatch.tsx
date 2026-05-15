@@ -4,20 +4,25 @@
  */
 
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { StrokeThickIcon, StrokeThinIcon } from '../shared/CustomIcons'
 
 export function StrokeWidthSwatch({
   isDark,
   active,
-  width,
+  variant,
+  ink,
   onClick,
   ariaLabel,
 }: {
   isDark: boolean
   active: boolean
-  width: number
+  variant: 'thin' | 'thick'
+  ink?: string | null
   onClick: () => void
   ariaLabel: string
 }) {
+  const Icon = variant === 'thin' ? StrokeThinIcon : StrokeThickIcon
+  const iconColor = ink ?? (isDark ? '#e4e4e7' : '#3f3f46')
   return (
     <CanvasItemPopup.IconButton
       isDark={isDark}
@@ -26,10 +31,7 @@ export function StrokeWidthSwatch({
       ariaLabel={ariaLabel}
       onClick={onClick}
     >
-      <span
-        className={`block w-4 rounded-full ${isDark ? 'bg-zinc-200' : 'bg-zinc-700'}`}
-        style={{ height: width }}
-      />
+      <Icon style={{ color: iconColor }} />
     </CanvasItemPopup.IconButton>
   )
 }

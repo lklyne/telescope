@@ -54,3 +54,34 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      - name: Populate release notes from changelog.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          NOTES=$(mktemp)
+          # Extract the section between this version's heading and the next ## [ heading,
+          # buffering blank lines so trailing whitespace is trimmed.
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            found && /^## \[/ { exit }
+            found {
+              if ($0 ~ /^[[:space:]]*$/) { blanks = blanks "\n"; next }
+              if (!started) { started = 1; blanks = "" }
+              printf "%s%s\n", blanks, $0
+              blanks = ""
+            }
+          ' changelog.md > "$NOTES"
+          if [ ! -s "$NOTES" ]; then
+            echo "No changelog section for $VERSION; leaving release notes empty"
+            exit 0
+          fi
+          # Release should exist after publish, but retry briefly in case of eventual consistency
+          for i in 1 2 3 4 5; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 5
+          done
+          gh release edit "$TAG" --notes-file "$NOTES"

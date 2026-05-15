@@ -97,7 +97,12 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on('tool-defaults-set', (_event, patch: ToolDefaultPatch) => {
     if (!patch || typeof patch !== 'object') return
-    if (patch.scope !== 'add-text' && patch.scope !== 'add-shape' && patch.scope !== 'draw') return
+    if (
+      patch.scope !== 'add-text' &&
+      patch.scope !== 'add-sticky' &&
+      patch.scope !== 'add-shape' &&
+      patch.scope !== 'draw'
+    ) return
     applyToolDefaultPatch(patch)
   })
 

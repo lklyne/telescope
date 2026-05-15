@@ -279,8 +279,8 @@ function placementEntityKindForTool(tool: ReturnType<typeof uiActiveTool>): Pend
       return 'page'
     case 'add-text':
       return 'text'
-    case 'add-document':
-      return 'file'
+    case 'add-sticky':
+      return 'text'
     case 'add-shape':
       return 'shape'
     default:
@@ -295,7 +295,12 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
   const isFile = entityKind === 'file'
   const isShape = entityKind === 'shape'
   const presetIndex = tool.kind === 'add-page' ? tool.presetIndex : undefined
-  const textStyle = tool.kind === 'add-text' ? tool.style : undefined
+  const textStyle =
+    tool.kind === 'add-sticky'
+      ? 'sticky'
+      : tool.kind === 'add-text'
+        ? 'plain'
+        : undefined
   const customSize = tool.kind === 'add-page' ? tool.customSize === true : false
   const sourcePageId = tool.kind === 'add-page' ? tool.sourcePageId : undefined
   // shapeKind moved to tool defaults per ADR 0009 — preview reads the persisted

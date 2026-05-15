@@ -17,14 +17,14 @@ const ALL_KINDS: ToolKind[] = [
   'select',
   'add-page',
   'add-text',
-  'add-document',
+  'add-sticky',
   'add-shape',
   'comment',
   'draw',
   'inspect',
 ]
 
-const ONE_SHOT_KINDS: ToolKind[] = ['add-page', 'add-text', 'add-document', 'add-shape']
+const ONE_SHOT_KINDS: ToolKind[] = ['add-page', 'add-text', 'add-sticky', 'add-shape']
 const PERSISTENT_KINDS: ToolKind[] = [
   'select',
   'comment',
@@ -34,11 +34,10 @@ const PERSISTENT_KINDS: ToolKind[] = [
 
 function makeTool(kind: ToolKind): Tool {
   switch (kind) {
-    case 'add-text':
-      return { kind: 'add-text', style: 'plain' }
     case 'select':
     case 'add-page':
-    case 'add-document':
+    case 'add-text':
+    case 'add-sticky':
     case 'add-shape':
     case 'comment':
     case 'draw':
@@ -98,9 +97,8 @@ describe('toolGerund mapping (cursor-label / status-bar narration)', () => {
   it('maps each tool kind to its lowercase gerund', () => {
     expect(toolGerund({ kind: 'select' })).toBe('selecting')
     expect(toolGerund({ kind: 'add-page' })).toBe('adding page')
-    expect(toolGerund({ kind: 'add-text', style: 'plain' })).toBe('adding text')
-    expect(toolGerund({ kind: 'add-text', style: 'sticky' })).toBe('adding sticky note')
-    expect(toolGerund({ kind: 'add-document' })).toBe('adding document')
+    expect(toolGerund({ kind: 'add-text' })).toBe('adding text')
+    expect(toolGerund({ kind: 'add-sticky' })).toBe('adding sticky note')
     expect(toolGerund({ kind: 'add-shape' })).toBe('adding shape')
     expect(toolGerund({ kind: 'comment' })).toBe('commenting')
     expect(toolGerund({ kind: 'draw' })).toBe('drawing')
@@ -126,8 +124,8 @@ describe('isAnnotationTool / isPlacementTool helpers', () => {
 
   it('classifies the placement cluster (replaces former pendingPlacement)', () => {
     expect(isPlacementTool({ kind: 'add-page' })).toBe(true)
-    expect(isPlacementTool({ kind: 'add-text', style: 'plain' })).toBe(true)
-    expect(isPlacementTool({ kind: 'add-document' })).toBe(true)
+    expect(isPlacementTool({ kind: 'add-text' })).toBe(true)
+    expect(isPlacementTool({ kind: 'add-sticky' })).toBe(true)
     expect(isPlacementTool({ kind: 'add-shape' })).toBe(true)
     expect(isPlacementTool({ kind: 'select' })).toBe(false)
     expect(isPlacementTool({ kind: 'comment' })).toBe(false)

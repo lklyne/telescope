@@ -24,7 +24,6 @@ import {
   getShapeDefaults,
 } from '../runtime/tool-defaults'
 import {
-  createFileEntity,
   createShapeEntity,
   createTextEntity,
   deleteDrawingEntity,
@@ -48,7 +47,7 @@ import {
   updateResizeGuides,
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
-import { createNoteFile, readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
+import { readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
 import {
   activeTool,
   finishOneShotPlacement,
@@ -112,25 +111,23 @@ export function registerCanvasEntityIpc(): void {
       const dragRect = payload.dragRect ?? null
       const tool = activeTool()
       if (tool.kind === 'add-text') {
-        const defaultColor =
-          tool.style === 'sticky'
-            ? getStickyDefaultColor()
-            : getPlainTextDefaultColor() ?? undefined
         const created = createTextEntity({
           canvasX,
           canvasY,
-          textStyle: tool.style,
-          color: defaultColor,
+          textStyle: 'plain',
+          color: getPlainTextDefaultColor() ?? undefined,
         })
         selectEntity(created.id, 'text')
         beginEditingEntity(created.id)
-      } else if (tool.kind === 'add-document') {
-        try {
-          const filePath = createNoteFile()
-          createFileEntity({ canvasX, canvasY, file: filePath, width: 300, height: 300 })
-        } catch (error) {
-          console.error('Failed to create note file:', error)
-        }
+      } else if (tool.kind === 'add-sticky') {
+        const created = createTextEntity({
+          canvasX,
+          canvasY,
+          textStyle: 'sticky',
+          color: getStickyDefaultColor(),
+        })
+        selectEntity(created.id, 'text')
+        beginEditingEntity(created.id)
       } else if (tool.kind === 'add-shape') {
         const defaults = getShapeDefaults()
         const created = dragRect

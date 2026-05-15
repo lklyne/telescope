@@ -18,7 +18,8 @@ describe('tool-defaults: normalizeToolDefaults', () => {
 
   it('round-trips a complete persisted blob', () => {
     const persisted = {
-      'add-text': { 'sticky.color': '1', 'plain.color': '5' },
+      'add-text': { color: '5', textSize: 32 },
+      'add-sticky': { color: '1', textSize: 18 },
       'add-shape': { shapeKind: 'ellipse' as const, color: '#abcdef', strokeWidth: 4 },
       draw: { brushType: 'highlight' as const, color: '#111111', strokeWidth: 6 },
     }
@@ -30,6 +31,7 @@ describe('tool-defaults: normalizeToolDefaults', () => {
     const out = normalizeToolDefaults(partial)
     expect(out.draw).toEqual(partial.draw)
     expect(out['add-text']).toEqual(DEFAULT_TOOL_DEFAULTS['add-text'])
+    expect(out['add-sticky']).toEqual(DEFAULT_TOOL_DEFAULTS['add-sticky'])
     expect(out['add-shape']).toEqual(DEFAULT_TOOL_DEFAULTS['add-shape'])
   })
 
@@ -45,12 +47,23 @@ describe('tool-defaults: normalizeToolDefaults', () => {
     expect(out['add-shape'].strokeWidth).toBe(1)
   })
 
-  it('accepts plain.color: null as a valid override (reserved/inherit)', () => {
+  it('accepts text color null as a valid override (inherit)', () => {
+    const out = normalizeToolDefaults({
+      'add-text': { color: null, textSize: 32 },
+      'add-sticky': { color: '2', textSize: 56 },
+    })
+    expect(out['add-text'].color).toBe(null)
+    expect(out['add-text'].textSize).toBe(32)
+    expect(out['add-sticky'].color).toBe('2')
+    expect(out['add-sticky'].textSize).toBe(56)
+  })
+
+  it('migrates legacy text default color keys', () => {
     const out = normalizeToolDefaults({
       'add-text': { 'sticky.color': '2', 'plain.color': null },
     })
-    expect(out['add-text']['sticky.color']).toBe('2')
-    expect(out['add-text']['plain.color']).toBe(null)
+    expect(out['add-text'].color).toBe(null)
+    expect(out['add-sticky'].color).toBe('2')
   })
 
   it('isolates per-tool keys: changing draw color does not affect shape color', () => {

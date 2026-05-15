@@ -20,9 +20,10 @@ export function TextToolPopup({
   layout: LayoutUpdateData
   style: TextEntityStyle
 }) {
-  const key: 'sticky.color' | 'plain.color' =
-    style === 'sticky' ? 'sticky.color' : 'plain.color'
-  const currentRaw = layout.toolDefaults['add-text'][key]
+  const currentRaw =
+    style === 'sticky'
+      ? layout.toolDefaults['add-sticky'].color
+      : layout.toolDefaults['add-text'].color
   const current = currentRaw === null ? null : resolveCanvasColor(currentRaw)
   return (
     <CanvasItemPopup.ViewportAnchor layout={layout} open offset={8}>
@@ -41,8 +42,8 @@ export function TextToolPopup({
                 onClick={() => {
                   const patch: ToolDefaultPatch =
                     style === 'sticky'
-                      ? { scope: 'add-text', key: 'sticky.color', value: option.id }
-                      : { scope: 'add-text', key: 'plain.color', value: option.id }
+                      ? { scope: 'add-sticky', key: 'color', value: option.id }
+                      : { scope: 'add-text', key: 'color', value: option.id }
                   api.setToolDefault(patch)
                 }}
               />

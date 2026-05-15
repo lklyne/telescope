@@ -1258,7 +1258,15 @@ export default function App({
                   api={api}
                   isDark={isDark}
                   layout={layoutData}
-                  style={layoutData.activeTool.style}
+                  style="plain"
+                />
+              ) : null}
+              {layoutData.activeTool.kind === 'add-sticky' ? (
+                <TextToolPopup
+                  api={api}
+                  isDark={isDark}
+                  layout={layoutData}
+                  style="sticky"
                 />
               ) : null}
               {layoutData.activeTool.kind === 'add-shape' ? (

@@ -29,11 +29,11 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   'tool-add-page': () => {
     setActiveTool({ kind: 'add-page' })
   },
-  'tool-add-text-plain': () => {
-    setActiveTool({ kind: 'add-text', style: 'plain' })
+  'tool-add-text': () => {
+    setActiveTool({ kind: 'add-text' })
   },
-  'tool-add-text-sticky': () => {
-    setActiveTool({ kind: 'add-text', style: 'sticky' })
+  'tool-add-sticky': () => {
+    setActiveTool({ kind: 'add-sticky' })
   },
   'tool-add-shape-rectangle': () => {
     setActiveTool({ kind: 'add-shape' })
@@ -154,4 +154,3 @@ export function selectAllEntities(): void {
   if (!entityIds.length) return
   selectEntities(entityIds)
 }
-

@@ -25,6 +25,8 @@ export interface TextEntity {
   text: string
   color: string
   textStyle: TextEntityStyle
+  /** Per-entity text size in px. Optional — renderer defaults to 18. ADR 0013 §2. */
+  textSize?: number
   canvasX: number
   canvasY: number
   width: number
@@ -59,6 +61,7 @@ export function createTextEntity(input: {
   text?: string
   color?: string
   textStyle?: TextEntityStyle
+  textSize?: number
   width?: number
   height?: number
   id?: string
@@ -70,6 +73,7 @@ export function createTextEntity(input: {
     text: input.text ?? '',
     color: normalizeStoredColor(input.color ?? '3'),
     textStyle: input.textStyle ?? 'sticky',
+    textSize: input.textSize,
     canvasX: input.canvasX,
     canvasY: input.canvasY,
     width: input.width ?? DEFAULT_TEXT_WIDTH,
@@ -88,6 +92,7 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
   if (patch.text !== undefined) entity.text = patch.text
   if (patch.color !== undefined) entity.color = normalizeStoredColor(patch.color)
   if (patch.textStyle !== undefined) entity.textStyle = patch.textStyle
+  if (patch.textSize !== undefined) entity.textSize = patch.textSize
   if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
   if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
   if (patch.width !== undefined) entity.width = patch.width
@@ -124,6 +129,7 @@ export function buildTextEntitySceneEntity(
     text: entity.text,
     color: entity.color,
     textStyle: entity.textStyle,
+    textSize: entity.textSize,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
     width: entity.width,
@@ -143,6 +149,7 @@ export function persistTextEntity(entity: TextEntity): PersistedTextEntity {
     text: entity.text,
     color: entity.color,
     textStyle: entity.textStyle,
+    textSize: entity.textSize,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
     width: entity.width,

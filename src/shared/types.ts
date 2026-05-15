@@ -154,6 +154,8 @@ export interface CanvasSceneTextEntity {
   text: string
   color: string
   textStyle: TextEntityStyle
+  /** Per-entity text size in px. Missing → renderer default (18). ADR 0013 §2. */
+  textSize?: number
   canvasX: number
   canvasY: number
   width: number
@@ -261,6 +263,8 @@ export interface CanvasSceneShapeEntity {
   text: string
   color?: string
   strokeWidth?: number
+  /** Per-entity text size in px for the inner label. ADR 0013 §2. */
+  textSize?: number
   theme?: string
   canvasX: number
   canvasY: number
@@ -328,6 +332,8 @@ export interface PersistedTextEntity extends CanvasEntityBase {
   height: number
   /** Optional — reader defaults to 'sticky' when absent (legacy canvases). See ADR 0004. */
   textStyle?: TextEntityStyle
+  /** Optional — renderer defaults to 18 ("Small") when absent. ADR 0013 §2. */
+  textSize?: number
   label?: string
 }
 
@@ -372,6 +378,8 @@ export interface PersistedShapeEntity extends CanvasEntityBase {
   text: string
   color?: string
   strokeWidth?: number
+  /** Per-entity text size in px for the inner label. ADR 0013 §2. */
+  textSize?: number
   theme?: string
   width: number
   height: number
@@ -1258,6 +1266,8 @@ export interface ClipboardEntityPayload {
   text?: string
   color?: string
   textStyle?: TextEntityStyle
+  /** Per-entity text size in px (text + shape entities). ADR 0013 §2. */
+  textSize?: number
   width?: number
   height?: number
   // File entity-specific
@@ -1691,7 +1701,7 @@ export interface CanvasBgElectronAPI {
   deleteSelectedEntities: () => void
   tidySelectedEntities: () => void
   createTextEntity: (canvasX: number, canvasY: number, text?: string, color?: string) => void
-  updateTextEntity: (id: string, patch: { text?: string; color?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
   updateFileEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
@@ -1700,7 +1710,7 @@ export interface CanvasBgElectronAPI {
   updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }) => void
   deleteDrawingEntity: (id: string) => void
   duplicateDrawingEntity: (id: string) => void
-  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteShapeEntity: (id: string) => void
   duplicateShapeEntity: (id: string) => void
   placePendingShape: (
@@ -1994,7 +2004,7 @@ export interface DevtoolsPanelElectronAPI {
   pickRepoForOrigin: (origin: string) => void
   removeOriginBinding: (origin: string) => void
   setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
-  updateTextEntity: (id: string, patch: { color?: string }) => void
+  updateTextEntity: (id: string, patch: { color?: string; textSize?: number }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
   updateFileEntity: (id: string, patch: { objectFit?: FileObjectFit }) => void
@@ -2005,7 +2015,7 @@ export interface DevtoolsPanelElectronAPI {
   setFileDeviceOrientation: (fileId: string, orientation: string) => void
   toggleFileDeviceShell: (fileId: string) => void
   deleteDrawingEntity: (id: string) => void
-  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteShapeEntity: (id: string) => void
   updateEdge: (id: string, patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string }) => void
   deleteEdge: (id: string) => void

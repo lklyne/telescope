@@ -17,6 +17,7 @@ import type {
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { TextKindToggle } from './TextKindToggle'
+import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 
 export function StickyNotePopover({
@@ -45,6 +46,9 @@ export function StickyNotePopover({
 
   const sharedColor = sharedValue(selectedTextEntities.map((e) => e.color))
   const activeSlot = slotForStorage(sharedColor)
+  const sharedTextSize = sharedValue(
+    selectedTextEntities.map((e) => e.textSize ?? TEXT_SIZE_DEFAULT),
+  )
 
   const entityIds = selectedTextEntities.map((e) => e.id)
   const noun = count === 1 ? 'sticky note' : `${count} text entities`
@@ -92,6 +96,18 @@ export function StickyNotePopover({
               />
             )
           })}
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Section>
+          <TextSizeDropdown
+            isDark={isDark}
+            value={sharedTextSize ?? TEXT_SIZE_DEFAULT}
+            ariaLabel={`Set ${noun} text size`}
+            onPick={(size) => {
+              for (const e of selectedTextEntities) {
+                api.updateTextEntity(e.id, { textSize: size })
+              }
+            }}
+          />
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton

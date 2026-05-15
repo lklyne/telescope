@@ -20,10 +20,34 @@ describe('tool-defaults: normalizeToolDefaults', () => {
     const persisted = {
       'add-text': { color: '5', textSize: 32, textKind: 'long' as const },
       'add-sticky': { color: '1', textSize: 18 },
-      'add-shape': { shapeKind: 'ellipse' as const, color: '#abcdef', strokeWidth: 4 },
+      'add-shape': {
+        shapeKind: 'ellipse' as const,
+        color: '#abcdef',
+        strokeWidth: 4,
+        textSize: 56,
+      },
       draw: { brushType: 'highlight' as const, color: '#111111', strokeWidth: 6 },
     }
     expect(normalizeToolDefaults(persisted)).toEqual(persisted)
+  })
+
+  it('defaults add-shape.textSize to 18 when absent (legacy preferences)', () => {
+    const out = normalizeToolDefaults({
+      'add-shape': { shapeKind: 'rectangle' as const, color: '1', strokeWidth: 2 },
+    })
+    expect(out['add-shape'].textSize).toBe(DEFAULT_TOOL_DEFAULTS['add-shape'].textSize)
+  })
+
+  it('accepts a custom add-shape.textSize', () => {
+    const out = normalizeToolDefaults({
+      'add-shape': {
+        shapeKind: 'rectangle' as const,
+        color: '1',
+        strokeWidth: 2,
+        textSize: 96,
+      },
+    })
+    expect(out['add-shape'].textSize).toBe(96)
   })
 
   it('defaults textKind to short when absent', () => {

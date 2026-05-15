@@ -630,6 +630,7 @@ export function createTextEntity(input: {
   text?: string
   color?: string
   textStyle?: import('../../shared/types').TextEntityStyle
+  textSize?: number
   width?: number
   height?: number
   id?: string
@@ -759,6 +760,7 @@ export function createShapeEntity(input: {
   text?: string
   color?: string
   strokeWidth?: number
+  textSize?: number
   id?: string
 }): ShapeEntity {
   const entity = createShapeEntityInState(input)

@@ -33,6 +33,7 @@ export interface ToolDefaults {
     shapeKind: ShapeKind
     color: string
     strokeWidth: number
+    textSize: number
   }
   draw: {
     brushType: DrawingBrushType
@@ -63,6 +64,7 @@ export const DEFAULT_TOOL_DEFAULTS: ToolDefaults = {
     shapeKind: 'rectangle',
     color: '1', // red preset
     strokeWidth: 2,
+    textSize: 18,
   },
   draw: {
     brushType: 'pen',
@@ -110,6 +112,8 @@ export function normalizeToolDefaults(
     if (typeof s.color === 'string') merged['add-shape'].color = s.color
     if (typeof s.strokeWidth === 'number' && Number.isFinite(s.strokeWidth))
       merged['add-shape'].strokeWidth = s.strokeWidth
+    if (typeof s.textSize === 'number' && Number.isFinite(s.textSize))
+      merged['add-shape'].textSize = s.textSize
   }
   if (obj.draw && typeof obj.draw === 'object') {
     const d = obj.draw
@@ -144,6 +148,7 @@ export type ToolDefaultPatch =
   | { scope: 'add-shape'; key: 'shapeKind'; value: ShapeKind }
   | { scope: 'add-shape'; key: 'color'; value: string }
   | { scope: 'add-shape'; key: 'strokeWidth'; value: number }
+  | { scope: 'add-shape'; key: 'textSize'; value: number }
   | { scope: 'draw'; key: 'brushType'; value: DrawingBrushType }
   | { scope: 'draw'; key: 'color'; value: string }
   | { scope: 'draw'; key: 'strokeWidth'; value: number }

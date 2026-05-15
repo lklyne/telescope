@@ -391,6 +391,7 @@ export function duplicateEntity(input: {
       text: note.text,
       color: note.color,
       textStyle: note.textStyle,
+      textSize: note.textSize,
       width: note.width,
       height: note.height,
     })
@@ -444,6 +445,7 @@ export function duplicateEntity(input: {
       text: shape.text,
       color: shape.color,
       strokeWidth: shape.strokeWidth,
+      textSize: shape.textSize,
       theme: shape.theme,
       width: shape.width,
       height: shape.height,

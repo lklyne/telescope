@@ -19,6 +19,7 @@ import {
   nearestStrokeWidthPreset,
 } from './popupVariantOptions'
 import { StrokeWidthSwatch } from './StrokeWidthSwatch'
+import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 
 export function ShapePopup({
@@ -53,6 +54,9 @@ export function ShapePopup({
     selectedShapes.map((s) =>
       s.strokeWidth !== undefined ? nearestStrokeWidthPreset(s.strokeWidth) : null,
     ),
+  )
+  const sharedTextSize = sharedValue(
+    selectedShapes.map((s) => s.textSize ?? TEXT_SIZE_DEFAULT),
   )
 
   const entityIds = selectedShapes.map((s) => s.id)
@@ -120,6 +124,18 @@ export function ShapePopup({
               }}
             />
           ))}
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Section>
+          <TextSizeDropdown
+            isDark={isDark}
+            value={sharedTextSize ?? TEXT_SIZE_DEFAULT}
+            ariaLabel={`Set ${noun} text size`}
+            onPick={(size) => {
+              for (const s of selectedShapes) {
+                api.updateShapeEntity(s.id, { textSize: size })
+              }
+            }}
+          />
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton

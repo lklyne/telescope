@@ -24,6 +24,8 @@ import { MarkdownEditor } from '../shared/MarkdownEditor'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
+/** ADR 0013 §2 — entities without textSize render at this size ("Small"). */
+const DEFAULT_TEXT_SIZE = 18
 
 /**
  * Wraps the sticky body cards in a viewport transform so they live in
@@ -230,12 +232,13 @@ function StickyCard({
         flexDirection: 'column',
       }
 
+  const fontSize = note.textSize ?? DEFAULT_TEXT_SIZE
   const editorClassName = isPlain
     ? 'w-full pl-0 pr-2 py-0'
     : 'flex-1 w-full px-2.5 pb-2'
   const editorStyle: React.CSSProperties = {
     boxSizing: 'border-box',
-    fontSize: 12,
+    fontSize,
     color: textColor,
     fontFamily: 'system-ui, sans-serif',
     paddingTop: isPlain ? 0 : '0.3em',
@@ -245,7 +248,7 @@ function StickyCard({
     ? 'select-none text-block-markdown pr-2'
     : 'flex-1 select-none overflow-hidden text-block-markdown px-2 pb-2'
   const viewStyle: React.CSSProperties = {
-    fontSize: 12,
+    fontSize,
     color: textColor,
     fontFamily: 'system-ui, sans-serif',
     wordBreak: 'break-word',
@@ -302,6 +305,7 @@ const MemoStickyCard = memo(StickyCard, (prev, next) => {
     prev.note.text === next.note.text &&
     prev.note.color === next.note.color &&
     prev.note.textStyle === next.note.textStyle &&
+    prev.note.textSize === next.note.textSize &&
     prev.note.canvasX === next.note.canvasX &&
     prev.note.canvasY === next.note.canvasY &&
     prev.note.width === next.note.width &&

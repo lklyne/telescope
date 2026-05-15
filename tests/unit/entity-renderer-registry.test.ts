@@ -195,3 +195,21 @@ describe('built-in component-render plugin', () => {
     expect(componentRenderPlugin.claims(fileEntity({ file: 'a.md' }))).toBe(false)
   })
 })
+
+describe('built-in wireframe-render plugin', () => {
+  it('contributes wireframe popup controls only through the wireframe claim', async () => {
+    const { wireframeRenderPlugin } = await import(
+      '../../src/main/plugins/builtin/wireframe-render'
+    )
+
+    expect(wireframeRenderPlugin.claims(fileEntity({ file: 'flow.wireframe.json' }))).toBe(
+      true,
+    )
+    expect(wireframeRenderPlugin.claims(fileEntity({ file: 'notes.md' }))).toBe(false)
+    expect(wireframeRenderPlugin.popupContributionTags).toEqual([
+      'wireframe-theme',
+      'wireframe-json-mode',
+      'wireframe-device-controls',
+    ])
+  })
+})

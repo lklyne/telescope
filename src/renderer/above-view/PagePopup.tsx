@@ -10,6 +10,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
 const URL_INPUT_MIN_WIDTH = 280
@@ -29,6 +30,8 @@ export function PagePopup({
     | 'goBackPage'
     | 'goForwardPage'
     | 'reloadPage'
+    | 'setDeviceOrientation'
+    | 'toggleDeviceShell'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -140,6 +143,16 @@ export function PagePopup({
                 style={{ minWidth: URL_INPUT_MIN_WIDTH }}
               />
             </CanvasItemPopup.Section>
+            <DeviceViewportPopupControls
+              isDark={isDark}
+              showDeviceFrame={single.showDeviceFrame ?? false}
+              orientation={single.deviceOrientation ?? 'portrait'}
+              noun="page"
+              onToggleDeviceFrame={() => api.toggleDeviceShell(single.id)}
+              onSetOrientation={(orientation) =>
+                api.setDeviceOrientation(single.id, orientation)
+              }
+            />
           </>
         ) : null}
         <CanvasItemPopup.Section>

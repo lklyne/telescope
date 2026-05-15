@@ -33,7 +33,12 @@ export function FilePopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    'renameFileEntity' | 'duplicateFileEntity' | 'deleteFileEntity' | 'writeNoteFile'
+    | 'renameFileEntity'
+    | 'duplicateFileEntity'
+    | 'deleteFileEntity'
+    | 'writeNoteFile'
+    | 'setFileDeviceOrientation'
+    | 'toggleFileDeviceShell'
   >
   isDark: boolean
   layout: LayoutUpdateData

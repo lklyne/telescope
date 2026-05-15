@@ -23,7 +23,7 @@ export interface JsonCanvasNodeBase {
 
 /**
  * Specular-only fields on a JSON Canvas node, namespaced so they don't
- * collide with other tools' extensions. See ADR 0004 and ADR 0013 §1.
+ * collide with other tools' extensions. See ADR 0004 and ADR 0013 §1/§2.
  */
 export interface SpecularNodeExtensions {
   /** 'plain' = unbacked text; 'sticky' = colored card. Missing → 'sticky'. */
@@ -34,6 +34,11 @@ export interface SpecularNodeExtensions {
    * carries `"1"` (red preset) only as a cross-tool fallback. See ADR 0013 §1.
    */
   colorRole?: 'neutral'
+  /**
+   * Per-entity text size in pixels. Used by text (plain + sticky) and shape
+   * (inner label). Missing → renderer defaults to 18 ("Small"). ADR 0013 §2.
+   */
+  textSize?: number
 }
 
 export interface JsonCanvasTextNode extends JsonCanvasNodeBase {

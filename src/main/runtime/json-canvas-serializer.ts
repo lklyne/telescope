@@ -145,7 +145,7 @@ function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNod
     text: entity.text,
     color: isNeutral ? '1' : entity.color,
   }
-  const specular = buildSpecularExtensions(entity.textStyle, isNeutral)
+  const specular = buildSpecularExtensions(entity.textStyle, isNeutral, entity.textSize)
   if (specular) node.specular = specular
   return node
 }
@@ -153,11 +153,13 @@ function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNod
 function buildSpecularExtensions(
   textStyle: PersistedTextEntity['textStyle'] | undefined,
   isNeutral: boolean,
+  textSize: number | undefined,
 ): JsonCanvasTextNode['specular'] {
-  if (textStyle === undefined && !isNeutral) return undefined
+  if (textStyle === undefined && !isNeutral && textSize === undefined) return undefined
   const ext: NonNullable<JsonCanvasTextNode['specular']> = {}
   if (textStyle !== undefined) ext.textStyle = textStyle
   if (isNeutral) ext.colorRole = 'neutral'
+  if (textSize !== undefined) ext.textSize = textSize
   return ext
 }
 
@@ -194,7 +196,11 @@ function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCanvasShap
     label: entity.label,
     parentGroupId: entity.parentGroupId,
   }
-  if (isNeutral) node.specular = { colorRole: 'neutral' }
+  if (isNeutral || entity.textSize !== undefined) {
+    node.specular = {}
+    if (isNeutral) node.specular.colorRole = 'neutral'
+    if (entity.textSize !== undefined) node.specular.textSize = entity.textSize
+  }
   return node
 }
 
@@ -351,6 +357,7 @@ function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTextEntit
     text: node.text,
     color,
     textStyle: node.specular?.textStyle ?? 'sticky',
+    textSize: node.specular?.textSize,
     canvasX: node.x,
     canvasY: node.y,
     width: node.width,
@@ -384,6 +391,7 @@ function deserializeShapeNodeToShape(node: JsonCanvasShapeNode): PersistedShapeE
     text: node.text ?? '',
     color,
     strokeWidth: node.strokeWidth,
+    textSize: node.specular?.textSize,
     theme: node.theme,
     canvasX: node.x,
     canvasY: node.y,

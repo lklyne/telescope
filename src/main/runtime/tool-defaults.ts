@@ -33,6 +33,14 @@ export function getPlainTextDefaultColor(): string | null {
   return readToolDefaults()['add-text'].color
 }
 
+export function getTextDefaultSize(): number {
+  return readToolDefaults()['add-text'].textSize
+}
+
+export function getStickyDefaultSize(): number {
+  return readToolDefaults()['add-sticky'].textSize
+}
+
 export function getAddTextKind(): 'short' | 'long' {
   return readToolDefaults()['add-text'].textKind
 }
@@ -74,7 +82,8 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
     case 'add-shape':
       if (patch.key === 'shapeKind') next['add-shape'].shapeKind = patch.value
       else if (patch.key === 'color') next['add-shape'].color = patch.value
-      else next['add-shape'].strokeWidth = patch.value
+      else if (patch.key === 'strokeWidth') next['add-shape'].strokeWidth = patch.value
+      else next['add-shape'].textSize = patch.value
       break
     case 'draw':
       if (patch.key === 'brushType') next.draw.brushType = patch.value
@@ -103,7 +112,8 @@ function currentValueFor(
     case 'add-shape':
       if (patch.key === 'shapeKind') return current['add-shape'].shapeKind
       if (patch.key === 'color') return current['add-shape'].color
-      return current['add-shape'].strokeWidth
+      if (patch.key === 'strokeWidth') return current['add-shape'].strokeWidth
+      return current['add-shape'].textSize
     case 'draw':
       if (patch.key === 'brushType') return current.draw.brushType
       if (patch.key === 'color') return current.draw.color

@@ -23,6 +23,8 @@ import {
   getPlainTextDefaultColor,
   getShapeDefaults,
   getAddTextKind,
+  getTextDefaultSize,
+  getStickyDefaultSize,
 } from '../runtime/tool-defaults'
 import {
   morphMarkdownFileToTextEntity,
@@ -135,6 +137,7 @@ export function registerCanvasEntityIpc(): void {
             canvasY,
             textStyle: 'plain',
             color: getPlainTextDefaultColor() ?? undefined,
+            textSize: getTextDefaultSize(),
           })
           selectEntity(created.id, 'text')
           beginEditingEntity(created.id)
@@ -145,6 +148,7 @@ export function registerCanvasEntityIpc(): void {
           canvasY,
           textStyle: 'sticky',
           color: getStickyDefaultColor(),
+          textSize: getStickyDefaultSize(),
         })
         selectEntity(created.id, 'text')
         beginEditingEntity(created.id)
@@ -159,6 +163,7 @@ export function registerCanvasEntityIpc(): void {
               shapeKind: defaults.shapeKind,
               color: defaults.color,
               strokeWidth: defaults.strokeWidth,
+              textSize: defaults.textSize,
             })
           : createShapeEntity({
               canvasX,
@@ -166,6 +171,7 @@ export function registerCanvasEntityIpc(): void {
               shapeKind: defaults.shapeKind,
               color: defaults.color,
               strokeWidth: defaults.strokeWidth,
+              textSize: defaults.textSize,
             })
         selectEntity(created.id, 'shape')
         beginEditingEntity(created.id)
@@ -582,7 +588,7 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(
     'canvas-update-text-entity',
-    (_event, { id, patch }: { id: string; patch: { text?: string; color?: string; width?: number; height?: number; canvasX?: number; canvasY?: number } }) => {
+    (_event, { id, patch }: { id: string; patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number } }) => {
       updateTextEntity(id, patch)
     },
   )
@@ -638,6 +644,7 @@ export function registerCanvasEntityIpc(): void {
           text: string
           color: string
           strokeWidth: number
+          textSize: number
           theme: string
           width: number
           height: number

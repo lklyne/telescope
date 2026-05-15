@@ -136,7 +136,7 @@ const api: CanvasBgElectronAPI = {
   tidySelectedEntities: () => ipcRenderer.send('canvas-tidy-selection'),
   createTextEntity: (canvasX: number, canvasY: number, text?: string, color?: string) =>
     ipcRenderer.send('canvas-create-text-entity', { canvasX, canvasY, text, color }),
-  updateTextEntity: (id: string, patch: { text?: string; color?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) =>
+  updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number }) =>
     ipcRenderer.send('canvas-update-text-entity', { id, patch }),
   duplicateTextEntity: (id: string) =>
     ipcRenderer.send('canvas-duplicate-text-entity', { id }),

@@ -16,6 +16,7 @@ import type {
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { TextKindToggle } from './TextKindToggle'
+import { TextSizeDropdown } from './TextSizeDropdown'
 
 export function TextToolPopup({
   api,
@@ -36,6 +37,10 @@ export function TextToolPopup({
   // Sticky bodies are surface-fill role; plain text glyphs are ink role.
   const swatchRole = style === 'sticky' ? 'fill' : 'ink'
   const textKind = layout.toolDefaults['add-text'].textKind
+  const currentTextSize =
+    style === 'sticky'
+      ? layout.toolDefaults['add-sticky'].textSize
+      : layout.toolDefaults['add-text'].textSize
   return (
     <CanvasItemPopup.ViewportAnchor layout={layout} open offset={8}>
       <CanvasItemPopup.Frame isDark={isDark}>
@@ -73,6 +78,20 @@ export function TextToolPopup({
               />
             )
           })}
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Section>
+          <TextSizeDropdown
+            isDark={isDark}
+            value={currentTextSize}
+            ariaLabel={`Set default ${style} text size`}
+            onPick={(size) => {
+              const patch: ToolDefaultPatch =
+                style === 'sticky'
+                  ? { scope: 'add-sticky', key: 'textSize', value: size }
+                  : { scope: 'add-text', key: 'textSize', value: size }
+              api.setToolDefault(patch)
+            }}
+          />
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>

@@ -17,6 +17,7 @@ import {
   nearestStrokeWidthPreset,
 } from './popupVariantOptions'
 import { StrokeWidthSwatch } from './StrokeWidthSwatch'
+import { TextSizeDropdown } from './TextSizeDropdown'
 
 export function ShapeToolPopup({
   api,
@@ -97,6 +98,21 @@ export function ShapeToolPopup({
               }}
             />
           ))}
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Section>
+          <TextSizeDropdown
+            isDark={isDark}
+            value={defaults.textSize}
+            ariaLabel="Set default shape text size"
+            onPick={(size) => {
+              const patch: ToolDefaultPatch = {
+                scope: 'add-shape',
+                key: 'textSize',
+                value: size,
+              }
+              api.setToolDefault(patch)
+            }}
+          />
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>

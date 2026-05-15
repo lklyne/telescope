@@ -1,20 +1,80 @@
 import type { ComponentProps } from 'react'
 
 // Custom-drawn icons exported from the agent-canvas Figma file
-// (file key hgwwoe0EzUrErdviULmRtb). These are the Specular-specific
-// glyphs that don't ship with lucide-react. Standard icons (copy, trash,
-// chevrons, etc.) continue to come from lucide-react.
+// (file key hgwwoe0EzUrErdviULmRtb).
 //
-// Figma source nodes:
-//   PenSlimIcon    → 360:12   (and 360:67 dark variant; same vector)
-//   PenMarkerIcon  → 360:22   (and 360:77 dark variant; same vector)
-//   StrokeThinIcon → 360:37   (and 360:91 dark variant; same vector)
-//   StrokeThickIcon → 360:39  (and 360:93 dark variant; same vector)
+// Two flavors:
+//   - Pen-popup icons (PenSlimIcon / PenMarkerIcon / StrokeThinIcon /
+//     StrokeThickIcon): inline JSX because the pen icons take an `ink` prop
+//     so the marker tip and cap can preview the active pen color.
+//   - Toolbar icons (Select / Hand / Draw / AddSticky / AddShape / AddPage /
+//     AddText / Comment / Inspect / Theme / ZoomChevron): rendered from raw
+//     SVG assets in ./icons/toolbar/*.svg. The toolbar glyphs are illustrative
+//     (gradients, drop-shadows, multi-path bodies) and ship as static images;
+//     <img> sidesteps id-collision worries with the SVG <defs> and keeps
+//     Figma-exported colors verbatim.
 //
-// Pen icons accept an `ink` prop to swap the marker-tip / cap color so
-// the brush variant button can preview the active pen color. Default is
-// the design's #BD4BE5 purple so the icon renders verbatim when used
-// without a color binding.
+// Re-extracting from Figma: see docs/adr/0013-popup-menus-v2.md §Icons for
+// the per-node id table and an mcp__plugin_figma_figma__use_figma recipe.
+
+import addPageUrl from './icons/toolbar/add-page.svg'
+import addShapeUrl from './icons/toolbar/add-shape.svg'
+import addStickyUrl from './icons/toolbar/add-sticky.svg'
+import addTextUrl from './icons/toolbar/add-text.svg'
+import commentUrl from './icons/toolbar/comment.svg'
+import drawUrl from './icons/toolbar/draw.svg'
+import handUrl from './icons/toolbar/hand.svg'
+import inspectUrl from './icons/toolbar/inspect.svg'
+import selectUrl from './icons/toolbar/select.svg'
+import themeUrl from './icons/toolbar/theme.svg'
+import zoomChevronUrl from './icons/toolbar/zoom-chevron.svg'
+
+// ── Toolbar icons ──────────────────────────────────────────────────────────
+
+type ToolbarIconProps = {
+  size?: number
+  className?: string
+  style?: React.CSSProperties
+}
+
+function makeToolbarIcon(
+  url: string,
+  naturalWidth: number,
+  naturalHeight: number,
+  name: string,
+) {
+  const Icon = ({ size = 20, className, style }: ToolbarIconProps) => (
+    <img
+      src={url}
+      alt=""
+      aria-hidden
+      draggable={false}
+      width={size}
+      height={(size * naturalHeight) / naturalWidth}
+      className={className}
+      style={style}
+    />
+  )
+  Icon.displayName = name
+  return Icon
+}
+
+// Natural dimensions match each Figma export so the aspect ratio is preserved
+// when callers pass a custom `size`. Defaults render at 20px wide which is the
+// toolbar inner-button glyph size locked in ADR 0013 §8.
+export const SelectToolIcon = makeToolbarIcon(selectUrl, 24, 24, 'SelectToolIcon')
+export const HandToolIcon = makeToolbarIcon(handUrl, 26, 26, 'HandToolIcon')
+export const DrawToolIcon = makeToolbarIcon(drawUrl, 20, 30, 'DrawToolIcon')
+export const AddStickyToolIcon = makeToolbarIcon(addStickyUrl, 27, 27, 'AddStickyToolIcon')
+export const AddShapeToolIcon = makeToolbarIcon(addShapeUrl, 28, 25, 'AddShapeToolIcon')
+export const AddPageToolIcon = makeToolbarIcon(addPageUrl, 29, 27, 'AddPageToolIcon')
+export const AddTextToolIcon = makeToolbarIcon(addTextUrl, 24, 23, 'AddTextToolIcon')
+export const CommentToolIcon = makeToolbarIcon(commentUrl, 25, 25, 'CommentToolIcon')
+export const InspectToolIcon = makeToolbarIcon(inspectUrl, 25, 25, 'InspectToolIcon')
+export const ThemeToolIcon = makeToolbarIcon(themeUrl, 26, 26, 'ThemeToolIcon')
+export const ZoomChevronIcon = makeToolbarIcon(zoomChevronUrl, 12, 12, 'ZoomChevronIcon')
+
+// ── Pen-popup icons (inline JSX so `ink` can theme dynamically) ────────────
 
 type PenIconProps = {
   ink?: string

@@ -198,18 +198,59 @@ Use `mcp__plugin_figma_figma__get_design_context` or `…__get_screenshot` again
 
 ## Icons
 
-The codebase already uses `lucide-react` (`Copy`, `Trash2`, `Circle`, `Square`, `Diamond`, `Type`, `ChevronDown`, `Pipette`, `Sun`, `Hand`, `MousePointer2`, `RotateCw`, `SquareSquare`, `RotateCwSquare`, etc.). Every Figma node whose name matches `lucide/<icon-name>` resolves to the corresponding lucide-react import — no extraction needed.
+The Figma `lucide/<name>` layer names are *origin labels*, not a guarantee the glyph still matches stock lucide-react. Two surfaces are treated differently:
 
-The Specular-specific glyphs (which don't exist in lucide) live in `src/renderer/shared/PopupIcons.tsx`, exported as React components from the Figma file:
+- **Toolbar** glyphs are custom illustrations (gradient fills, drop-shadows, multi-path bodies, accent colors) — every one of them, even nodes named `lucide/*`. They live in `src/renderer/shared/CustomIcons.tsx` as React components rendering from `src/renderer/shared/icons/toolbar/*.svg`. The `<img>` wrapper sidesteps SVG `<defs>` id collisions and keeps Figma-exported colors verbatim.
+- **Popup-row** glyphs (`lucide/copy`, `lucide/trash`, `lucide/square`, etc.) are stock lucide shapes converted to filled paths at 14×14. Visual delta vs stock `lucide-react` at popup-button size is negligible, so the implementation uses `lucide-react` directly — no extraction needed.
 
-| Component | Figma node | Use |
+The pen-popup-specific custom glyphs (`PenSlimIcon`, `PenMarkerIcon`, `StrokeThinIcon`, `StrokeThickIcon`) also live in `CustomIcons.tsx` as inline JSX so the `ink` prop can preview the active pen color.
+
+### Source-of-truth node ids
+
+Figma file: `hgwwoe0EzUrErdviULmRtb` (the **agent-canvas** Figma file).
+
+| Toolbar slot | Figma node | Component (in `CustomIcons.tsx`) | Raw SVG |
+|---|---|---|---|
+| Select | `362:602` | `SelectToolIcon` | `icons/toolbar/select.svg` |
+| Hand (pan) | `362:606` | `HandToolIcon` | `icons/toolbar/hand.svg` |
+| Draw | `362:614` | `DrawToolIcon` | `icons/toolbar/draw.svg` |
+| Add sticky | `362:625` | `AddStickyToolIcon` | `icons/toolbar/add-sticky.svg` |
+| Add shape | `362:631` | `AddShapeToolIcon` | `icons/toolbar/add-shape.svg` |
+| Add page | `362:636` | `AddPageToolIcon` | `icons/toolbar/add-page.svg` |
+| Add text | `362:649` | `AddTextToolIcon` | `icons/toolbar/add-text.svg` |
+| Comment | `362:653` | `CommentToolIcon` | `icons/toolbar/comment.svg` |
+| Inspect | `362:658` | `InspectToolIcon` | `icons/toolbar/inspect.svg` |
+| Theme | `362:663` | `ThemeToolIcon` | `icons/toolbar/theme.svg` |
+| Zoom chevron | `362:668` | `ZoomChevronIcon` | `icons/toolbar/zoom-chevron.svg` |
+
+The Figma toolbar visual order matches the §5 ordering (`select, hand, draw, add-sticky, add-shape, add-page, add-text, comment, inspect, theme, zoom`).
+
+| Pen-popup custom | Figma node (light / dark) | Component |
 |---|---|---|
-| `PenSlimIcon` | `360:12` (light) / `360:67` (dark) | Pen brush variant in draw popup + toolbar |
-| `PenMarkerIcon` | `360:22` (light) / `360:77` (dark) | Marker / highlighter brush variant |
-| `StrokeThinIcon` | `360:37` / `360:91` | Thin stroke-width preview button |
-| `StrokeThickIcon` | `360:39` / `360:93` | Thick stroke-width preview button |
+| Pen-slim brush | `360:12` / `360:67` | `PenSlimIcon` |
+| Pen-marker brush | `360:22` / `360:77` | `PenMarkerIcon` |
+| Stroke-thin preview | `360:37` / `360:91` | `StrokeThinIcon` |
+| Stroke-thick preview | `360:39` / `360:93` | `StrokeThickIcon` |
 
-Pen icons accept an `ink` prop so the marker tip and cap can swap to the active pen color (default is the design's `#BD4BE5` purple). To refresh or add custom icons, use `mcp__plugin_figma_figma__use_figma` with `node.exportAsync({ format: 'SVG' })` and paste into `PopupIcons.tsx`.
+### Re-extracting from Figma
+
+If a designer changes a toolbar icon, re-pull via the Figma MCP plugin and overwrite the matching `.svg`:
+
+```ts
+mcp__plugin_figma_figma__use_figma({
+  fileKey: 'hgwwoe0EzUrErdviULmRtb',
+  code: `
+    const node = await figma.getNodeByIdAsync('362:614');
+    const bytes = await node.exportAsync({ format: 'SVG' });
+    let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return s;
+  `,
+});
+```
+
+The exported SVG can be saved as-is; no JSX conversion or id-rescoping needed because the toolbar icons render via `<img>`.
+
+**Dark-mode toolbar.** Currently only light-mode SVGs are committed — the Figma file does not define dark-mode toolbar variants (only the pen popup has `360:66` etc.). Theme handling for the toolbar is deferred to Phase 8: either pull dark-mode equivalents into a parallel `icons/toolbar-dark/` set and theme-switch at render time, or use a CSS filter (e.g. `filter: invert()` with a per-icon tweak) on the existing assets.
 
 ## Migration
 

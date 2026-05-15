@@ -4,6 +4,8 @@ End-to-end build plan for the popup-menu refresh, broken into 8 tracer-bullet ve
 
 **Canonical decisions:** [`docs/adr/0013-popup-menus-v2.md`](../adr/0013-popup-menus-v2.md). Read this first — every phase below is a slice of that ADR.
 
+**Figma source of truth:** `agent-canvas` file (key `hgwwoe0EzUrErdviULmRtb`). Use `mcp__plugin_figma_figma__get_design_context` / `…__get_screenshot` against the popup row node ids listed in ADR 0013 §8 to refresh visual references. Custom-drawn icons (`PenSlimIcon`, `PenMarkerIcon`, `StrokeThinIcon`, `StrokeThickIcon`) already exported into `src/renderer/shared/PopupIcons.tsx` — standard icons come from `lucide-react`.
+
 **Tracker issues:**
 
 | Phase | Issue | Type | Blocked by |
@@ -31,6 +33,10 @@ Foundation slice. Updates the `CanvasItemPopup` shared primitives (container, in
 - Inner button: 24×24, radius 6, no border in any state. Fill `#fdf8f5` light / `rgba(253,248,245,0.1)` dark on hover (any button) and on persistent-active (toggles).
 - Color swatch: 20×20 with 12px dot; outer ring in the swatch's own color when active.
 - Single fill color drives hover and active. `DestructiveButton` variant is removed.
+
+**Custom icons**: `src/renderer/shared/PopupIcons.tsx` (already in this branch — `PenSlimIcon`, `PenMarkerIcon`, `StrokeThinIcon`, `StrokeThickIcon`). Wire `PenSlimIcon` / `PenMarkerIcon` into the brush variant buttons and `StrokeThinIcon` / `StrokeThickIcon` into the stroke-width preview buttons. Standard popup glyphs (copy, trash, chevron, etc.) keep using `lucide-react`.
+
+**Visual reference**: Figma node `360:10` (light mode) and `360:66` (dark mode). Pull with `mcp__plugin_figma_figma__get_screenshot` for parity checks.
 
 **Acceptance criteria**
 

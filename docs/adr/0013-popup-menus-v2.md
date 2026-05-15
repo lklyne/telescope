@@ -118,6 +118,21 @@ These are *also* still available in the right panel; the popup adds a faster pat
 
 One fill color drives every interactive state. No borders on idle, hover, or active.
 
+**Figma source of truth.** All popup pixel/color/radius values pulled from `file://hgwwoe0EzUrErdviULmRtb` (the **agent-canvas** Figma file). Per-popup row node ids:
+
+| Row | Light-mode node | Dark-mode node |
+|---|---|---|
+| Pen popup | `360:10` | `360:66` |
+| Sticky popup | `362:123` | — |
+| Shape popup | `362:165` | — |
+| Page popup | `362:210` | — |
+| Text popup (short text) | `362:257` | — |
+| Text popup (long / `.md`) | `362:297` | — |
+| Toolbar (header) | `362:600` | — |
+| Element-name composer | `362:672` | — |
+
+Use `mcp__plugin_figma_figma__get_design_context` or `…__get_screenshot` against these node ids to refresh any visual reference during implementation.
+
 | Token | Light | Dark |
 |---|---|---|
 | Container bg | `#ece9e7` | `#3a3836` |
@@ -180,6 +195,21 @@ One fill color drives every interactive state. No borders on idle, hover, or act
 - Stroke-as-selectable sub-selection inside a drawing.
 - Toolbar visual tokens beyond what the popup already pins (the toolbar will reuse the popup's container/button styling; specific buttons and shortcuts are a stacked PR).
 - Migration of pre-existing canvases to the new 8-color palette — they stay on the legacy 6-color mapping until a user edits them.
+
+## Icons
+
+The codebase already uses `lucide-react` (`Copy`, `Trash2`, `Circle`, `Square`, `Diamond`, `Type`, `ChevronDown`, `Pipette`, `Sun`, `Hand`, `MousePointer2`, `RotateCw`, `SquareSquare`, `RotateCwSquare`, etc.). Every Figma node whose name matches `lucide/<icon-name>` resolves to the corresponding lucide-react import — no extraction needed.
+
+The Specular-specific glyphs (which don't exist in lucide) live in `src/renderer/shared/PopupIcons.tsx`, exported as React components from the Figma file:
+
+| Component | Figma node | Use |
+|---|---|---|
+| `PenSlimIcon` | `360:12` (light) / `360:67` (dark) | Pen brush variant in draw popup + toolbar |
+| `PenMarkerIcon` | `360:22` (light) / `360:77` (dark) | Marker / highlighter brush variant |
+| `StrokeThinIcon` | `360:37` / `360:91` | Thin stroke-width preview button |
+| `StrokeThickIcon` | `360:39` / `360:93` | Thick stroke-width preview button |
+
+Pen icons accept an `ink` prop so the marker tip and cap can swap to the active pen color (default is the design's `#BD4BE5` purple). To refresh or add custom icons, use `mcp__plugin_figma_figma__use_figma` with `node.exportAsync({ format: 'SVG' })` and paste into `PopupIcons.tsx`.
 
 ## Migration
 

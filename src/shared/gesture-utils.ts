@@ -9,7 +9,6 @@ export {
   screenRectToCanvasRect,
   toOverlayY,
 } from './coords'
-export type { CanvasPoint, ScreenPoint, ScreenRect } from './coords'
 
 type ViewportWheelAction =
   | {

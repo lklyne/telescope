@@ -337,7 +337,7 @@ export function focusCamera(targets: { pageIds?: string[]; bounds?: { x: number;
 
 // --- Test-only: interaction controller, focus, drop ---
 
-export type InteractionMode =
+type InteractionMode =
   | { kind: 'idle' }
   | { kind: 'panning' }
   | { kind: 'marquee'; origin: { x: number; y: number }; current: { x: number; y: number } }
@@ -393,7 +393,7 @@ export function resetInteraction() {
   return post<{ ok: true }>('/test/interaction/reset')
 }
 
-export type FocusKey = 'bgView' | 'aboveView' | 'toolbar' | 'sidebar' | string | null
+type FocusKey = 'bgView' | 'aboveView' | 'toolbar' | 'sidebar' | string | null
 export type FocusTarget =
   | { kind: 'bgView' }
   | { kind: 'aboveView' }

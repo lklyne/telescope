@@ -3,7 +3,6 @@ import type {
   CurveDirection,
   EasingPreset,
   EasingSpec,
-  MotionCandidate,
   Vec2,
 } from './cursor-motion'
 import type { CursorTuningParams } from './cursor-tuning'
@@ -13,8 +12,8 @@ import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
 import type { ResizeHandle } from './resize-accumulator'
 
-export type { DrawingBrushType, Tool, ToolKind, ToolDuration } from './tool'
-export type { ToolDefaults, ToolDefaultPatch } from './tool-defaults'
+export type { DrawingBrushType, Tool } from './tool'
+export type { ToolDefaultPatch } from './tool-defaults'
 
 // --- IPC Channel Types ---
 
@@ -491,31 +490,7 @@ export interface PresenceTargetRect {
   height: number
 }
 
-export interface PresenceCoordinates {
-  canvasX?: number
-  canvasY?: number
-  pageX?: number
-  pageY?: number
-  targetRect?: PresenceTargetRect | null
-}
-
 export type PresenceTargetRefSource = 'specular' | 'agent-browser'
-
-export interface PresenceEvent {
-  sessionId: string
-  surface: PresenceSurface
-  phase: PresenceActivity
-  eventType?: 'start' | 'surface' | 'act' | 'think' | 'done' | null
-  pageId?: string | null
-  coordinates?: PresenceCoordinates | null
-  labelKey: PresenceLabelKey | null
-  taskLabel?: string | null
-  labelHint?: string | null
-  labelParams?: Record<string, string | number | boolean> | null
-  targetRef?: string | null
-  targetRefSource?: PresenceTargetRefSource | null
-  targetName?: string | null
-}
 
 export interface AgentPresenceCursor {
   sessionId: string
@@ -760,21 +735,12 @@ export interface DebugElectronAPI {
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 
-export interface DebugPreviewPath {
-  start: Vec2
-  end: Vec2
-  candidates: MotionCandidate[]
-  selectedCandidateIndex: number
-  samples: Vec2[]
-}
-
 export type {
   CursorMotionParams,
   CurveDirection,
   CursorTuningParams,
   EasingPreset,
   EasingSpec,
-  MotionCandidate,
   PresenceDebugEntry,
   Vec2,
 }
@@ -782,13 +748,6 @@ export type {
 export interface CanvasLayoutBootstrapData extends ThemeBootstrapData {
   layoutData: LayoutUpdateData
 }
-
-export interface FloatingUiUpdatePayload {
-  layoutData: LayoutUpdateData
-  surfaceOrigin: { x: number; y: number }
-}
-
-export interface FloatingUiBootstrapData extends ThemeBootstrapData, FloatingUiUpdatePayload {}
 
 // --- Panel mode (selection-driven) ---
 
@@ -1040,13 +999,6 @@ export interface DevtoolsPanelDomTarget {
     documentY: number
     isFixed: boolean
   }
-}
-
-export interface DevtoolsPanelDomInspectorState {
-  available: boolean
-  inspectMode: boolean
-  hoverTarget: DevtoolsPanelDomTarget | null
-  selectedTarget: DevtoolsPanelDomTarget | null
 }
 
 export interface ScrollSyncData {
@@ -1916,48 +1868,6 @@ export type ForwardPointerPayload = {
   ctrlKey: boolean
   altKey: boolean
   metaKey: boolean
-}
-
-export interface FloatingUiElectronAPI {
-  navigatePage: (pageId: string, url: string) => void
-  goBackPage: (pageId: string) => void
-  goForwardPage: (pageId: string) => void
-  reloadPage: (pageId: string) => void
-  setPagePreset: (pageId: string, index: number) => void
-  setPageCustom: (pageId: string) => void
-  duplicatePage: (pageId: string) => void
-  toggleLinkedPage: (pageId: string) => void
-  deletePage: (pageId: string) => void
-  updateTextEntity: (id: string, patch: { color?: string }) => void
-  duplicateTextEntity: (id: string) => void
-  deleteTextEntity: (id: string) => void
-  deleteDrawingEntity: (id: string) => void
-  startDragEntity: (entityId: string) => void
-  dragEntity: (entityId: string, dx: number, dy: number) => void
-  endDragEntity: () => void
-  setTextEditing: (active: boolean) => void
-  dropdownOpen: () => void
-  dropdownClose: () => void
-  onCloseDropdown: (callback: () => void) => () => void
-  getInitialData: () => Promise<FloatingUiBootstrapData>
-  onFloatingUiUpdate: (callback: (data: FloatingUiUpdatePayload) => void) => () => void
-  onThemeChanged: (callback: (data: ThemeData) => void) => () => void
-}
-
-export interface AboveViewElectronAPI {
-  canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
-  canvasPan: (deltaX: number, deltaY: number) => void
-  onSelectionOverlayChanged: (
-    callback: (overlay: SelectionOverlayPayload | null) => void,
-  ) => () => void
-}
-
-export interface InteractionOverlayElectronAPI {
-  canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
-  canvasPan: (deltaX: number, deltaY: number) => void
-  onSelectionOverlayChanged: (
-    callback: (overlay: SelectionOverlayPayload | null) => void,
-  ) => () => void
 }
 
 export interface DevtoolsResizeHandleElectronAPI {

@@ -11,7 +11,7 @@ type DragPageSnapshot = {
   canvasY: number
 }
 
-export type ChromeDragSession = {
+type ChromeDragSession = {
   pageId: string
   pages: DragPageSnapshot[]
   totalScreenDx: number
@@ -19,7 +19,7 @@ export type ChromeDragSession = {
   copyMode: boolean
 }
 
-export type DragCopyPreview = {
+type DragCopyPreview = {
   id: string
   left: number
   top: number

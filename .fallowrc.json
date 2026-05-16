@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "src/main/index.ts",
+    "src/main/mcp-helper.ts",
+    "src/main/cli.ts",
+
+    "src/preload/debug.ts",
+    "src/preload/toolbar.ts",
+    "src/preload/canvas-bg.ts",
+    "src/preload/left-sidebar.ts",
+    "src/preload/right-details-panel.ts",
+    "src/preload/devtools-resize-handle.ts",
+    "src/preload/page-content.ts",
+    "src/preload/onboarding.ts",
+    "src/preload/settings.ts",
+
+    "src/renderer/above-view/main.tsx",
+    "src/renderer/agent-layer/main.tsx",
+    "src/renderer/canvas-bg/main.tsx",
+    "src/renderer/debug/main.tsx",
+    "src/renderer/devtools-resize-handle/main.tsx",
+    "src/renderer/left-sidebar/main.tsx",
+    "src/renderer/onboarding/main.tsx",
+    "src/renderer/right-details-panel/main.tsx",
+    "src/renderer/settings/main.tsx",
+    "src/renderer/toolbar/main.tsx",
+
+    "tests/unit/**/*.test.ts",
+    "tests/smoke/**/*.test.ts"
+  ],
+  "rules": {
+    "unused-dependencies": "warn"
+  }
+}

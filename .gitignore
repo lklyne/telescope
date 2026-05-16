@@ -30,3 +30,5 @@ regression-screenshots/
 
 # Claude Code runtime state (active process lock — not user content)
 .claude/scheduled_tasks.lock
+
+.fallow/

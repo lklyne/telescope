@@ -51,6 +51,7 @@ export function createDefaultUiState(): UiState {
     activeTool: { kind: 'select' },
     viewMode: { kind: 'canvas' },
     leftSidebarOpen: true,
+    toolbarDropdownOpen: false,
     devtools: {
       open: false,
       activeTab: 'comments',
@@ -189,6 +190,11 @@ export function setLeftSidebarOpen(open: boolean): UiState {
   return getUiState()
 }
 
+export function setToolbarDropdownOpen(open: boolean): UiState {
+  uiState.toolbarDropdownOpen = open
+  return getUiState()
+}
+
 export function setDevtoolsPanelTab(tab: DevtoolsPanelTab): UiState {
   uiState.devtools.activeTab = tab
   if (tab !== 'comments') {
@@ -297,6 +303,10 @@ export function leftSidebarOpen(ui: UiState = uiState): boolean {
   return ui.leftSidebarOpen
 }
 
+export function toolbarDropdownOpen(ui: UiState = uiState): boolean {
+  return ui.toolbarDropdownOpen
+}
+
 export function devtoolsPanelTab(ui: UiState = uiState): DevtoolsPanelTab {
   return ui.devtools.activeTab
 }
@@ -335,6 +345,7 @@ function cloneUiState(input: UiState): UiState {
     activeTool: input.activeTool,
     viewMode: { ...input.viewMode },
     leftSidebarOpen: input.leftSidebarOpen,
+    toolbarDropdownOpen: input.toolbarDropdownOpen,
     devtools: { ...input.devtools },
     overlays: { ...input.overlays },
   }

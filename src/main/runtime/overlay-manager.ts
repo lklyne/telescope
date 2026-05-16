@@ -25,7 +25,6 @@ import {
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import { selectionDebug } from './runtime-constants'
-import { boundEffectivePageContentSize } from './runtime-geometry'
 import { requestLayout } from './viewport-control'
 import { safeSend } from './safe-send'
 
@@ -88,30 +87,13 @@ export function sendInteractiveState(): void {
   }
 }
 
-/** Off-screen position for automation views that aren't visible on the canvas. */
-const AUTOMATION_OFFSCREEN_ORIGIN = -10_000
-
 export function beginAutomationInteractivePage(pageId: string): void {
   addAutomationInteractivePageId(pageId)
   sendInteractiveState()
-
-  const page = pages.find((p) => p.id === pageId)
-  if (!page || page.pageView.webContents.isDestroyed()) return
-
-  // Ensure the view has non-zero bounds so Chromium has a real viewport.
-  // If the page is off-screen (culled to 0×0 by layoutAllViews), park it
-  // off-screen with proper dimensions. This lets agents work pages that
-  // aren't visible on the canvas.
-  const currentBounds = page.pageView.getBounds()
-  if (currentBounds.width === 0 || currentBounds.height === 0) {
-    const size = boundEffectivePageContentSize(page)
-    page.pageView.setBounds({
-      x: AUTOMATION_OFFSCREEN_ORIGIN,
-      y: AUTOMATION_OFFSCREEN_ORIGIN,
-      width: size.width,
-      height: size.height,
-    })
-  }
+  // The layout pass parks automation-interactive pages off-screen at their
+  // logical viewport size, so an agent always has a real viewport even when
+  // the page isn't visible on the canvas.
+  requestLayout()
 }
 
 export function endAutomationInteractivePage(pageId: string): void {

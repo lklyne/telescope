@@ -18,7 +18,6 @@ import type {
   DevtoolsPanelData,
 } from '../../shared/types'
 import {
-  devtoolsView,
   setDevtoolsView,
   win,
 } from './view-refs'
@@ -127,9 +126,8 @@ export function attachBrowserDevtoolsToPage(index: number): void {
       nextPage.devtoolsHostAttached = true
     }
 
-    if (devtoolsView && devtoolsView !== nextInspectorView) {
-      devtoolsView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-    }
+    // The layout pass hides whichever host is no longer active once
+    // setDevtoolsView re-points the alias.
     setDevtoolsView(nextInspectorView)
 
     // openDevTools is safe to call whether the session is new or was just hidden
@@ -165,10 +163,10 @@ function selectedPages(): Page[] {
 function ensureDevtoolsView(page: Page): WebContentsView | null {
   if (!win) return null
   if (!page.devtoolsHostView) {
+    // Construction only — the layout pass child-list reconcile attaches it.
     page.devtoolsHostView = new WebContentsView()
     page.devtoolsHostView.setBackgroundColor('#242424')
     page.devtoolsHostView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-    win.contentView.addChildView(page.devtoolsHostView)
   }
   return page.devtoolsHostView
 }

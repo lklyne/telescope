@@ -81,11 +81,12 @@ export function createPage(config: PageConfig): Page {
   breadcrumb('page', 'create', { host: hostOf(config.url), preset: config.presetIndex })
   const presetIndex = normalizePresetIndex(config.presetIndex)
 
+  // Construction only — the layout pass child-list reconcile (layer-stack)
+  // owns attachment. createPage just pushes to pages[] and requests layout.
   const frameView = new WebContentsView()
   frameView.setBackgroundColor(frameColor())
   frameView.setBorderRadius(CARD_BORDER_RADIUS)
   frameView.webContents.loadURL('about:blank')
-  win.contentView.addChildView(frameView)
 
   const pageView = new WebContentsView({
     webPreferences: {
@@ -95,7 +96,6 @@ export function createPage(config: PageConfig): Page {
     },
   })
   pageView.setBorderRadius(CARD_BORDER_RADIUS)
-  win.contentView.addChildView(pageView)
 
   const page: Page = {
     id: config.id ?? makePageId(),
@@ -269,11 +269,8 @@ export function removePageAtIndex(idx: number): Page | null {
   const page = pages[idx]
   breadcrumb('page', 'remove', { host: hostOf(page.url) })
   clearPendingRequestsForPage(page.id)
-  win.contentView.removeChildView(page.frameView)
-  win.contentView.removeChildView(page.pageView)
-  if (page.devtoolsHostView) {
-    win.contentView.removeChildView(page.devtoolsHostView)
-  }
+  // Detachment is owned by the layout pass child-list reconcile — splice
+  // pages[], close the webContents, and request layout below.
   page.frameView.webContents.close()
   page.pageView.webContents.close()
   page.devtoolsHostView?.webContents.close()
@@ -282,7 +279,7 @@ export function removePageAtIndex(idx: number): Page | null {
   // focus() call lands at the end of the next layout pass via reconcileFocus.
   setPendingFocus({ kind: 'aboveView' })
   pages.splice(idx, 1)
-  markDirty('canvas', 'sidebar', 'toolbar', 'pages')
+  markDirty('canvas', 'sidebar', 'toolbar', 'pages', 'stack')
   invalidateAgentSnapshot(page.id)
   const previousSelectedIndex = uiSelectedPageIndex(pages.map((p) => p.id))
   updateSelectionForRemovedEntity(page.id)
@@ -298,6 +295,7 @@ export function removePageAtIndex(idx: number): Page | null {
 
   sendInteractiveState()
   syncInspectionState()
+  requestLayout()
   return page
 }
 

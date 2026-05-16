@@ -334,9 +334,9 @@ export function initWindow(): void {
 
   // interaction-overlay retired in Phase 5d — above-view owns input gate.
 
-  // Keep the panel renderers alive offscreen so the first visible open does not
-  // pay the renderer startup and first-paint cost on the user's click.
-  const devtoolsPrewarmBounds = { x: -10_000, y: 0, width: 1, height: 1 }
+  // The panel renderers are warmed offscreen by the first layout pass,
+  // which parks closed devtools views at DEVTOOLS_HIDDEN_BOUNDS — no
+  // bootstrap prewarm bounds needed here.
 
   setDevtoolsBackgroundView(new WebContentsView())
   const currentDevtoolsBackgroundView = devtoolsBackgroundView
@@ -344,7 +344,6 @@ export function initWindow(): void {
   currentDevtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
   currentDevtoolsBackgroundView.webContents.loadURL('about:blank')
   currentWin.contentView.addChildView(currentDevtoolsBackgroundView)
-  currentDevtoolsBackgroundView.setBounds(devtoolsPrewarmBounds)
 
   setDevtoolsHeaderView(new WebContentsView({
     webPreferences: {
@@ -368,7 +367,6 @@ export function initWindow(): void {
     notifyDevtoolsPanelData()
   })
   currentWin.contentView.addChildView(currentDevtoolsHeaderView)
-  currentDevtoolsHeaderView.setBounds(devtoolsPrewarmBounds)
 
   setDevtoolsResizeHandleView(new WebContentsView({
     webPreferences: {
@@ -387,7 +385,6 @@ export function initWindow(): void {
     currentDevtoolsResizeHandleView.webContents.send('theme-changed', { isDark: isDark() })
   })
   currentWin.contentView.addChildView(currentDevtoolsResizeHandleView)
-  currentDevtoolsResizeHandleView.setBounds(devtoolsPrewarmBounds)
 
   // Attach binding dispatcher to all initial views
   attachBindingDispatcher(currentBgView.webContents, 'canvasBg')

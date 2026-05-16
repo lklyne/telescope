@@ -25,12 +25,13 @@ export default tseslint.config(
     },
     plugins: { local: localRules },
     rules: {
-      // Phase 5d-v2 E4: rules stand up as warnings because pre-existing
-      // call sites are pervasive (window-init layout, wireframe mouse
-      // events). The rules are visible in CI / PR review so no new
-      // violations land; conversion to 'error' waits until the legacy
-      // sites are migrated in a follow-up.
-      'local/no-direct-view-mutation': 'warn',
+      // no-direct-view-mutation is 'error': the layout pass now owns every
+      // view mutation (epic oqwsau8q completed the pass), so any new direct
+      // setBounds/setVisible/addChildView/removeChildView outside
+      // layout-engine / layer-stack is a real invariant break.
+      'local/no-direct-view-mutation': 'error',
+      // no-mouse-events stays a warning: legacy wireframe mouse-event call
+      // sites are still pervasive (invariant I8 migration is a follow-up).
       'local/no-mouse-events': 'warn',
     },
   },

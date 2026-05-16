@@ -33,7 +33,7 @@ import type {
   JsonCanvasAppState,
 } from '../../shared/json-canvas-types'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import { resolveCanvasColor, NEUTRAL_STORAGE } from '../../shared/canvas-colors'
+import { NEUTRAL_STORAGE } from '../../shared/canvas-colors'
 import { pageCustomSizeFromMetadata } from './runtime-entities'
 
 // --- Serialize ---
@@ -361,10 +361,10 @@ function deserializeLinkNodeToPage(node: JsonCanvasLinkNode): PersistedPageEntit
 }
 
 function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTextEntity {
+  // Color is kept raw — a preset number, the 'neutral' sentinel, or a literal
+  // hex — so the renderer can resolve the palette against the entity's surface.
   const color =
-    node.specular?.colorRole === 'neutral'
-      ? NEUTRAL_STORAGE
-      : resolveCanvasColor(node.color ?? '3')
+    node.specular?.colorRole === 'neutral' ? NEUTRAL_STORAGE : node.color ?? '3'
   const textStyle = node.specular?.textStyle ?? 'sticky'
   // Legacy canvases predate widthMode. Default to 'fixed' on read so saved
   // bounds are preserved — the 'auto' default only applies to brand-new

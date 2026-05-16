@@ -21,6 +21,8 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     leftSidebarOpen,
     devtoolsOpen,
     activeTool,
+    drawBrushType,
+    drawColor,
     selection,
     addressValue,
     setAddressValue,
@@ -148,6 +150,8 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 isDark={isDark}
                 isBrowserMode={isBrowserMode}
                 activeTool={activeTool}
+                drawBrushType={drawBrushType}
+                drawColor={drawColor}
                 hasPages={hasPages}
                 drawingEnabled={DRAWING_FEATURE_ENABLED}
                 hasSelection={hasSelection}
@@ -187,6 +191,8 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 isDark={isDark}
                 isBrowserMode={isBrowserMode}
                 activeTool={activeTool}
+                drawBrushType={drawBrushType}
+                drawColor={drawColor}
                 hasPages={hasPages}
                 drawingEnabled={DRAWING_FEATURE_ENABLED}
                 hasSelection={hasSelection}

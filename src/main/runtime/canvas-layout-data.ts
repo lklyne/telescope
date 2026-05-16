@@ -504,6 +504,8 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       activeTabName,
       viewMode: uiWorkspaceViewMode(),
       activeTool: uiActiveTool(),
+      drawBrushType: getToolDefaults().draw.brushType,
+      drawColor: getToolDefaults().draw.color,
     }
   }
 
@@ -539,5 +541,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     activeTabName,
     viewMode: uiWorkspaceViewMode(),
     activeTool: uiActiveTool(),
+    drawBrushType: getToolDefaults().draw.brushType,
+    drawColor: getToolDefaults().draw.color,
   }
 }

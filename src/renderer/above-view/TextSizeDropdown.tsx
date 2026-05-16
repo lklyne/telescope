@@ -34,6 +34,18 @@ export function clampTextSize(value: number): number {
   return Math.min(TEXT_SIZE_MAX, Math.max(TEXT_SIZE_MIN, Math.round(value)))
 }
 
+/**
+ * Line-height multiplier for a given text size. Large display text needs
+ * tighter leading than small body text — a constant ratio reads too airy
+ * as size grows. Eases linearly from 1.5 at the Small preset (14px) down to
+ * 1.1 at Extra large (96px) and holds there for Huge / custom values.
+ */
+export function lineHeightForTextSize(px: number): number {
+  const progress = (px - 14) / (96 - 14)
+  const ratio = 1.5 + progress * (1.1 - 1.5)
+  return Math.min(1.5, Math.max(1.1, ratio))
+}
+
 function popupClass(isDark: boolean): string {
   const base = 'z-50 min-w-[140px] rounded-[10px] border p-1 shadow-xl outline-none'
   return isDark

@@ -9,12 +9,11 @@ export const externalUpdate = Annotation.define<boolean>()
 
 // Shared metrics — must match `.text-block-markdown` rules in
 // shared/markdownStyles.css so view↔edit mode swap doesn't reflow.
-// fontSize is inherited from the editor's wrapper so per-entity `textSize`
-// (ADR 0013 §2) flows through to CodeMirror; heading sizes stay relative
-// via `em`.
+// fontSize and lineHeight are inherited from the editor's wrapper so
+// per-entity `textSize` and its size-scaled leading (ADR 0013 §2) flow
+// through to CodeMirror; heading sizes stay relative via `em`.
 export const MARKDOWN_TOKENS = {
   fontFamily: 'system-ui, sans-serif',
-  lineHeight: '1.5',
   headingWeight: '600',
   h1Size: '1.4em',
   h2Size: '1.2em',
@@ -62,7 +61,7 @@ function buildEditorTheme(isDark: boolean): Extension {
       '.cm-scroller': {
         overflow: 'auto',
         fontFamily: 'inherit',
-        lineHeight: MARKDOWN_TOKENS.lineHeight,
+        lineHeight: 'inherit',
       },
       '.cm-gutters': { display: 'none' },
     },

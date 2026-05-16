@@ -641,6 +641,10 @@ export interface ToolbarSelectionData {
   activeTabName: string | null
   viewMode: WorkspaceViewMode
   activeTool: Tool
+  /** Current draw-tool brush default — drives which glyph the Draw button shows. */
+  drawBrushType: DrawingBrushType
+  /** Current draw-tool color default (raw stored slot/hex) — tints the Draw glyph. */
+  drawColor: string
 }
 
 export interface ThemeData {

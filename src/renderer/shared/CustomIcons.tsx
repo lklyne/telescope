@@ -4,10 +4,12 @@ import { useId, type ComponentProps } from 'react'
 // (file key hgwwoe0EzUrErdviULmRtb).
 //
 // Two flavors:
-//   - Pen-popup icons (PenSlimIcon / PenMarkerIcon / StrokeThinIcon /
-//     StrokeThickIcon): inline JSX because the pen icons take an `ink` prop
-//     so the marker tip and cap can preview the active pen color.
-//   - Toolbar icons (Select / Hand / Draw / AddSticky / AddShape / AddPage /
+//   - Inline JSX (PenSlimIcon / PenMarkerIcon / StrokeThinIcon /
+//     StrokeThickIcon / DrawPenToolIcon / DrawHighlightToolIcon): the pen
+//     glyphs take an `ink` prop so the cap/tip can preview the active draw
+//     color. The two toolbar Draw glyphs additionally take `isDark` and
+//     recolor their body gradient + stroke inline — see CenterActions.
+//   - Toolbar icons (Select / Hand / AddSticky / AddShape / AddPage /
 //     AddText / Comment / Inspect / Theme / ZoomChevron): rendered from raw
 //     SVG assets in ./icons/toolbar/*.svg (light) and ./icons/toolbar/dark/
 //     (dark variants generated via color-substitution: light gradient stops
@@ -24,7 +26,6 @@ import addShapeUrl from './icons/toolbar/add-shape.svg'
 import addStickyUrl from './icons/toolbar/add-sticky.svg'
 import addTextUrl from './icons/toolbar/add-text.svg'
 import commentUrl from './icons/toolbar/comment.svg'
-import drawUrl from './icons/toolbar/draw.svg'
 import handUrl from './icons/toolbar/hand.svg'
 import inspectUrl from './icons/toolbar/inspect.svg'
 import selectUrl from './icons/toolbar/select.svg'
@@ -35,7 +36,6 @@ import addShapeDarkUrl from './icons/toolbar/dark/add-shape.svg'
 import addStickyDarkUrl from './icons/toolbar/dark/add-sticky.svg'
 import addTextDarkUrl from './icons/toolbar/dark/add-text.svg'
 import commentDarkUrl from './icons/toolbar/dark/comment.svg'
-import drawDarkUrl from './icons/toolbar/dark/draw.svg'
 import handDarkUrl from './icons/toolbar/dark/hand.svg'
 import inspectDarkUrl from './icons/toolbar/dark/inspect.svg'
 import selectDarkUrl from './icons/toolbar/dark/select.svg'
@@ -74,7 +74,327 @@ function makeToolbarIcon(lightUrl: string, darkUrl: string, name: string) {
 // Default size matches the 20×20 Figma toolbar slot.
 export const SelectToolIcon = makeToolbarIcon(selectUrl, selectDarkUrl, 'SelectToolIcon')
 export const HandToolIcon = makeToolbarIcon(handUrl, handDarkUrl, 'HandToolIcon')
-export const DrawToolIcon = makeToolbarIcon(drawUrl, drawDarkUrl, 'DrawToolIcon')
+// ── Draw toolbar glyphs (inline JSX — `ink` tracks the active draw color) ───
+//
+// The toolbar Draw button swaps glyph by `draw.brushType`: the broad marker
+// for `highlight`, the slim pen for `pen` (see CenterActions). Unlike the
+// file-based toolbar icons these are inline so `ink` (the resolved draw
+// color) tints the cap/tip; `isDark` recolors the body gradient + stroke.
+// Extracted from Figma nodes 178:150 (pen) and 410:16 (highlight).
+
+type DrawToolIconProps = {
+  size?: number
+  isDark?: boolean
+  ink?: string
+  style?: React.CSSProperties
+}
+
+// Red preset — the first-launch draw default. Callers always pass `ink`.
+const DEFAULT_DRAW_INK = '#e8b4b8'
+
+export function DrawPenToolIcon({
+  size = 20,
+  isDark = false,
+  ink = DEFAULT_DRAW_INK,
+  style,
+}: DrawToolIconProps) {
+  const uid = useId()
+  const clipId = `draw-pen-clip-${uid}`
+  const maskId = `draw-pen-mask-${uid}`
+  const capFilterId = `draw-pen-cap-${uid}`
+  const bodyFilterId = `draw-pen-body-${uid}`
+  const maskGradId = `draw-pen-mask-grad-${uid}`
+  const bodyGradId = `draw-pen-body-grad-${uid}`
+  const shineGradId = `draw-pen-shine-grad-${uid}`
+  const seamGradId = `draw-pen-seam-grad-${uid}`
+  const stroke = isDark ? '#C4BEBB' : '#18181B'
+  const maskColor = isDark ? '#484744' : '#D0CDCB'
+  const bodyTop = isDark ? '#65625D' : '#F0F0F0'
+  const bodyBottom = isDark ? '#65625D' : '#F8F8F8'
+  const shineTop = isDark ? '#484744' : '#D8D8D8'
+  const shineRest = isDark ? '#484744' : '#DBDBDB'
+  const seamTop = isDark ? '#484744' : '#D9D9D9'
+  const seamBottom = isDark ? '#C4BEBB' : '#B5B5B5'
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={style}
+    >
+      <g clipPath={`url(#${clipId})`}>
+        <mask
+          id={maskId}
+          style={{ maskType: 'alpha' }}
+          maskUnits="userSpaceOnUse"
+          x="3"
+          y="0"
+          width="15"
+          height="21"
+        >
+          <rect
+            width="15"
+            height="21"
+            transform="matrix(1 0 0 -1 3 21)"
+            fill={`url(#${maskGradId})`}
+          />
+        </mask>
+        <g mask={`url(#${maskId})`}>
+          <g filter={`url(#${capFilterId})`}>
+            <path
+              d="M12.4365 5.50696C12.4785 5.62646 12.5 5.75221 12.5 5.87888C12.5 6.49806 11.9981 7 11.3789 7L9.62112 7C9.00194 7 8.5 6.49806 8.5 5.87888C8.5 5.75221 8.52147 5.62646 8.56349 5.50696L9.98471 1.46537C10.1559 0.97867 10.8441 0.97867 11.0153 1.46537L12.4365 5.50696Z"
+              fill={ink}
+            />
+          </g>
+          <path
+            d="M13 5.87891C13 6.7742 12.2742 7.49998 11.3789 7.5L9.62109 7.5C8.72579 7.49998 8.00002 6.7742 8 5.87891C8 5.69575 8.03104 5.51361 8.0918 5.34082L9.5127 1.2998C9.8405 0.367597 11.1595 0.367598 11.4873 1.2998L12.9082 5.34082C12.969 5.51361 13 5.69575 13 5.87891Z"
+            stroke={stroke}
+          />
+          <g filter={`url(#${bodyFilterId})`}>
+            <path
+              d="M9.42307 6.01468C10.1431 5.99459 10.8056 5.99524 11.5261 6.01592C12.6811 6.04908 13.6929 6.78409 14.1292 7.85397L16.7779 14.3492C16.9246 14.7089 17 15.0936 17 15.482L17 53C17 54.6569 15.6568 56 14 56L7 56C5.34314 56 4 54.6569 4 53L4.00001 15.473C4.00001 15.0904 4.07319 14.7114 4.21561 14.3563L6.81875 7.86586C7.25047 6.78945 8.26376 6.04703 9.42307 6.01468Z"
+              fill={`url(#${bodyGradId})`}
+            />
+          </g>
+          <path
+            d="M16.5 15.4824L16.5 53C16.5 54.3807 15.3807 55.5 14 55.5L6.99999 55.5C5.61928 55.5 4.49999 54.3807 4.49999 53L4.5 15.4727C4.50004 15.154 4.56105 14.8378 4.67969 14.542L7.2832 8.05176C7.64485 7.15042 8.48799 6.54114 9.4375 6.51465C10.1477 6.49484 10.8006 6.49521 11.5117 6.51562C12.4589 6.54282 13.3007 7.14717 13.666 8.04297L16.3145 14.5381C16.4367 14.8378 16.5 15.1587 16.5 15.4824Z"
+            stroke={stroke}
+          />
+          <path
+            d="M13.1012 8.37423L16 15C14.5723 13.9005 12.4905 14.4509 11.7927 16.1123L11 18L11 7C11.9112 7 12.736 7.53942 13.1012 8.37423Z"
+            fill={`url(#${shineGradId})`}
+          />
+          <rect x="10" y="7" width="1" height="12" fill={`url(#${seamGradId})`} />
+        </g>
+      </g>
+      <defs>
+        <filter
+          id={capFilterId}
+          x="6.5"
+          y="0.100342"
+          width="7"
+          height="7.89966"
+          filterUnits="userSpaceOnUse"
+          colorInterpolationFilters="sRGB"
+        >
+          <feFlood floodOpacity="0" result="BackgroundImageFix" />
+          <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+          <feColorMatrix
+            in="SourceAlpha"
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+            result="hardAlpha"
+          />
+          <feOffset dx="-4" />
+          <feGaussianBlur stdDeviation="0.5" />
+          <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" />
+          <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.1 0" />
+          <feBlend mode="normal" in2="shape" result="effect1_innerShadow" />
+        </filter>
+        <filter
+          id={bodyFilterId}
+          x="4"
+          y="6"
+          width="13"
+          height="50"
+          filterUnits="userSpaceOnUse"
+          colorInterpolationFilters="sRGB"
+        >
+          <feFlood floodOpacity="0" result="BackgroundImageFix" />
+          <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+          <feColorMatrix
+            in="SourceAlpha"
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+            result="hardAlpha"
+          />
+          <feOffset />
+          <feGaussianBlur stdDeviation="1" />
+          <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" />
+          <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" />
+          <feBlend mode="normal" in2="shape" result="effect1_innerShadow" />
+        </filter>
+        <linearGradient
+          id={maskGradId}
+          x1="7.5"
+          y1="0"
+          x2="7.5"
+          y2="21"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={maskColor} stopOpacity="0" />
+          <stop offset="0.278846" stopColor={maskColor} />
+        </linearGradient>
+        <linearGradient
+          id={bodyGradId}
+          x1="10.8545"
+          y1="35.0134"
+          x2="9.57424"
+          y2="35.0134"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={bodyTop} />
+          <stop offset="1" stopColor={bodyBottom} />
+        </linearGradient>
+        <linearGradient
+          id={shineGradId}
+          x1="12.8501"
+          y1="7.10886"
+          x2="14.7895"
+          y2="15.577"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={shineTop} />
+          <stop offset="0.540027" stopColor={shineRest} stopOpacity="0.2" />
+          <stop offset="0.985392" stopColor={shineRest} stopOpacity="0.1" />
+        </linearGradient>
+        <linearGradient
+          id={seamGradId}
+          x1="10.5"
+          y1="7"
+          x2="10.5"
+          y2="19"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={seamTop} stopOpacity="0.33" />
+          <stop offset="1" stopColor={seamBottom} />
+        </linearGradient>
+        <clipPath id={clipId}>
+          <rect width="20" height="20" fill="white" />
+        </clipPath>
+      </defs>
+    </svg>
+  )
+}
+
+export function DrawHighlightToolIcon({
+  size = 20,
+  isDark = false,
+  ink = DEFAULT_DRAW_INK,
+  style,
+}: DrawToolIconProps) {
+  const uid = useId()
+  const clipId = `draw-hl-clip-${uid}`
+  const maskId = `draw-hl-mask-${uid}`
+  const maskGradId = `draw-hl-mask-grad-${uid}`
+  const bodyGradId = `draw-hl-body-grad-${uid}`
+  const shineGradId = `draw-hl-shine-grad-${uid}`
+  const seamGradId = `draw-hl-seam-grad-${uid}`
+  const stroke = isDark ? '#C4BEBB' : '#352C24'
+  const maskColor = isDark ? '#484744' : '#D0CDCB'
+  const bodyTop = isDark ? '#65625D' : '#F0F0F0'
+  const bodyBottom = isDark ? '#65625D' : '#F8F8F8'
+  const shineTop = isDark ? '#484744' : '#D8D8D8'
+  const shineRest = isDark ? '#484744' : '#DBDBDB'
+  const seamTop = isDark ? '#484744' : '#D9D9D9'
+  const seamBottom = isDark ? '#C4BEBB' : '#B5B5B5'
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={style}
+    >
+      <g clipPath={`url(#${clipId})`}>
+        <mask
+          id={maskId}
+          style={{ maskType: 'alpha' }}
+          maskUnits="userSpaceOnUse"
+          x="3"
+          y="0"
+          width="15"
+          height="21"
+        >
+          <rect
+            width="15"
+            height="21"
+            transform="matrix(1 0 0 -1 3 21)"
+            fill={`url(#${maskGradId})`}
+          />
+        </mask>
+        <g mask={`url(#${maskId})`}>
+          <path
+            d="M13 5.6875C13 6.68852 12.1885 7.5 11.1875 7.5L9.8125 7.5C8.87414 7.5 8.10271 6.78688 8.00977 5.87305L8 5.6875L8 4.1875C8.00021 3.85369 8.22128 3.56048 8.54199 3.46777L12.042 2.45605C12.5214 2.31759 12.9997 2.67683 13 3.17578L13 5.6875Z"
+            fill={ink}
+            stroke={stroke}
+          />
+          <path
+            d="M16.5 15.4824L16.5 53C16.5 54.3807 15.3807 55.5 14 55.5L6.99999 55.5C5.61928 55.5 4.49999 54.3807 4.49999 53L4.5 15.4727C4.50004 15.154 4.56105 14.8378 4.67969 14.542L5.56152 12.3437C6.01697 11.2081 6.35229 10.0278 6.56152 8.82227L6.6123 8.52637C6.81111 7.38097 7.76663 6.53617 8.90625 6.51465C9.93481 6.49523 11.0175 6.49561 12.0459 6.51562C13.1821 6.53774 14.1363 7.37604 14.3418 8.51562L14.3994 8.83398C14.6157 10.0339 14.9566 11.208 15.417 12.3369L16.3145 14.5381C16.4367 14.8378 16.5 15.1587 16.5 15.4824Z"
+            fill={`url(#${bodyGradId})`}
+            stroke={stroke}
+          />
+          <path
+            d="M11 18L11 7C11.8697 7 12.6161 7.61946 12.7764 8.47431L12.8714 8.98061C13.121 10.3121 13.6465 11.5767 14.414 12.6931L16 15C14.5723 13.9005 12.4905 14.4509 11.7927 16.1123L11 18Z"
+            fill={`url(#${shineGradId})`}
+          />
+          <rect
+            x="16"
+            y="16"
+            width="1"
+            height="11"
+            transform="rotate(90 16 16)"
+            fill={`url(#${seamGradId})`}
+          />
+          <rect x="5" y="17" width="11" height="4" fill={ink} />
+        </g>
+      </g>
+      <defs>
+        <linearGradient
+          id={maskGradId}
+          x1="7.5"
+          y1="0"
+          x2="7.5"
+          y2="21"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={maskColor} stopOpacity="0" />
+          <stop offset="0.278846" stopColor={maskColor} />
+        </linearGradient>
+        <linearGradient
+          id={bodyGradId}
+          x1="10.8545"
+          y1="35.0134"
+          x2="9.57424"
+          y2="35.0134"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={bodyTop} />
+          <stop offset="1" stopColor={bodyBottom} />
+        </linearGradient>
+        <linearGradient
+          id={shineGradId}
+          x1="12.8501"
+          y1="7.10886"
+          x2="14.7895"
+          y2="15.577"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={shineTop} />
+          <stop offset="0.540027" stopColor={shineRest} stopOpacity="0.2" />
+          <stop offset="0.985392" stopColor={shineRest} stopOpacity="0.1" />
+        </linearGradient>
+        <linearGradient
+          id={seamGradId}
+          x1="16.5"
+          y1="16"
+          x2="16.5"
+          y2="27"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={seamTop} stopOpacity="0.33" />
+          <stop offset="1" stopColor={seamBottom} />
+        </linearGradient>
+        <clipPath id={clipId}>
+          <rect width="20" height="20" fill="white" />
+        </clipPath>
+      </defs>
+    </svg>
+  )
+}
 export const AddStickyToolIcon = makeToolbarIcon(addStickyUrl, addStickyDarkUrl, 'AddStickyToolIcon')
 export const AddShapeToolIcon = makeToolbarIcon(addShapeUrl, addShapeDarkUrl, 'AddShapeToolIcon')
 export const AddPageToolIcon = makeToolbarIcon(addPageUrl, addPageDarkUrl, 'AddPageToolIcon')

@@ -19,9 +19,9 @@ Carrying that further has surfaced design decisions the earlier ADRs didn't bind
 
 ## Decision
 
-### 1. Eight-slot color palette, theme-and-role-aware neutral
+### 1. Eight-slot color palette, soft/vivid hues, theme-aware neutral
 
-The popup color row exposes **eight slots**, left → right: `neutral · purple · blue · cyan · green · yellow · orange · red`. The same lineup for every kind that picks a color (sticky, text, shape, drawing/pen).
+The popup color row exposes **eight slots**, left → right: `neutral · purple · blue · cyan · green · yellow · orange · red`. The same lineup for every kind that picks a color (sticky, text, shape, drawing/pen, group).
 
 Slot 1 ("neutral") is **theme-aware and role-aware**. The same on-disk encoding resolves to a different RGB depending on (a) the active color mode and (b) the entity role:
 
@@ -30,13 +30,28 @@ Slot 1 ("neutral") is **theme-aware and role-aware**. The same on-disk encoding 
 | Surface-fill (sticky, shape fill, plain-text background if any) | Light | Dark |
 | Ink (pen / highlighter stroke, plain text glyphs) | Dark | Light |
 
-Stickies marked neutral recede into the canvas; pen strokes marked neutral stand out. Slots 2–8 are fixed hues whose muted saturation reads on both light and dark canvas.
+Stickies marked neutral recede into the canvas; pen strokes marked neutral stand out.
 
-**Disk format (JSON Canvas v1.0 compliant via hex + Specular extension):**
+Slots 2–8 (the hues) carry **two palettes**. The muted-pastel set works for surfaces that should sit back; a punchier saturated set works wherever contrast matters. The palette a surface uses is fixed by the surface, not picked by the user — choosing "purple" picks the slot; the surface decides which hue:
+
+| Palette | Surfaces |
+|---|---|
+| **soft** (muted pastels) | sticky body, shape fill + stroke, highlighter brush |
+| **vivid** (saturated) | plain-text glyphs, edges/connectors, pen brush, group accent |
+
+The draw tool derives its palette from the active brush — pen → vivid, highlighter → soft. No re-keying is needed when the brush toggles: the stored value is the *slot*, and the renderer picks the hue from the brush.
+
+**Disk format (JSON Canvas v1.0 compliant — preset numbers + Specular extension):**
+
+`color` stores the **slot**, not a hue — the palette is the surface's, resolved at render. The same `"2"` reads muted orange on a sticky and punchy orange on a pen.
+
 - Neutral → `specular.colorRole: "neutral"`. The `color` field is omitted, or carries `"1"` as a fallback for other JSON Canvas readers.
-- Hues (purple…red) → 6-character hex strings in `color` per the spec's hex form. Other JSON Canvas apps render the literal RGB and ignore the `specular` object.
+- Hues → the JSON Canvas preset number: `"1"`–`"6"` for the six spec hues (red/orange/yellow/green/cyan/purple) and `"7"` for blue. The spec only numbers six colors; `"7"` is a Specular extension — other JSON Canvas apps render the first six per their own preset and fall back for blue.
+- A literal `#RRGGBB` hex is still accepted in `color` (custom colors, and canvases saved before the two-palette split) and renders verbatim — no palette resolution.
 
-Resolution lives in `src/shared/canvas-colors.ts`; the existing module gains a `role` parameter.
+Resolution lives in `src/shared/canvas-colors.ts`; the module exposes a `role` parameter (theme-aware neutral) and a `soft`/`vivid` `palette` parameter that the render sites pass from the surface they paint. An agent (or hand-edited `.canvas`) only needs to write a preset number — the palette follows the item it lands on.
+
+This supersedes the earlier "hues are fixed pastels regardless of theme/role" wording: legacy `"1"`–`"6"` values are no longer frozen to the muted hexes — they resolve per surface like any other preset.
 
 ### 2. Text size as a per-entity property
 
@@ -182,7 +197,7 @@ Use `mcp__plugin_figma_figma__get_design_context` or `…__get_screenshot` again
 
 **Costs:**
 - `.canvas` schema changes for `specular.colorRole` and `specular.textSize`. Other JSON Canvas readers ignore them.
-- Migration on read: existing canvases with `color: "1"`–`"6"` digit values continue to render via the legacy mapping (red, orange, yellow, green, cyan, purple) — they don't auto-upgrade to the new palette. Users who pick a new color from the popup write hex; users who never pick stay on the digit mapping. No automatic re-keying.
+- Existing canvases with `color: "1"`–`"6"` digit values now resolve per surface (a `"2"` sticky stays muted; a `"2"` pen stroke becomes punchy). This is intended, not a migration — the preset *is* the slot. Canvases saved during the brief window when popups wrote literal hex keep that hex and render verbatim until re-picked.
 - `add-document` removal: existing canvases with `file` entities pointing at `.md` files are unaffected (data is the same). The CLI / agent integration may reference `add-document` and needs updating.
 - Cross-kind morph implementation: needs the file-create + entity-replace pipeline to be transactional so undo reverses both halves.
 - Element-name field is a schema addition on the `Annotation` type. Backfill is unnecessary (empty string is fine for older annotations).
@@ -194,7 +209,7 @@ Use `mcp__plugin_figma_figma__get_design_context` or `…__get_screenshot` again
 - Cross-kind multi-select intersection.
 - Stroke-as-selectable sub-selection inside a drawing.
 - Toolbar visual tokens beyond what the popup already pins (the toolbar will reuse the popup's container/button styling; specific buttons and shortcuts are a stacked PR).
-- Migration of pre-existing canvases to the new 8-color palette — they stay on the legacy 6-color mapping until a user edits them.
+- Bulk re-keying of canvases saved with literal hex during the pre-split window — they render verbatim and self-heal on the next pick.
 
 ## Icons
 
@@ -213,7 +228,8 @@ Figma file: `hgwwoe0EzUrErdviULmRtb` (the **agent-canvas** Figma file).
 |---|---|---|---|
 | Select | `362:602` | `SelectToolIcon` | `icons/toolbar/select.svg` |
 | Hand (pan) | `362:606` | `HandToolIcon` | `icons/toolbar/hand.svg` |
-| Draw | `362:614` | `DrawToolIcon` | `icons/toolbar/draw.svg` |
+| Draw (highlight) | `410:16` | `DrawHighlightToolIcon` | inline JSX (`ink` + `isDark`) |
+| Draw (pen) | `178:150` | `DrawPenToolIcon` | inline JSX (`ink` + `isDark`) |
 | Add sticky | `362:625` | `AddStickyToolIcon` | `icons/toolbar/add-sticky.svg` |
 | Add shape | `362:631` | `AddShapeToolIcon` | `icons/toolbar/add-shape.svg` |
 | Add page | `362:636` | `AddPageToolIcon` | `icons/toolbar/add-page.svg` |

@@ -59,6 +59,9 @@ export function getDrawDefaults(): ToolDefaults['draw'] {
  * sees the new value on the next layout pass. `'floating-ui'` would be the
  * natural channel, but it's been retired in layout-engine — `'canvas'` is the
  * only flag that actually broadcasts `layout-update` to bg + above views.
+ *
+ * `'toolbar'` is marked too so the Draw button's glyph tracks `draw.brushType`
+ * (the toolbar only receives `toolbar-selection-changed`, not `layout-update`).
  */
 export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
   const current = readToolDefaults()
@@ -92,7 +95,7 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
       break
   }
   saveToolDefaults(next)
-  markDirty('canvas')
+  markDirty('canvas', 'toolbar')
   requestLayout()
 }
 

@@ -11,12 +11,11 @@
 
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CanvasSceneShapeEntity } from '../../shared/types'
-import { lightenHex, resolveCanvasColor, withAlpha } from '../../shared/canvas-colors'
+import { lightenHex, resolveCanvasColor } from '../../shared/canvas-colors'
 
 const DEFAULT_STROKE_WIDTH = 2
 /** ADR 0013 §2 — shapes without textSize render their label at this size. */
 const DEFAULT_TEXT_SIZE = 14
-const FILL_OPACITY = 0.24
 const FILL_LIGHTEN = 0.5
 const NEUTRAL_SLATE = '#6b7280'
 
@@ -182,9 +181,10 @@ function ShapeBody({
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
   const resolvedColor = shape.color
-    ? resolveCanvasColor(shape.color, { role: 'fill', isDark })
+    ? resolveCanvasColor(shape.color, { role: 'fill', isDark, palette: 'soft' })
     : NEUTRAL_SLATE
-  const fill = withAlpha(lightenHex(resolvedColor, FILL_LIGHTEN), FILL_OPACITY)
+  // Opaque fill — the resolved hue lightened toward white, no alpha.
+  const fill = lightenHex(resolvedColor, FILL_LIGHTEN)
   const strokeColor = resolvedColor
   const textColor = isDark ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
 

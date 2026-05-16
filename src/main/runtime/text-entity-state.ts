@@ -14,11 +14,6 @@ import type {
   TextEntityStyle,
   TextWidthMode,
 } from '../../shared/types'
-import {
-  resolveCanvasColor,
-  COLOR_PRESETS,
-  NEUTRAL_STORAGE,
-} from '../../shared/canvas-colors'
 import { markDirty } from './layout-dirty'
 
 export interface TextEntity {
@@ -44,21 +39,6 @@ export function defaultWidthMode(textStyle: TextEntityStyle): TextWidthMode {
 
 export const DEFAULT_TEXT_WIDTH = 200
 export const DEFAULT_TEXT_HEIGHT = 200
-export const DEFAULT_TEXT_COLOR = COLOR_PRESETS['3'] // yellow preset
-
-/**
- * Coerce an incoming color value to its persistable form.
- *
- * - The `'neutral'` sentinel is kept as-is so the renderer can resolve it
- *   against the active theme.
- * - Legacy `"1"`–`"6"` presets resolve to their fixed hex (this matches the
- *   prior behavior of `resolveCanvasColor` on input).
- * - Hex strings pass through.
- */
-function normalizeStoredColor(input: string): string {
-  if (input === NEUTRAL_STORAGE) return NEUTRAL_STORAGE
-  return resolveCanvasColor(input)
-}
 
 export const textEntities: TextEntity[] = []
 
@@ -80,7 +60,9 @@ export function createTextEntity(input: {
   const entity: TextEntity = {
     id: input.id ?? `text_${randomUUID()}`,
     text: input.text ?? '',
-    color: normalizeStoredColor(input.color ?? '3'),
+    // Color is stored raw — a preset number ('1'–'7'), the 'neutral'
+    // sentinel, or a literal hex. The palette is resolved at render time.
+    color: input.color ?? '3',
     textStyle,
     widthMode: input.widthMode ?? defaultWidthMode(textStyle),
     textSize: input.textSize,
@@ -100,7 +82,7 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
   const entity = textEntities.find((n) => n.id === id)
   if (!entity) return null
   if (patch.text !== undefined) entity.text = patch.text
-  if (patch.color !== undefined) entity.color = normalizeStoredColor(patch.color)
+  if (patch.color !== undefined) entity.color = patch.color
   if (patch.textStyle !== undefined) entity.textStyle = patch.textStyle
   if (patch.widthMode !== undefined) entity.widthMode = patch.widthMode
   if (patch.textSize !== undefined) entity.textSize = patch.textSize

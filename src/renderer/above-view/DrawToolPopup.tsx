@@ -1,7 +1,7 @@
 // ADR 0008 §1/§5, ADR 0009 — draw tool popup; persists via tool defaults.
 
 import {
-  CANVAS_COLOR_SLOTS,
+  paletteSlots,
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
@@ -28,7 +28,13 @@ export function DrawToolPopup({
   layout: LayoutUpdateData
 }) {
   const defaults = layout.toolDefaults.draw
-  const currentColor = resolveCanvasColor(defaults.color, { role: 'ink', isDark })
+  // Pen inks in the punchy palette; highlighter in the muted one (ADR 0013 §1).
+  const swatchPalette = defaults.brushType === 'highlight' ? 'soft' : 'vivid'
+  const currentColor = resolveCanvasColor(defaults.color, {
+    role: 'ink',
+    isDark,
+    palette: swatchPalette,
+  })
   const activeSlot = slotForStorage(defaults.color)
   const widthPresets = strokeWidthPresetsFor(defaults.brushType)
   const activeStrokeWidth = nearestStrokeWidthPreset(defaults.strokeWidth, widthPresets)
@@ -56,6 +62,8 @@ export function DrawToolPopup({
                 if (snapped !== defaults.strokeWidth) {
                   api.setToolDefault({ scope: 'draw', key: 'strokeWidth', value: snapped })
                 }
+                // The color preset is unchanged — it resolves to the punchy
+                // or muted hue from the brush at render time.
               }}
             >
               <Icon size={14} ink={currentColor} />
@@ -84,7 +92,7 @@ export function DrawToolPopup({
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_SLOTS.map((slot) => {
+          {paletteSlots(swatchPalette).map((slot) => {
             const swatch =
               slot.hex ?? resolveCanvasColor(slot.storage, { role: 'ink', isDark })
             return (

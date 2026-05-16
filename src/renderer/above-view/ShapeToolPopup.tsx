@@ -1,7 +1,7 @@
 // ADR 0008 §1/§5, ADR 0009 — add-shape tool popup; persists via tool defaults.
 
 import {
-  CANVAS_COLOR_SLOTS,
+  paletteSlots,
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
@@ -71,7 +71,7 @@ export function ShapeToolPopup({
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_SLOTS.map((slot) => {
+          {paletteSlots('soft').map((slot) => {
             const swatch =
               slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
             return (

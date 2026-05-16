@@ -3,7 +3,7 @@
 
 import { Copy, Trash2 } from 'lucide-react'
 import {
-  CANVAS_COLOR_SLOTS,
+  paletteSlots,
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
@@ -46,9 +46,13 @@ export function DrawingPopup({
 
   const allStrokes = selectedDrawings.flatMap((d) => d.strokes)
   const brush = sharedValue(allStrokes.map((s) => s.brushType ?? 'pen'))
+  // Pen inks in the punchy palette; highlighter in the muted one (ADR 0013 §1).
+  const swatchPalette = brush === 'highlight' ? 'soft' : 'vivid'
   const colorRaw = sharedValue(allStrokes.map((s) => s.color))
   const currentColor =
-    colorRaw === null ? null : resolveCanvasColor(colorRaw, { role: 'ink', isDark })
+    colorRaw === null
+      ? null
+      : resolveCanvasColor(colorRaw, { role: 'ink', isDark, palette: swatchPalette })
   const activeSlot = slotForStorage(colorRaw)
   const widthRaw = sharedValue(allStrokes.map((s) => s.width))
   const widthPresets = strokeWidthPresetsFor(brush ?? undefined)
@@ -92,6 +96,8 @@ export function DrawingPopup({
               title={label}
               ariaLabel={`Switch ${noun} brush to ${label}`}
               onClick={() => {
+                // The color preset is unchanged — it resolves to the punchy or
+                // muted hue from each stroke's brush at render time.
                 const targetPresets = strokeWidthPresetsFor(kind)
                 writeStrokes((stroke) => ({
                   ...stroke,
@@ -104,8 +110,22 @@ export function DrawingPopup({
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_SLOTS.map((slot) => {
+          {widthPresets.map((width, index) => (
+            <StrokeWidthSwatch
+              key={width}
+              isDark={isDark}
+              active={activeStrokeWidth === width}
+              variant={index === 0 ? 'thin' : 'thick'}
+              ariaLabel={`Set ${noun} stroke width to ${width}px`}
+              onClick={() => writeStrokes((stroke) => ({ ...stroke, width }))}
+            />
+          ))}
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <CanvasItemPopup.Section>
+          {paletteSlots(swatchPalette).map((slot) => {
             const swatch =
               slot.hex ?? resolveCanvasColor(slot.storage, { role: 'ink', isDark })
             return (
@@ -122,19 +142,7 @@ export function DrawingPopup({
             )
           })}
         </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          {widthPresets.map((width, index) => (
-            <StrokeWidthSwatch
-              key={width}
-              isDark={isDark}
-              active={activeStrokeWidth === width}
-              variant={index === 0 ? 'thin' : 'thick'}
-              ink={currentColor}
-              ariaLabel={`Set ${noun} stroke width to ${width}px`}
-              onClick={() => writeStrokes((stroke) => ({ ...stroke, width }))}
-            />
-          ))}
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton
             isDark={isDark}

@@ -51,6 +51,7 @@ export function TextEntityPane({
         <ColorSwatchPicker
           activeColor={textEntity.color}
           isDark={isDark}
+          palette="vivid"
           onSelectColor={(color) => rightDetailsPanelApi.updateTextEntity(textEntity.id, { color })}
         />
       </div>

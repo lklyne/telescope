@@ -299,7 +299,7 @@ export function EdgeLayer({
         </marker>
         {/* Per-color markers for colored edges (deduplicated) */}
         {[...new Set(edgePaths.map((p) => p.color).filter(Boolean))].map((color) => {
-          const hex = resolveCanvasColor(color!)
+          const hex = resolveCanvasColor(color!, { palette: 'vivid' })
           const safeId = hex.replace('#', '')
           return (
             <g key={safeId}>
@@ -316,7 +316,7 @@ export function EdgeLayer({
 
       {/* Existing edges */}
       {edgePaths.map(({ id, d, selected, fromEnd, toEnd, color }) => {
-        const resolvedColor = color ? resolveCanvasColor(color) : null
+        const resolvedColor = color ? resolveCanvasColor(color, { palette: 'vivid' }) : null
         const edgeColor = selected
           ? selectionColor(isDark)
           : resolvedColor ?? EDGE_COLOR_DEFAULT

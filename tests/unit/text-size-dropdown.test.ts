@@ -3,6 +3,7 @@ import {
   TEXT_SIZE_MAX,
   TEXT_SIZE_MIN,
   clampTextSize,
+  lineHeightForTextSize,
   presetLabelForValue,
 } from '../../src/renderer/above-view/TextSizeDropdown'
 
@@ -35,5 +36,18 @@ describe('TextSizeDropdown helpers', () => {
   it('falls back to the default for non-finite inputs', () => {
     expect(clampTextSize(Number.NaN)).toBe(14)
     expect(clampTextSize(Number.POSITIVE_INFINITY)).toBe(14)
+  })
+
+  it('tightens line-height as text size grows', () => {
+    expect(lineHeightForTextSize(14)).toBeCloseTo(1.5)
+    expect(lineHeightForTextSize(96)).toBeCloseTo(1.1)
+    expect(lineHeightForTextSize(32)).toBeLessThan(lineHeightForTextSize(14))
+    expect(lineHeightForTextSize(56)).toBeLessThan(lineHeightForTextSize(32))
+  })
+
+  it('clamps line-height to the 1.1–1.5 band beyond the presets', () => {
+    expect(lineHeightForTextSize(TEXT_SIZE_MIN)).toBe(1.5)
+    expect(lineHeightForTextSize(144)).toBe(1.1)
+    expect(lineHeightForTextSize(TEXT_SIZE_MAX)).toBe(1.1)
   })
 })

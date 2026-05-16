@@ -26,6 +26,8 @@ import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { CanvasSceneTextEntity, TextEntityStyle } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
+import { remarkLineBreaks } from '../shared/remark-line-breaks'
+import { lineHeightForTextSize } from './TextSizeDropdown'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
@@ -100,6 +102,14 @@ function StickyShell({
           ? {
               left: canvasX,
               top: canvasY,
+              // The containing viewport layer holds only absolutely-positioned
+              // children, so its intrinsic width is 0. Without an explicit
+              // `width`, our absolute shell's shrink-to-fit collapses to
+              // `min-content` (longest word) once view mode swaps CodeMirror's
+              // `white-space: pre` content for a wrapping `<p>`. `max-content`
+              // pins the shell to the unwrapped line width, matching what the
+              // editor showed.
+              width: 'max-content',
               minWidth: PLAIN_MIN_WIDTH,
               minHeight: PLAIN_MIN_HEIGHT,
               cursor: 'default',
@@ -252,12 +262,16 @@ function StickyCard({
         }
 
   const fontSize = note.textSize ?? DEFAULT_TEXT_SIZE
+  // CodeMirror's `.cm-scroller` and `.text-block-markdown` both inherit
+  // line-height from this wrapper, so edit and view modes stay in sync.
+  const lineHeight = lineHeightForTextSize(fontSize)
   const editorClassName = isPlain
     ? 'w-full pl-0 pr-2 py-0'
     : 'flex-1 w-full px-2.5 pb-2'
   const editorStyle: React.CSSProperties = {
     boxSizing: 'border-box',
     fontSize,
+    lineHeight,
     color: textColor,
     fontFamily: 'system-ui, sans-serif',
     paddingTop: isPlain ? 0 : '0.3em',
@@ -268,6 +282,7 @@ function StickyCard({
     : 'flex-1 select-none overflow-hidden text-block-markdown px-2 pb-2'
   const viewStyle: React.CSSProperties = {
     fontSize,
+    lineHeight,
     color: textColor,
     fontFamily: 'system-ui, sans-serif',
     wordBreak: 'break-word',
@@ -282,7 +297,7 @@ function StickyCard({
       height={note.height}
       isDark={isDark}
       isSelected={isSelected}
-      background={resolveCanvasColor(note.color, { role: 'fill', isDark })}
+      background={resolveCanvasColor(note.color, { role: 'fill', isDark, palette: 'soft' })}
       textStyle={textStyle}
       isAuto={isAuto}
       shellRef={shellRef}
@@ -312,7 +327,11 @@ function StickyCard({
           />
         ) : (
           <div className={viewClassName} style={viewStyle}>
-            {localText ? <Markdown>{localText}</Markdown> : <span>{placeholder}</span>}
+            {localText ? (
+              <Markdown remarkPlugins={[remarkLineBreaks]}>{localText}</Markdown>
+            ) : (
+              <span>{placeholder}</span>
+            )}
           </div>
         )}
       </div>

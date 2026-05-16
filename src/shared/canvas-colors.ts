@@ -1,25 +1,32 @@
 /**
  * JSON Canvas color presets and resolution.
  *
- * Two-axis model (ADR 0013 §1):
+ * Three-axis model (ADR 0013 §1):
  *
  *  - **Slot**: one of eight named choices the popups expose
  *    (`neutral` · `purple` · `blue` · `cyan` · `green` · `yellow` · `orange` · `red`).
- *  - **Role**: how the color is used at render time —
- *    `'fill'` (sticky/shape backgrounds) or `'ink'` (pen strokes, plain text glyphs).
+ *  - **Palette**: `'soft'` (muted pastels — stickies, shapes, highlighter brush)
+ *    or `'vivid'` (saturated — plain text, edges, pen brush, groups). The same
+ *    slot resolves to a different hue depending on the surface it paints.
+ *  - **Role**: how the color is used at render time — `'fill'` (sticky/shape
+ *    backgrounds) or `'ink'` (pen strokes, plain text glyphs). Role only
+ *    affects the theme-aware `neutral` slot.
  *
- * The seven hue slots resolve to fixed pastel hexes regardless of theme/role.
- * The `neutral` slot is theme- and role-aware: it picks light/dark fills for
- * surfaces and contrasting dark/light inks for marks. On disk, neutral is
- * stored as `specular.colorRole: 'neutral'` (with `color: '1'` as a fallback
- * for cross-tool readers); hue slots are stored as 6-char hex.
+ * **Storage.** A hue is stored as its JSON Canvas preset number — `"1"`–`"6"`
+ * for the six spec hues (red/orange/yellow/green/cyan/purple) and `"7"` for
+ * blue (a Specular extension — the spec only numbers six). Neutral is stored
+ * as the `'neutral'` sentinel (`specular.colorRole` on disk). The stored value
+ * carries the *slot*, not a hue — the palette is chosen by the surface at
+ * render time, so the same `"2"` reads muted on a sticky and punchy on a pen.
  *
- * Legacy `"1"`–`"6"` presets (the original JSON Canvas spec values) keep
- * resolving to their original red/orange/yellow/green/cyan/purple hexes —
- * existing canvases continue to render as before.
+ * A literal `#RRGGBB` hex is also accepted and passes through unchanged — used
+ * for custom colors and for canvases saved before the two-palette split.
  */
 
 export type CanvasColorRole = 'fill' | 'ink'
+
+/** Muted pastels vs. saturated hues — see the module doc. */
+export type CanvasPalette = 'soft' | 'vivid'
 
 export type CanvasColorSlot =
   | 'neutral'
@@ -34,9 +41,25 @@ export type CanvasColorSlot =
 export interface CanvasColorSlotInfo {
   id: CanvasColorSlot
   label: string
-  /** Hex for hue slots; `null` for the theme-aware neutral. */
+  /**
+   * JSON Canvas preset number stored in `entity.color`. `"1"`–`"6"` are the
+   * spec hues; `"7"` is the Specular-added blue; `null` for the theme-aware
+   * neutral (stored as the `'neutral'` sentinel instead).
+   */
+  preset: string | null
+  /** Muted pastel hex (stickies, shapes, highlighter). `null` for neutral. */
+  soft: string | null
+  /** Saturated hex (plain text, edges, pen, groups). `null` for neutral. */
+  vivid: string | null
+}
+
+/** One slot resolved for a single palette — the shape the popups iterate over. */
+export interface ResolvedColorSlot {
+  id: CanvasColorSlot
+  label: string
+  /** Display hex for hue slots; `null` for the theme-aware neutral. */
   hex: string | null
-  /** What goes into `entity.color` when the user picks this slot. */
+  /** Value written to `entity.color` when the user picks this slot. */
   storage: string
 }
 
@@ -51,64 +74,74 @@ const NEUTRAL_INK_DARK = '#e7e5e4'
 /**
  * Eight-slot palette in canonical popup order (ADR 0013 §1).
  *
- * Hex values intentionally match the previous `CANVAS_COLOR_OPTIONS` pastels
- * for the hues that already existed (purple/cyan/green/yellow/orange/red);
- * blue is new; neutral is theme/role-resolved at render time.
+ * `preset` is the on-disk number; `soft`/`vivid` are the two render hues.
+ * `soft` matches the original muted pastels; `vivid` is the punchier set used
+ * wherever contrast matters. `neutral` is theme/role-resolved at render time.
  */
 export const CANVAS_COLOR_SLOTS: ReadonlyArray<CanvasColorSlotInfo> = [
-  { id: 'neutral', label: 'Neutral', hex: null, storage: NEUTRAL_STORAGE },
-  { id: 'purple', label: 'Purple', hex: '#c8b8d8', storage: '#c8b8d8' },
-  { id: 'blue', label: 'Blue', hex: '#b0c4d8', storage: '#b0c4d8' },
-  { id: 'cyan', label: 'Cyan', hex: '#b0d0d8', storage: '#b0d0d8' },
-  { id: 'green', label: 'Green', hex: '#b8d8c8', storage: '#b8d8c8' },
-  { id: 'yellow', label: 'Yellow', hex: '#FFE18E', storage: '#FFE18E' },
-  { id: 'orange', label: 'Orange', hex: '#e8ccb0', storage: '#e8ccb0' },
-  { id: 'red', label: 'Red', hex: '#e8b4b8', storage: '#e8b4b8' },
+  { id: 'neutral', label: 'Neutral', preset: null, soft: null, vivid: null },
+  { id: 'purple', label: 'Purple', preset: '6', soft: '#c8b8d8', vivid: '#BD4BE5' },
+  { id: 'blue', label: 'Blue', preset: '7', soft: '#b0c4d8', vivid: '#1084FF' },
+  { id: 'cyan', label: 'Cyan', preset: '5', soft: '#b0d0d8', vivid: '#00CBFF' },
+  { id: 'green', label: 'Green', preset: '4', soft: '#b8d8c8', vivid: '#00CA48' },
+  { id: 'yellow', label: 'Yellow', preset: '3', soft: '#FFE18E', vivid: '#FFD500' },
+  { id: 'orange', label: 'Orange', preset: '2', soft: '#e8ccb0', vivid: '#FF8E00' },
+  { id: 'red', label: 'Red', preset: '1', soft: '#e8b4b8', vivid: '#FF1016' },
 ] as const
 
-/** Legacy JSON Canvas presets (`"1"`–`"6"`) → hue slot. */
-const LEGACY_PRESET_TO_SLOT: Record<string, CanvasColorSlot> = {
-  '1': 'red',
-  '2': 'orange',
-  '3': 'yellow',
-  '4': 'green',
-  '5': 'cyan',
-  '6': 'purple',
+/** Preset number (`"1"`–`"7"`) → slot. */
+const SLOT_BY_PRESET: Record<string, CanvasColorSlotInfo> = Object.fromEntries(
+  CANVAS_COLOR_SLOTS.filter((s) => s.preset !== null).map((s) => [s.preset!, s]),
+)
+
+/** Every known hue hex (both `soft` and `vivid`) → slot. */
+const SLOT_BY_HEX: Record<string, CanvasColorSlotInfo> = Object.fromEntries(
+  CANVAS_COLOR_SLOTS.flatMap((s) =>
+    [s.soft, s.vivid]
+      .filter((hex): hex is string => hex !== null)
+      .map((hex) => [hex.toLowerCase(), s]),
+  ),
+)
+
+function paletteHexFor(slot: CanvasColorSlotInfo, palette: CanvasPalette): string {
+  return (palette === 'vivid' ? slot.vivid : slot.soft) ?? NEUTRAL_FILL_LIGHT
 }
 
-/** Legacy preset → hex. Kept so old canvases render unchanged. */
-export const COLOR_PRESETS: Record<string, string> = Object.fromEntries(
-  Object.entries(LEGACY_PRESET_TO_SLOT).map(([preset, slot]) => [
-    preset,
-    CANVAS_COLOR_SLOTS.find((s) => s.id === slot)!.hex!,
-  ]),
-)
-
-const SLOT_BY_HEX: Record<string, CanvasColorSlot> = Object.fromEntries(
-  CANVAS_COLOR_SLOTS.filter((s) => s.hex).map((s) => [
-    s.hex!.toLowerCase(),
-    s.id,
-  ]),
-)
+/**
+ * The eight slots resolved for one palette, in canonical popup order. Popups
+ * iterate this: `hex` is the swatch color, `storage` is the preset a pick
+ * writes into `entity.color`.
+ */
+export function paletteSlots(
+  palette: CanvasPalette,
+): ReadonlyArray<ResolvedColorSlot> {
+  return CANVAS_COLOR_SLOTS.map((slot) => ({
+    id: slot.id,
+    label: slot.label,
+    hex: palette === 'vivid' ? slot.vivid : slot.soft,
+    storage: slot.preset ?? NEUTRAL_STORAGE,
+  }))
+}
 
 /**
  * Resolve a stored canvas color value to a CSS color string.
  *
- * Accepts: the `'neutral'` sentinel, a `#RRGGBB` hex, or a legacy
- * `"1"`–`"6"` preset id. For neutral, pass `opts.role` and `opts.isDark`
- * to pick the right RGB; without opts, neutral falls back to the light
- * fill value (a sane default for callers that haven't been theme-wired).
+ * Accepts the `'neutral'` sentinel, a preset number (`"1"`–`"7"`), or a
+ * literal `#RRGGBB` hex. A preset resolves to its slot's hue in `opts.palette`
+ * — the caller passes the palette of the *surface* being painted, so the same
+ * preset reads muted on a sticky and punchy on a pen. For neutral, pass
+ * `opts.role` and `opts.isDark`. Hex values pass through unchanged.
  */
 export function resolveCanvasColor(
   color: string,
-  opts?: { role?: CanvasColorRole; isDark?: boolean },
+  opts?: { role?: CanvasColorRole; isDark?: boolean; palette?: CanvasPalette },
 ): string {
   if (color === NEUTRAL_STORAGE) {
-    const role = opts?.role ?? 'fill'
-    const isDark = opts?.isDark ?? false
-    return resolveNeutral(role, isDark)
+    return resolveNeutral(opts?.role ?? 'fill', opts?.isDark ?? false)
   }
-  return COLOR_PRESETS[color] ?? color
+  const slot = SLOT_BY_PRESET[color]
+  if (slot) return paletteHexFor(slot, opts?.palette ?? 'soft')
+  return color
 }
 
 function resolveNeutral(role: CanvasColorRole, isDark: boolean): string {
@@ -118,17 +151,16 @@ function resolveNeutral(role: CanvasColorRole, isDark: boolean): string {
 
 /**
  * The slot that a stored color matches, or `null` when it doesn't line up
- * with any palette slot (custom hex or absent).
- *
- * Used by popups to highlight the active swatch.
+ * with any palette slot. Recognizes the `'neutral'` sentinel, preset numbers,
+ * and both the `soft` and `vivid` hex of every hue — so a picker highlights
+ * the active swatch whether the value is a preset or a pre-split literal hex.
  */
 export function slotForStorage(color: string | null | undefined): CanvasColorSlot | null {
   if (!color) return null
   if (color === NEUTRAL_STORAGE) return 'neutral'
-  if (LEGACY_PRESET_TO_SLOT[color]) return LEGACY_PRESET_TO_SLOT[color]
+  if (SLOT_BY_PRESET[color]) return SLOT_BY_PRESET[color].id
   if (color.startsWith('#')) {
-    const hit = SLOT_BY_HEX[color.toLowerCase()]
-    return hit ?? null
+    return SLOT_BY_HEX[color.toLowerCase()]?.id ?? null
   }
   return null
 }
@@ -156,9 +188,3 @@ export function lightenHex(color: string, amount: number): string {
   const hex = (n: number) => n.toString(16).padStart(2, '0')
   return `#${hex(lr)}${hex(lg)}${hex(lb)}`
 }
-
-// --- Backwards-compat aliases ---------------------------------------------
-// Several call sites still reference `CANVAS_COLOR_OPTIONS`. Keep the export
-// pointing at the new slot list so existing iteration order (now eight) keeps
-// working without touching callers we don't need to change.
-export const CANVAS_COLOR_OPTIONS = CANVAS_COLOR_SLOTS

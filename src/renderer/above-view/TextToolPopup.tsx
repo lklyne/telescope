@@ -4,7 +4,7 @@
 // file entity for the next creation.
 
 import {
-  CANVAS_COLOR_SLOTS,
+  paletteSlots,
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
@@ -34,8 +34,10 @@ export function TextToolPopup({
       ? layout.toolDefaults['add-sticky'].color
       : layout.toolDefaults['add-text'].color
   const activeSlot = slotForStorage(currentRaw)
-  // Sticky bodies are surface-fill role; plain text glyphs are ink role.
+  // Sticky bodies are surface-fill role + the muted palette; plain text glyphs
+  // are ink role + the punchy palette (ADR 0013 §1).
   const swatchRole = style === 'sticky' ? 'fill' : 'ink'
+  const swatchPalette = style === 'sticky' ? 'soft' : 'vivid'
   const textKind = layout.toolDefaults['add-text'].textKind
   const currentTextSize =
     style === 'sticky'
@@ -76,7 +78,7 @@ export function TextToolPopup({
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_SLOTS.map((slot) => {
+          {paletteSlots(swatchPalette).map((slot) => {
             const swatch =
               slot.hex ?? resolveCanvasColor(slot.storage, { role: swatchRole, isDark })
             return (

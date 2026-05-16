@@ -123,7 +123,11 @@ function renderStrokeBody({
   active: boolean
   isDark: boolean
 }) {
-  const inkColor = resolveCanvasColor(stroke.color, { role: 'ink', isDark })
+  const inkColor = resolveCanvasColor(stroke.color, {
+    role: 'ink',
+    isDark,
+    palette: stroke.brushType === 'highlight' ? 'soft' : 'vivid',
+  })
   if (stroke.brushType === 'highlight') {
     return (
       <HighlightStroke
@@ -136,14 +140,9 @@ function renderStrokeBody({
       />
     )
   }
+  // Pen strokes render fully opaque — only the highlighter is translucent.
   if (PERFECT_FREEHAND_ENABLED) {
-    return (
-      <path
-        d={freehandPathD(points, visibleWidth)}
-        fill={inkColor}
-        opacity={active ? 1 : 0.92}
-      />
-    )
+    return <path d={freehandPathD(points, visibleWidth)} fill={inkColor} />
   }
   return (
     <path
@@ -153,7 +152,6 @@ function renderStrokeBody({
       strokeWidth={visibleWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
-      opacity={active ? 1 : 0.92}
     />
   )
 }

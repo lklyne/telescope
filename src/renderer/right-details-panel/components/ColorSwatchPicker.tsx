@@ -1,5 +1,6 @@
 import {
-  CANVAS_COLOR_SLOTS,
+  type CanvasPalette,
+  paletteSlots,
   resolveCanvasColor,
   slotForStorage,
 } from '../../../shared/canvas-colors'
@@ -8,11 +9,14 @@ export function ColorSwatchPicker({
   activeColor,
   isDark,
   allowNone,
+  palette,
   onSelectColor,
 }: {
   activeColor: string | null | undefined
   isDark: boolean
   allowNone?: boolean
+  /** Muted pastels (sticky, shape) vs. punchy hues (text, edge). */
+  palette: CanvasPalette
   onSelectColor: (color: string) => void
 }) {
   const activeSlot = slotForStorage(activeColor)
@@ -40,7 +44,7 @@ export function ColorSwatchPicker({
           />
         </button>
       ) : null}
-      {CANVAS_COLOR_SLOTS.map((slot) => {
+      {paletteSlots(palette).map((slot) => {
         const swatch =
           slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
         const isActive = activeSlot === slot.id

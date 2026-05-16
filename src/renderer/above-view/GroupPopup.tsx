@@ -2,7 +2,7 @@
 
 import { Copy, Trash2 } from 'lucide-react'
 import {
-  CANVAS_COLOR_SLOTS,
+  paletteSlots,
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
@@ -45,7 +45,7 @@ export function GroupPopup({
     >
       <CanvasItemPopup.Frame isDark={isDark}>
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_SLOTS.map((slot) => {
+          {paletteSlots('vivid').map((slot) => {
             const swatch =
               slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
             const isActive = slotForStorage(selectedGroup.color) === slot.id

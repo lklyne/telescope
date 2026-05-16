@@ -6,7 +6,7 @@
 
 import { Copy, Trash2 } from 'lucide-react'
 import {
-  CANVAS_COLOR_SLOTS,
+  paletteSlots,
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
@@ -94,7 +94,7 @@ export function StickyNotePopover({
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_SLOTS.map((slot) => {
+          {paletteSlots('soft').map((slot) => {
             const swatch =
               slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
             return (

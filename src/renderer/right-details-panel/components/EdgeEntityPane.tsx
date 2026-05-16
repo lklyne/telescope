@@ -88,6 +88,7 @@ export function EdgeEntityPane({
           activeColor={edgeEntity.color}
           allowNone
           isDark={isDark}
+          palette="vivid"
           onSelectColor={(color) => rightDetailsPanelApi.updateEdge(edgeEntity.id, { color })}
         />
       </div>

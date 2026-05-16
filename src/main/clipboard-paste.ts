@@ -6,7 +6,10 @@ import type {
   ClipboardPageSelectionPayload,
 } from '../shared/types'
 import { createTextEntity } from './runtime/text-entity-state'
-import { getStickyDefaultColor } from './runtime/tool-defaults'
+import {
+  getStickyDefaultColor,
+  getStickyDefaultSize,
+} from './runtime/tool-defaults'
 import { createFileEntity } from './runtime/document-commands'
 import { saveImageBuffer } from './runtime/image-assets'
 import { createPageAtPosition } from './workspace-pages'
@@ -97,6 +100,7 @@ export function pasteFromClipboard(input: { canvasX: number; canvasY: number }):
       text: trimmed,
       textStyle: 'sticky',
       color: getStickyDefaultColor(),
+      textSize: getStickyDefaultSize(),
     })
   }
 }

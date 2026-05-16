@@ -25,7 +25,7 @@ function groupSurfaceStyle(
     }
   }
 
-  const resolvedColor = resolveCanvasColor(group.color)
+  const resolvedColor = resolveCanvasColor(group.color, { palette: 'vivid' })
   return {
     borderColor: highlighted
       ? selectionColor(isDark)

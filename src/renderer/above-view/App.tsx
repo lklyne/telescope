@@ -341,12 +341,14 @@ export default function App({
     commentText,
     drawingSession,
     drawingStrokeActive,
+    elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
     resizeCommentInput,
     setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,
+    setElementNameDraft,
     setPendingAnnotation,
     submitPendingAnnotation,
     submitRegionAnnotation,
@@ -952,6 +954,8 @@ export default function App({
   // controller state.
   const spaceHeldRef = useRef(false)
   const optionHeldRef = useRef(false)
+  const handToolActiveRef = useRef(layoutData.activeTool.kind === 'hand')
+  handToolActiveRef.current = layoutData.activeTool.kind === 'hand'
   useEffect(() => {
     const onKey = (event: KeyboardEvent, down: boolean) => {
       if (event.code === 'Space') spaceHeldRef.current = down
@@ -982,6 +986,7 @@ export default function App({
     enabled: routerOwnsCanvasPointers,
     consume: FULL_ROUTER_CONSUME,
     spaceHeldRef,
+    handToolActiveRef,
     optionHeldRef,
     setDragCopyPreview,
     setEdgeDragState,
@@ -1011,6 +1016,18 @@ export default function App({
     }
   }, [drawInteractionEnabled])
 
+  const handToolActive = layoutData.activeTool.kind === 'hand'
+  useEffect(() => {
+    if (!handToolActive) return
+    const style = document.createElement('style')
+    style.textContent = `html, body, body * { cursor: grab !important; }
+html:active, body:active, body *:active { cursor: grabbing !important; }`
+    document.head.appendChild(style)
+    return () => {
+      style.remove()
+    }
+  }, [handToolActive])
+
   return (
     <div
       className={`relative h-screen w-screen overflow-hidden bg-transparent ${
@@ -1030,6 +1047,7 @@ export default function App({
         entities={layoutData.entities}
         layoutData={layoutData}
         selectedEntityIds={layoutData.selectedEntityIds}
+        isDark={isDark}
       />
 
       {placementPreview && selectionOverlay?.variant !== 'place-shape' ? (
@@ -1070,7 +1088,7 @@ export default function App({
             onOpenThread={openThreadById}
           />
 
-          {drawingSession ? <DrawingLayer drawing={{ version: 1, ...drawingSession }} layout={layoutData} active /> : null}
+          {drawingSession ? <DrawingLayer drawing={{ version: 1, ...drawingSession }} layout={layoutData} active isDark={isDark} /> : null}
 
           <PendingElementOutline
             pending={pendingAnnotation}
@@ -1082,12 +1100,14 @@ export default function App({
             clearDraft={clearDraft}
             commentInputRef={commentInputRef}
             commentText={commentText}
+            elementNameDraft={elementNameDraft}
             layoutData={layoutData}
             pendingAnnotation={pendingAnnotation}
             pendingPosition={pendingComposerPosition}
             pendingRegionRect={pendingRegionRect}
             resizeCommentInput={resizeCommentInput}
             setCommentText={setCommentText}
+            setElementNameDraft={setElementNameDraft}
             submitPendingAnnotation={submitPendingAnnotation}
             submitRegionAnnotation={submitRegionAnnotation}
           />
@@ -1258,7 +1278,15 @@ export default function App({
                   api={api}
                   isDark={isDark}
                   layout={layoutData}
-                  style={layoutData.activeTool.style}
+                  style="plain"
+                />
+              ) : null}
+              {layoutData.activeTool.kind === 'add-sticky' ? (
+                <TextToolPopup
+                  api={api}
+                  isDark={isDark}
+                  layout={layoutData}
+                  style="sticky"
                 />
               ) : null}
               {layoutData.activeTool.kind === 'add-shape' ? (

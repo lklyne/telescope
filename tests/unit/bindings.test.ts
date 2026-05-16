@@ -30,11 +30,11 @@ function matchesToolKind(bindingId: string, kind: ToolKind): boolean {
 
 describe('BINDINGS table', () => {
   it('has entries for every bindable tool kind', () => {
-    // 'add-document' is intentionally unbound (no default key)
     const bindableKinds: ToolKind[] = [
       'select',
       'add-page',
       'add-text',
+      'add-sticky',
       'add-shape',
       'comment',
       'draw',

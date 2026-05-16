@@ -37,6 +37,7 @@ export function useAnnotationDraftState({
   const [drawingSession, setDrawingSession] = useState<DrawingSession | null>(null)
   const [drawingStrokeActive, setDrawingStrokeActive] = useState(false)
   const [commentText, setCommentText] = useState('')
+  const [elementNameDraft, setElementNameDraft] = useState('')
 
   const resizeCommentInput = useCallback(() => {
     const input = commentInputRef.current
@@ -54,18 +55,23 @@ export function useAnnotationDraftState({
     setDrawingSession(null)
     setDrawingStrokeActive(false)
     setCommentText('')
+    setElementNameDraft('')
   }, [activeStrokeRef])
 
   const submitPendingAnnotation = useCallback(() => {
     if (!pendingAnnotation) return
     const nextText = commentText.trim()
     if (!nextText) return
+    const trimmedName = elementNameDraft.trim()
     api.createAnnotation({
       ...pendingAnnotation.request,
       text: nextText,
+      ...(pendingAnnotation.request.anchor.type === 'element' && trimmedName
+        ? { elementName: trimmedName }
+        : {}),
     })
     clearDraft()
-  }, [api, clearDraft, commentText, pendingAnnotation])
+  }, [api, clearDraft, commentText, elementNameDraft, pendingAnnotation])
 
   const submitRegionAnnotation = useCallback(() => {
     if (!pendingRegionRect) return
@@ -106,6 +112,7 @@ export function useAnnotationDraftState({
       setPendingAnnotation(pending)
       setDrawingSession(null)
       setCommentText('')
+      setElementNameDraft(payload.name?.trim() ?? '')
     })
     return cleanup
   }, [api, layoutRef])
@@ -116,6 +123,7 @@ export function useAnnotationDraftState({
       setPendingAnnotation(null)
       setDrawingSession(null)
       setCommentText('')
+      setElementNameDraft('')
     })
     return cleanup
   }, [api])
@@ -130,6 +138,7 @@ export function useAnnotationDraftState({
       setPendingRegionRect(null)
       setDrawingSession(null)
       setCommentText('')
+      setElementNameDraft('')
     })
     return cleanup
   }, [api, layoutRef])
@@ -189,12 +198,14 @@ export function useAnnotationDraftState({
     commentText,
     drawingSession,
     drawingStrokeActive,
+    elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
     resizeCommentInput,
     setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,
+    setElementNameDraft,
     setPendingAnnotation,
     submitDrawing,
     submitPendingAnnotation,

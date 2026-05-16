@@ -1,6 +1,11 @@
 // ADR 0008 §1/§5, ADR 0009 — draw tool popup; persists via tool defaults.
 
-import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
+import {
+  paletteForBrushType,
+  paletteSlots,
+  resolveCanvasColor,
+  slotForStorage,
+} from '../../shared/canvas-colors'
 import type {
   CanvasBgElectronAPI,
   LayoutUpdateData,
@@ -24,7 +29,13 @@ export function DrawToolPopup({
   layout: LayoutUpdateData
 }) {
   const defaults = layout.toolDefaults.draw
-  const currentColor = resolveCanvasColor(defaults.color)
+  const swatchPalette = paletteForBrushType(defaults.brushType)
+  const iconInk = resolveCanvasColor(defaults.color, {
+    role: 'ink',
+    isDark,
+    palette: 'vivid',
+  })
+  const activeSlot = slotForStorage(defaults.color)
   const widthPresets = strokeWidthPresetsFor(defaults.brushType)
   const activeStrokeWidth = nearestStrokeWidthPreset(defaults.strokeWidth, widthPresets)
   return (
@@ -53,39 +64,22 @@ export function DrawToolPopup({
                 }
               }}
             >
-              <Icon size={14} />
+              <Icon
+                size={14}
+                ink={iconInk}
+                selected={defaults.brushType === kind}
+              />
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_OPTIONS.map((option) => {
-            const resolved = resolveCanvasColor(option.id)
-            return (
-              <CanvasItemPopup.ColorSwatch
-                key={option.id}
-                isDark={isDark}
-                active={currentColor === resolved}
-                color={resolved}
-                ariaLabel={`Set default brush color to ${option.label}`}
-                onClick={() => {
-                  const patch: ToolDefaultPatch = {
-                    scope: 'draw',
-                    key: 'color',
-                    value: option.id,
-                  }
-                  api.setToolDefault(patch)
-                }}
-              />
-            )
-          })}
-        </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          {widthPresets.map((width) => (
+          {widthPresets.map((width, index) => (
             <StrokeWidthSwatch
               key={width}
               isDark={isDark}
               active={activeStrokeWidth === width}
-              width={width}
+              variant={index === 0 ? 'thin' : 'thick'}
               ariaLabel={`Set default brush width to ${width}px`}
               onClick={() => {
                 const patch: ToolDefaultPatch = {
@@ -97,6 +91,30 @@ export function DrawToolPopup({
               }}
             />
           ))}
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <CanvasItemPopup.Section>
+          {paletteSlots(swatchPalette).map((slot) => {
+            const swatch =
+              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'ink', isDark })
+            return (
+              <CanvasItemPopup.ColorSwatch
+                key={slot.id}
+                isDark={isDark}
+                active={activeSlot === slot.id}
+                color={swatch}
+                ariaLabel={`Set default brush color to ${slot.label}`}
+                onClick={() => {
+                  const patch: ToolDefaultPatch = {
+                    scope: 'draw',
+                    key: 'color',
+                    value: slot.storage,
+                  }
+                  api.setToolDefault(patch)
+                }}
+              />
+            )
+          })}
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>

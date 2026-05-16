@@ -8,11 +8,16 @@
  * DOM events, and works because the cards mount inside aboveView's WCV
  * which already holds keyboard focus during edit.
  *
- * Plain text entities auto-size to their content. The shell has no fixed
+ * Plain text in `widthMode: 'auto'` hugs its content. The shell has no fixed
  * width/height; instead a ResizeObserver measures the rendered card and
  * pushes the size back to main via `onUpdateSize`, which keeps the stored
  * bounds in sync with what the user sees so the selection outline hugs
- * the text. Stickies keep fixed bounds and use the manual resize handles.
+ * the text. The CodeMirror editor disables `lineWrapping` in this mode so
+ * lines don't collapse to single characters when the container shrink-wraps.
+ *
+ * Once the user drags a resize handle, widthMode flips to 'fixed' (handled
+ * by the pointer router) and the entity behaves like a sticky: explicit
+ * width/height, wrap on. Stickies are always 'fixed'.
  */
 
 import { memo, useEffect, useRef, useState } from 'react'
@@ -21,9 +26,13 @@ import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { CanvasSceneTextEntity, TextEntityStyle } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
+import { remarkLineBreaks } from '../shared/remark-line-breaks'
+import { lineHeightForTextSize } from './TextSizeDropdown'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
+/** ADR 0013 §2 — entities without textSize render at this size ("Small"). */
+const DEFAULT_TEXT_SIZE = 14
 
 /**
  * Wraps the sticky body cards in a viewport transform so they live in
@@ -65,6 +74,7 @@ function StickyShell({
   isSelected,
   background,
   textStyle,
+  isAuto,
   shellRef,
   children,
 }: {
@@ -77,6 +87,7 @@ function StickyShell({
   isSelected: boolean
   background: string
   textStyle: TextEntityStyle
+  isAuto: boolean
   shellRef?: React.Ref<HTMLDivElement>
   children: React.ReactNode
 }) {
@@ -87,28 +98,45 @@ function StickyShell({
       data-entity-id={id}
       className="absolute pointer-events-auto"
       style={
-        isPlain
+        isPlain && isAuto
           ? {
               left: canvasX,
               top: canvasY,
+              // The containing viewport layer holds only absolutely-positioned
+              // children, so its intrinsic width is 0. Without an explicit
+              // `width`, our absolute shell's shrink-to-fit collapses to
+              // `min-content` (longest word) once view mode swaps CodeMirror's
+              // `white-space: pre` content for a wrapping `<p>`. `max-content`
+              // pins the shell to the unwrapped line width, matching what the
+              // editor showed.
+              width: 'max-content',
               minWidth: PLAIN_MIN_WIDTH,
               minHeight: PLAIN_MIN_HEIGHT,
               cursor: 'default',
               touchAction: 'none',
             }
-          : {
-              left: canvasX,
-              top: canvasY,
-              width,
-              height,
-              background,
-              boxShadow: isDark
-                ? '0 2px 8px rgba(0, 0, 0, 0.3)'
-                : '0 2px 8px rgba(0, 0, 0, 0.08)',
-              overflow: isSelected ? 'visible' : 'hidden',
-              cursor: 'default',
-              touchAction: 'none',
-            }
+          : isPlain
+            ? {
+                left: canvasX,
+                top: canvasY,
+                width,
+                height,
+                cursor: 'default',
+                touchAction: 'none',
+              }
+            : {
+                left: canvasX,
+                top: canvasY,
+                width,
+                height,
+                background,
+                boxShadow: isDark
+                  ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+                  : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                overflow: isSelected ? 'visible' : 'hidden',
+                cursor: 'default',
+                touchAction: 'none',
+              }
       }
     >
       {children}
@@ -177,13 +205,15 @@ function StickyCard({
 
   const textStyle = note.textStyle
   const isPlain = textStyle === 'plain'
+  const isAuto = note.widthMode === 'auto'
 
   // Auto-size: measure the rendered card and push size back to main so the
-  // selection outline tracks the actual content. Plain text only — stickies
-  // keep their explicit width/height. Coalesces with rAF so a burst of
+  // selection outline tracks the actual content. Only active in 'auto' mode
+  // — once flipped to 'fixed' (sticky always, or after a manual resize), the
+  // entity keeps its explicit width/height. Coalesces with rAF so a burst of
   // ResizeObserver entries during typing only triggers one IPC.
   useEffect(() => {
-    if (!isPlain) return
+    if (!isAuto) return
     const el = shellRef.current
     if (!el) return
     let pendingFrame = 0
@@ -213,7 +243,7 @@ function StickyCard({
       observer.disconnect()
       if (pendingFrame) cancelAnimationFrame(pendingFrame)
     }
-  }, [isPlain, note.id, onUpdateSize])
+  }, [isAuto, note.id, onUpdateSize])
 
   // Stickies always sit on a light colored background; pass isDark=false so
   // CodeMirror renders dark text matching the view-mode color below.
@@ -221,21 +251,27 @@ function StickyCard({
   const textColor = isPlain ? (isDark ? '#e7e5e4' : '#1c1917') : '#1c1917'
   const placeholder = isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'
 
-  const innerColumnStyle: React.CSSProperties = isPlain
-    ? { display: 'flex', flexDirection: 'column' }
-    : {
-        width: note.width,
-        height: note.height,
-        display: 'flex',
-        flexDirection: 'column',
-      }
+  const innerColumnStyle: React.CSSProperties =
+    isPlain && isAuto
+      ? { display: 'flex', flexDirection: 'column' }
+      : {
+          width: note.width,
+          height: note.height,
+          display: 'flex',
+          flexDirection: 'column',
+        }
 
+  const fontSize = note.textSize ?? DEFAULT_TEXT_SIZE
+  // CodeMirror's `.cm-scroller` and `.text-block-markdown` both inherit
+  // line-height from this wrapper, so edit and view modes stay in sync.
+  const lineHeight = lineHeightForTextSize(fontSize)
   const editorClassName = isPlain
     ? 'w-full pl-0 pr-2 py-0'
     : 'flex-1 w-full px-2.5 pb-2'
   const editorStyle: React.CSSProperties = {
     boxSizing: 'border-box',
-    fontSize: 12,
+    fontSize,
+    lineHeight,
     color: textColor,
     fontFamily: 'system-ui, sans-serif',
     paddingTop: isPlain ? 0 : '0.3em',
@@ -245,7 +281,8 @@ function StickyCard({
     ? 'select-none text-block-markdown pr-2'
     : 'flex-1 select-none overflow-hidden text-block-markdown px-2 pb-2'
   const viewStyle: React.CSSProperties = {
-    fontSize: 12,
+    fontSize,
+    lineHeight,
     color: textColor,
     fontFamily: 'system-ui, sans-serif',
     wordBreak: 'break-word',
@@ -260,8 +297,9 @@ function StickyCard({
       height={note.height}
       isDark={isDark}
       isSelected={isSelected}
-      background={resolveCanvasColor(note.color)}
+      background={resolveCanvasColor(note.color, { role: 'fill', isDark, palette: 'soft' })}
       textStyle={textStyle}
+      isAuto={isAuto}
       shellRef={shellRef}
     >
       <div style={innerColumnStyle}>
@@ -285,10 +323,15 @@ function StickyCard({
             placeholder={placeholder}
             className={editorClassName}
             style={editorStyle}
+            lineWrap={!isAuto}
           />
         ) : (
           <div className={viewClassName} style={viewStyle}>
-            {localText ? <Markdown>{localText}</Markdown> : <span>{placeholder}</span>}
+            {localText ? (
+              <Markdown remarkPlugins={[remarkLineBreaks]}>{localText}</Markdown>
+            ) : (
+              <span>{placeholder}</span>
+            )}
           </div>
         )}
       </div>
@@ -302,6 +345,8 @@ const MemoStickyCard = memo(StickyCard, (prev, next) => {
     prev.note.text === next.note.text &&
     prev.note.color === next.note.color &&
     prev.note.textStyle === next.note.textStyle &&
+    prev.note.widthMode === next.note.widthMode &&
+    prev.note.textSize === next.note.textSize &&
     prev.note.canvasX === next.note.canvasX &&
     prev.note.canvasY === next.note.canvasY &&
     prev.note.width === next.note.width &&

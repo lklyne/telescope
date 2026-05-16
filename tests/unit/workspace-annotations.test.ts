@@ -36,7 +36,7 @@ vi.mock('../../src/main/workspace-utils', () => ({
   makeId: vi.fn(() => 'test-id'),
 }))
 
-import { getAnnotations } from '../../src/main/workspace-annotations'
+import { createAnnotation, getAnnotations } from '../../src/main/workspace-annotations'
 
 function makeAnnotation(overrides: Partial<Annotation> = {}): Annotation {
   return {
@@ -138,5 +138,57 @@ describe('getAnnotations', () => {
     )
 
     expect(getAnnotations({ status: 'unresolved', pageId: 'f1' })).toHaveLength(1)
+  })
+})
+
+describe('createAnnotation elementName (ADR 0013 §6)', () => {
+  beforeEach(() => {
+    mockAnnotations.length = 0
+  })
+
+  it('stores elementName on element-anchored annotations', () => {
+    const created = createAnnotation({
+      anchor: {
+        type: 'element',
+        pageId: 'p1',
+        selector: '#submit',
+        elementPath: 'body > button#submit',
+      },
+      text: 'tighten copy',
+      elementName: 'Submit button',
+    })
+    expect(created.elementName).toBe('Submit button')
+  })
+
+  it('trims and ignores empty elementName', () => {
+    const created = createAnnotation({
+      anchor: {
+        type: 'element',
+        pageId: 'p1',
+        selector: '#x',
+        elementPath: 'body > div#x',
+      },
+      text: 'note',
+      elementName: '   ',
+    })
+    expect(created.elementName).toBeUndefined()
+  })
+
+  it('does not attach elementName to canvas-point annotations', () => {
+    const created = createAnnotation({
+      anchor: { type: 'canvas', canvasX: 0, canvasY: 0 },
+      text: 'free note',
+      elementName: 'should be ignored',
+    })
+    expect(created.elementName).toBeUndefined()
+  })
+
+  it('does not attach elementName to region annotations', () => {
+    const created = createAnnotation({
+      anchor: { type: 'region', canvasRect: { x: 0, y: 0, width: 10, height: 10 } },
+      text: 'region note',
+      elementName: 'should be ignored',
+    })
+    expect(created.elementName).toBeUndefined()
   })
 })

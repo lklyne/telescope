@@ -99,4 +99,18 @@ describe('shape-entity-state', () => {
       canvasY: 2,
     })
   })
+
+  it('carries textSize through create, update, scene, and persist', () => {
+    const entity = createShapeEntity({
+      canvasX: 0,
+      canvasY: 0,
+      textSize: 56,
+    })
+    expect(entity.textSize).toBe(56)
+    updateShapeEntity(entity.id, { textSize: 32 })
+    expect(entity.textSize).toBe(32)
+    const scene = buildShapeEntitySceneEntity(entity, 1, { x: 0, y: 0 }, { x: 0, y: 0 })
+    expect(scene.textSize).toBe(32)
+    expect(persistShapeEntity(entity).textSize).toBe(32)
+  })
 })

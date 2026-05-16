@@ -11,10 +11,11 @@
 
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CanvasSceneShapeEntity } from '../../shared/types'
-import { lightenHex, resolveCanvasColor, withAlpha } from '../../shared/canvas-colors'
+import { lightenHex, resolveCanvasColor } from '../../shared/canvas-colors'
 
 const DEFAULT_STROKE_WIDTH = 2
-const FILL_OPACITY = 0.24
+/** ADR 0013 §2 — shapes without textSize render their label at this size. */
+const DEFAULT_TEXT_SIZE = 14
 const FILL_LIGHTEN = 0.5
 const NEUTRAL_SLATE = '#6b7280'
 
@@ -52,6 +53,7 @@ function ShapeText({
   text,
   editing,
   textColor,
+  fontSize,
   onChange,
   onCommit,
   containerStyle,
@@ -59,6 +61,7 @@ function ShapeText({
   text: string
   editing: boolean
   textColor: string
+  fontSize: number
   onChange: (value: string) => void
   onCommit: (value: string) => void
   containerStyle: React.CSSProperties
@@ -107,7 +110,7 @@ function ShapeText({
         style={{
           width: '100%',
           maxHeight: '100%',
-          fontSize: 13,
+          fontSize,
           lineHeight: 1.4,
           color: textColor,
           fontFamily: 'system-ui, sans-serif',
@@ -177,8 +180,11 @@ function ShapeBody({
   }, [editing, shape.text])
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
-  const resolvedColor = shape.color ? resolveCanvasColor(shape.color) : NEUTRAL_SLATE
-  const fill = withAlpha(lightenHex(resolvedColor, FILL_LIGHTEN), FILL_OPACITY)
+  const resolvedColor = shape.color
+    ? resolveCanvasColor(shape.color, { role: 'fill', isDark, palette: 'soft' })
+    : NEUTRAL_SLATE
+  // Opaque fill — the resolved hue lightened toward white, no alpha.
+  const fill = lightenHex(resolvedColor, FILL_LIGHTEN)
   const strokeColor = resolvedColor
   const textColor = isDark ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
 
@@ -223,6 +229,7 @@ function ShapeBody({
       text={localText}
       editing={editing}
       textColor={textColor}
+      fontSize={shape.textSize ?? DEFAULT_TEXT_SIZE}
       containerStyle={textContainerStyle}
       onChange={setLocalText}
       onCommit={(value) => {
@@ -285,6 +292,7 @@ const MemoShapeBody = memo(ShapeBody, (a, b) => {
     a.shape.text === b.shape.text &&
     a.shape.color === b.shape.color &&
     a.shape.strokeWidth === b.shape.strokeWidth &&
+    a.shape.textSize === b.shape.textSize &&
     a.shape.width === b.shape.width &&
     a.shape.height === b.shape.height &&
     a.isDark === b.isDark &&

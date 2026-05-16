@@ -53,6 +53,7 @@ import {
   entitiesOverlappingRect,
   isOverlayUiTarget,
   isTypingTarget,
+  middleDragDelta,
   normalizeRect,
   screenRectToCanvasRect,
 } from '../../shared/gesture-utils'
@@ -92,6 +93,9 @@ interface UseCanvasPointerRouterOptions {
   /** Space-modifier mirror — `useCanvasPointerRouter` reads this on each
    *  pointerdown to decide pan-on-background. */
   spaceHeldRef: React.MutableRefObject<boolean>
+  /** Hand-tool mirror — when the toolbar's hand tool is active, pan-on-
+   *  background fires regardless of space. ADR 0013 §5 nav group. */
+  handToolActiveRef: React.MutableRefObject<boolean>
   /** Option-modifier mirror. Pointer events can miss mid-drag key changes,
    *  so drag-copy reads this live throughout the gesture. */
   optionHeldRef: React.MutableRefObject<boolean>
@@ -154,6 +158,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     enabled,
     consume,
     spaceHeldRef,
+    handToolActiveRef,
     optionHeldRef,
     setDragCopyPreview,
     setEdgeDragState,
@@ -230,12 +235,19 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         isPrimaryButton: event.button === 0,
         button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
         modifiers,
-        spaceHeld: spaceHeldRef.current,
+        spaceHeld: spaceHeldRef.current || handToolActiveRef.current,
         altHeld: event.altKey || optionHeldRef.current,
         editingEntityId,
       }
 
-      const action = routePointerDown(target, context)
+      // Hand tool: primary-button drag pans globally regardless of hit
+      // target. Space-held still defers to the routing matrix (pan on
+      // background, modifier elsewhere) — hand tool is the explicit
+      // pan-only mode that suppresses entity drag/resize/edge gestures.
+      const action: CanvasPointerAction =
+        handToolActiveRef.current && event.button === 0
+          ? { kind: 'begin-pan' }
+          : routePointerDown(target, context)
       if (!consumeRef.current.has(action.kind)) return
 
       const dispatched = dispatchAction({
@@ -302,7 +314,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         capture: true,
       } as EventListenerOptions)
     }
-  }, [enabled, layoutRef, optionHeldRef, setDragCopyPreview, spaceHeldRef])
+  }, [enabled, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, spaceHeldRef])
 }
 
 // --- Dispatch ---
@@ -643,6 +655,13 @@ function runResize(
   const zoom = layout.zoom ?? 1
   const dispatchPatch = patchDispatcherForKind(entity.kind, action.entityId, api)
   if (!dispatchPatch) return false
+
+  // Plain text in 'auto' widthMode is content-driven; the renderer's
+  // ResizeObserver overwrites any width/height we'd dispatch. Flip to
+  // 'fixed' first so the upcoming width/height patches stick.
+  if (entity.kind === 'text' && entity.widthMode === 'auto') {
+    api.updateTextEntity(action.entityId, { widthMode: 'fixed' })
+  }
 
   // Enter resize mode in main BEFORE the first dispatchPatch. The bounds-update
   // IPC synchronously requestLayouts; if interactionState is still 'idle' when
@@ -1009,11 +1028,13 @@ function runPan(api: CanvasBgElectronAPI, event: PointerEvent): boolean {
   }
   const onMove = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return
-    const dx = ev.screenX - lastScreenX
-    const dy = ev.screenY - lastScreenY
+    const { deltaX, deltaY } = middleDragDelta(
+      { screenX: lastScreenX, screenY: lastScreenY },
+      ev,
+    )
     lastScreenX = ev.screenX
     lastScreenY = ev.screenY
-    if (dx !== 0 || dy !== 0) api.canvasPan(dx, dy)
+    if (deltaX !== 0 || deltaY !== 0) api.canvasPan(deltaX, deltaY)
   }
   const onUp = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return

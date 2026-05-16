@@ -114,6 +114,14 @@ const api: CanvasBgElectronAPI = {
   dragPreview: (dx, dy, shiftKey = false) =>
     ipcRenderer.send('canvas-drag-preview', { dx, dy, shiftKey }),
   setPagePreset: (pageId, index) => ipcRenderer.send('canvas-set-page-preset', { pageId, index }),
+  setDeviceOrientation: (pageId, orientation) =>
+    ipcRenderer.send('canvas-set-device-orientation', { pageId, orientation }),
+  toggleDeviceShell: (pageId) =>
+    ipcRenderer.send('canvas-toggle-device-shell', { pageId }),
+  setFileDeviceOrientation: (fileId, orientation) =>
+    ipcRenderer.send('canvas-set-file-device-orientation', { fileId, orientation }),
+  toggleFileDeviceShell: (fileId) =>
+    ipcRenderer.send('canvas-toggle-file-device-shell', { fileId }),
   renamePage: (pageId, name) => ipcRenderer.send('canvas-rename-page', { pageId, name }),
   duplicatePage: (pageId) => ipcRenderer.send('canvas-duplicate-page', { pageId }),
   toggleLinkedPage: (pageId) => ipcRenderer.send('canvas-toggle-linked-page', { pageId }),
@@ -128,7 +136,7 @@ const api: CanvasBgElectronAPI = {
   tidySelectedEntities: () => ipcRenderer.send('canvas-tidy-selection'),
   createTextEntity: (canvasX: number, canvasY: number, text?: string, color?: string) =>
     ipcRenderer.send('canvas-create-text-entity', { canvasX, canvasY, text, color }),
-  updateTextEntity: (id: string, patch: { text?: string; color?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) =>
+  updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: 'auto' | 'fixed' }) =>
     ipcRenderer.send('canvas-update-text-entity', { id, patch }),
   duplicateTextEntity: (id: string) =>
     ipcRenderer.send('canvas-duplicate-text-entity', { id }),
@@ -336,6 +344,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.invoke('write-note-file', { filePath, content }),
   renameNoteFile: (filePath: string, newName: string) =>
     ipcRenderer.invoke('rename-note-file', { filePath, newName }),
+  morphTextFile: (entityId: string, direction: 'text-to-file' | 'file-to-text') =>
+    ipcRenderer.invoke('canvas-morph-text-file', { entityId, direction }),
   getInitialData: () => ipcRenderer.invoke('get-canvas-layout-bootstrap'),
   repoConnect: (absolutePath: string) =>
     ipcRenderer.invoke('repo-connect', { absolutePath }),

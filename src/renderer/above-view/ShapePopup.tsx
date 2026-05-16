@@ -1,7 +1,11 @@
 // ADR 0008/0009 — shape selection popup. Variant morph per ADR 0009.
 
 import { Copy, Trash2 } from 'lucide-react'
-import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
+import {
+  paletteSlots,
+  resolveCanvasColor,
+  slotForStorage,
+} from '../../shared/canvas-colors'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneShapeEntity,
@@ -9,12 +13,8 @@ import type {
   ShapeKind,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import {
-  SHAPE_VARIANT_OPTIONS,
-  STROKE_WIDTH_PRESETS,
-  nearestStrokeWidthPreset,
-} from './popupVariantOptions'
-import { StrokeWidthSwatch } from './StrokeWidthSwatch'
+import { SHAPE_VARIANT_OPTIONS } from './popupVariantOptions'
+import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 
 export function ShapePopup({
@@ -39,13 +39,10 @@ export function ShapePopup({
   if (count === 0) return null
 
   const sharedShapeKind = sharedValue(selectedShapes.map((s) => s.shapeKind))
-  const sharedColor = sharedValue(
-    selectedShapes.map((s) => (s.color ? resolveCanvasColor(s.color) : null)),
-  )
-  const sharedStrokeWidth = sharedValue(
-    selectedShapes.map((s) =>
-      s.strokeWidth !== undefined ? nearestStrokeWidthPreset(s.strokeWidth) : null,
-    ),
+  const sharedColorRaw = sharedValue(selectedShapes.map((s) => s.color ?? null))
+  const activeSlot = slotForStorage(sharedColorRaw)
+  const sharedTextSize = sharedValue(
+    selectedShapes.map((s) => s.textSize ?? TEXT_SIZE_DEFAULT),
   )
 
   const entityIds = selectedShapes.map((s) => s.id)
@@ -77,41 +74,41 @@ export function ShapePopup({
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_OPTIONS.map((option) => {
-            const resolved = resolveCanvasColor(option.id)
+          <TextSizeDropdown
+            isDark={isDark}
+            value={sharedTextSize ?? TEXT_SIZE_DEFAULT}
+            ariaLabel={`Set ${noun} text size`}
+            onPick={(size) => {
+              for (const s of selectedShapes) {
+                api.updateShapeEntity(s.id, { textSize: size })
+              }
+            }}
+          />
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <CanvasItemPopup.Section>
+          {paletteSlots('soft').map((slot) => {
+            const swatch =
+              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
             return (
               <CanvasItemPopup.ColorSwatch
-                key={option.id}
+                key={slot.id}
                 isDark={isDark}
-                active={sharedColor === resolved}
-                color={resolved}
-                ariaLabel={`Set ${noun} color to ${option.label}`}
+                active={activeSlot === slot.id}
+                color={swatch}
+                ariaLabel={`Set ${noun} color to ${slot.label}`}
                 onClick={() => {
                   for (const s of selectedShapes) {
-                    api.updateShapeEntity(s.id, { color: option.id })
+                    api.updateShapeEntity(s.id, { color: slot.storage })
                   }
                 }}
               />
             )
           })}
         </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          {STROKE_WIDTH_PRESETS.map((width) => (
-            <StrokeWidthSwatch
-              key={width}
-              isDark={isDark}
-              active={sharedStrokeWidth === width}
-              width={width}
-              ariaLabel={`Set ${noun} stroke width to ${width}px`}
-              onClick={() => {
-                for (const s of selectedShapes) {
-                  api.updateShapeEntity(s.id, { strokeWidth: width })
-                }
-              }}
-            />
-          ))}
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton
             isDark={isDark}
@@ -123,7 +120,7 @@ export function ShapePopup({
           >
             <Copy size={14} />
           </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.DestructiveButton
+          <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Delete ${noun}`}
             ariaLabel={`Delete ${noun}`}
@@ -132,7 +129,7 @@ export function ShapePopup({
             }}
           >
             <Trash2 size={14} />
-          </CanvasItemPopup.DestructiveButton>
+          </CanvasItemPopup.IconButton>
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

@@ -7,7 +7,6 @@ import {
   devtoolsBackgroundView,
   devtoolsHeaderView,
   devtoolsResizeHandleView,
-  devtoolsView,
   toolbarView,
   win,
   setDevtoolsView,
@@ -57,18 +56,14 @@ export function closeDevTools(): void {
       // Ignore close races during shutdown or retargeting.
     }
   }
-  for (const page of pages) {
-    page.devtoolsHostView?.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
+  // Per-page devtools host views are hidden by the layout pass once
+  // devtools is closed — no imperative hiding needed here.
 
   if (devtoolsBackgroundView) {
     devtoolsBackgroundView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
   }
   if (devtoolsHeaderView) {
     devtoolsHeaderView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
-  if (devtoolsView) {
-    devtoolsView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
   }
   if (devtoolsResizeHandleView) {
     devtoolsResizeHandleView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
@@ -114,13 +109,8 @@ export function dismissBrowserDevTools(): void {
   if (!win) return
   incrementBrowserDevtoolsAttachGeneration()
 
-  // Hide devtools host views but keep the session alive
-  for (const page of pages) {
-    page.devtoolsHostView?.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
-  if (devtoolsView) {
-    devtoolsView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
+  // The layout pass hides every page's devtools host view while the
+  // panel is off the browser-devtools tab; the session stays alive.
   setDevtoolsView(null)
 
   setUiDevtoolsPanelTab('comments')

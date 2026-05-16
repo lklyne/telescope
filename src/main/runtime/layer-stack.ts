@@ -1,17 +1,20 @@
 /**
  * LAYER_STACK — the declarative z-order for singleton overlay WCVs.
  *
- * Pages (pageView) are added to the content view at
- * creation time (see page-factory.ts) and interleaved between `bgView`
- * (bottom) and the above-pages cluster by virtue of us re-adding `bgView`
- * at index 0 and then re-adding every above-pages WCV.
+ * `applyStack()` is an idempotent full child-list reconcile: it computes
+ * the desired ordered child list — `bgView` → live pages → component
+ * views → above-pages overlays → devtools cluster → `toolbar` — diffs it
+ * against `win.contentView.children`, and applies the delta. It is the
+ * only site that calls `addChildView` / `removeChildView` for pages,
+ * component views, and singleton overlays (invariant I1). Page and
+ * component factories just mutate `pages[]` / the component-view set and
+ * request a layout; the reconcile owns attachment.
  *
- * `applyStack()` is the only function that calls `addChildView` on these
- * singletons. It is invoked exclusively from `layoutAllViews()` when the
- * 'stack' dirty flag is set (invariant I1).
+ * It is invoked exclusively from `layoutAllViews()` when the 'stack'
+ * dirty flag is set.
  */
 
-import type { WebContentsView } from 'electron'
+import type { View, WebContentsView } from 'electron'
 import {
   bgView,
   aboveView,
@@ -23,6 +26,8 @@ import {
   toolbarView,
   win,
 } from './view-refs'
+import { pages } from './runtime-context'
+import { listComponentViews } from './component-page-factory'
 
 export type LayerId =
   | 'bgView'
@@ -77,13 +82,51 @@ export function resolveStackOrder(
   return LAYER_STACK.filter((id) => get(id) != null)
 }
 
+/**
+ * Compute the desired ordered child list, bottom → top:
+ * `bgView` → pages (`frameView` + `pageView` + inactive `devtoolsHostView`)
+ * → component views → above-pages overlays → devtools cluster → `toolbar`.
+ *
+ * The active devtools host (`devtoolsView`) is placed with the devtools
+ * cluster; every other page's `devtoolsHostView` parks in the per-page
+ * section (it is hidden off-screen anyway).
+ */
+function desiredChildOrder(): View[] {
+  const order: View[] = []
+  for (const id of resolveStackOrder()) {
+    const view = resolve(id)
+    if (!view) continue
+    order.push(view)
+    if (id === 'bgView') {
+      for (const page of pages) {
+        order.push(page.frameView, page.pageView)
+        if (page.devtoolsHostView && page.devtoolsHostView !== devtoolsView) {
+          order.push(page.devtoolsHostView)
+        }
+      }
+      for (const cv of listComponentViews()) order.push(cv.view)
+    }
+  }
+  return order
+}
+
 export function applyStack(): void {
   if (!win) return
-  const view = resolve('bgView')
-  if (view) win.contentView.addChildView(view, 0)
-  for (const id of LAYER_STACK) {
-    if (id === 'bgView') continue
-    const v = resolve(id)
-    if (v) win.contentView.addChildView(v)
+  const desired = desiredChildOrder()
+  const actual = [...win.contentView.children]
+  const unchanged =
+    actual.length === desired.length &&
+    actual.every((view, index) => view === desired[index])
+  if (unchanged) return
+
+  // Detach views no longer in the desired set (closed pages / components).
+  for (const child of actual) {
+    if (!desired.includes(child)) win.contentView.removeChildView(child)
+  }
+  // Re-add every desired view in order — `addChildView` on a view that is
+  // already a child moves it, so appending in sequence yields the exact
+  // desired z-order.
+  for (const view of desired) {
+    win.contentView.addChildView(view)
   }
 }

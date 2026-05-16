@@ -39,6 +39,7 @@ export interface Page {
   peekHeight?: number
   lastFrameBoundsKey?: string
   lastPageBoundsKey?: string
+  lastDevtoolsHostBoundsKey?: string
   lastPageEmulationKey?: string
   lastPageAnnotationsKey?: string
   lastSelected?: boolean

@@ -55,6 +55,7 @@ import {
   leftSidebarOpen as uiLeftSidebarOpen,
   selectedEntityIds as uiSelectedEntityIds,
   setDevtoolsWidth as setUiDevtoolsWidth,
+  toolbarDropdownOpen as uiToolbarDropdownOpen,
   workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
@@ -105,41 +106,55 @@ import { boundsOverlap } from './runtime-geometry'
 
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
 
+/**
+ * Off-screen-but-alive bounds for hidden devtools panels. Unlike a 0×0
+ * cull, a 1×1 view parked off-screen keeps its renderer warm so the first
+ * visible open does not pay startup + first-paint cost. Page culling still
+ * uses HIDDEN_BOUNDS — culled pages should not stay warm.
+ */
+const DEVTOOLS_HIDDEN_BOUNDS = { x: -10_000, y: 0, width: 1, height: 1 }
+
+/** Off-screen origin for automation-interactive pages parked outside the viewport. */
+const AUTOMATION_OFFSCREEN_ORIGIN = -10_000
+
 export function layoutDevtoolsViews(): void {
   const devtoolsOpen = uiDevtoolsOpen()
   const devtoolsWidth = uiDevtoolsWidth()
   const devtoolsPanelTab = uiDevtoolsPanelTab()
 
-  if (devtoolsView && win) {
-    if (devtoolsOpen && boundSelectedPage() && devtoolsPanelTab === 'browser-devtools') {
-      const { width, height } = win.getBounds()
-      const panelWidth = clampDevtoolsWidth(devtoolsWidth)
-      setUiDevtoolsWidth(panelWidth)
-      const panelX = width - panelWidth
-      const panelY = layoutCache.toolbarHeight
-      const panelHeight = height - layoutCache.toolbarHeight
-      const contentX = panelX
-      const contentY = panelY + DEVTOOLS_HEADER_HEIGHT + DEVTOOLS_HEADER_GAP
-      const contentWidth = panelWidth
-      const contentHeight = Math.max(
-        0,
-        panelHeight -
-          DEVTOOLS_HEADER_HEIGHT -
-          DEVTOOLS_HEADER_GAP,
-      )
-      layoutCache.lastDevtoolsViewBoundsKey = setBoundsIfChanged(
-          devtoolsView,
-          { x: contentX, y: contentY, width: contentWidth, height: contentHeight },
-          layoutCache.lastDevtoolsViewBoundsKey,
-        )
-    } else {
-      layoutCache.lastDevtoolsViewBoundsKey = setBoundsIfChanged(devtoolsView, { x: 0, y: 0, width: 0, height: 0 }, layoutCache.lastDevtoolsViewBoundsKey)
+  // --- Per-page browser-devtools host views ---
+  // Each page lazily owns a `devtoolsHostView`. The layout pass sizes the
+  // active page's host to the devtools content area and parks every other
+  // page's host off-screen — no imperative hiding lives anywhere else.
+  const showBrowserDevtools =
+    devtoolsOpen && boundSelectedPage() !== null && devtoolsPanelTab === 'browser-devtools'
+  let devtoolsContentBounds = DEVTOOLS_HIDDEN_BOUNDS
+  if (showBrowserDevtools && win) {
+    const { width, height } = win.getBounds()
+    const panelWidth = clampDevtoolsWidth(devtoolsWidth)
+    setUiDevtoolsWidth(panelWidth)
+    const panelY = layoutCache.toolbarHeight
+    const panelHeight = height - layoutCache.toolbarHeight
+    devtoolsContentBounds = {
+      x: width - panelWidth,
+      y: panelY + DEVTOOLS_HEADER_HEIGHT + DEVTOOLS_HEADER_GAP,
+      width: panelWidth,
+      height: Math.max(0, panelHeight - DEVTOOLS_HEADER_HEIGHT - DEVTOOLS_HEADER_GAP),
     }
+  }
+  for (const page of pages) {
+    if (!page.devtoolsHostView) continue
+    const isActiveHost = devtoolsView !== null && page.devtoolsHostView === devtoolsView
+    page.lastDevtoolsHostBoundsKey = setBoundsIfChanged(
+      page.devtoolsHostView,
+      isActiveHost ? devtoolsContentBounds : DEVTOOLS_HIDDEN_BOUNDS,
+      page.lastDevtoolsHostBoundsKey,
+    )
   }
 
   if (devtoolsBackgroundView && win) {
     const { width, height } = win.getBounds()
-    const hiddenBounds = HIDDEN_BOUNDS
+    const hiddenBounds = DEVTOOLS_HIDDEN_BOUNDS
     if (devtoolsOpen) {
       layoutCache.lastDevtoolsBackgroundBoundsKey = setBoundsIfChanged(
         devtoolsBackgroundView,
@@ -153,7 +168,7 @@ export function layoutDevtoolsViews(): void {
 
   if (devtoolsHeaderView && win) {
     const { width, height } = win.getBounds()
-    const hiddenBounds = HIDDEN_BOUNDS
+    const hiddenBounds = DEVTOOLS_HIDDEN_BOUNDS
     if (devtoolsOpen) {
       const showCustomPanel =
         boundSelectedPage() === null || devtoolsPanelTab !== 'browser-devtools'
@@ -182,7 +197,7 @@ export function layoutDevtoolsViews(): void {
 
   if (devtoolsResizeHandleView && win) {
     const { height } = win.getBounds()
-    const hiddenBounds = HIDDEN_BOUNDS
+    const hiddenBounds = DEVTOOLS_HIDDEN_BOUNDS
     if (devtoolsOpen) {
       const { width, height } = win.getBounds()
       layoutCache.lastDevtoolsResizeBoundsKey = setBoundsIfChanged(
@@ -204,7 +219,6 @@ export function layoutDevtoolsViews(): void {
 export function layoutAllViews(): void {
   if (!win || win.isDestroyed()) return
   const layoutStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-  if (consumeDirty('stack')) applyStack()
   const viewMode = uiWorkspaceViewMode()
 
   const devtoolsOpen = uiDevtoolsOpen()
@@ -357,7 +371,33 @@ export function layoutAllViews(): void {
     // (agents need non-zero bounds to interact with off-screen pages).
     const isOnScreen = boundsOverlap(bounds.page, windowRect)
     const isAutomationActive = automationInteractivePageCounts.has(page.id)
-    if (!isOnScreen && interactionState.kind !== 'dragging-entities' && !isAutomationActive) {
+    if (!isOnScreen && interactionState.kind !== 'dragging-entities') {
+      if (isAutomationActive) {
+        // Automation-interactive pages that aren't visible on the canvas
+        // are parked off-screen at their logical viewport size, so an
+        // agent always has a real (un-zoomed) viewport to drive.
+        const parkedSize = boundEffectivePageContentSize(page)
+        page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
+        page.lastPageBoundsKey = setBoundsIfChanged(
+          page.pageView,
+          {
+            x: AUTOMATION_OFFSCREEN_ORIGIN,
+            y: AUTOMATION_OFFSCREEN_ORIGIN,
+            width: parkedSize.width,
+            height: parkedSize.height,
+          },
+          page.lastPageBoundsKey,
+        )
+        devtoolsPanelDebug('layout:page', {
+          pageId: page.id,
+          durationMs: Date.now() - pageStart,
+          visible: false,
+          parked: true,
+          isSelected: selectedPageIds.includes(page.id),
+          devtoolsOpen,
+        })
+        continue
+      }
       page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
       devtoolsPanelDebug('layout:page', {
@@ -453,6 +493,12 @@ export function layoutAllViews(): void {
   // entirely in browser mode — components are design artifacts, not
   // navigable web content, so they don't get tabs.
   syncComponentViews(fileEntities)
+
+  // Child-list reconcile runs here — after syncComponentViews so component
+  // views created this pass are attached the same pass — and owns the full
+  // ordered child list (bgView → pages → components → overlays → toolbar).
+  if (consumeDirty('stack')) applyStack()
+
   const componentsHidden = viewMode === 'browser'
   const canvasOrigin = boundCanvasOrigin()
   const nativeScale = screen.getPrimaryDisplay().scaleFactor
@@ -499,11 +545,16 @@ export function layoutAllViews(): void {
   layoutDevtoolsViews()
 
   // --- Toolbar ---
+  // While a toolbar dropdown is open the view grows to full-window bounds
+  // so the menu can overflow the toolbar strip; otherwise it is just the
+  // strip height.
   if (toolbarView && win) {
-    const { width } = win.getBounds()
+    const { width, height } = win.getBounds()
     layoutCache.lastToolbarBoundsKey = setBoundsIfChanged(
       toolbarView,
-      { x: 0, y: 0, width, height: layoutCache.toolbarHeight },
+      uiToolbarDropdownOpen()
+        ? { x: 0, y: 0, width, height }
+        : { x: 0, y: 0, width, height: layoutCache.toolbarHeight },
       layoutCache.lastToolbarBoundsKey,
     )
     if (consumeDirty('toolbar')) {

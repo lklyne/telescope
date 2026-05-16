@@ -3,6 +3,7 @@
 
 import { Copy, Trash2 } from 'lucide-react'
 import {
+  paletteForBrushType,
   paletteSlots,
   resolveCanvasColor,
   slotForStorage,
@@ -46,10 +47,7 @@ export function DrawingPopup({
 
   const allStrokes = selectedDrawings.flatMap((d) => d.strokes)
   const brush = sharedValue(allStrokes.map((s) => s.brushType ?? 'pen'))
-  // Swatches show the brush's actual ink — vivid for pen, soft for highlight
-  // (ADR 0013 §1). Brush-variant glyphs always use the vivid ink so the icon
-  // stays readable even though the highlighter paints muted.
-  const swatchPalette = brush === 'highlight' ? 'soft' : 'vivid'
+  const swatchPalette = paletteForBrushType(brush ?? 'pen')
   const colorRaw = sharedValue(allStrokes.map((s) => s.color))
   const iconInk =
     colorRaw === null
@@ -98,8 +96,6 @@ export function DrawingPopup({
               title={label}
               ariaLabel={`Switch ${noun} brush to ${label}`}
               onClick={() => {
-                // The color preset is unchanged — it resolves to the punchy or
-                // muted hue from each stroke's brush at render time.
                 const targetPresets = strokeWidthPresetsFor(kind)
                 writeStrokes((stroke) => ({
                   ...stroke,

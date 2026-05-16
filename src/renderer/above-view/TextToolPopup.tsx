@@ -4,6 +4,7 @@
 // file entity for the next creation.
 
 import {
+  paletteForTextStyle,
   paletteSlots,
   resolveCanvasColor,
   slotForStorage,
@@ -34,10 +35,8 @@ export function TextToolPopup({
       ? layout.toolDefaults['add-sticky'].color
       : layout.toolDefaults['add-text'].color
   const activeSlot = slotForStorage(currentRaw)
-  // Sticky bodies are surface-fill role + the muted palette; plain text glyphs
-  // are ink role + the punchy palette (ADR 0013 §1).
   const swatchRole = style === 'sticky' ? 'fill' : 'ink'
-  const swatchPalette = style === 'sticky' ? 'soft' : 'vivid'
+  const swatchPalette = paletteForTextStyle(style)
   const textKind = layout.toolDefaults['add-text'].textKind
   const currentTextSize =
     style === 'sticky'

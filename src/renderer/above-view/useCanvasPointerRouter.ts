@@ -53,6 +53,7 @@ import {
   entitiesOverlappingRect,
   isOverlayUiTarget,
   isTypingTarget,
+  middleDragDelta,
   normalizeRect,
   screenRectToCanvasRect,
 } from '../../shared/gesture-utils'
@@ -1027,13 +1028,13 @@ function runPan(api: CanvasBgElectronAPI, event: PointerEvent): boolean {
   }
   const onMove = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return
-    // Match middleDragDelta convention (previous - next): main applies
-    // `panDeltaX -= deltaX`, so this sign makes content follow the drag.
-    const dx = lastScreenX - ev.screenX
-    const dy = lastScreenY - ev.screenY
+    const { deltaX, deltaY } = middleDragDelta(
+      { screenX: lastScreenX, screenY: lastScreenY },
+      ev,
+    )
     lastScreenX = ev.screenX
     lastScreenY = ev.screenY
-    if (dx !== 0 || dy !== 0) api.canvasPan(dx, dy)
+    if (deltaX !== 0 || deltaY !== 0) api.canvasPan(deltaX, deltaY)
   }
   const onUp = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return

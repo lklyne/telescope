@@ -501,7 +501,7 @@ export function PenSlimIcon({
 export function PenMarkerIcon({
   ink = DEFAULT_PEN_INK,
   size = 16,
-  selected: _selected = false,
+  selected = false,
   ...props
 }: PenIconProps) {
   // Figma node 360:22 — 16×16 frame; cap, body, and tip rect take the ink
@@ -512,6 +512,7 @@ export function PenMarkerIcon({
   const bodyGradId = `pen-marker-body-grad-${uid}`
   const shineGradId = `pen-marker-shine-grad-${uid}`
   const seamGradId = `pen-marker-seam-grad-${uid}`
+  const strokeColor = selected ? PEN_STROKE_SELECTED : PEN_STROKE_IDLE
   return (
     <svg
       width={size}
@@ -546,7 +547,7 @@ export function PenMarkerIcon({
         <path
           d="M13.0996 12.3867L13.0996 42.4004C13.0996 43.4497 12.2486 44.3008 11.1992 44.3008L5.5996 44.3008C4.55026 44.3008 3.69921 43.4497 3.69921 42.4004L3.69922 12.3789C3.69925 12.1367 3.74578 11.8967 3.83594 11.6719L4.54199 9.91309C4.90888 8.99827 5.17809 8.04729 5.34668 7.07617L5.38867 6.83887C5.53997 5.96777 6.26471 5.32898 7.12598 5.3125C7.94758 5.29698 8.81329 5.29749 9.63477 5.31348C10.4938 5.33034 11.2187 5.96424 11.375 6.83105L11.4209 7.08594C11.5952 8.05266 11.8703 8.99862 12.2412 9.9082L12.959 11.6689C13.0519 11.8967 13.0996 12.1407 13.0996 12.3867Z"
           fill={`url(#${bodyGradId})`}
-          stroke="#18181B"
+          stroke={strokeColor}
         />
         <path
           d="M8.7998 5.80078L9.84127 5.80078C10.3274 5.80078 10.7426 6.15084 10.829 6.62924C11.515 10.4243 11.6502 9.94325 12.5 12.0007C11.5381 11.1467 10.0216 11.4914 9.52348 12.6775L8.7998 14.4007L8.7998 5.80078Z"

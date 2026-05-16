@@ -6,7 +6,11 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { canvasToScreenX, canvasToScreenY } from '../../shared/gesture-utils'
-import { resolveCanvasColor, withAlpha } from '../../shared/canvas-colors'
+import {
+  paletteForBrushType,
+  resolveCanvasColor,
+  withAlpha,
+} from '../../shared/canvas-colors'
 import { PERFECT_FREEHAND_ENABLED } from '../../shared/featureFlags'
 import { pathD } from './annotationMath'
 
@@ -126,7 +130,7 @@ function renderStrokeBody({
   const inkColor = resolveCanvasColor(stroke.color, {
     role: 'ink',
     isDark,
-    palette: stroke.brushType === 'highlight' ? 'soft' : 'vivid',
+    palette: paletteForBrushType(stroke.brushType ?? 'pen'),
   })
   if (stroke.brushType === 'highlight') {
     return (

@@ -1,6 +1,7 @@
 // ADR 0008 §1/§5, ADR 0009 — draw tool popup; persists via tool defaults.
 
 import {
+  paletteForBrushType,
   paletteSlots,
   resolveCanvasColor,
   slotForStorage,
@@ -28,10 +29,7 @@ export function DrawToolPopup({
   layout: LayoutUpdateData
 }) {
   const defaults = layout.toolDefaults.draw
-  // Swatches show the brush's actual ink — vivid for pen, soft for highlight
-  // (ADR 0013 §1). Brush-variant glyphs always use the vivid ink so the icon
-  // stays readable even though the highlighter paints muted.
-  const swatchPalette = defaults.brushType === 'highlight' ? 'soft' : 'vivid'
+  const swatchPalette = paletteForBrushType(defaults.brushType)
   const iconInk = resolveCanvasColor(defaults.color, {
     role: 'ink',
     isDark,
@@ -64,8 +62,6 @@ export function DrawToolPopup({
                 if (snapped !== defaults.strokeWidth) {
                   api.setToolDefault({ scope: 'draw', key: 'strokeWidth', value: snapped })
                 }
-                // The color preset is unchanged — it resolves to the punchy
-                // or muted hue from the brush at render time.
               }}
             >
               <Icon

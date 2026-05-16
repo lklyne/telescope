@@ -165,6 +165,22 @@ export function slotForStorage(color: string | null | undefined): CanvasColorSlo
   return null
 }
 
+/**
+ * Palette a drawing brush paints in. Highlighter uses muted pastels; pen uses
+ * saturated hues. ADR 0013 §1.
+ */
+export function paletteForBrushType(brushType: 'pen' | 'highlight'): CanvasPalette {
+  return brushType === 'highlight' ? 'soft' : 'vivid'
+}
+
+/**
+ * Palette a text style paints in. Sticky bodies are fills in the muted palette;
+ * plain text glyphs are ink in the saturated palette. ADR 0013 §1.
+ */
+export function paletteForTextStyle(style: 'plain' | 'sticky'): CanvasPalette {
+  return style === 'sticky' ? 'soft' : 'vivid'
+}
+
 /** Apply an alpha to a #RRGGBB hex color; passes other forms through. */
 export function withAlpha(color: string, alpha: number): string {
   if (color.startsWith('#') && color.length === 7) {

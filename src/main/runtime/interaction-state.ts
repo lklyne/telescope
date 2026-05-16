@@ -10,7 +10,7 @@ export function currentInteractionState(): CanvasInteractionState {
 export function clearInteractionState(): CanvasInteractionState {
   const next: CanvasInteractionState = { kind: 'idle' }
   setInteractionState(next)
-  markDirty('canvas', 'floating-ui')
+  markDirty('canvas')
   requestLayout()
   return next
 }
@@ -18,7 +18,7 @@ export function clearInteractionState(): CanvasInteractionState {
 export function beginDraggingEntities(entityIds: string[]): CanvasInteractionState {
   const next: CanvasInteractionState = { kind: 'dragging-entities', entityIds: [...entityIds] }
   setInteractionState(next)
-  markDirty('canvas', 'floating-ui')
+  markDirty('canvas')
   requestLayout()
   return next
 }

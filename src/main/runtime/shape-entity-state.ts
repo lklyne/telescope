@@ -72,7 +72,7 @@ export function createShapeEntity(input: {
     label: input.label,
   }
   shapeEntities.push(entity)
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return entity
 }
 
@@ -94,7 +94,7 @@ export function updateShapeEntity(
   if (patch.height !== undefined) entity.height = patch.height
   if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
   if (patch.label !== undefined) entity.label = patch.label || undefined
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return entity
 }
 
@@ -102,7 +102,7 @@ export function deleteShapeEntity(id: string): boolean {
   const idx = shapeEntities.findIndex((s) => s.id === id)
   if (idx === -1) return false
   shapeEntities.splice(idx, 1)
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return true
 }
 

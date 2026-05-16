@@ -16,7 +16,7 @@ export function setZoom(value: number): void {
   const nextZoom = clampCanvasZoom(value)
   if (nextZoom === zoom) return
   setZoomState(nextZoom)
-  markDirty('canvas', 'toolbar', 'pages')
+  markDirty('canvas', 'toolbar')
   broadcastCanvasZoomToPages()
   scheduleWorkspaceAutosave()
 }

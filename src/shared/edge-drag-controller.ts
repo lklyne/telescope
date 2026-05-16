@@ -181,7 +181,7 @@ export function cancelEdgeDrag(state: EdgeDragState): CommitOutcome {
 
 // --- Visual helpers (rendered by EdgeDragLayer in aboveView) ---
 
-export function getAnchorPoint(
+function getAnchorPoint(
   entity: CanvasSceneEntity,
   side: EdgeSide,
   zoom: number,

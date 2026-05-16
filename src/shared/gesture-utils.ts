@@ -93,7 +93,7 @@ export function isPlainShortcutKey(
   return event.key.toLowerCase() === key.toLowerCase() && hasNoModifierKeys(event)
 }
 
-export function isCommandShortcutKey(
+function isCommandShortcutKey(
   event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
   key: string,
 ): boolean {

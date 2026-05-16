@@ -128,7 +128,7 @@ export function deletePages(pageIds: string[]) {
   return post<{ deletedPageIds: string[] }>('/pages/delete', { pageIds })
 }
 
-export function updatePages(pages: Array<{ id: string; canvasX?: number; canvasY?: number; presetIndex?: number }>) {
+function updatePages(pages: Array<{ id: string; canvasX?: number; canvasY?: number; presetIndex?: number }>) {
   return post<{ updated: string[] }>('/pages/update', { pages })
 }
 
@@ -213,7 +213,7 @@ export function openMcpSession(sessionId: string, clientName?: string) {
   return post<{ ok: true }>('/mcp/session/open', { sessionId, clientName })
 }
 
-export function pingMcpSession(sessionId: string, clientName?: string) {
+function pingMcpSession(sessionId: string, clientName?: string) {
   return post<{ ok: true }>('/mcp/session/ping', { sessionId, clientName })
 }
 
@@ -325,7 +325,7 @@ export function ungroup(groupId: string) {
   return post<{ entityIds: string[] }>('/groups/ungroup', { groupId })
 }
 
-export function deleteGroups(groupIds: string[]) {
+function deleteGroups(groupIds: string[]) {
   return post<{ deletedGroupIds: string[] }>('/groups/delete', { groupIds })
 }
 
@@ -463,7 +463,7 @@ export function pasteClipboardText(input: { text: string; canvasX?: number; canv
   return post<{ ok: true }>('/test/clipboard/paste', input)
 }
 
-export function getFileEntities() {
+function getFileEntities() {
   return get<{
     fileEntities: Array<{
       id: string

@@ -5,11 +5,11 @@ import type {
 import { snapToGrid, screenPointToCanvasPoint } from '../../shared/gesture-utils'
 import { unionScreenBounds } from './canvasGeometry'
 
-export function buildSelectedPageIdSet(selectedEntityIds: string[]): Set<string> {
+function buildSelectedPageIdSet(selectedEntityIds: string[]): Set<string> {
   return new Set(selectedEntityIds)
 }
 
-export function buildSelectionBounds(layoutData: LayoutUpdateData) {
+function buildSelectionBounds(layoutData: LayoutUpdateData) {
   return unionScreenBounds(layoutData.entities, layoutData.selectedEntityIds)
 }
 
@@ -36,7 +36,7 @@ export function buildPendingPlacementPreview(
   }
 }
 
-export function buildActionAnchorTop(
+function buildActionAnchorTop(
   layoutData: LayoutUpdateData,
   selectionBounds: ReturnType<typeof unionScreenBounds>,
 ): number {
@@ -45,7 +45,7 @@ export function buildActionAnchorTop(
     : layoutData.canvasOrigin.y + 40
 }
 
-export function buildHighlightedEntities(
+function buildHighlightedEntities(
   entities: CanvasSceneEntity[],
   selectedEntityIdSet: Set<string>,
   hoveredEntityId: string | null,

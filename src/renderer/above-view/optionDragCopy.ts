@@ -50,7 +50,7 @@ type DragSnapshot = Pick<
   'id' | 'kind' | 'canvasX' | 'canvasY' | 'screenX' | 'screenY' | 'screenWidth' | 'screenHeight'
 >
 
-export function draggedEntityIdsForSelection(
+function draggedEntityIdsForSelection(
   layout: LayoutUpdateData,
   anchorEntityId: string,
 ): string[] {
@@ -59,7 +59,7 @@ export function draggedEntityIdsForSelection(
     : [anchorEntityId]
 }
 
-export function draggedEntityIdsForGroup(
+function draggedEntityIdsForGroup(
   layout: LayoutUpdateData,
   groupId: string,
 ): string[] {

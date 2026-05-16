@@ -31,7 +31,7 @@ export function parsePadding(
 
 // --- Tree query helpers ---
 
-export function findNodeParent(
+function findNodeParent(
   root: WireframeNode,
   nodeId: string,
 ): { parentId: string; index: number } | null {
@@ -57,7 +57,7 @@ export function nodeHasEditableText(node: WireframeNode): boolean {
   )
 }
 
-export function getEditableText(node: WireframeNode): string {
+function getEditableText(node: WireframeNode): string {
   switch (node.type) {
     case 'text':
     case 'button':

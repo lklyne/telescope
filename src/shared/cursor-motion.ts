@@ -44,7 +44,7 @@ export const DEFAULT_CURSOR_MOTION: CursorMotionParams = {
 }
 
 export const DISTANCE_SCALE_REFERENCE_PX = 400
-export const CANDIDATE_COUNT = 6
+const CANDIDATE_COUNT = 6
 
 export interface MotionCandidate {
   p1: Vec2

@@ -12,7 +12,7 @@ import { Menu } from '@base-ui/react/menu'
 import { Check, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 
-export const TEXT_SIZE_PRESETS = [
+const TEXT_SIZE_PRESETS = [
   { label: 'Small', value: 14 },
   { label: 'Medium', value: 32 },
   { label: 'Large', value: 56 },

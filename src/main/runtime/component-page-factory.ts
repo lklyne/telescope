@@ -25,6 +25,7 @@ import { wireRendererLogging } from '../crash-log'
 import { breadcrumb } from '../sentry-context'
 import { CARD_BORDER_RADIUS } from './runtime-constants'
 import { requestLayout } from './viewport-control'
+import { markDirty } from './layout-dirty'
 import { persistFileEntity, type FileEntity } from './file-entity-state'
 
 export interface ComponentView {
@@ -66,7 +67,7 @@ function createView(entityId: string): ComponentView {
   view.setBackgroundColor('#00000000')
   view.setBorderRadius(CARD_BORDER_RADIUS)
   view.webContents.loadURL('about:blank').catch(() => {})
-  win.contentView.addChildView(view)
+  // Attachment is owned by the layout pass child-list reconcile.
   wireRendererLogging(view.webContents, `component:${entityId}`)
   view.webContents.on('did-finish-load', () => {
     requestLayout()
@@ -118,8 +119,7 @@ async function resolveAndLoad(cv: ComponentView): Promise<void> {
 const currentEntities = new Map<string, FileEntity>()
 
 function destroyView(cv: ComponentView): void {
-  if (!win) return
-  win.contentView.removeChildView(cv.view)
+  // Detachment is owned by the layout pass child-list reconcile.
   if (!cv.view.webContents.isDestroyed()) {
     cv.view.webContents.close()
   }
@@ -151,9 +151,14 @@ export function syncComponentViews(entities: readonly FileEntity[]): void {
     if (shouldHaveComponentView(entity)) desired.add(entity.id)
   }
 
+  let viewSetChanged = false
+
   // Drop views whose entity is gone or no longer wants one.
   for (const [id, cv] of componentViews) {
-    if (!desired.has(id)) destroyView(cv)
+    if (!desired.has(id)) {
+      destroyView(cv)
+      viewSetChanged = true
+    }
   }
 
   // Spin up views for newly-component entities and kick off URL resolution.
@@ -162,7 +167,13 @@ export function syncComponentViews(entities: readonly FileEntity[]): void {
     const cv = createView(id)
     componentViews.set(id, cv)
     void resolveAndLoad(cv)
+    viewSetChanged = true
   }
+
+  // The layout pass child-list reconcile owns attach/detach for these
+  // views — flag 'stack' so the reconcile in this same pass picks up the
+  // delta (syncComponentViews runs from within layoutAllViews).
+  if (viewSetChanged) markDirty('stack')
 
   // Component-render metadata can change in place (e.g. user moves a file
   // into a connected repo's tree). Re-resolve any view whose loaded URL

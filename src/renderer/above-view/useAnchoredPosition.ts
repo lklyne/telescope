@@ -91,7 +91,6 @@ export function useMultiAnchoredPosition(
     }
     if (!any) return null
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, key, slot])
 }
 

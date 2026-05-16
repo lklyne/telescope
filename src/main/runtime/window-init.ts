@@ -154,7 +154,7 @@ export function initWindow(): void {
   const currentWin = win
   if (!currentWin) return
 
-  currentWin.on('resize', () => { markDirty('canvas', 'bounds'); requestLayout() })
+  currentWin.on('resize', () => { markDirty('canvas'); requestLayout() })
   currentWin.on('move', () => { markDirty('canvas'); requestLayout() })
 
   currentWin.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
@@ -193,8 +193,8 @@ export function initWindow(): void {
   )
   loadRenderer(currentBgView, 'canvas-bg')
   // Construction only — the layout pass child-list reconcile (applyStack)
-  // attaches every singleton view; the closing `markDirty('stack')` +
-  // `requestLayout()` warms the first pass.
+  // attaches every singleton view; the closing `requestLayout()` warms
+  // the first pass.
 
   currentBgView.webContents.once('did-finish-load', () => {
     currentBgView.webContents.send('theme-changed', { isDark: isDark() })
@@ -386,5 +386,5 @@ export function initWindow(): void {
   attachBindingDispatcher(currentDevtoolsHeaderView.webContents, 'rightDetailsPanel')
   attachBindingDispatcher(currentDevtoolsResizeHandleView.webContents, 'devtoolsResizeHandle')
 
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }

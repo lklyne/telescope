@@ -25,7 +25,6 @@ import { wireRendererLogging } from '../crash-log'
 import { breadcrumb } from '../sentry-context'
 import { CARD_BORDER_RADIUS } from './runtime-constants'
 import { requestLayout } from './viewport-control'
-import { markDirty } from './layout-dirty'
 import { persistFileEntity, type FileEntity } from './file-entity-state'
 
 export interface ComponentView {
@@ -151,29 +150,21 @@ export function syncComponentViews(entities: readonly FileEntity[]): void {
     if (shouldHaveComponentView(entity)) desired.add(entity.id)
   }
 
-  let viewSetChanged = false
-
   // Drop views whose entity is gone or no longer wants one.
   for (const [id, cv] of componentViews) {
-    if (!desired.has(id)) {
-      destroyView(cv)
-      viewSetChanged = true
-    }
+    if (!desired.has(id)) destroyView(cv)
   }
 
   // Spin up views for newly-component entities and kick off URL resolution.
+  // The layout pass child-list reconcile (which calls syncComponentViews)
+  // owns attach/detach — it runs every pass, so any view-set delta here is
+  // picked up unconditionally without a dirty flag.
   for (const id of desired) {
     if (componentViews.has(id)) continue
     const cv = createView(id)
     componentViews.set(id, cv)
     void resolveAndLoad(cv)
-    viewSetChanged = true
   }
-
-  // The layout pass child-list reconcile owns attach/detach for these
-  // views — flag 'stack' so the reconcile in this same pass picks up the
-  // delta (syncComponentViews runs from within layoutAllViews).
-  if (viewSetChanged) markDirty('stack')
 
   // Component-render metadata can change in place (e.g. user moves a file
   // into a connected repo's tree). Re-resolve any view whose loaded URL

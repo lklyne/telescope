@@ -54,7 +54,7 @@ export function createDrawingEntity(input: {
     label: input.label,
   }
   drawingEntities.push(entity)
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return entity
 }
 
@@ -62,7 +62,7 @@ export function deleteDrawingEntity(id: string): boolean {
   const idx = drawingEntities.findIndex((d) => d.id === id)
   if (idx === -1) return false
   drawingEntities.splice(idx, 1)
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return true
 }
 
@@ -79,7 +79,7 @@ export function updateDrawingEntity(
   if (patch.strokes !== undefined) entity.strokes = patch.strokes
   if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
   if (patch.label !== undefined) entity.label = patch.label || undefined
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return entity
 }
 

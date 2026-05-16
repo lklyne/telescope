@@ -1,25 +1,17 @@
 /**
- * Dirty-flag system for layout invalidation.
+ * Dirty-flag system for layout IPC sends.
  *
- * Mutation sites call `markDirty()` with the surfaces they affect.
- * `layoutAllViews()` checks `consumeDirty()` per surface and only
- * rebuilds + sends IPC for surfaces that were actually dirtied.
+ * The layout pass recomputes view geometry unconditionally every pass —
+ * geometry is no longer flag-gated. These three surfaces are the only
+ * live flags left: each gates an IPC payload send (`canvas`/`sidebar`/
+ * `toolbar`). Mutation sites call `markDirty()` with the surfaces they
+ * affect; `layoutAllViews()` checks `consumeDirty()` per surface and
+ * only sends IPC for surfaces that were actually dirtied.
  */
 
-export type DirtySurface =
-  | 'canvas'
-  | 'sidebar'
-  | 'toolbar'
-  | 'floating-ui'
-  | 'pages'
-  | 'devtools'
-  | 'bounds'
-  | 'stack'
-  | 'visibility'
+export type DirtySurface = 'canvas' | 'sidebar' | 'toolbar'
 
-const ALL_SURFACES: DirtySurface[] = [
-  'canvas', 'sidebar', 'toolbar', 'floating-ui', 'pages', 'devtools', 'bounds', 'stack', 'visibility',
-]
+const ALL_SURFACES: DirtySurface[] = ['canvas', 'sidebar', 'toolbar']
 
 const dirtyFlags = new Set<DirtySurface>()
 

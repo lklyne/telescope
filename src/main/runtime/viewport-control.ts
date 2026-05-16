@@ -1,7 +1,6 @@
 import { pages, pan, zoom, setPanState, setZoomState, selectedPage } from './runtime-context'
 import { win } from './view-refs'
-import { layoutCache } from './layout-cache'
-import { layoutAllViews } from './layout-engine'
+import { requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
@@ -35,13 +34,10 @@ export function setPan(x: number, y: number): void {
   scheduleWorkspaceAutosave()
 }
 
-export function requestLayout(): void {
-  if (layoutCache.layoutTimer) return
-  layoutCache.layoutTimer = setTimeout(() => {
-    layoutCache.layoutTimer = null
-    layoutAllViews()
-  }, 16)
-}
+// `requestLayout` lives in layout-engine (co-located with the private
+// `layoutAllViews` it schedules); re-exported here so the viewport-control
+// import surface stays stable.
+export { requestLayout }
 
 export function focusCanvasBounds(bounds: WorkspaceBounds): void {
   if (!win) return

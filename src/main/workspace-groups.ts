@@ -25,7 +25,6 @@ import { fileEntities, createFileEntity as createFileEntityInState } from './run
 import { shapeEntities, createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
 import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from './runtime/drawing-entity-state'
 import {
-  layoutAllViews,
   requestLayout,
   snapToGrid,
 } from './runtime/surface-layout'
@@ -304,7 +303,7 @@ export function duplicateGroup(input: {
     setSelectedGroupId(duplicatedRootGroup.id)
   }
 
-  layoutAllViews()
+  requestLayout()
   scheduleWorkspaceAutosave()
   return {
     groupId: duplicatedRootGroup.id,

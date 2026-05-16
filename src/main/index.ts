@@ -7,7 +7,7 @@ import {
   restorePersistedWorkspace,
 } from './runtime/workspace-session'
 import { createPage, pages, removePageById, setMcpConnectionStatus } from './runtime/page-runtime'
-import { layoutAllViews, requestLayout } from './runtime/surface-layout'
+import { requestLayout } from './runtime/surface-layout'
 import { toggleDevTools } from './runtime/ui-actions'
 import { broadcastTheme, initWindow, isDark, win } from './runtime/window-shell'
 import {
@@ -220,7 +220,6 @@ app.whenReady().then(async () => {
     }),
     cancelActiveInteraction: () => cancelActiveInteraction('undo'),
     sendInteractiveState,
-    layoutAllViews,
     createPage: (data) => createPage(data as any),
     removePageById,
     destroyActivePages,
@@ -231,7 +230,7 @@ app.whenReady().then(async () => {
   // Clear any undo entries created by the initial doc sync
   clearUndoHistory()
 
-  layoutAllViews()
+  requestLayout()
 
   // Theme detection
   nativeTheme.on('updated', () => {

@@ -15,8 +15,6 @@ export {
   zoom,
 } from './runtime-context'
 
-export { layoutAllViews } from './layout-engine'
-
 export {
   getCanvasLayoutData,
   getLeftSidebarData,

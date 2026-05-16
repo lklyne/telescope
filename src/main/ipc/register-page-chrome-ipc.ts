@@ -4,7 +4,6 @@ import type { ScrollSyncData, SelectionModifiers } from '../../shared/types'
 import { isAdditiveSelection } from '../../shared/selection-modifiers'
 import {
   bgView,
-  layoutAllViews,
   zoom,
 } from '../runtime/surface-layout'
 import { markDirty } from '../runtime/layout-dirty'
@@ -101,6 +100,6 @@ export function registerPageChromeIpc(): void {
     if (!page) return
     page.peekWidth = undefined
     page.peekHeight = undefined
-    layoutAllViews()
+    requestLayout()
   })
 }

@@ -21,7 +21,7 @@ import {
 import { workspaceEdges, workspaceGroups } from './workspace-model'
 import { cancelActive as cancelActiveInteraction } from './interaction-controller'
 import { clearInspectTargets, notifyDevtoolsPanelData, syncInspectionState } from './inspect-session'
-import { layoutAllViews } from './layout-engine'
+import { requestLayout } from './viewport-control'
 import { sendInteractiveState } from './overlay-manager'
 import { savePreferences } from './preferences'
 import { drawingEntities } from './drawing-entity-state'
@@ -187,7 +187,7 @@ function commitSelection(
     sendInteractiveState()
     if (shouldSyncInspection) syncInspectionState()
     if (shouldNotifyDevtools) notifyDevtoolsPanelData()
-    layoutAllViews()
+    requestLayout()
     return false
   }
 
@@ -208,7 +208,7 @@ function commitSelection(
   sendInteractiveState()
   if (shouldSyncInspection) syncInspectionState()
   if (shouldNotifyDevtools) notifyDevtoolsPanelData()
-  layoutAllViews()
+  requestLayout()
   return true
 }
 

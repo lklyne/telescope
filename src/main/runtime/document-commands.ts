@@ -12,7 +12,7 @@
  *
  * Rules:
  * - Every document command triggers scheduleWorkspaceAutosave()
- * - Every document command triggers layoutAllViews() or requestLayout()
+ * - Every document command triggers requestLayout()
  * - Document commands may also change UI state (e.g., selecting a newly created page)
  * - UI commands (in ui-actions.ts) never change persisted document data
  */
@@ -69,7 +69,6 @@ import { selectEntities, selectGroup } from './selection-controller'
 import { cancelEditingEntityIfMatches } from './editing-entity-runtime'
 import {
   canvasOrigin,
-  layoutAllViews,
   pageContentSize,
   pan,
   requestLayout,
@@ -555,7 +554,7 @@ export function groupSelectedEntities(): WorkspaceGroup | null {
   if (ids.length < 2) return null
   const group = createUserGroupInEngine(ids)
   selectGroup(group.id)
-  layoutAllViews()
+  requestLayout()
   return group
 }
 
@@ -565,7 +564,7 @@ export function ungroupSelectedGroup(): string[] | null {
   const freedIds = ungroupUserGroupInEngine(groupId)
   if (!freedIds.length) return null
   selectEntities(freedIds)
-  layoutAllViews()
+  requestLayout()
   return freedIds
 }
 

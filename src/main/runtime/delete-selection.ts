@@ -8,7 +8,7 @@ import {
   deleteShapeEntity,
   deleteTextEntity,
 } from './document-commands'
-import { layoutAllViews } from './layout-engine'
+import { requestLayout } from './viewport-control'
 
 export function deleteSelection(): void {
   const targets = uiSelectedCanvasTargets()
@@ -63,5 +63,5 @@ export function deleteSelection(): void {
     drawingIds.length +
     shapeIds.length +
     groupIds.length
-  if (!deletedEntityCount) layoutAllViews()
+  if (!deletedEntityCount) requestLayout()
 }

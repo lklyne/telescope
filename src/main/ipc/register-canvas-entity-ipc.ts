@@ -72,7 +72,6 @@ import {
   setSelectedEntities,
 } from '../runtime/ui-actions'
 import {
-  layoutAllViews,
   requestLayout,
   snapToGrid,
 } from '../runtime/surface-layout'
@@ -261,7 +260,7 @@ export function registerCanvasEntityIpc(): void {
       } else if (entityKind === 'shape') {
         deleteShapeEntity(entityId)
       }
-      layoutAllViews()
+      requestLayout()
     },
   )
 
@@ -275,7 +274,7 @@ export function registerCanvasEntityIpc(): void {
       width: group.width,
       height: group.height,
     })
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('canvas-ungroup-group', (_event, { groupId }: { groupId: string }) => {
@@ -363,7 +362,7 @@ export function registerCanvasEntityIpc(): void {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
     togglePageLinked(page)
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('canvas-show-page-context-menu', (_event, { pageId }: { pageId: string }) => {
@@ -397,7 +396,7 @@ export function registerCanvasEntityIpc(): void {
         label: page.linked ? 'Unlink Page' : 'Link Page',
         click: () => {
           togglePageLinked(page)
-          layoutAllViews()
+          requestLayout()
         },
       },
       { type: 'separator' },
@@ -424,7 +423,7 @@ export function registerCanvasEntityIpc(): void {
     if (!page) return
     page.presetIndex = index
     scheduleWorkspaceAutosave()
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('canvas-open-devtools-selection', () => {
@@ -463,7 +462,7 @@ export function registerCanvasEntityIpc(): void {
         togglePageLinked(page)
       }
     }
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('canvas-toggle-annotate-mode', () => {
@@ -490,7 +489,7 @@ export function registerCanvasEntityIpc(): void {
   }) => {
     if (!DRAWING_FEATURE_ENABLED) return
     createDrawingEntityInState(input)
-    layoutAllViews()
+    requestLayout()
     scheduleWorkspaceAutosave()
   })
 
@@ -500,7 +499,7 @@ export function registerCanvasEntityIpc(): void {
       // Forward to annotation overlay to show comment composer.
       setCommentOverlayActive(true)
       setPendingFocus({ kind: 'aboveView' })
-      layoutAllViews()
+      requestLayout()
       if (aboveView && !aboveView.webContents.isDestroyed()) {
         aboveView.webContents.send('region-select-committed', { canvasRect })
       }
@@ -531,7 +530,7 @@ export function registerCanvasEntityIpc(): void {
         const canvasPoint = windowPointToCanvasPoint(windowX, windowY)
         setCommentOverlayActive(true)
         setPendingFocus({ kind: 'aboveView' })
-        layoutAllViews()
+        requestLayout()
         if (aboveView && !aboveView.webContents.isDestroyed()) {
           aboveView.webContents.send('comment-canvas-point-committed', {
             canvasX: canvasPoint.x,
@@ -550,7 +549,7 @@ export function registerCanvasEntityIpc(): void {
           if (data) {
             setCommentOverlayActive(true)
             setPendingFocus({ kind: 'aboveView' })
-            layoutAllViews()
+            requestLayout()
             if (aboveView && !aboveView.webContents.isDestroyed()) {
               aboveView.webContents.send('annotate-element-selected', {
                 pageId: hit.pageId,

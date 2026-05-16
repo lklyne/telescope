@@ -192,7 +192,9 @@ export function initWindow(): void {
     }
   )
   loadRenderer(currentBgView, 'canvas-bg')
-  currentWin.contentView.addChildView(currentBgView)
+  // Construction only — the layout pass child-list reconcile (applyStack)
+  // attaches every singleton view; the closing `markDirty('stack')` +
+  // `requestLayout()` warms the first pass.
 
   currentBgView.webContents.once('did-finish-load', () => {
     currentBgView.webContents.send('theme-changed', { isDark: isDark() })
@@ -226,8 +228,6 @@ export function initWindow(): void {
     currentLeftSidebarView.webContents.send('theme-changed', { isDark: isDark() })
     notifyLeftSidebarData()
   })
-  currentWin.contentView.addChildView(currentLeftSidebarView)
-  currentLeftSidebarView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
   attachBindingDispatcher(currentLeftSidebarView.webContents, 'leftSidebar')
 
   // Consolidated above-pages WCV. Loads the merged 'above-view' bundle
@@ -256,9 +256,6 @@ export function initWindow(): void {
     layoutCache.lastCommentOverlayBoundsKey = null
     requestLayout()
   })
-  currentWin.contentView.addChildView(currentAboveView)
-  currentAboveView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-
   // Agent-presence cursor overlay. A child BrowserWindow — not a WCV —
   // because Electron 40's WebContentsView has no setIgnoreMouseEvents
   // (electron#23863), and we need true native click-through so users can
@@ -323,7 +320,6 @@ export function initWindow(): void {
   registerUiWebContents(currentToolbarView.webContents, 'toolbar')
   currentToolbarView.setBackgroundColor('#00000000')
   loadRenderer(currentToolbarView, 'toolbar')
-  currentWin.contentView.addChildView(currentToolbarView)
 
   currentToolbarView.webContents.once('did-finish-load', () => {
     currentToolbarView.webContents.send('theme-changed', { isDark: isDark() })
@@ -343,7 +339,6 @@ export function initWindow(): void {
   if (!currentDevtoolsBackgroundView) return
   currentDevtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
   currentDevtoolsBackgroundView.webContents.loadURL('about:blank')
-  currentWin.contentView.addChildView(currentDevtoolsBackgroundView)
 
   setDevtoolsHeaderView(new WebContentsView({
     webPreferences: {
@@ -366,7 +361,6 @@ export function initWindow(): void {
     currentDevtoolsHeaderView.webContents.send('theme-changed', { isDark: isDark() })
     notifyDevtoolsPanelData()
   })
-  currentWin.contentView.addChildView(currentDevtoolsHeaderView)
 
   setDevtoolsResizeHandleView(new WebContentsView({
     webPreferences: {
@@ -384,7 +378,6 @@ export function initWindow(): void {
   currentDevtoolsResizeHandleView.webContents.once('did-finish-load', () => {
     currentDevtoolsResizeHandleView.webContents.send('theme-changed', { isDark: isDark() })
   })
-  currentWin.contentView.addChildView(currentDevtoolsResizeHandleView)
 
   // Attach binding dispatcher to all initial views
   attachBindingDispatcher(currentBgView.webContents, 'canvasBg')

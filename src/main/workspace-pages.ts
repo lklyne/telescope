@@ -31,8 +31,8 @@ import {
   createDrawingEntity as createDrawingEntityInState,
 } from './runtime/drawing-entity-state'
 import {
-  layoutAllViews,
   pageContentSize,
+  requestLayout,
   snapToGrid,
 } from './runtime/surface-layout'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
@@ -175,7 +175,7 @@ export function addPageFromSource(input: {
     if (input.focus ?? true) {
       selectPageById(page.id)
     }
-    layoutAllViews()
+    requestLayout()
     scheduleWorkspaceAutosave()
     return { pageId: page.id }
   }
@@ -210,7 +210,7 @@ export function addPageFromSource(input: {
     setSelectedGroupId(group.id)
     selectPageById(newPage.id)
   }
-  layoutAllViews()
+  requestLayout()
   scheduleWorkspaceAutosave()
   return { pageId: newPage.id, groupId: group.id }
 }
@@ -258,7 +258,7 @@ export function createPageAtPosition(input: {
   if (input.focus ?? true) {
     selectPageById(page.id)
   }
-  layoutAllViews()
+  requestLayout()
   scheduleWorkspaceAutosave()
   return { pageId: page.id }
 }
@@ -295,7 +295,7 @@ export function duplicatePageFromSource(input: {
   if (input.focus ?? true) {
     selectPageById(newPage.id)
   }
-  layoutAllViews()
+  requestLayout()
   scheduleWorkspaceAutosave()
   return { pageId: newPage.id }
 }
@@ -306,7 +306,7 @@ export function createPages(input: CreatePagesRequest): CreatePagesResponse {
     const page = createPage(config)
     pageIds.push(page.id)
   }
-  layoutAllViews()
+  requestLayout()
   if (pageIds.length) scheduleWorkspaceAutosave()
   return { pageIds }
 }
@@ -359,7 +359,7 @@ export function tidySelectedPages(): { pageIds: string[] } {
     cursorX = page.canvasX + width + distributedGap
   }
 
-  layoutAllViews()
+  requestLayout()
   scheduleWorkspaceAutosave()
   return { pageIds: pagesToTidy.map((page) => page.id) }
 }
@@ -399,7 +399,7 @@ export function duplicateEntity(input: {
     if (input.focus ?? true) {
       setSelectedEntities([newNote.id])
     }
-    layoutAllViews()
+    requestLayout()
     scheduleWorkspaceAutosave()
     return { entityId: newNote.id }
   }
@@ -426,7 +426,7 @@ export function duplicateEntity(input: {
     if (input.focus ?? true) {
       setSelectedEntities([newFile.id])
     }
-    layoutAllViews()
+    requestLayout()
     scheduleWorkspaceAutosave()
     return { entityId: newFile.id }
   }
@@ -455,7 +455,7 @@ export function duplicateEntity(input: {
     if (input.focus ?? true) {
       setSelectedEntities([newShape.id])
     }
-    layoutAllViews()
+    requestLayout()
     scheduleWorkspaceAutosave()
     return { entityId: newShape.id }
   }
@@ -485,7 +485,7 @@ export function duplicateEntity(input: {
     if (input.focus ?? true) {
       setSelectedEntities([newDrawing.id])
     }
-    layoutAllViews()
+    requestLayout()
     scheduleWorkspaceAutosave()
     return { entityId: newDrawing.id }
   }

@@ -4,7 +4,6 @@ import { setActiveTool } from './tool-mode'
 import { applyToolDefaultPatch } from './tool-defaults'
 import { undo, redo } from './workspace-undo'
 import { setZoom, setPan, focusSelectedPage } from './viewport-control'
-import { layoutAllViews } from './layout-engine'
 import { groupSelectedEntities, ungroupSelectedGroup } from './document-commands'
 import { selectAdjacentPage } from './selection-state'
 import { selectEntities, selectNone } from './selection-controller'
@@ -73,7 +72,7 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     setZoom(1.0)
     if (!focusSelectedPage()) {
       setPan(0, 0)
-      layoutAllViews()
+      requestLayout()
     }
   },
   'group': () => {

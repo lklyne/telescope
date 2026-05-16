@@ -117,7 +117,7 @@ const DEVTOOLS_HIDDEN_BOUNDS = { x: -10_000, y: 0, width: 1, height: 1 }
 /** Off-screen origin for automation-interactive pages parked outside the viewport. */
 const AUTOMATION_OFFSCREEN_ORIGIN = -10_000
 
-export function layoutDevtoolsViews(): void {
+function layoutDevtoolsViews(): void {
   const devtoolsOpen = uiDevtoolsOpen()
   const devtoolsWidth = uiDevtoolsWidth()
   const devtoolsPanelTab = uiDevtoolsPanelTab()
@@ -216,7 +216,7 @@ export function layoutDevtoolsViews(): void {
   }
 }
 
-export function layoutAllViews(): void {
+function layoutAllViews(): void {
   if (!win || win.isDestroyed()) return
   const layoutStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
   const viewMode = uiWorkspaceViewMode()
@@ -583,4 +583,18 @@ export function layoutAllViews(): void {
     selectedPageIds,
     activeTab: devtoolsPanelTab,
   })
+}
+
+/**
+ * The single public way to trigger layout. Debounces a `layoutAllViews()`
+ * pass onto a 16ms timer so a burst of mutations collapses into one pass.
+ * `layoutAllViews` / `layoutDevtoolsViews` are module-private — every call
+ * site outside this file routes through here (invariant I1).
+ */
+export function requestLayout(): void {
+  if (layoutCache.layoutTimer) return
+  layoutCache.layoutTimer = setTimeout(() => {
+    layoutCache.layoutTimer = null
+    layoutAllViews()
+  }, 16)
 }

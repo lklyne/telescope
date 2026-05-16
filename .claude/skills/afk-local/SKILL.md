@@ -9,14 +9,15 @@ One-shot kickoff for a multi-PR feature built by the **local** worker loop (`scr
 
 Input: a path to a planning doc under `docs/plans/` **or** a GitHub issue reference (`#81`, `81`, or full URL).
 
-Output: a `claude/feat-<slug>` branch with the plan committed, a dex epic with one subtask per worker-codeable step, and a running `afk-loop.sh` session.
+Output: a `claude/feat-<slug>` branch with the plan committed, a dex epic with one subtask per worker-codeable step, and an orchestration loop running the build.
 
 ## Architectural notes
 
-- The local loop has no cron floor — fires back-to-back as soon as each `claude -p` returns.
+- The build runs as an **orchestrator + stateless worker fires**. `scripts/afk-fire.sh` is one implement-only worker fire (a fresh `claude -p` — no compaction, predictable cost). The orchestrator handles the cheap mechanical steps (watch CI, merge step PRs, advance dex, open the integration PR) so they never burn a model fire.
+- Two orchestrators exist: the launching Claude Code thread (attended — see `.claude/skills/afk-feature/orchestrator.md`) or `scripts/afk-loop.sh` (unattended bash). Step 10 lets the user pick.
 - Subtasks come from `## Phase N` (or `## <heading>`) sections in the plan. The user picks which ones are worker-codeable before any dex tasks are created — "Decisions before starting" / "Goals" / "Non-goals" / "Success criteria" style sections usually shouldn't be tasks.
-- The script reads dex state from the working tree on each fire, so `.dex/` must be committed to the feature branch.
-- The script enforces `claude/feat-*` branch naming — it will exit if the branch doesn't match.
+- Each fire reads dex state from the working tree, so `.dex/` must be committed to the feature branch.
+- Both scripts enforce `claude/feat-*` branch naming — they exit if the branch doesn't match.
 
 ## Kickoff sequence
 
@@ -100,21 +101,33 @@ git commit -m "chore(afk): seed dex subtasks for <slug>"
 git push -u origin claude/feat-<slug>
 ```
 
-### 10. Hand off to the loop
+### 10. Hand off to orchestration
 
-Tell the user the kickoff is complete, print the epic ID and the subtask IDs, then ask which worker should run each fire:
+Tell the user the kickoff is complete and print the epic ID and the subtask IDs.
+Then ask two things:
 
-- `claude` (default) — Opus via the Claude CLI
-- `codex` — OpenAI Codex via `codex exec`
+**Which worker runs each fire** — `claude` (default, Opus via the Claude CLI) or
+`codex` (OpenAI Codex via `codex exec`). Passed through as `AFK_WORKER`.
 
-Pick the command based on the answer:
+**Which orchestration mode:**
 
-```
-./scripts/afk-loop.sh <epic-id>                       # claude (default)
-AFK_WORKER=codex ./scripts/afk-loop.sh <epic-id>      # codex
-```
+- **Attended (default)** — *this thread* becomes the orchestrator. Read
+  `.claude/skills/afk-feature/orchestrator.md` and run that loop yourself: spawn
+  one `scripts/afk-fire.sh` worker fire per task, watch CI and merge step PRs
+  in-thread, advance dex, and open the integration PR at the end. CI waits cost
+  no model fire. Requires this Claude Code session to stay open.
+- **Unattended** — run `./scripts/afk-loop.sh <epic-id>` (the bash orchestrator).
+  Survives without this session; use it for long overnight runs or when the user
+  will close the terminal. `AFK_WORKER=codex ./scripts/afk-loop.sh <epic-id>` for
+  codex.
 
-Don't run it for the user without confirmation — it'll consume tokens and write code. Once they say go, run it in the foreground (so they see fire output) or background via `run_in_background: true` per their preference.
+Both modes share the same primitives: `afk-fire.sh` is one stateless implement-only
+worker fire; the orchestrator (this thread, or the bash loop) handles CI/merge/dex.
+
+Don't start either without confirmation — both consume tokens and write code. Once
+the user says go: for **attended**, begin running the orchestrator loop; for
+**unattended**, run `afk-loop.sh` in the foreground (they see round output) or
+background (`run_in_background: true`) per their preference.
 
 ## Re-runnability
 

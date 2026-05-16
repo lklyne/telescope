@@ -3,8 +3,8 @@ import type { Annotation, ComponentTreeNode, WorkspaceBounds } from '../../share
 import {
   bgView,
   aboveView,
-  layoutAllViews,
   pageBodyCanvasBounds,
+  requestLayout,
 } from '../runtime/surface-layout'
 import {
   findPageById,
@@ -122,7 +122,7 @@ export function registerAnnotationInspectionIpc(): void {
       focusAnnotation(annotationId)
       setCommentOverlayActive(true)
       setPendingFocus({ kind: 'aboveView' })
-      layoutAllViews()
+      requestLayout()
       if (aboveView && !aboveView.webContents.isDestroyed()) {
         aboveView.webContents.send('annotation-thread-open', {
           annotationId,

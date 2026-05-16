@@ -59,7 +59,6 @@ import {
   clampDevtoolsWidth,
   savePreferences,
 } from './preferences'
-import { layoutAllViews } from './layout-engine'
 import {
   COMMENT_BADGE_DEBUG,
   SELECTION_DEBUG,
@@ -132,7 +131,6 @@ export function attachBrowserDevtoolsToPage(index: number): void {
 
     // openDevTools is safe to call whether the session is new or was just hidden
     nextPage.pageView.webContents.openDevTools({ mode: 'detach' })
-    layoutAllViews()
     markDirty('stack'); requestLayout()
   }, 0)
 }
@@ -163,10 +161,10 @@ function selectedPages(): Page[] {
 function ensureDevtoolsView(page: Page): WebContentsView | null {
   if (!win) return null
   if (!page.devtoolsHostView) {
-    // Construction only — the layout pass child-list reconcile attaches it.
+    // Construction only — the layout pass child-list reconcile attaches it
+    // and `layoutDevtoolsViews()` parks it off-screen until it goes active.
     page.devtoolsHostView = new WebContentsView()
     page.devtoolsHostView.setBackgroundColor('#242424')
-    page.devtoolsHostView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
   }
   return page.devtoolsHostView
 }
@@ -233,7 +231,7 @@ export function setHoveredPage(pageId: string | null): void {
   if (hoverTarget?.id === nextHoverTarget?.id && hoverTarget?.kind === nextHoverTarget?.kind) return
   setHoverTarget(nextHoverTarget)
   markDirty('canvas')
-  layoutAllViews()
+  requestLayout()
 }
 
 export function setHoverEntity(
@@ -242,7 +240,7 @@ export function setHoverEntity(
   if (hoverTarget?.id === nextHoverTarget?.id && hoverTarget?.kind === nextHoverTarget?.kind) return
   setHoverTarget(nextHoverTarget)
   markDirty('canvas')
-  layoutAllViews()
+  requestLayout()
 }
 export function setDevtoolsWidthFromScreenX(screenX: number): void {
   if (!win || !uiDevtoolsOpen()) return

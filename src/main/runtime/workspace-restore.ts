@@ -96,7 +96,6 @@ import {
   selectPageById as commitSelectPageById,
 } from './selection-controller'
 import { toggleDevTools } from './devtools-panel'
-import { layoutAllViews } from './layout-engine'
 import { layoutCache, resetLayoutCache } from './layout-cache'
 import {
   setBgView,
@@ -421,7 +420,7 @@ export function rebuildWindowFromSnapshot(snapshot: WorkspaceSnapshot): void {
   const restored = restoreWorkspaceSnapshot(snapshot)
   if (!restored) return
 
-  layoutAllViews()
+  requestLayout()
 
   if (oldWin && !oldWin.isDestroyed()) {
     oldWin.close()

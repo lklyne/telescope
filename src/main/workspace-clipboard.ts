@@ -23,7 +23,7 @@ import {
   createDrawingEntity as createDrawingEntityInState,
   drawingEntities,
 } from './runtime/drawing-entity-state'
-import { layoutAllViews, snapToGrid } from './runtime/surface-layout'
+import { requestLayout, snapToGrid } from './runtime/surface-layout'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
 import { cloneMetadata } from './workspace-utils'
 
@@ -221,7 +221,7 @@ export function pastePagesFromClipboard(input: {
     setSelectedPages(pageIds)
   }
 
-  layoutAllViews()
+  requestLayout()
   scheduleWorkspaceAutosave()
   return { pageIds }
 }
@@ -322,7 +322,7 @@ export function pasteEntitiesFromClipboard(input: {
   if (!entityIds.length) return { entityIds: [] }
 
   setSelectedEntities(entityIds)
-  layoutAllViews()
+  requestLayout()
   scheduleWorkspaceAutosave()
   return { entityIds }
 }

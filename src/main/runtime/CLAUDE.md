@@ -85,7 +85,7 @@ See `tests/README.md` for the test bar and the `AppClient` helpers available to 
 
   Two flavors of this gotcha exist; both fix the same way:
 
-  1. *IPC handler that mutates selection* (drag-start). `commitSelection` synchronously runs `layoutAllViews()`. `canvas-drag-{page,entity}-start` calls `tryEnter` before `applyDragStartSelection` for this reason — see `register-canvas-drag-ipc.ts`.
+  1. *IPC handler that mutates selection* (drag-start). `commitSelection` runs `requestLayout()`, whose debounced pass reconciles focus shortly after. `canvas-drag-{page,entity}-start` calls `tryEnter` before `applyDragStartSelection` so `interactionState.kind` has left `'idle'` by the time that pass runs — see `register-canvas-drag-ipc.ts`.
   2. *Renderer dispatches generic mutation IPC during pointermove* (resize). The router has no preceding "begin" IPC by default, so the first bounds-update IPC's synchronous `requestLayout` reconciles focus while still idle. The fix is a dedicated begin/end pair: `canvas-resize-begin` calls `tryEnter({ kind: 'resizing-entity', target })` so the first move tick reconciles against `'resizing-entity'` (which expects aboveView focus). `runResize` in `useCanvasPointerRouter` dispatches `beginResize` before installing listeners and `endResize` in cleanup.
 
   When adding a new gesture: if the renderer mutates anything that requestLayouts before the gesture is committed, you need a begin IPC that calls `tryEnter` first. Pages are the canary — non-page entities don't populate `focusedPageId`, so the bug is invisible for them.

@@ -254,9 +254,7 @@ export const testRoutes: Route[] = [
       if (cmd) modifiers.push('meta')
       if (shift) modifiers.push('shift')
       if (alt) modifiers.push('alt')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       wc.sendInputEvent({ type: 'keyDown', keyCode: key, modifiers } as any)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       wc.sendInputEvent({ type: 'keyUp', keyCode: key, modifiers } as any)
       writeJson(response, 200, { ok: true })
     },

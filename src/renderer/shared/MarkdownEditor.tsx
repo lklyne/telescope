@@ -132,7 +132,6 @@ export function MarkdownEditor({
       viewRef.current = null
       themeCompartmentRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

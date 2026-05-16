@@ -15,6 +15,7 @@
   "engines": {
     "node": ">=22"
   },
+  "packageManager": "pnpm@9.5.0",
   "scripts": {
     "dev": "pnpm build:mcp-helper && pnpm build:cli && electron-forge start",
     "dev:restart": "bash scripts/dev-restart.sh",

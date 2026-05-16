@@ -4,6 +4,8 @@ You are running in a fresh cloud context. The repo is checked out on the feature
 
 Do **one** unit of work per fire, then exit. Never wait inside a fire. If there's nothing to do, exit quickly. The cron is hourly — long fires waste tokens. The fast path between steps is `RemoteTrigger run <SELF_ROUTINE_ID>` after a state advance.
 
+> **Implement-only fires.** When invoked by `scripts/afk-fire.sh`, a fire runs **only decision rule 4** (Start the next pending task) — an orchestrator (the launching Claude Code thread, or `scripts/afk-loop.sh`) owns rules 1–3: merging step PRs, reconciling dex, opening the integration PR. The full decision tree below still applies when a fire runs the whole tree (cloud routine, `/afk-step`).
+
 ## Branch naming
 
 - Feature branch: `<FEATURE_BRANCH>` (already `claude/feat-<slug>`)

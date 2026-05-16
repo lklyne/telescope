@@ -8,7 +8,6 @@ import {
   setZoom,
   toolbarView,
   zoom,
-  layoutAllViews,
 } from '../runtime/surface-layout'
 import {
   focusSelectedPage,
@@ -38,26 +37,26 @@ function recenterBrowserSelectionIfNeeded(): void {
 export function registerToolbarIpc(): void {
   ipcMain.on('zoom-in', () => {
     setZoom(zoom + 0.1)
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('zoom-out', () => {
     setZoom(zoom - 0.1)
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('zoom-reset', () => {
     setZoom(1.0)
     if (!focusSelectedPage()) {
       setPan(0, 0)
-      layoutAllViews()
+      requestLayout()
     }
   })
 
   ipcMain.on('zoom-set', (_event, level: number) => {
     setZoom(level)
     if (level === 1.0 && focusSelectedPage()) return
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('toolbar-navigate-selection', (_event, url: string) => {

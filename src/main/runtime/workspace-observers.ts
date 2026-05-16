@@ -54,7 +54,6 @@ interface RuntimeStateRefs {
   serializePage: (page: Page) => Record<string, unknown>
   cancelActiveInteraction: () => void
   sendInteractiveState: () => void
-  layoutAllViews: () => void
   // Page lifecycle for undo of create/delete
   createPage: (data: Record<string, unknown>) => void
   removePageById: (id: string) => void

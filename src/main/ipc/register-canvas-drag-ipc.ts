@@ -24,7 +24,6 @@ import type { EdgeSide } from '../../shared/types'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
 import {
   canvasOrigin,
-  layoutAllViews,
   pan,
   requestLayout,
   setPan,
@@ -207,9 +206,10 @@ export function registerCanvasDragIpc(): void {
       { pageId, selection }: { pageId: string; selection?: CanvasDragStartSelection },
     ) => {
       // Enter drag mode BEFORE mutating selection. commitSelection calls
-      // layoutAllViews() synchronously; while interactionState.kind is 'idle'
-      // the focus reconciler routes focus to bgView and aboveView blurs,
-      // which the drag's window blur listener treats as a cancel.
+      // requestLayout(); the debounced pass runs reconcileFocus afterward,
+      // and unless interactionState.kind has left 'idle' by then the focus
+      // reconciler routes focus to bgView and aboveView blurs, which the
+      // drag's window blur listener treats as a cancel.
       const started = beginDragSession('page', resolveDraggedPageIds(pageId))
       if (started) applyDragStartSelection(pageId, selection)
     },
@@ -282,7 +282,7 @@ export function registerCanvasDragIpc(): void {
       { entityId, selection }: { entityId: string; selection?: CanvasDragStartSelection },
     ) => {
       // See canvas-drag-page-start: enter drag mode before applying selection
-      // so the focus reconciler keeps aboveView focused through layoutAllViews.
+      // so the focus reconciler keeps aboveView focused through the layout pass.
       const started = beginDragSession('entity', resolveDraggedEntityIds(entityId))
       if (started) applyDragStartSelection(entityId, selection)
     },
@@ -335,7 +335,7 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on('canvas-drag-group-end', () => {
     endDragSession('group')
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on(
@@ -381,7 +381,7 @@ export function registerCanvasDragIpc(): void {
         fromSide,
       })
       setHoverEntity(null)
-      layoutAllViews()
+      requestLayout()
     },
   )
 
@@ -399,14 +399,14 @@ export function registerCanvasDragIpc(): void {
           ? { id: targetEntityId, kind: resolveEntityKind(targetEntityId) }
           : null
       updateEdgeDragTarget(target, targetSide)
-      layoutAllViews()
+      requestLayout()
     },
   )
 
   ipcMain.on('canvas-edge-drag-cancel', () => {
     cancelActive('escape')
     setHoverEntity(null)
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on(
@@ -471,7 +471,7 @@ export function registerCanvasDragIpc(): void {
       }
       commitActive()
       setHoverEntity(null)
-      layoutAllViews()
+      requestLayout()
     },
   )
 
@@ -481,7 +481,7 @@ export function registerCanvasDragIpc(): void {
       deleteEdge(edgeId)
       cancelActive('escape')
       setHoverEntity(null)
-      layoutAllViews()
+      requestLayout()
     },
   )
 }

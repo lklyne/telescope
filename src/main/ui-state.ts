@@ -87,7 +87,7 @@ export function setSelection(input: SelectionInput): UiState {
   const nextInput = sanitizeSelectionInput(input)
   if (nextInput.kind === 'single-entity') {
     uiState.selection = { kind: 'single-entity', entityId: nextInput.entityId, entityKind: nextInput.entityKind }
-    markDirty('canvas', 'sidebar', 'toolbar', 'floating-ui', 'devtools')
+    markDirty('canvas', 'sidebar', 'toolbar')
     return getUiState()
   }
   if (nextInput.kind === 'multi-entity') {
@@ -112,11 +112,11 @@ export function setSelection(input: SelectionInput): UiState {
     if (uiState.viewMode.kind === 'browser') {
       uiState.viewMode = { kind: 'canvas' }
     }
-    markDirty('canvas', 'sidebar', 'toolbar', 'floating-ui', 'devtools')
+    markDirty('canvas', 'sidebar', 'toolbar')
     return getUiState()
   }
   uiState.selection = { kind: 'none' }
-  markDirty('canvas', 'sidebar', 'toolbar', 'floating-ui', 'devtools')
+  markDirty('canvas', 'sidebar', 'toolbar')
   return getUiState()
 }
 
@@ -131,7 +131,7 @@ export function setCanvasMode(): UiState {
     breadcrumb('view-mode', 'canvas')
   }
   uiState.viewMode = { kind: 'canvas' }
-  markDirty('canvas', 'sidebar', 'toolbar', 'bounds', 'pages')
+  markDirty('canvas', 'sidebar', 'toolbar')
   return getUiState()
 }
 
@@ -141,7 +141,7 @@ export function setBrowserMode(target: BrowserTarget): UiState {
   }
   uiState.selection = { kind: 'single-entity', entityId: target.pageId, entityKind: 'page' }
   uiState.viewMode = { kind: 'browser', pageId: target.pageId }
-  markDirty('canvas', 'sidebar', 'toolbar', 'bounds', 'pages')
+  markDirty('canvas', 'sidebar', 'toolbar')
   return getUiState()
 }
 
@@ -180,13 +180,12 @@ export function updateSelectionForRemovedEntity(entityId: string): UiState {
 
 export function setDevtoolsOpen(open: boolean): UiState {
   uiState.devtools.open = open
-  markDirty('bounds', 'devtools')
   return getUiState()
 }
 
 export function setLeftSidebarOpen(open: boolean): UiState {
   uiState.leftSidebarOpen = open
-  markDirty('toolbar', 'bounds')
+  markDirty('toolbar')
   return getUiState()
 }
 
@@ -220,7 +219,6 @@ export function setSelectionMarqueeVisible(visible: boolean): UiState {
 
 export function setDevtoolsWidth(width: number): UiState {
   uiState.devtools.width = width
-  markDirty('bounds', 'devtools')
   return getUiState()
 }
 

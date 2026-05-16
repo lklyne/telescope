@@ -35,9 +35,9 @@ export function notifyDevtoolsChanged(): void {
 
 export function toggleLeftSidebar(): void {
   setUiLeftSidebarOpen(!uiLeftSidebarOpen())
-  markDirty('sidebar', 'canvas', 'floating-ui')
+  markDirty('sidebar', 'canvas')
   notifyDevtoolsChanged()
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }
 
 export function closeDevTools(): void {
@@ -59,7 +59,7 @@ export function closeDevTools(): void {
   setUiDevtoolsOpen(false)
   syncInspectionState()
   notifyDevtoolsChanged()
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }
 
 export function toggleDevTools(): void {
@@ -78,7 +78,7 @@ export function toggleDevTools(): void {
   setUiDevtoolsOpen(true)
   notifyDevtoolsChanged()
   syncInspectionState()
-  markDirty('stack'); requestLayout()
+  requestLayout()
   devtoolsPanelDebug('toggle:open-complete', { durationMs: Date.now() - start })
 }
 
@@ -100,7 +100,7 @@ export function dismissBrowserDevTools(): void {
   setUiDevtoolsPanelTab('comments')
   notifyDevtoolsChanged()
   syncInspectionState()
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }
 
 export function openDevToolsForSelectedPage(): void {
@@ -113,7 +113,7 @@ export function openDevToolsForSelectedPage(): void {
   setUiDevtoolsOpen(true)
   notifyDevtoolsChanged()
   syncInspectionState()
-  markDirty('stack'); requestLayout()
+  requestLayout()
   attachBrowserDevtoolsToPage(selectedPageIdx)
 }
 
@@ -125,9 +125,9 @@ export function openInspectPanel(): void {
   }
   setUiDevtoolsPanelTab('inspect')
   focusUiAnnotation(null)
-  markDirty('toolbar', 'canvas', 'floating-ui')
+  markDirty('toolbar', 'canvas')
   syncInspectionState()
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }
 
 export function openCommentsPanel(annotationId?: string): void {
@@ -138,9 +138,9 @@ export function openCommentsPanel(annotationId?: string): void {
   }
   setUiDevtoolsPanelTab('comments')
   focusUiAnnotation(annotationId ?? null)
-  markDirty('toolbar', 'canvas', 'floating-ui')
+  markDirty('toolbar', 'canvas')
   syncInspectionState()
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }
 
 export function focusAnnotation(annotationId?: string): void {

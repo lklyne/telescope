@@ -181,7 +181,7 @@ export function createAnnotation(request: AnnotationCreateRequest): Annotation {
     metadata: enrichedAnnotationMetadata(request),
   }
   workspaceAnnotations.push(annotation)
-  markDirty('canvas', 'pages')
+  markDirty('canvas')
   requestLayout()
   scheduleWorkspaceAutosave()
   if (onAnnotationCreatedListener) {
@@ -217,7 +217,7 @@ export function updateAnnotationStatus(
   if (Object.keys(metadataPatch).length) {
     annotation.metadata = metadataPatch
   }
-  markDirty('canvas', 'pages')
+  markDirty('canvas')
   requestLayout()
   scheduleWorkspaceAutosave()
   return annotation
@@ -237,7 +237,7 @@ export function addAnnotationReply(
     updateAnnotationStatus(id, 'pending')
   }
   if (!statusUpdated) {
-    markDirty('canvas', 'pages')
+    markDirty('canvas')
     requestLayout()
     scheduleWorkspaceAutosave()
   }
@@ -266,7 +266,7 @@ export function moveAnnotation(
     canvasY: annotation.anchor.canvasY + dy,
   }
 
-  markDirty('canvas', 'pages')
+  markDirty('canvas')
   requestLayout()
   scheduleWorkspaceAutosave()
   return annotation
@@ -276,7 +276,7 @@ export function deleteAnnotation(id: string): boolean {
   const idx = workspaceAnnotations.findIndex((a) => a.id === id)
   if (idx === -1) return false
   workspaceAnnotations.splice(idx, 1)
-  markDirty('canvas', 'pages')
+  markDirty('canvas')
   requestLayout()
   scheduleWorkspaceAutosave()
   return true

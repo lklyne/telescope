@@ -346,11 +346,6 @@ function layoutAllViews(): void {
     }
   }
 
-  // Floating UI bundle retired in Phase 5c-floating-ui. The inline menu
-  // for selected text/drawing entities now renders inside above-view via
-  // FloatingUiLayer, reading layoutData directly.
-  consumeDirty('floating-ui')
-
   const winBounds = win.getBounds()
   const windowRect = { x: 0, y: 0, width: winBounds.width, height: winBounds.height }
 
@@ -497,7 +492,7 @@ function layoutAllViews(): void {
   // Child-list reconcile runs here — after syncComponentViews so component
   // views created this pass are attached the same pass — and owns the full
   // ordered child list (bgView → pages → components → overlays → toolbar).
-  if (consumeDirty('stack')) applyStack()
+  applyStack()
 
   const componentsHidden = viewMode === 'browser'
   const canvasOrigin = boundCanvasOrigin()
@@ -564,11 +559,6 @@ function layoutAllViews(): void {
       toolbarView.webContents.send('agent-presence-changed', getPresenceCursors())
     }
   }
-
-  // Consume any remaining flags that weren't consumed above
-  consumeDirty('bounds')
-  consumeDirty('pages')
-  consumeDirty('devtools')
 
   // Post-layout: reconcile focus + page-cursor bridge against the
   // post-mutation world. Both observe the same predicate

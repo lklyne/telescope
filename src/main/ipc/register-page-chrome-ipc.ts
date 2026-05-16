@@ -6,7 +6,6 @@ import {
   bgView,
   zoom,
 } from '../runtime/surface-layout'
-import { markDirty } from '../runtime/layout-dirty'
 import { requestLayout } from '../runtime/viewport-control'
 import {
   deselectAll,
@@ -72,11 +71,11 @@ export function registerPageChromeIpc(): void {
 
   ipcMain.on('canvas-bg-dropdown-open', () => {
     if (!bgView || !win) return
-    markDirty('stack'); requestLayout()
+    requestLayout()
   })
 
   ipcMain.on('canvas-bg-dropdown-close', () => {
-    markDirty('stack'); requestLayout()
+    requestLayout()
   })
 
   ipcMain.on('peek-resize-start', (event) => {

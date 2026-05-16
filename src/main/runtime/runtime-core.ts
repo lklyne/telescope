@@ -131,7 +131,7 @@ export function attachBrowserDevtoolsToPage(index: number): void {
 
     // openDevTools is safe to call whether the session is new or was just hidden
     nextPage.pageView.webContents.openDevTools({ mode: 'detach' })
-    markDirty('stack'); requestLayout()
+    requestLayout()
   }, 0)
 }
 

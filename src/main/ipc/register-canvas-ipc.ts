@@ -44,7 +44,6 @@ import {
   type ForwardPointerPayload,
   type ForwardWheelPayload,
 } from '../runtime/page-input-forwarding'
-import { markDirty } from '../runtime/layout-dirty'
 import {
   createWorkspaceTab,
   deleteWorkspaceTab,

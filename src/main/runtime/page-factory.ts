@@ -120,7 +120,7 @@ export function createPage(config: PageConfig): Page {
     },
   }
   pages.push(page)
-  markDirty('canvas', 'sidebar', 'toolbar', 'pages')
+  markDirty('canvas', 'sidebar', 'toolbar')
 
   page.pageView.webContents.on('page-title-updated', () => {
     page.title = page.pageView.webContents.getTitle() || undefined
@@ -259,7 +259,7 @@ export function createPage(config: PageConfig): Page {
 
   attachBindingDispatcher(pageView.webContents, 'page')
 
-  markDirty('stack'); requestLayout()
+  requestLayout()
 
   return page
 }
@@ -279,7 +279,7 @@ export function removePageAtIndex(idx: number): Page | null {
   // focus() call lands at the end of the next layout pass via reconcileFocus.
   setPendingFocus({ kind: 'aboveView' })
   pages.splice(idx, 1)
-  markDirty('canvas', 'sidebar', 'toolbar', 'pages', 'stack')
+  markDirty('canvas', 'sidebar', 'toolbar')
   invalidateAgentSnapshot(page.id)
   const previousSelectedIndex = uiSelectedPageIndex(pages.map((p) => p.id))
   updateSelectionForRemovedEntity(page.id)

@@ -47,7 +47,7 @@ export function PagePresetDropdown({
       <Popover.Trigger render={trigger} />
       <Popover.Portal>
         <Popover.Positioner side={side} align={align} sideOffset={sideOffset} collisionAvoidance={{ side: 'none', align: 'none' }} style={{ zIndex: 100 }}>
-          <Popover.Popup className={popupClassName}>
+          <Popover.Popup data-overlay-ui className={popupClassName}>
             <button type="button" className={itemClassName} onClick={() => handleSelect(onSelectCustom)}>
               <span className="truncate">Custom</span>
             </button>

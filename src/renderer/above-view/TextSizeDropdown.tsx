@@ -103,6 +103,7 @@ export function TextSizeDropdown({
       <Menu.Portal>
         <Menu.Positioner align="start" sideOffset={6} style={{ zIndex: 50 }}>
           <Menu.Popup
+            data-overlay-ui
             className={popupClass(isDark)}
             onMouseDown={(event) => event.stopPropagation()}
           >

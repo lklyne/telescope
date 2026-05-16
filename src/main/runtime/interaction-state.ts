@@ -86,7 +86,11 @@ export function updateEdgeDragTarget(
 }
 
 export function interactionBlocksPageHover(state: CanvasInteractionState = interactionState): boolean {
-  return state.kind === 'dragging-edge'
+  return (
+    state.kind === 'dragging-edge' ||
+    state.kind === 'resizing-entity' ||
+    state.kind === 'dragging-entities'
+  )
 }
 
 export function interactionBlocksPageSelection(state: CanvasInteractionState = interactionState): boolean {

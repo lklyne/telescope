@@ -409,13 +409,17 @@ export const ZoomChevronIcon = makeToolbarIcon(zoomChevronUrl, zoomChevronDarkUr
 type PenIconProps = {
   ink?: string
   size?: number
+  selected?: boolean
 } & Omit<ComponentProps<'svg'>, 'width' | 'height' | 'viewBox'>
 
 const DEFAULT_PEN_INK = '#BD4BE5'
+const PEN_STROKE_IDLE = '#797875'
+const PEN_STROKE_SELECTED = '#18181B'
 
 export function PenSlimIcon({
   ink = DEFAULT_PEN_INK,
   size = 16,
+  selected = false,
   ...props
 }: PenIconProps) {
   // Figma node 360:12 — 16×16 frame with the pen body extending past the
@@ -426,6 +430,7 @@ export function PenSlimIcon({
   const bodyGradId = `pen-slim-body-grad-${uid}`
   const shineGradId = `pen-slim-shine-grad-${uid}`
   const seamGradId = `pen-slim-seam-grad-${uid}`
+  const strokeColor = selected ? PEN_STROKE_SELECTED : PEN_STROKE_IDLE
   return (
     <svg
       width={size}
@@ -455,13 +460,13 @@ export function PenSlimIcon({
         <path
           d="M9.5 5.40918C9.49999 6.08065 8.95565 6.62499 8.28418 6.625L6.96582 6.625C6.29435 6.62499 5.75001 6.08065 5.75 5.40918C5.75 5.27181 5.77376 5.13545 5.81934 5.00586L6.88477 1.97461C7.13063 1.27547 8.11937 1.27547 8.36523 1.97461L9.43066 5.00586C9.47623 5.13545 9.5 5.27181 9.5 5.40918Z"
           fill={ink}
-          stroke="#797875"
+          stroke={strokeColor}
           strokeWidth="0.75"
         />
         <path
           d="M12.125 12.6113L12.125 40.75C12.125 41.7855 11.2855 42.625 10.25 42.625L4.99999 42.625C3.96446 42.625 3.12499 41.7855 3.12499 40.75L3.125 12.6045C3.12503 12.3656 3.17088 12.129 3.25976 11.9072L5.21191 7.03906C5.48309 6.36293 6.11591 5.90562 6.82812 5.88574C7.3608 5.87089 7.85049 5.87141 8.38379 5.88672C9.09419 5.90712 9.72602 6.36038 10 7.03223L11.9863 11.9033C12.078 12.1281 12.125 12.3686 12.125 12.6113Z"
           fill={`url(#${bodyGradId})`}
-          stroke="#797875"
+          stroke={strokeColor}
           strokeWidth="0.75"
         />
         <path
@@ -496,6 +501,7 @@ export function PenSlimIcon({
 export function PenMarkerIcon({
   ink = DEFAULT_PEN_INK,
   size = 16,
+  selected: _selected = false,
   ...props
 }: PenIconProps) {
   // Figma node 360:22 — 16×16 frame; cap, body, and tip rect take the ink

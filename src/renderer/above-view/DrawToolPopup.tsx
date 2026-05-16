@@ -28,12 +28,14 @@ export function DrawToolPopup({
   layout: LayoutUpdateData
 }) {
   const defaults = layout.toolDefaults.draw
-  // Pen inks in the punchy palette; highlighter in the muted one (ADR 0013 §1).
+  // Swatches show the brush's actual ink — vivid for pen, soft for highlight
+  // (ADR 0013 §1). Brush-variant glyphs always use the vivid ink so the icon
+  // stays readable even though the highlighter paints muted.
   const swatchPalette = defaults.brushType === 'highlight' ? 'soft' : 'vivid'
-  const currentColor = resolveCanvasColor(defaults.color, {
+  const iconInk = resolveCanvasColor(defaults.color, {
     role: 'ink',
     isDark,
-    palette: swatchPalette,
+    palette: 'vivid',
   })
   const activeSlot = slotForStorage(defaults.color)
   const widthPresets = strokeWidthPresetsFor(defaults.brushType)
@@ -66,7 +68,11 @@ export function DrawToolPopup({
                 // or muted hue from the brush at render time.
               }}
             >
-              <Icon size={14} ink={currentColor} />
+              <Icon
+                size={14}
+                ink={iconInk}
+                selected={defaults.brushType === kind}
+              />
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>

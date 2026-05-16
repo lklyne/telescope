@@ -384,8 +384,8 @@ function entityHasChrome(kind: CanvasEntityKind): boolean {
   return kind === 'page' || kind === 'file'
 }
 
-function entityHasAnchors(kind: CanvasEntityKind): boolean {
-  // Drawings don't get anchors today; CanvasSceneEntity has no edge variant
-  // (edges live in inputs.edges, not inputs.entities).
+export function entityHasAnchors(kind: CanvasEntityKind): boolean {
+  // Drawings don't get edge anchors — the dots crowd the selection chrome and
+  // make a selected stroke awkward to grab and drag.
   return kind !== 'drawing'
 }

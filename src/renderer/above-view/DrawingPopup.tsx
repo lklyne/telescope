@@ -46,13 +46,15 @@ export function DrawingPopup({
 
   const allStrokes = selectedDrawings.flatMap((d) => d.strokes)
   const brush = sharedValue(allStrokes.map((s) => s.brushType ?? 'pen'))
-  // Pen inks in the punchy palette; highlighter in the muted one (ADR 0013 §1).
+  // Swatches show the brush's actual ink — vivid for pen, soft for highlight
+  // (ADR 0013 §1). Brush-variant glyphs always use the vivid ink so the icon
+  // stays readable even though the highlighter paints muted.
   const swatchPalette = brush === 'highlight' ? 'soft' : 'vivid'
   const colorRaw = sharedValue(allStrokes.map((s) => s.color))
-  const currentColor =
+  const iconInk =
     colorRaw === null
       ? null
-      : resolveCanvasColor(colorRaw, { role: 'ink', isDark, palette: swatchPalette })
+      : resolveCanvasColor(colorRaw, { role: 'ink', isDark, palette: 'vivid' })
   const activeSlot = slotForStorage(colorRaw)
   const widthRaw = sharedValue(allStrokes.map((s) => s.width))
   const widthPresets = strokeWidthPresetsFor(brush ?? undefined)
@@ -106,7 +108,11 @@ export function DrawingPopup({
                 }))
               }}
             >
-              <Icon size={14} ink={currentColor ?? undefined} />
+              <Icon
+                size={14}
+                ink={iconInk ?? undefined}
+                selected={brush === kind}
+              />
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>

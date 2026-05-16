@@ -201,12 +201,13 @@ export function CenterActions({
     onSetTool(activeTool.kind === 'inspect' ? { kind: 'select' } : { kind: 'inspect' })
 
   const buttonClass = (active: boolean) => toolbarToolBtnClass(isDark, active)
-  // The Draw glyph previews the brush's current ink, same resolution the
-  // draw-tool popup uses for its swatches (ADR 0013 §1 — 'ink' role).
+  // The Draw glyph previews the brush's current ink in the vibrant palette
+  // for both brushes — the icon represents the tool, not the muted swatch
+  // the highlighter will actually paint with (ADR 0013 §1 — 'ink' role).
   const drawInk = resolveCanvasColor(drawColor, {
     role: 'ink',
     isDark,
-    palette: drawBrushType === 'highlight' ? 'soft' : 'vivid',
+    palette: 'vivid',
   })
   const selectTriggerClassName = isDark
     ? 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-[rgba(253,248,245,0.1)]'

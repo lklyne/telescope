@@ -300,6 +300,7 @@ export function initializeDrag(entityIds: string[]): void {
 function dragPositionFromAccumulator(
   acc: DragAccumulator,
   options: DragDeltaOptions,
+  snap: boolean,
 ): { x: number; y: number } {
   const rawDelta = {
     x: acc.rawX - acc.originX,
@@ -311,8 +312,8 @@ function dragPositionFromAccumulator(
   const projectedY = acc.originY + projectedDelta.y
 
   return {
-    x: dominantAxis === 'vertical' ? projectedX : snapToGrid(projectedX),
-    y: dominantAxis === 'horizontal' ? projectedY : snapToGrid(projectedY),
+    x: !snap || dominantAxis === 'vertical' ? projectedX : snapToGrid(projectedX),
+    y: !snap || dominantAxis === 'horizontal' ? projectedY : snapToGrid(projectedY),
   }
 }
 
@@ -352,7 +353,8 @@ export function applyDragDelta(
     acc.rawY += dy / zoom
     const prevX = entity.canvasX
     const prevY = entity.canvasY
-    const next = dragPositionFromAccumulator(acc, options)
+    const isDrawing = drawingEntities.some((d) => d.id === id)
+    const next = dragPositionFromAccumulator(acc, options, !isDrawing)
     entity.canvasX = next.x
     entity.canvasY = next.y
     acc.appliedX = next.x
@@ -420,7 +422,7 @@ export function previewDragGuides(
       appliedX: acc.originX,
       appliedY: acc.originY,
     }
-    const next = dragPositionFromAccumulator(phantomAcc, options)
+    const next = dragPositionFromAccumulator(phantomAcc, options, snapshot.kind !== 'drawing')
     const offsetX = next.x - acc.originX
     const offsetY = next.y - acc.originY
 

@@ -18,7 +18,7 @@ export const SHAPE_VARIANT_OPTIONS: Array<{
 export const BRUSH_VARIANT_OPTIONS: Array<{
   kind: DrawingBrushType
   label: string
-  Icon: ComponentType<{ size?: number; ink?: string }>
+  Icon: ComponentType<{ size?: number; ink?: string; selected?: boolean }>
 }> = [
   { kind: 'pen', label: 'Pen', Icon: PenSlimIcon },
   { kind: 'highlight', label: 'Highlighter', Icon: PenMarkerIcon },

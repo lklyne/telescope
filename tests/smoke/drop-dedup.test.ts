@@ -10,6 +10,11 @@ import { consumeDragId, resetDropOwner } from './app-client'
  * Phase 5 wiring dragId stamping into preload bridges; today only one
  * drop path exists (file → canvas) so the integrated end-to-end test
  * is marked .todo.
+ *
+ * Note on lifecycle helpers: `assertPersists` / `assertUndoable` don't apply
+ * here. Drag IDs are ephemeral runtime state owned by DropOwner — they are
+ * not represented in the .canvas file and they don't move through the undo
+ * stack. The audited primitive is dedup, not persistence.
  */
 
 beforeEach(async () => {

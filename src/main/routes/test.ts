@@ -8,6 +8,7 @@
  */
 
 import { writeJson } from '../app-control-server'
+import { app } from 'electron'
 import {
   peek as peekInteractionMode,
   tryEnter,
@@ -31,8 +32,53 @@ import type { Token, CancelReason, FocusTarget } from '../../shared/interaction-
 import { activeTool } from '../runtime/tool-mode'
 import { clipboard } from 'electron'
 import { pasteFromClipboard } from '../clipboard-paste'
+import {
+  undo as undoCanvas,
+  redo as redoCanvas,
+  canUndo as canUndoCanvas,
+  canRedo as canRedoCanvas,
+} from '../runtime/workspace-undo'
+import { flushWorkspaceAutosaveSync } from '../runtime/workspace-autosave'
+import {
+  DEFAULT_WORKSPACE_ID,
+  canvasFilePath,
+  readCanvasFile,
+  readWorkspaceMeta,
+} from '../runtime/workspace-persistence'
+import { getActiveDoc } from '../runtime/workspace-doc'
+import { workspaceTabs, activeWorkspaceTabId } from '../runtime/workspace-model'
 import { applyDragDelta, finalizeDrag, initializeDrag } from '../runtime/document-commands'
 import { currentCanvasGuides } from '../runtime/canvas-guides'
+
+// --- Y.Doc transaction counter (test-only) ---
+// Counts afterTransaction events for the active doc between start/stop calls.
+// Smoke tests use this to assert that a single mutation produces exactly one
+// transaction (forward-sync echo regressions inflate the count).
+
+let _transactionCount = 0
+let _transactionCounterHandler: ((tx: { origin: unknown }) => void) | null = null
+
+function startTransactionCounter(): void {
+  if (_transactionCounterHandler) {
+    getActiveDoc().off('afterTransaction', _transactionCounterHandler as never)
+    _transactionCounterHandler = null
+  }
+  _transactionCount = 0
+  const doc = getActiveDoc()
+  const handler = () => {
+    _transactionCount += 1
+  }
+  _transactionCounterHandler = handler
+  doc.on('afterTransaction', handler)
+}
+
+function stopTransactionCounter(): number {
+  if (_transactionCounterHandler) {
+    getActiveDoc().off('afterTransaction', _transactionCounterHandler as never)
+    _transactionCounterHandler = null
+  }
+  return _transactionCount
+}
 
 function currentlyFocusedKey(): string | null {
   if (bgView?.webContents.isFocused()) return 'bgView'
@@ -209,6 +255,99 @@ export const testRoutes: Route[] = [
       if (typeof text === 'string') clipboard.writeText(text)
       pasteFromClipboard({ canvasX, canvasY })
       writeJson(response, 200, { ok: true })
+    },
+  },
+
+  // --- Workspace undo/redo (test-only triggers; production goes through key bindings) ---
+  {
+    method: 'POST',
+    pattern: '/test/workspace/undo',
+    async handler({ response }) {
+      undoCanvas()
+      writeJson(response, 200, { ok: true, canUndo: canUndoCanvas(), canRedo: canRedoCanvas() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/workspace/redo',
+    async handler({ response }) {
+      redoCanvas()
+      writeJson(response, 200, { ok: true, canUndo: canUndoCanvas(), canRedo: canRedoCanvas() })
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/test/workspace/undo-state',
+    async handler({ response }) {
+      writeJson(response, 200, { canUndo: canUndoCanvas(), canRedo: canRedoCanvas() })
+    },
+  },
+
+  // --- Autosave + persistence inspection ---
+  {
+    method: 'POST',
+    pattern: '/test/workspace/flush-autosave',
+    async handler({ response }) {
+      flushWorkspaceAutosaveSync()
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/test/workspace/disk-snapshot',
+    async handler({ request, response }) {
+      const url = new URL(request.url ?? '/', 'http://x')
+      const requestedTabId = url.searchParams.get('tabId')
+      const userDataPath = app.getPath('userData')
+      const meta = readWorkspaceMeta(userDataPath, DEFAULT_WORKSPACE_ID)
+      if (!meta) {
+        writeJson(response, 200, { exists: false, meta: null, tab: null })
+        return
+      }
+      const tabId = requestedTabId ?? meta.activeTabId
+      const tabMeta = meta.tabs.find((t) => t.id === tabId) ?? meta.tabs[0]
+      if (!tabMeta) {
+        writeJson(response, 200, { exists: true, meta, tab: null })
+        return
+      }
+      const filePath = canvasFilePath(userDataPath, DEFAULT_WORKSPACE_ID, tabMeta.name)
+      const doc = readCanvasFile(filePath)
+      writeJson(response, 200, {
+        exists: doc !== null,
+        meta,
+        tab: tabMeta,
+        filePath,
+        doc,
+      })
+    },
+  },
+
+  // --- Y.Doc transaction counter (one mutation should produce exactly one transaction) ---
+  {
+    method: 'POST',
+    pattern: '/test/workspace/transactions/start',
+    async handler({ response }) {
+      startTransactionCounter()
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/workspace/transactions/stop',
+    async handler({ response }) {
+      writeJson(response, 200, { count: stopTransactionCounter() })
+    },
+  },
+
+  // --- Workspace tab state introspection ---
+  {
+    method: 'GET',
+    pattern: '/test/workspace/tabs',
+    async handler({ response }) {
+      writeJson(response, 200, {
+        activeTabId: activeWorkspaceTabId,
+        tabs: workspaceTabs.map((t) => ({ id: t.id, name: t.name })),
+      })
     },
   },
 

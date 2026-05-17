@@ -63,6 +63,17 @@ Not tracked: viewport zoom/pan (in a separate Y.Map excluded from UndoManager sc
 - `workspace-model.ts` — owns workspace data arrays (edges, groups, annotations, tabs)
 - `runtime-context.ts` — ephemeral state only (views, interaction, layout cache, timers, pages)
 
+## Test coverage for this layer
+
+This is a high-risk layer: a bug in persistence, forward/reverse sync, or undo batching can lose user work silently. When you change anything in `workspace-*.ts` or the diff-sync path:
+
+- Add or update smoke coverage under `tests/smoke/` for the behavior change. Persistence, undo, and sync each have a dedicated smoke file once Phase 2 of issue [#81](https://github.com/lklyne/specular/issues/81) lands (`persistence.test.ts`, `undo.test.ts`, `sync.test.ts`); until then, fold coverage into the nearest existing smoke file.
+- Mutation-verify the test before committing — name the production-code change you used to confirm the test catches it. See `tests/README.md` for the convention.
+- Forward sync changes need a "one mutation → one Y.Doc transaction" assertion. Reverse sync changes need an "undo applies without re-triggering forward sync" assertion.
+- Undo batching changes need a "logically-grouped mutations collapse to one undo step; distinct user actions remain distinct" assertion.
+
+See `tests/README.md` for the test bar and the `AppClient` helpers available to smoke tests.
+
 ## Gotchas
 
 - **Suppress flag**: `withSuppressedDocSync()` prevents sync loops during restore and undo. If you call `scheduleWorkspaceAutosave()` from inside an undo observer without suppressing, you create a feedback loop where each undo generates a new undo entry.

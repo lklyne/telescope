@@ -3,16 +3,18 @@ import {
   createFocusedPage,
   createPages,
   createGroup,
+  deleteGroups,
   deletePages,
   deselectSelection,
   enterGroup,
   getSelection,
   getSelectionOverlayState,
+  getWorkspace,
   selectGroup,
   selectPage,
   ungroup,
 } from './app-client'
-import { waitFor } from './test-utils'
+import { assertPersists, assertUndoable, waitFor } from './test-utils'
 
 const createdPageIds: string[] = []
 
@@ -158,5 +160,33 @@ describe('selection', () => {
     )
     expect((selection.selectedEntityIds ?? []).sort()).toEqual([...pageIds].sort())
     expect(selection.selectedGroupId).toBeUndefined()
+  })
+})
+
+describe('selection — group lifecycle', () => {
+  // Group creation is the load-bearing persisted/undoable mutation in this
+  // surface. Selection itself is ephemeral runtime state and isn't included in
+  // the persistence/undo round-trip.
+  afterEach(async () => {
+    const graph = await getWorkspace()
+    const groupIds = graph.entities.filter((e) => e.kind === 'group').map((e) => e.id)
+    if (groupIds.length) await deleteGroups(groupIds)
+    if (createdPageIds.length) {
+      await deletePages(createdPageIds.splice(0))
+    }
+  })
+
+  it('persists a created group to disk', async () => {
+    const pageIds = await createPagePair(720)
+    await assertPersists(async () => {
+      await createGroup(pageIds, 'Persisted group')
+    })
+  })
+
+  it('round-trips a created group through undo/redo', async () => {
+    const pageIds = await createPagePair(860)
+    await assertUndoable(async () => {
+      await createGroup(pageIds, 'Undoable group')
+    })
   })
 })

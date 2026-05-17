@@ -463,6 +463,71 @@ export function pasteClipboardText(input: { text: string; canvasX?: number; canv
   return post<{ ok: true }>('/test/clipboard/paste', input)
 }
 
+// --- Workspace undo/redo and persistence (test-only) ---
+
+export function undoWorkspace() {
+  return post<{ ok: true; canUndo: boolean; canRedo: boolean }>(
+    '/test/workspace/undo',
+  )
+}
+
+export function redoWorkspace() {
+  return post<{ ok: true; canUndo: boolean; canRedo: boolean }>(
+    '/test/workspace/redo',
+  )
+}
+
+export function getUndoState() {
+  return get<{ canUndo: boolean; canRedo: boolean }>('/test/workspace/undo-state')
+}
+
+export function flushWorkspaceAutosave() {
+  return post<{ ok: true }>('/test/workspace/flush-autosave')
+}
+
+export type DiskSnapshot = {
+  exists: boolean
+  meta: {
+    activeTabId: string
+    viewMode?: string
+    tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }>
+  } | null
+  tab: { id: string; name: string; updatedAt: string; expanded?: boolean } | null
+  filePath?: string
+  doc?: {
+    nodes: Array<{
+      id: string
+      type: string
+      x?: number
+      y?: number
+      width?: number
+      height?: number
+      [key: string]: unknown
+    }>
+    edges: Array<{ id: string; fromNode: string; toNode: string }>
+    [key: string]: unknown
+  } | null
+}
+
+export function getDiskSnapshot(tabId?: string) {
+  const q = tabId ? `?tabId=${encodeURIComponent(tabId)}` : ''
+  return get<DiskSnapshot>(`/test/workspace/disk-snapshot${q}`)
+}
+
+export function startTransactionCounter() {
+  return post<{ ok: true }>('/test/workspace/transactions/start')
+}
+
+export function stopTransactionCounter() {
+  return post<{ count: number }>('/test/workspace/transactions/stop')
+}
+
+export function getWorkspaceTabs() {
+  return get<{ activeTabId: string | null; tabs: Array<{ id: string; name: string }> }>(
+    '/test/workspace/tabs',
+  )
+}
+
 export function getFileEntities() {
   return get<{
     fileEntities: Array<{

@@ -17,11 +17,7 @@ import {
  * Per-mode begin/commit/cancel matrix for the InteractionController.
  * Spec docs/interaction-layer.md §9.
  *
- * Phase A scaffold: tests validate the controller's state machine via
- * the test HTTP routes. Tests for behaviors that depend on Phase B–D
- * routing (real anchor/edge payloads, undo cancel via cancelActive,
- * window-blur cancel, escape cancel, tab-switch cancel) are marked
- * `it.todo()` and flip as their owning phase lands.
+ * Tests validate the controller's state machine via the test HTTP routes.
  */
 
 const createdPageIds: string[] = []
@@ -128,18 +124,4 @@ describe('InteractionController state machine', () => {
     expect(after.mode.kind).toBe('idle')
   })
 
-  // Phase B: undo observer should call cancelActive('undo'), terminating
-  // any active gesture. Today the undo observer calls clearInteractionState()
-  // directly; flip this test from .todo to a real assertion when Phase B
-  // migrates the observer.
-  it.todo('undo while a gesture is active cancels the gesture (Phase B)')
-
-  // Phase D: window blur should propagate to cancelActive('blur').
-  it.todo('window blur while a gesture is active cancels the gesture (Phase D)')
-
-  // Phase D: escape key while a gesture is active cancels via the gate.
-  it.todo('escape key while a gesture is active cancels the gesture (Phase D)')
-
-  // Phase D: tab switch should propagate to cancelActive('tab-switch').
-  it.todo('tab switch while a gesture is active cancels the gesture (Phase D)')
 })

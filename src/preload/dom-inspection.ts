@@ -21,10 +21,13 @@ type StripKind = 'margin' | 'padding'
 const SIDES: readonly Side[] = ['top', 'right', 'bottom', 'left'] as const
 const STRIP_KINDS: readonly StripKind[] = ['margin', 'padding'] as const
 let domInspectionStripEls: Record<StripKind, Record<Side, HTMLDivElement>> | null = null
+let domInspectionGapStrips: HTMLDivElement[] = []
 
 const MARGIN_COLOR = 'rgba(246, 178, 107, 0.55)'
 const PADDING_COLOR = 'rgba(147, 196, 125, 0.55)'
 const MARGIN_HASH = `repeating-linear-gradient(45deg, ${MARGIN_COLOR} 0 4px, rgba(246, 178, 107, 0.25) 4px 8px)`
+const GAP_COLOR = 'rgba(147, 112, 219, 0.55)'
+const GAP_HASH = `repeating-linear-gradient(45deg, ${GAP_COLOR} 0 4px, rgba(147, 112, 219, 0.25) 4px 8px)`
 
 export function isDomInspectionEnabled(): boolean {
   return domInspectionEnabled
@@ -117,6 +120,147 @@ function hideBoxModelOverlay(): void {
   for (const kind of STRIP_KINDS) {
     for (const side of SIDES) domInspectionStripEls[kind][side].style.display = 'none'
   }
+  hideGapStrips()
+}
+
+function ensureGapStrip(index: number): HTMLDivElement {
+  if (index < domInspectionGapStrips.length) return domInspectionGapStrips[index]
+  const strip = document.createElement('div')
+  strip.id = `__canvas-dom-inspection-gap-${index}`
+  Object.assign(strip.style, {
+    position: 'fixed',
+    zIndex: '2147483644',
+    pointerEvents: 'none',
+    display: 'none',
+    background: GAP_HASH,
+  })
+  document.documentElement.appendChild(strip)
+  domInspectionGapStrips.push(strip)
+  return strip
+}
+
+function hideGapStrips(): void {
+  for (const strip of domInspectionGapStrips) {
+    strip.style.display = 'none'
+  }
+}
+
+interface GapRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+function updateFlexGapStrips(el: Element, rect: DOMRect, styles: CSSStyleDeclaration): void {
+  const isRow = styles.flexDirection === 'row' || styles.flexDirection === 'row-reverse'
+  const rowGap = parsePx(styles.rowGap)
+  const columnGap = parsePx(styles.columnGap)
+
+  if (rowGap === 0 && columnGap === 0) {
+    hideGapStrips()
+    return
+  }
+
+  const childRects = Array.from(el.children)
+    .map(child => child.getBoundingClientRect())
+    .filter(r => r.width > 0 && r.height > 0)
+
+  if (childRects.length < 2) {
+    hideGapStrips()
+    return
+  }
+
+  const bl = parsePx(styles.borderLeftWidth)
+  const bt = parsePx(styles.borderTopWidth)
+  const br = parsePx(styles.borderRightWidth)
+  const bb = parsePx(styles.borderBottomWidth)
+  const contentLeft = rect.left + bl + parsePx(styles.paddingLeft)
+  const contentTop = rect.top + bt + parsePx(styles.paddingTop)
+  const contentRight = rect.right - br - parsePx(styles.paddingRight)
+  const contentBottom = rect.bottom - bb - parsePx(styles.paddingBottom)
+
+  const gaps: GapRect[] = []
+
+  if (isRow) {
+    // Group children into flex lines: a new line starts when a child's top >= current line's max bottom.
+    const sorted = childRects.slice().sort((a, b) => a.top - b.top || a.left - b.left)
+    const lines: DOMRect[][] = []
+    let currentLine: DOMRect[] = []
+    let lineMaxBottom = -Infinity
+
+    for (const r of sorted) {
+      if (currentLine.length === 0 || r.top < lineMaxBottom) {
+        currentLine.push(r)
+        lineMaxBottom = Math.max(lineMaxBottom, r.bottom)
+      } else {
+        lines.push(currentLine.slice().sort((a, b) => a.left - b.left))
+        currentLine = [r]
+        lineMaxBottom = r.bottom
+      }
+    }
+    if (currentLine.length > 0) lines.push(currentLine.slice().sort((a, b) => a.left - b.left))
+
+    if (columnGap > 0) {
+      for (const line of lines) {
+        const lineTop = Math.min(...line.map(r => r.top))
+        const lineBottom = Math.max(...line.map(r => r.bottom))
+        for (let i = 0; i < line.length - 1; i++) {
+          gaps.push({ x: line[i].right, y: lineTop, w: columnGap, h: lineBottom - lineTop })
+        }
+      }
+    }
+
+    if (rowGap > 0 && lines.length > 1) {
+      for (let i = 0; i < lines.length - 1; i++) {
+        const lineABottom = Math.max(...lines[i].map(r => r.bottom))
+        gaps.push({ x: contentLeft, y: lineABottom, w: contentRight - contentLeft, h: rowGap })
+      }
+    }
+  } else {
+    // Column direction: group children into flex columns.
+    const sorted = childRects.slice().sort((a, b) => a.left - b.left || a.top - b.top)
+    const columns: DOMRect[][] = []
+    let currentColumn: DOMRect[] = []
+    let colMaxRight = -Infinity
+
+    for (const r of sorted) {
+      if (currentColumn.length === 0 || r.left < colMaxRight) {
+        currentColumn.push(r)
+        colMaxRight = Math.max(colMaxRight, r.right)
+      } else {
+        columns.push(currentColumn.slice().sort((a, b) => a.top - b.top))
+        currentColumn = [r]
+        colMaxRight = r.right
+      }
+    }
+    if (currentColumn.length > 0) columns.push(currentColumn.slice().sort((a, b) => a.top - b.top))
+
+    if (rowGap > 0) {
+      for (const col of columns) {
+        const colLeft = Math.min(...col.map(r => r.left))
+        const colRight = Math.max(...col.map(r => r.right))
+        for (let i = 0; i < col.length - 1; i++) {
+          gaps.push({ x: colLeft, y: col[i].bottom, w: colRight - colLeft, h: rowGap })
+        }
+      }
+    }
+
+    if (columnGap > 0 && columns.length > 1) {
+      for (let i = 0; i < columns.length - 1; i++) {
+        const colARight = Math.max(...columns[i].map(r => r.right))
+        gaps.push({ x: colARight, y: contentTop, w: columnGap, h: contentBottom - contentTop })
+      }
+    }
+  }
+
+  for (let i = 0; i < gaps.length; i++) {
+    const { x, y, w, h } = gaps[i]
+    setStripRect(ensureGapStrip(i), x, y, w, h)
+  }
+  for (let i = gaps.length; i < domInspectionGapStrips.length; i++) {
+    domInspectionGapStrips[i].style.display = 'none'
+  }
 }
 
 function setStripRect(
@@ -142,7 +286,7 @@ function parsePx(value: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
-function updateBoxModelOverlay(rect: DOMRect, styles: CSSStyleDeclaration): void {
+function updateBoxModelOverlay(rect: DOMRect, styles: CSSStyleDeclaration, el: Element): void {
   if (!domInspectionStripEls) return
   const mt = parsePx(styles.marginTop)
   const mr = parsePx(styles.marginRight)
@@ -176,6 +320,13 @@ function updateBoxModelOverlay(rect: DOMRect, styles: CSSStyleDeclaration): void
   setStripRect(paddings.bottom, padBoxX, padBoxY + padBoxH - pb, padBoxW, pb)
   setStripRect(paddings.left, padBoxX, padBoxY + pt, pl, Math.max(0, padBoxH - pt - pb))
   setStripRect(paddings.right, padBoxX + padBoxW - pr, padBoxY + pt, pr, Math.max(0, padBoxH - pt - pb))
+
+  const display = styles.display
+  if (display === 'flex' || display === 'inline-flex') {
+    updateFlexGapStrips(el, rect, styles)
+  } else {
+    hideGapStrips()
+  }
 }
 
 function shortFontFamily(fontFamily: string): string {
@@ -350,7 +501,7 @@ export function updateDomInspectionOverlay(
   if (!rect) return
 
   const styles = window.getComputedStyle(element)
-  updateBoxModelOverlay(rect, styles)
+  updateBoxModelOverlay(rect, styles, element)
 
   domInspectionLabelEl.style.display = 'block'
   buildLabelContent(domInspectionLabelEl, element, styles)

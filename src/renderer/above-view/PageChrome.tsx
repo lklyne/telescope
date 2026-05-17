@@ -163,8 +163,8 @@ function PageChromeItem({
       isActive={isActive}
       dragEnabled={dragEnabled}
       onPointerDown={onPointerDown}
-      onMouseEnter={() => api.hoverPage(page.id)}
-      onMouseLeave={() => api.hoverPage(null)}
+      onPointerEnter={() => api.hoverPage(page.id)}
+      onPointerLeave={() => api.hoverPage(null)}
     >
       <CanvasItemChrome.DragTrigger
         onPointerDown={isEditing ? (e) => e.stopPropagation() : undefined}

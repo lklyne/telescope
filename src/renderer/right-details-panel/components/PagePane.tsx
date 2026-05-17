@@ -100,7 +100,7 @@ export function PagePane({
   return (
     <div
       className="flex h-full min-h-0 flex-col"
-      onMouseDownCapture={(event) => {
+      onPointerDownCapture={(event) => {
         if (inspect.enabled) return
         if (!inspect.selectedNodeId && !inspect.hoveredNodeId) return
         const elementsSection = elementsSectionRef.current
@@ -206,7 +206,7 @@ export function PagePane({
             <Collapsible.Panel className={collapsiblePanelClass}>
               <div
                 className="thin-scrollbar pb-2"
-                onMouseLeave={() => {
+                onPointerLeave={() => {
                   if (inspect.activePageId) {
                     rightDetailsPanelApi.setInspectHoverNode(
                       inspect.activePageId,

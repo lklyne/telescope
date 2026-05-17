@@ -151,7 +151,7 @@ export function PagePopup({
                     inputRef.current?.blur()
                   }
                 }}
-                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
                 className={`min-w-0 flex-1 rounded-[6px] border px-2 py-1 text-xs outline-none focus:ring-1 ${
                   isDark
                     ? 'border-zinc-700 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500 focus:ring-blue-500/40'

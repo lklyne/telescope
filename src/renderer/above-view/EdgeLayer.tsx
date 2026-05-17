@@ -181,8 +181,8 @@ function AnchorDots({
               ry={EDGE_ANCHOR_HIT_CORNER_PX}
               fill="transparent"
               style={{ cursor: 'crosshair', pointerEvents: 'all' }}
-              onMouseEnter={() => setHoveredSide(side)}
-              onMouseLeave={() => {
+              onPointerEnter={() => setHoveredSide(side)}
+              onPointerLeave={() => {
                 if (isDragging) return
                 setHoveredSide((current) => (current === side ? null : current))
               }}

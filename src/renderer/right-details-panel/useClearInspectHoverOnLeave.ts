@@ -27,11 +27,11 @@ export function useClearInspectHoverOnLeave(
     if (!selectedNodeId && !mouseInsideRef.current) {
       rightDetailsPanelApi.setInspectHoverNode(activePageId, null)
     }
-    document.documentElement.addEventListener('mouseenter', handleDocEnter)
-    document.documentElement.addEventListener('mouseleave', handleDocLeave)
+    document.documentElement.addEventListener('pointerenter', handleDocEnter)
+    document.documentElement.addEventListener('pointerleave', handleDocLeave)
     return () => {
-      document.documentElement.removeEventListener('mouseenter', handleDocEnter)
-      document.documentElement.removeEventListener('mouseleave', handleDocLeave)
+      document.documentElement.removeEventListener('pointerenter', handleDocEnter)
+      document.documentElement.removeEventListener('pointerleave', handleDocLeave)
     }
   }, [activePageId, selectedNodeId])
 }

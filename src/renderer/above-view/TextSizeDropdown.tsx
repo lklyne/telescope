@@ -105,7 +105,7 @@ export function TextSizeDropdown({
           <Menu.Popup
             data-overlay-ui
             className={popupClass(isDark)}
-            onMouseDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
           >
             {TEXT_SIZE_PRESETS.map((preset) => {
               const active = preset.value === value

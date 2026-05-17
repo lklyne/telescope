@@ -306,7 +306,7 @@ function StickyCard({
         {!isPlain ? (
           <div
             style={{ minHeight: 8, cursor: 'grab' }}
-            onMouseDown={(e) => {
+            onPointerDown={(e) => {
               if (e.button !== 0) return
               e.stopPropagation()
             }}

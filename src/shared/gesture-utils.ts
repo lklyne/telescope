@@ -119,13 +119,13 @@ export function classifyViewportWheel(event: Pick<WheelEvent, 'metaKey' | 'ctrlK
   }
 }
 
-export function shouldStartMouseViewportPan(event: Pick<MouseEvent, 'button'>): boolean {
+export function shouldStartMouseViewportPan(event: Pick<PointerEvent, 'button'>): boolean {
   return event.button === 1
 }
 
 export function middleDragDelta(
   previous: { screenX: number; screenY: number },
-  next: Pick<MouseEvent, 'screenX' | 'screenY'>,
+  next: Pick<PointerEvent, 'screenX' | 'screenY'>,
 ) {
   return {
     deltaX: previous.screenX - next.screenX,

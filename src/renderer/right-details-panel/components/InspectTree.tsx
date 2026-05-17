@@ -102,8 +102,8 @@ function InspectTreeNode({
     return (
       <div
         className={rowClassName}
-        onMouseEnter={() => rightDetailsPanelApi.setInspectHoverNode(pageId, node.id)}
-        onMouseLeave={() => rightDetailsPanelApi.setInspectHoverNode(pageId, null)}
+        onPointerEnter={() => rightDetailsPanelApi.setInspectHoverNode(pageId, node.id)}
+        onPointerLeave={() => rightDetailsPanelApi.setInspectHoverNode(pageId, null)}
       >
         {rowButton}
       </div>
@@ -124,8 +124,8 @@ function InspectTreeNode({
     >
       <div
         className={rowClassName}
-        onMouseEnter={() => rightDetailsPanelApi.setInspectHoverNode(pageId, node.id)}
-        onMouseLeave={() => rightDetailsPanelApi.setInspectHoverNode(pageId, null)}
+        onPointerEnter={() => rightDetailsPanelApi.setInspectHoverNode(pageId, node.id)}
+        onPointerLeave={() => rightDetailsPanelApi.setInspectHoverNode(pageId, null)}
       >
         <Collapsible.Trigger
           className="absolute top-1/2 inline-flex size-4 -translate-y-1/2 items-center justify-center text-zinc-500 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:text-zinc-300 dark:hover:bg-[var(--surface-interactive-hover)] dark:hover:text-zinc-100"

@@ -127,8 +127,8 @@ const FileChromeItem = memo(function FileChromeItem({
       isDark={isDark}
       isActive={isActive}
       onPointerDown={onPointerDown}
-      onMouseEnter={() => api.hoverPage(entity.id)}
-      onMouseLeave={() => api.hoverPage(null)}
+      onPointerEnter={() => api.hoverPage(entity.id)}
+      onPointerLeave={() => api.hoverPage(null)}
     >
       <CanvasItemChrome.DragTrigger>
         <FileIcon size={13} className="shrink-0 text-zinc-400" />

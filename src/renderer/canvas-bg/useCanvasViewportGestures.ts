@@ -57,30 +57,36 @@ export function useCanvasViewportGestures({
 
     // Document-level middle-click pan (works over entities).
     let middleDrag: { screenX: number; screenY: number } | null = null
+    let middleDragPointerId: number | null = null
 
-    const handleMiddleMouseDown = (event: MouseEvent) => {
+    const handleMiddlePointerDown = (event: PointerEvent) => {
       const layout = layoutRef.current
       if (event.button !== 1) return
       if (layout.viewMode === 'browser') return
       if (isOverlayUiTarget(event.target)) return
       if (event.clientY < layout.canvasOrigin.y) return
+      middleDragPointerId = event.pointerId
       middleDrag = { screenX: event.screenX, screenY: event.screenY }
       event.preventDefault()
     }
 
-    const handleMiddleMouseMove = (event: MouseEvent) => {
-      if (!middleDrag) return
+    const handleMiddlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== middleDragPointerId || !middleDrag) return
       const delta = middleDragDelta(middleDrag, event)
       middleDrag = { screenX: event.screenX, screenY: event.screenY }
       api.canvasPan(delta.deltaX, delta.deltaY)
     }
 
-    const handleMiddleMouseUp = () => {
-      middleDrag = null
+    const handleMiddlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId === middleDragPointerId) {
+        middleDrag = null
+        middleDragPointerId = null
+      }
     }
 
     const handleWindowBlur = () => {
       middleDrag = null
+      middleDragPointerId = null
     }
 
     const handleVisibilityChange = () => {
@@ -124,9 +130,9 @@ export function useCanvasViewportGestures({
     }
 
     document.addEventListener('wheel', handleWheel, { passive: false })
-    document.addEventListener('mousedown', handleMiddleMouseDown)
-    document.addEventListener('mousemove', handleMiddleMouseMove)
-    document.addEventListener('mouseup', handleMiddleMouseUp)
+    document.addEventListener('pointerdown', handleMiddlePointerDown)
+    document.addEventListener('pointermove', handleMiddlePointerMove)
+    document.addEventListener('pointerup', handleMiddlePointerUp)
     document.addEventListener('dragover', handleDragOver)
     document.addEventListener('drop', handleDrop)
     el.addEventListener('pointerenter', handlePointerEnter)
@@ -135,9 +141,9 @@ export function useCanvasViewportGestures({
 
     return () => {
       document.removeEventListener('wheel', handleWheel)
-      document.removeEventListener('mousedown', handleMiddleMouseDown)
-      document.removeEventListener('mousemove', handleMiddleMouseMove)
-      document.removeEventListener('mouseup', handleMiddleMouseUp)
+      document.removeEventListener('pointerdown', handleMiddlePointerDown)
+      document.removeEventListener('pointermove', handleMiddlePointerMove)
+      document.removeEventListener('pointerup', handleMiddlePointerUp)
       document.removeEventListener('dragover', handleDragOver)
       document.removeEventListener('drop', handleDrop)
       el.removeEventListener('pointerenter', handlePointerEnter)

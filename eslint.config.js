@@ -30,9 +30,7 @@ export default tseslint.config(
       // setBounds/setVisible/addChildView/removeChildView outside
       // layout-engine / layer-stack is a real invariant break.
       'local/no-direct-view-mutation': 'error',
-      // no-mouse-events stays a warning: legacy wireframe mouse-event call
-      // sites are still pervasive (invariant I8 migration is a follow-up).
-      'local/no-mouse-events': 'warn',
+      'local/no-mouse-events': 'error',
     },
   },
 )

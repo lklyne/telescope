@@ -74,7 +74,7 @@ export function createTextEntity(input: {
     label: input.label,
   }
   textEntities.push(entity)
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return entity
 }
 
@@ -92,7 +92,7 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
   if (patch.height !== undefined) entity.height = patch.height
   if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
   if (patch.label !== undefined) entity.label = patch.label || undefined
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return entity
 }
 
@@ -100,7 +100,7 @@ export function deleteTextEntity(id: string): boolean {
   const idx = textEntities.findIndex((n) => n.id === id)
   if (idx === -1) return false
   textEntities.splice(idx, 1)
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return true
 }
 

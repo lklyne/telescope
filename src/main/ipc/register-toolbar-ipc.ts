@@ -2,15 +2,12 @@ import { ipcMain } from 'electron'
 import type { Tool, ToolDefaultPatch } from '../../shared/types'
 import { applyToolDefaultPatch } from '../runtime/tool-defaults'
 import {
-  layoutCache,
   pan,
   requestLayout,
   setPan,
   setZoom,
   toolbarView,
-  win,
   zoom,
-  layoutAllViews,
 } from '../runtime/surface-layout'
 import {
   focusSelectedPage,
@@ -27,7 +24,10 @@ import { selectBrowserTab } from '../runtime/runtime-core'
 import { findPageById, setPendingFocus } from '../runtime/runtime-context'
 import { addPageFromSource } from '../workspace-pages'
 import { applyNavigationToSelectedPages } from '../navigation-sync'
-import { workspaceViewMode as uiWorkspaceViewMode } from '../ui-state'
+import {
+  setToolbarDropdownOpen,
+  workspaceViewMode as uiWorkspaceViewMode,
+} from '../ui-state'
 
 function recenterBrowserSelectionIfNeeded(): void {
   if (uiWorkspaceViewMode() !== 'browser') return
@@ -37,26 +37,26 @@ function recenterBrowserSelectionIfNeeded(): void {
 export function registerToolbarIpc(): void {
   ipcMain.on('zoom-in', () => {
     setZoom(zoom + 0.1)
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('zoom-out', () => {
     setZoom(zoom - 0.1)
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('zoom-reset', () => {
     setZoom(1.0)
     if (!focusSelectedPage()) {
       setPan(0, 0)
-      layoutAllViews()
+      requestLayout()
     }
   })
 
   ipcMain.on('zoom-set', (_event, level: number) => {
     setZoom(level)
     if (level === 1.0 && focusSelectedPage()) return
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('toolbar-navigate-selection', (_event, url: string) => {
@@ -163,14 +163,12 @@ export function registerToolbarIpc(): void {
   })
 
   ipcMain.on('toolbar-dropdown-open', () => {
-    if (!toolbarView || !win) return
-    const { width, height } = win.getBounds()
-    toolbarView.setBounds({ x: 0, y: 0, width, height })
+    setToolbarDropdownOpen(true)
+    requestLayout()
   })
 
   ipcMain.on('toolbar-dropdown-close', () => {
-    if (!toolbarView || !win) return
-    const { width } = win.getBounds()
-    toolbarView.setBounds({ x: 0, y: 0, width, height: layoutCache.toolbarHeight })
+    setToolbarDropdownOpen(false)
+    requestLayout()
   })
 }

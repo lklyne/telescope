@@ -66,7 +66,7 @@ function createView(entityId: string): ComponentView {
   view.setBackgroundColor('#00000000')
   view.setBorderRadius(CARD_BORDER_RADIUS)
   view.webContents.loadURL('about:blank').catch(() => {})
-  win.contentView.addChildView(view)
+  // Attachment is owned by the layout pass child-list reconcile.
   wireRendererLogging(view.webContents, `component:${entityId}`)
   view.webContents.on('did-finish-load', () => {
     requestLayout()
@@ -118,8 +118,7 @@ async function resolveAndLoad(cv: ComponentView): Promise<void> {
 const currentEntities = new Map<string, FileEntity>()
 
 function destroyView(cv: ComponentView): void {
-  if (!win) return
-  win.contentView.removeChildView(cv.view)
+  // Detachment is owned by the layout pass child-list reconcile.
   if (!cv.view.webContents.isDestroyed()) {
     cv.view.webContents.close()
   }
@@ -157,6 +156,9 @@ export function syncComponentViews(entities: readonly FileEntity[]): void {
   }
 
   // Spin up views for newly-component entities and kick off URL resolution.
+  // The layout pass child-list reconcile (which calls syncComponentViews)
+  // owns attach/detach — it runs every pass, so any view-set delta here is
+  // picked up unconditionally without a dirty flag.
   for (const id of desired) {
     if (componentViews.has(id)) continue
     const cv = createView(id)

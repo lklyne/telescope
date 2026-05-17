@@ -20,7 +20,7 @@ import {
   selectPageById,
 } from './selection-controller'
 import { cancelActive as cancelActiveInteraction } from './interaction-controller'
-import { layoutAllViews } from './layout-engine'
+import { requestLayout } from './viewport-control'
 
 type ArrowDirection = 'left' | 'right' | 'up' | 'down'
 
@@ -81,7 +81,7 @@ function transitionViewMode(target: 'canvas' | 'browser', pageId?: string): bool
   }
 
   // 4. One layout pass at the end
-  layoutAllViews()
+  requestLayout()
   return true
 }
 

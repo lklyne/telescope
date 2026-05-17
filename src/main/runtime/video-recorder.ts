@@ -10,7 +10,6 @@ import { VideoActivityTracker, type ActivitySegment } from './video-activity-tra
 import { captureFrameComposited } from './frame-compositor'
 import { getZoom, pan } from './runtime-context'
 import { focusCanvasBounds, requestLayout, setPan, setZoom } from './viewport-control'
-import { layoutAllViews } from './layout-engine'
 import { pageBodyCanvasBounds } from './runtime-geometry'
 
 // ---------------------------------------------------------------------------
@@ -101,7 +100,7 @@ class VideoRecorderInstance {
     try {
       if (getZoom() !== 1) setZoom(1)
       focusCanvasBounds(pageBodyCanvasBounds(this.page))
-      layoutAllViews()
+      requestLayout()
       // Chromium re-rasters on the next frame after enableDeviceEmulation.
       // Give it room so the first captured frames aren't mid-transition.
       await new Promise((r) => setTimeout(r, 250))

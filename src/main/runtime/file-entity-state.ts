@@ -72,7 +72,7 @@ export function createFileEntity(input: {
     objectFit: input.objectFit,
   }
   fileEntities.push(entity)
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return entity
 }
 
@@ -89,7 +89,7 @@ export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id
   if (patch.objectFit !== undefined) entity.objectFit = patch.objectFit
   if (patch.presetIndex !== undefined) entity.presetIndex = patch.presetIndex
   if (patch.metadata !== undefined) entity.metadata = patch.metadata
-  markDirty('canvas', 'sidebar', 'floating-ui', 'devtools')
+  markDirty('canvas', 'sidebar')
   return entity
 }
 
@@ -97,7 +97,7 @@ export function deleteFileEntity(id: string): boolean {
   const idx = fileEntities.findIndex((e) => e.id === id)
   if (idx === -1) return false
   fileEntities.splice(idx, 1)
-  markDirty('canvas', 'sidebar', 'floating-ui')
+  markDirty('canvas', 'sidebar')
   return true
 }
 

@@ -4,10 +4,8 @@ import type { ScrollSyncData, SelectionModifiers } from '../../shared/types'
 import { isAdditiveSelection } from '../../shared/selection-modifiers'
 import {
   bgView,
-  layoutAllViews,
   zoom,
 } from '../runtime/surface-layout'
-import { markDirty } from '../runtime/layout-dirty'
 import { requestLayout } from '../runtime/viewport-control'
 import {
   deselectAll,
@@ -73,11 +71,11 @@ export function registerPageChromeIpc(): void {
 
   ipcMain.on('canvas-bg-dropdown-open', () => {
     if (!bgView || !win) return
-    markDirty('stack'); requestLayout()
+    requestLayout()
   })
 
   ipcMain.on('canvas-bg-dropdown-close', () => {
-    markDirty('stack'); requestLayout()
+    requestLayout()
   })
 
   ipcMain.on('peek-resize-start', (event) => {
@@ -101,6 +99,6 @@ export function registerPageChromeIpc(): void {
     if (!page) return
     page.peekWidth = undefined
     page.peekHeight = undefined
-    layoutAllViews()
+    requestLayout()
   })
 }

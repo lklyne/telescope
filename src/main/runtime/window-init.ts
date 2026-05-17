@@ -154,7 +154,7 @@ export function initWindow(): void {
   const currentWin = win
   if (!currentWin) return
 
-  currentWin.on('resize', () => { markDirty('canvas', 'bounds'); requestLayout() })
+  currentWin.on('resize', () => { markDirty('canvas'); requestLayout() })
   currentWin.on('move', () => { markDirty('canvas'); requestLayout() })
 
   currentWin.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
@@ -192,7 +192,9 @@ export function initWindow(): void {
     }
   )
   loadRenderer(currentBgView, 'canvas-bg')
-  currentWin.contentView.addChildView(currentBgView)
+  // Construction only — the layout pass child-list reconcile (applyStack)
+  // attaches every singleton view; the closing `requestLayout()` warms
+  // the first pass.
 
   currentBgView.webContents.once('did-finish-load', () => {
     currentBgView.webContents.send('theme-changed', { isDark: isDark() })
@@ -226,8 +228,6 @@ export function initWindow(): void {
     currentLeftSidebarView.webContents.send('theme-changed', { isDark: isDark() })
     notifyLeftSidebarData()
   })
-  currentWin.contentView.addChildView(currentLeftSidebarView)
-  currentLeftSidebarView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
   attachBindingDispatcher(currentLeftSidebarView.webContents, 'leftSidebar')
 
   // Consolidated above-pages WCV. Loads the merged 'above-view' bundle
@@ -256,9 +256,6 @@ export function initWindow(): void {
     layoutCache.lastCommentOverlayBoundsKey = null
     requestLayout()
   })
-  currentWin.contentView.addChildView(currentAboveView)
-  currentAboveView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-
   // Agent-presence cursor overlay. A child BrowserWindow — not a WCV —
   // because Electron 40's WebContentsView has no setIgnoreMouseEvents
   // (electron#23863), and we need true native click-through so users can
@@ -323,7 +320,6 @@ export function initWindow(): void {
   registerUiWebContents(currentToolbarView.webContents, 'toolbar')
   currentToolbarView.setBackgroundColor('#00000000')
   loadRenderer(currentToolbarView, 'toolbar')
-  currentWin.contentView.addChildView(currentToolbarView)
 
   currentToolbarView.webContents.once('did-finish-load', () => {
     currentToolbarView.webContents.send('theme-changed', { isDark: isDark() })
@@ -334,17 +330,15 @@ export function initWindow(): void {
 
   // interaction-overlay retired in Phase 5d — above-view owns input gate.
 
-  // Keep the panel renderers alive offscreen so the first visible open does not
-  // pay the renderer startup and first-paint cost on the user's click.
-  const devtoolsPrewarmBounds = { x: -10_000, y: 0, width: 1, height: 1 }
+  // The panel renderers are warmed offscreen by the first layout pass,
+  // which parks closed devtools views at DEVTOOLS_HIDDEN_BOUNDS — no
+  // bootstrap prewarm bounds needed here.
 
   setDevtoolsBackgroundView(new WebContentsView())
   const currentDevtoolsBackgroundView = devtoolsBackgroundView
   if (!currentDevtoolsBackgroundView) return
   currentDevtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
   currentDevtoolsBackgroundView.webContents.loadURL('about:blank')
-  currentWin.contentView.addChildView(currentDevtoolsBackgroundView)
-  currentDevtoolsBackgroundView.setBounds(devtoolsPrewarmBounds)
 
   setDevtoolsHeaderView(new WebContentsView({
     webPreferences: {
@@ -367,8 +361,6 @@ export function initWindow(): void {
     currentDevtoolsHeaderView.webContents.send('theme-changed', { isDark: isDark() })
     notifyDevtoolsPanelData()
   })
-  currentWin.contentView.addChildView(currentDevtoolsHeaderView)
-  currentDevtoolsHeaderView.setBounds(devtoolsPrewarmBounds)
 
   setDevtoolsResizeHandleView(new WebContentsView({
     webPreferences: {
@@ -386,8 +378,6 @@ export function initWindow(): void {
   currentDevtoolsResizeHandleView.webContents.once('did-finish-load', () => {
     currentDevtoolsResizeHandleView.webContents.send('theme-changed', { isDark: isDark() })
   })
-  currentWin.contentView.addChildView(currentDevtoolsResizeHandleView)
-  currentDevtoolsResizeHandleView.setBounds(devtoolsPrewarmBounds)
 
   // Attach binding dispatcher to all initial views
   attachBindingDispatcher(currentBgView.webContents, 'canvasBg')
@@ -396,5 +386,5 @@ export function initWindow(): void {
   attachBindingDispatcher(currentDevtoolsHeaderView.webContents, 'rightDetailsPanel')
   attachBindingDispatcher(currentDevtoolsResizeHandleView.webContents, 'devtoolsResizeHandle')
 
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }

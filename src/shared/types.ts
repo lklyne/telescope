@@ -1111,6 +1111,9 @@ export interface UiState {
   activeTool: Tool
   viewMode: UiViewMode
   leftSidebarOpen: boolean
+  /** True while a toolbar dropdown is open — the layout pass grows the
+   *  toolbar view to full-window bounds so the menu can overflow the strip. */
+  toolbarDropdownOpen: boolean
   devtools: UiDevtoolsState
   overlays: UiOverlayState
 }

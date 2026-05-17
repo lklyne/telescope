@@ -3,7 +3,7 @@ import {
   getCanvasLayoutData,
   getLeftSidebarData,
   isDark,
-  layoutAllViews,
+  requestLayout,
 } from '../runtime/surface-layout'
 import { rebuildWindowFromSnapshot } from '../runtime/window-shell'
 import {
@@ -65,7 +65,7 @@ export function registerAppIpc(): void {
       const record = currentPersistedWorkspaceRecord()
       rebuildWindowFromSnapshot(workspaceSnapshot())
       restorePersistedWorkspace(record)
-      layoutAllViews()
+      requestLayout()
     } catch (error) {
       console.error('Failed to relaunch app with current state:', error)
     }

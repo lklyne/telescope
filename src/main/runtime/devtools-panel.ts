@@ -4,10 +4,6 @@
 
 import { markDirty } from './layout-dirty'
 import {
-  devtoolsBackgroundView,
-  devtoolsHeaderView,
-  devtoolsResizeHandleView,
-  devtoolsView,
   toolbarView,
   win,
   setDevtoolsView,
@@ -26,7 +22,6 @@ import {
   setLeftSidebarOpen as setUiLeftSidebarOpen,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
 } from '../ui-state'
-import { layoutAllViews, layoutDevtoolsViews } from './layout-engine'
 import { requestLayout } from './viewport-control'
 import { syncInspectionState } from './inspect-session'
 import { devtoolsPanelDebug } from './runtime-constants'
@@ -40,10 +35,9 @@ export function notifyDevtoolsChanged(): void {
 
 export function toggleLeftSidebar(): void {
   setUiLeftSidebarOpen(!uiLeftSidebarOpen())
-  markDirty('sidebar', 'canvas', 'floating-ui')
+  markDirty('sidebar', 'canvas')
   notifyDevtoolsChanged()
-  layoutAllViews()
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }
 
 export function closeDevTools(): void {
@@ -57,29 +51,15 @@ export function closeDevTools(): void {
       // Ignore close races during shutdown or retargeting.
     }
   }
-  for (const page of pages) {
-    page.devtoolsHostView?.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
-
-  if (devtoolsBackgroundView) {
-    devtoolsBackgroundView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
-  if (devtoolsHeaderView) {
-    devtoolsHeaderView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
-  if (devtoolsView) {
-    devtoolsView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
-  if (devtoolsResizeHandleView) {
-    devtoolsResizeHandleView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
+  // The devtools cluster views (background / header / resize handle) and
+  // every page's devtools host view are parked off-screen by the layout
+  // pass once devtools is closed — no imperative hiding needed here.
   setDevtoolsView(null)
 
   setUiDevtoolsOpen(false)
   syncInspectionState()
   notifyDevtoolsChanged()
-  layoutDevtoolsViews()
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }
 
 export function toggleDevTools(): void {
@@ -98,8 +78,7 @@ export function toggleDevTools(): void {
   setUiDevtoolsOpen(true)
   notifyDevtoolsChanged()
   syncInspectionState()
-  layoutDevtoolsViews()
-  markDirty('stack'); requestLayout()
+  requestLayout()
   devtoolsPanelDebug('toggle:open-complete', { durationMs: Date.now() - start })
 }
 
@@ -114,20 +93,14 @@ export function dismissBrowserDevTools(): void {
   if (!win) return
   incrementBrowserDevtoolsAttachGeneration()
 
-  // Hide devtools host views but keep the session alive
-  for (const page of pages) {
-    page.devtoolsHostView?.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
-  if (devtoolsView) {
-    devtoolsView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
-  }
+  // The layout pass hides every page's devtools host view while the
+  // panel is off the browser-devtools tab; the session stays alive.
   setDevtoolsView(null)
 
   setUiDevtoolsPanelTab('comments')
   notifyDevtoolsChanged()
   syncInspectionState()
-  layoutDevtoolsViews()
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }
 
 export function openDevToolsForSelectedPage(): void {
@@ -140,8 +113,7 @@ export function openDevToolsForSelectedPage(): void {
   setUiDevtoolsOpen(true)
   notifyDevtoolsChanged()
   syncInspectionState()
-  layoutDevtoolsViews()
-  markDirty('stack'); requestLayout()
+  requestLayout()
   attachBrowserDevtoolsToPage(selectedPageIdx)
 }
 
@@ -153,10 +125,9 @@ export function openInspectPanel(): void {
   }
   setUiDevtoolsPanelTab('inspect')
   focusUiAnnotation(null)
-  markDirty('toolbar', 'canvas', 'floating-ui')
+  markDirty('toolbar', 'canvas')
   syncInspectionState()
-  layoutDevtoolsViews()
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }
 
 export function openCommentsPanel(annotationId?: string): void {
@@ -167,10 +138,9 @@ export function openCommentsPanel(annotationId?: string): void {
   }
   setUiDevtoolsPanelTab('comments')
   focusUiAnnotation(annotationId ?? null)
-  markDirty('toolbar', 'canvas', 'floating-ui')
+  markDirty('toolbar', 'canvas')
   syncInspectionState()
-  layoutDevtoolsViews()
-  markDirty('stack'); requestLayout()
+  requestLayout()
 }
 
 export function focusAnnotation(annotationId?: string): void {

@@ -9,7 +9,6 @@ import { setHoverEntity, setHoveredPage } from '../runtime/runtime-core'
 import { activeTool as uiActiveTool } from '../ui-state'
 import {
   canvasOrigin,
-  layoutAllViews,
   pan,
   requestLayout,
   zoom,
@@ -45,7 +44,6 @@ import {
   type ForwardPointerPayload,
   type ForwardWheelPayload,
 } from '../runtime/page-input-forwarding'
-import { markDirty } from '../runtime/layout-dirty'
 import {
   createWorkspaceTab,
   deleteWorkspaceTab,
@@ -175,7 +173,7 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on('canvas-select-entities', (_event, entityIds: string[]) => {
     setSelectedEntities(entityIds)
-    layoutAllViews()
+    requestLayout()
   })
 
   const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>(
@@ -296,7 +294,7 @@ export function registerCanvasIpc(): void {
       if (!page) return
       page.metadata = setPageBrowserSizeMode(page.metadata, mode)
       scheduleWorkspaceAutosave()
-      layoutAllViews()
+      requestLayout()
     },
   )
 
@@ -418,13 +416,13 @@ export function registerCanvasIpc(): void {
       })
       commitActive()
       setHoverEntity(null)
-      layoutAllViews()
+      requestLayout()
     },
   )
 
   ipcMain.on('canvas-delete-edge', (_event, { edgeId }: { edgeId: string }) => {
     deleteEdges({ edgeIds: [edgeId] })
-    layoutAllViews()
+    requestLayout()
   })
 
   ipcMain.on('canvas-select-edge', (_event, { edgeId }: { edgeId: string | null }) => {
@@ -433,7 +431,7 @@ export function registerCanvasIpc(): void {
       return
     }
     selectEntity(edgeId, 'edge')
-    layoutAllViews()
+    requestLayout()
   })
 
   // --- File drop ---

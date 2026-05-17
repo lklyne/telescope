@@ -54,6 +54,15 @@ module.exports = {
         const name = callee.property.name
         if (!FORBIDDEN_METHODS.has(name)) return
 
+        // Skip when the receiver is the `win` identifier. `win` is the
+        // BaseWindow itself — `win.setBounds(...)` resizes the OS window
+        // (recording.ts, workspace-restore.ts), which was never a
+        // child-view mutation the layout pass owns. Child-view mutations
+        // go through `win.contentView` (a MemberExpression receiver), so
+        // those are still caught.
+        if (callee.object.type === 'Identifier' && callee.object.name === 'win')
+          return
+
         context.report({
           node: callee.property,
           messageId: 'forbidden',

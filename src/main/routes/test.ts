@@ -24,7 +24,6 @@ import {
   __resetForTests as resetDropOwnerForTests,
 } from '../runtime/drop-owner'
 import { setPendingFocus, pages } from '../runtime/runtime-context'
-import { markDirty } from '../runtime/layout-dirty'
 import { requestLayout } from '../runtime/viewport-control'
 import { aboveView, bgView, toolbarView, leftSidebarView } from '../runtime/view-refs'
 import type { Route } from './types'
@@ -166,7 +165,6 @@ export const testRoutes: Route[] = [
     async handler({ response, body }) {
       const { target } = body as { target: FocusTarget }
       setPendingFocus(target)
-      markDirty('bounds')
       requestLayout()
       writeJson(response, 200, { ok: true })
     },

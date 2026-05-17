@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import type { CanvasGuidesPayload } from '../../src/shared/canvas-guides'
 
 function loadEnv(): { port: number; secret: string } {
   const raw = readFileSync(join(tmpdir(), 'specular-smoke-env.json'), 'utf8')
@@ -238,10 +239,27 @@ export function findPageTarget(body: unknown) {
 // --- Text entities ---
 
 export function getTextEntities() {
-  return get<{ textEntities: { id: string; text: string; color?: string; canvasX: number; canvasY: number }[] }>('/text-entities')
+  return get<{
+    textEntities: Array<{
+      id: string
+      text: string
+      color?: string
+      canvasX: number
+      canvasY: number
+      width: number
+      height: number
+    }>
+  }>('/text-entities')
 }
 
-export async function createTextEntities(items: { canvasX: number; canvasY: number; text?: string; color?: string }[]): Promise<{ ids: string[] }> {
+export async function createTextEntities(items: {
+  canvasX: number
+  canvasY: number
+  text?: string
+  color?: string
+  width?: number
+  height?: number
+}[]): Promise<{ ids: string[] }> {
   if (items.length === 1) {
     // Single item returns TextEntity directly
     const entity = await post<{ id: string }>('/text-entities/create', items[0])
@@ -399,6 +417,27 @@ export function resetDropOwner() {
   return post<{ ok: true }>('/test/drop/reset')
 }
 
+export function startCanvasDrag(entityIds: string[]) {
+  return post<{ ok: true }>('/test/canvas-drag/start', { entityIds })
+}
+
+export function applyCanvasDrag(input: {
+  entityIds: string[]
+  dx: number
+  dy: number
+  shiftKey?: boolean
+}) {
+  return post<{ ok: true; guides: CanvasGuidesPayload }>('/test/canvas-drag/apply', input)
+}
+
+export function endCanvasDrag() {
+  return post<{ ok: true; guides: CanvasGuidesPayload }>('/test/canvas-drag/end')
+}
+
+export function getCanvasGuides() {
+  return get<CanvasGuidesPayload>('/test/canvas-guides/current')
+}
+
 // --- Tool state ---
 
 export function getCurrentTool() {
@@ -501,4 +540,3 @@ export function getFileEntities() {
     }>
   }>('/file-entities')
 }
-

@@ -59,6 +59,7 @@ import {
 } from './runtime-constants'
 import { currentKeyboardTargetPageId } from './selection-controller'
 import {
+  pageBodyCanvasBounds,
   pageContentSize,
   boundEffectivePageContentSize as effectivePageContentSize,
   boundAvailableCanvasViewport as localAvailableCanvasViewport,
@@ -278,8 +279,8 @@ function placementEntityKindForTool(tool: ReturnType<typeof uiActiveTool>): Pend
       return 'page'
     case 'add-text':
       return 'text'
-    case 'add-document':
-      return 'file'
+    case 'add-sticky':
+      return 'text'
     case 'add-shape':
       return 'shape'
     default:
@@ -294,7 +295,12 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
   const isFile = entityKind === 'file'
   const isShape = entityKind === 'shape'
   const presetIndex = tool.kind === 'add-page' ? tool.presetIndex : undefined
-  const textStyle = tool.kind === 'add-text' ? tool.style : undefined
+  const textStyle =
+    tool.kind === 'add-sticky'
+      ? 'sticky'
+      : tool.kind === 'add-text'
+        ? 'plain'
+        : undefined
   const customSize = tool.kind === 'add-page' ? tool.customSize === true : false
   const sourcePageId = tool.kind === 'add-page' ? tool.sourcePageId : undefined
   // shapeKind moved to tool defaults per ADR 0009 — preview reads the persisted
@@ -418,10 +424,10 @@ export function buildCanvasLayoutData(
             const clampedX = Math.max(0, Math.min(point.x, page.width))
             const clampedY = Math.max(0, Math.min(point.y, page.height))
             const pageWcv = findPageById(page.id)
-            const chromeHeight = pageWcv?.chromeHeight ?? 0
+            const body = pageWcv ? pageBodyCanvasBounds(pageWcv) : { x: page.canvasX, y: page.canvasY }
             return {
-              canvasX: page.canvasX + clampedX,
-              canvasY: page.canvasY + chromeHeight + clampedY,
+              canvasX: body.x + clampedX,
+              canvasY: body.y + clampedY,
             }
           }
         }
@@ -498,6 +504,8 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       activeTabName,
       viewMode: uiWorkspaceViewMode(),
       activeTool: uiActiveTool(),
+      drawBrushType: getToolDefaults().draw.brushType,
+      drawColor: getToolDefaults().draw.color,
     }
   }
 
@@ -533,5 +541,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     activeTabName,
     viewMode: uiWorkspaceViewMode(),
     activeTool: uiActiveTool(),
+    drawBrushType: getToolDefaults().draw.brushType,
+    drawColor: getToolDefaults().draw.color,
   }
 }

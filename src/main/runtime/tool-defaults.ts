@@ -26,11 +26,23 @@ export function getToolDefaults(): ToolDefaults {
 }
 
 export function getStickyDefaultColor(): string {
-  return readToolDefaults()['add-text']['sticky.color']
+  return readToolDefaults()['add-sticky'].color
 }
 
 export function getPlainTextDefaultColor(): string | null {
-  return readToolDefaults()['add-text']['plain.color']
+  return readToolDefaults()['add-text'].color
+}
+
+export function getTextDefaultSize(): number {
+  return readToolDefaults()['add-text'].textSize
+}
+
+export function getStickyDefaultSize(): number {
+  return readToolDefaults()['add-sticky'].textSize
+}
+
+export function getAddTextKind(): 'short' | 'long' {
+  return readToolDefaults()['add-text'].textKind
 }
 
 export function getShapeDefaults(): ToolDefaults['add-shape'] {
@@ -47,24 +59,34 @@ export function getDrawDefaults(): ToolDefaults['draw'] {
  * sees the new value on the next layout pass. `'floating-ui'` would be the
  * natural channel, but it's been retired in layout-engine — `'canvas'` is the
  * only flag that actually broadcasts `layout-update` to bg + above views.
+ *
+ * `'toolbar'` is marked too so the Draw button's glyph tracks `draw.brushType`
+ * (the toolbar only receives `toolbar-selection-changed`, not `layout-update`).
  */
 export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
   const current = readToolDefaults()
   if (currentValueFor(current, patch) === patch.value) return
   const next: ToolDefaults = {
     'add-text': { ...current['add-text'] },
+    'add-sticky': { ...current['add-sticky'] },
     'add-shape': { ...current['add-shape'] },
     draw: { ...current.draw },
   }
   switch (patch.scope) {
     case 'add-text':
-      if (patch.key === 'sticky.color') next['add-text']['sticky.color'] = patch.value
-      else next['add-text']['plain.color'] = patch.value
+      if (patch.key === 'color') next['add-text'].color = patch.value
+      else if (patch.key === 'textSize') next['add-text'].textSize = patch.value
+      else next['add-text'].textKind = patch.value
+      break
+    case 'add-sticky':
+      if (patch.key === 'color') next['add-sticky'].color = patch.value
+      else next['add-sticky'].textSize = patch.value
       break
     case 'add-shape':
       if (patch.key === 'shapeKind') next['add-shape'].shapeKind = patch.value
       else if (patch.key === 'color') next['add-shape'].color = patch.value
-      else next['add-shape'].strokeWidth = patch.value
+      else if (patch.key === 'strokeWidth') next['add-shape'].strokeWidth = patch.value
+      else next['add-shape'].textSize = patch.value
       break
     case 'draw':
       if (patch.key === 'brushType') next.draw.brushType = patch.value
@@ -73,7 +95,7 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
       break
   }
   saveToolDefaults(next)
-  markDirty('canvas')
+  markDirty('canvas', 'toolbar')
   requestLayout()
 }
 
@@ -83,13 +105,18 @@ function currentValueFor(
 ): ToolDefaultPatch['value'] {
   switch (patch.scope) {
     case 'add-text':
-      return patch.key === 'sticky.color'
-        ? current['add-text']['sticky.color']
-        : current['add-text']['plain.color']
+      if (patch.key === 'color') return current['add-text'].color
+      if (patch.key === 'textSize') return current['add-text'].textSize
+      return current['add-text'].textKind
+    case 'add-sticky':
+      return patch.key === 'color'
+        ? current['add-sticky'].color
+        : current['add-sticky'].textSize
     case 'add-shape':
       if (patch.key === 'shapeKind') return current['add-shape'].shapeKind
       if (patch.key === 'color') return current['add-shape'].color
-      return current['add-shape'].strokeWidth
+      if (patch.key === 'strokeWidth') return current['add-shape'].strokeWidth
+      return current['add-shape'].textSize
     case 'draw':
       if (patch.key === 'brushType') return current.draw.brushType
       if (patch.key === 'color') return current.draw.color

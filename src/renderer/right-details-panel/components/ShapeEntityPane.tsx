@@ -86,6 +86,7 @@ export function ShapeEntityPane({
           activeColor={shapeEntity.color ?? null}
           isDark={isDark}
           allowNone
+          palette="soft"
           onSelectColor={(color) =>
             rightDetailsPanelApi.updateShapeEntity(shapeEntity.id, { color })
           }

@@ -24,6 +24,7 @@ import {
   EDGE_ANCHOR_HIT_GAP_PX,
   EDGE_SIDES,
 } from '../../shared/canvas-hit-geometry'
+import { entityHasAnchors } from '../../shared/hit-test'
 import { selectionColor, EDGE_COLOR_DEFAULT } from '../canvas-bg/canvasBgConstants'
 import { scaleEdgeHitTargetSize } from '../canvas-bg/edgeHitSizing'
 
@@ -275,7 +276,9 @@ export function EdgeLayer({
       // During drag, show all entity anchors as potential targets
       for (const eId of entityMap.keys()) ids.add(eId)
     }
-    return [...ids].map((id) => entityMap.get(id)!).filter(Boolean)
+    return [...ids]
+      .map((id) => entityMap.get(id)!)
+      .filter((entity) => entity && entityHasAnchors(entity.kind))
   }, [selectedEntityIds, selectedEdgeIds, hoveredEntityId, entityMap, interaction.kind])
 
   return (
@@ -299,7 +302,7 @@ export function EdgeLayer({
         </marker>
         {/* Per-color markers for colored edges (deduplicated) */}
         {[...new Set(edgePaths.map((p) => p.color).filter(Boolean))].map((color) => {
-          const hex = resolveCanvasColor(color!)
+          const hex = resolveCanvasColor(color!, { palette: 'vivid' })
           const safeId = hex.replace('#', '')
           return (
             <g key={safeId}>
@@ -316,7 +319,7 @@ export function EdgeLayer({
 
       {/* Existing edges */}
       {edgePaths.map(({ id, d, selected, fromEnd, toEnd, color }) => {
-        const resolvedColor = color ? resolveCanvasColor(color) : null
+        const resolvedColor = color ? resolveCanvasColor(color, { palette: 'vivid' }) : null
         const edgeColor = selected
           ? selectionColor(isDark)
           : resolvedColor ?? EDGE_COLOR_DEFAULT

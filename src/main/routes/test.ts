@@ -47,6 +47,8 @@ import {
 } from '../runtime/workspace-persistence'
 import { getActiveDoc } from '../runtime/workspace-doc'
 import { workspaceTabs, activeWorkspaceTabId } from '../runtime/workspace-model'
+import { applyDragDelta, finalizeDrag, initializeDrag } from '../runtime/document-commands'
+import { currentCanvasGuides } from '../runtime/canvas-guides'
 
 // --- Y.Doc transaction counter (test-only) ---
 // Counts afterTransaction events for the active doc between start/stop calls.
@@ -186,6 +188,46 @@ export const testRoutes: Route[] = [
     async handler({ response }) {
       resetDropOwnerForTests()
       writeJson(response, 200, { ok: true })
+    },
+  },
+
+  // --- Canvas drag simulation ---
+  {
+    method: 'POST',
+    pattern: '/test/canvas-drag/start',
+    async handler({ response, body }) {
+      const { entityIds } = body as { entityIds: string[] }
+      initializeDrag(entityIds)
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/canvas-drag/apply',
+    async handler({ response, body }) {
+      const {
+        entityIds,
+        dx,
+        dy,
+        shiftKey = false,
+      } = body as { entityIds: string[]; dx: number; dy: number; shiftKey?: boolean }
+      applyDragDelta(entityIds, dx, dy, { shiftKey })
+      writeJson(response, 200, { ok: true, guides: currentCanvasGuides() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/canvas-drag/end',
+    async handler({ response }) {
+      finalizeDrag()
+      writeJson(response, 200, { ok: true, guides: currentCanvasGuides() })
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/test/canvas-guides/current',
+    async handler({ response }) {
+      writeJson(response, 200, currentCanvasGuides())
     },
   },
 
@@ -351,9 +393,7 @@ export const testRoutes: Route[] = [
       if (cmd) modifiers.push('meta')
       if (shift) modifiers.push('shift')
       if (alt) modifiers.push('alt')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       wc.sendInputEvent({ type: 'keyDown', keyCode: key, modifiers } as any)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       wc.sendInputEvent({ type: 'keyUp', keyCode: key, modifiers } as any)
       writeJson(response, 200, { ok: true })
     },

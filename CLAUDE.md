@@ -182,3 +182,17 @@ The specular Claude Code skill lives in three places. Knowing which is which avo
 - **`~/.claude/skills/specular/SKILL.md`** — each user's installed copy. Treat as read-only: `src/main/skill-auto-update.ts` compares the bundled hash to what's installed and re-copies the bundled version whenever they differ, so hand-edits here get silently overwritten on the next app launch after a release.
 
 When patching the skill, default to updating both `resources/skills/specular/SKILL.md` and `.claude/skills/specular/SKILL.md` in the same commit.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked as GitHub issues in `lklyne/specular`, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage uses the five canonical label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

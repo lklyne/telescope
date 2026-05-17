@@ -22,7 +22,15 @@ import {
   getStickyDefaultColor,
   getPlainTextDefaultColor,
   getShapeDefaults,
+  getAddTextKind,
+  getTextDefaultSize,
+  getStickyDefaultSize,
 } from '../runtime/tool-defaults'
+import {
+  morphMarkdownFileToTextEntity,
+  morphTextEntityToMarkdownFile,
+} from '../runtime/morph-text-file'
+import { createNoteFile } from '../runtime/note-assets'
 import {
   createFileEntity,
   createShapeEntity,
@@ -32,7 +40,11 @@ import {
   deleteTextEntity,
   deleteFileEntity,
   setPageCustom,
+  setDeviceOrientation,
+  setFileDeviceOrientation,
   setPagePreset,
+  toggleDeviceShell,
+  toggleFileDeviceShell,
   updateDrawingEntity,
   updateFileEntity,
   updateGroupEntity,
@@ -41,9 +53,10 @@ import {
   resizeMultiSelection,
   groupSelectedEntities,
   ungroupSelectedGroup,
+  updateResizeGuides,
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
-import { createNoteFile, readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
+import { readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
 import {
   activeTool,
   finishOneShotPlacement,
@@ -65,7 +78,6 @@ import {
 } from '../runtime/surface-layout'
 import { markDirty } from '../runtime/layout-dirty'
 import { pageContentSize } from '../runtime/runtime-geometry'
-import { CHROME_HEADER_HEIGHT } from '../runtime/runtime-constants'
 import {
   scheduleWorkspaceAutosave,
 } from '../runtime/workspace-session'
@@ -79,9 +91,7 @@ import {
 import { createAnnotation, moveAnnotation } from '../workspace-annotations'
 import {
   deletePages,
-  groupBoundsForEntityIds,
 } from '../workspace-entities'
-import { findDuplicatePlacement } from '../workspace-placement'
 import {
   createPageAtPosition,
   duplicateEntity,
@@ -89,13 +99,11 @@ import {
   tidySelectedPages,
 } from '../workspace-pages'
 import { deleteGroups, duplicateGroup, ungroupUserGroup } from '../workspace-groups'
-import {
-  copyableSelectionPayload,
-  pasteEntitiesFromClipboard,
-} from '../workspace-clipboard'
+import { copyableSelectionPayload } from '../workspace-clipboard'
 import { workspaceGroups } from '../runtime/workspace-model'
 import { selectGroup } from '../runtime/selection-controller'
 import { deleteSelection } from '../runtime/delete-selection'
+import { duplicateSelection } from '../runtime/duplicate-selection'
 
 export function registerCanvasEntityIpc(): void {
   ipcMain.on(
@@ -112,25 +120,38 @@ export function registerCanvasEntityIpc(): void {
       const dragRect = payload.dragRect ?? null
       const tool = activeTool()
       if (tool.kind === 'add-text') {
-        const defaultColor =
-          tool.style === 'sticky'
-            ? getStickyDefaultColor()
-            : getPlainTextDefaultColor() ?? undefined
+        // ADR 0013 §3 — `long` stamps a markdown file entity backed by a
+        // fresh empty `.md` note instead of a plain-text entity.
+        if (getAddTextKind() === 'long') {
+          const filePath = createNoteFile()
+          const created = createFileEntity({
+            canvasX,
+            canvasY,
+            file: filePath,
+          })
+          selectEntity(created.id, 'file')
+          beginEditingEntity(created.id)
+        } else {
+          const created = createTextEntity({
+            canvasX,
+            canvasY,
+            textStyle: 'plain',
+            color: getPlainTextDefaultColor() ?? undefined,
+            textSize: getTextDefaultSize(),
+          })
+          selectEntity(created.id, 'text')
+          beginEditingEntity(created.id)
+        }
+      } else if (tool.kind === 'add-sticky') {
         const created = createTextEntity({
           canvasX,
           canvasY,
-          textStyle: tool.style,
-          color: defaultColor,
+          textStyle: 'sticky',
+          color: getStickyDefaultColor(),
+          textSize: getStickyDefaultSize(),
         })
         selectEntity(created.id, 'text')
         beginEditingEntity(created.id)
-      } else if (tool.kind === 'add-document') {
-        try {
-          const filePath = createNoteFile()
-          createFileEntity({ canvasX, canvasY, file: filePath, width: 300, height: 300 })
-        } catch (error) {
-          console.error('Failed to create note file:', error)
-        }
       } else if (tool.kind === 'add-shape') {
         const defaults = getShapeDefaults()
         const created = dragRect
@@ -142,6 +163,7 @@ export function registerCanvasEntityIpc(): void {
               shapeKind: defaults.shapeKind,
               color: defaults.color,
               strokeWidth: defaults.strokeWidth,
+              textSize: defaults.textSize,
             })
           : createShapeEntity({
               canvasX,
@@ -149,6 +171,7 @@ export function registerCanvasEntityIpc(): void {
               shapeKind: defaults.shapeKind,
               color: defaults.color,
               strokeWidth: defaults.strokeWidth,
+              textSize: defaults.textSize,
             })
         selectEntity(created.id, 'shape')
         beginEditingEntity(created.id)
@@ -158,7 +181,7 @@ export function registerCanvasEntityIpc(): void {
           presetIndex: tool.presetIndex ?? 0,
           customSize: tool.customSize ?? false,
           canvasX,
-          canvasY: canvasY - CHROME_HEADER_HEIGHT,
+          canvasY,
           mode: 'add_from_toolbar',
           focus: true,
         })
@@ -278,6 +301,18 @@ export function registerCanvasEntityIpc(): void {
   })
 
   ipcMain.on(
+    'canvas-set-device-orientation',
+    (_event, { pageId, orientation }: { pageId: string; orientation: string }) => {
+      if (orientation !== 'portrait' && orientation !== 'landscape') return
+      setDeviceOrientation(pageId, orientation)
+    },
+  )
+
+  ipcMain.on('canvas-toggle-device-shell', (_event, { pageId }: { pageId: string }) => {
+    toggleDeviceShell(pageId)
+  })
+
+  ipcMain.on(
     'canvas-update-page-bounds',
     (
       _event,
@@ -309,6 +344,7 @@ export function registerCanvasEntityIpc(): void {
       }
       if (patch.canvasX !== undefined) page.canvasX = snapToGrid(patch.canvasX)
       if (patch.canvasY !== undefined) page.canvasY = snapToGrid(patch.canvasY)
+      updateResizeGuides(pageId)
       scheduleWorkspaceAutosave()
       markDirty('canvas')
       requestLayout()
@@ -397,23 +433,7 @@ export function registerCanvasEntityIpc(): void {
   })
 
   ipcMain.on('canvas-duplicate-selection', () => {
-    const entityIds = getSelectedEntityIds()
-    if (!entityIds.length) return
-    // For single selection, duplicate the entity (page or text entity)
-    if (entityIds.length === 1) {
-      duplicateEntity({ entityId: entityIds[0], focus: true })
-      return
-    }
-    const payload = copyableSelectionPayload()
-    if (!payload) return
-    const bounds = groupBoundsForEntityIds(entityIds)
-    if (!bounds) return
-    const placement = findDuplicatePlacement(bounds)
-    pasteEntitiesFromClipboard({
-      payload,
-      canvasX: placement.canvasX,
-      canvasY: placement.canvasY,
-    })
+    duplicateSelection()
   })
 
   ipcMain.on('canvas-copy-selection', () => {
@@ -568,7 +588,7 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(
     'canvas-update-text-entity',
-    (_event, { id, patch }: { id: string; patch: { text?: string; color?: string; width?: number; height?: number; canvasX?: number; canvasY?: number } }) => {
+    (_event, { id, patch }: { id: string; patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: 'auto' | 'fixed' } }) => {
       updateTextEntity(id, patch)
     },
   )
@@ -624,6 +644,7 @@ export function registerCanvasEntityIpc(): void {
           text: string
           color: string
           strokeWidth: number
+          textSize: number
           theme: string
           width: number
           height: number
@@ -661,6 +682,21 @@ export function registerCanvasEntityIpc(): void {
     duplicateEntity({ entityId: id, focus: true })
   })
 
+  ipcMain.on(
+    'canvas-set-file-device-orientation',
+    (_event, { fileId, orientation }: { fileId: string; orientation: string }) => {
+      if (orientation !== 'portrait' && orientation !== 'landscape') return
+      setFileDeviceOrientation(fileId, orientation)
+    },
+  )
+
+  ipcMain.on(
+    'canvas-toggle-file-device-shell',
+    (_event, { fileId }: { fileId: string }) => {
+      toggleFileDeviceShell(fileId)
+    },
+  )
+
   ipcMain.on('canvas-show-file-in-finder', (_event, { filePath }: { filePath: string }) => {
     shell.showItemInFolder(filePath)
   })
@@ -686,6 +722,23 @@ export function registerCanvasEntityIpc(): void {
     }
     return newPath
   })
+
+  // ADR 0013 §3 — cross-kind morph between text and markdown file entities.
+  // One IPC, two directions; both halves (entity replacement + .md file
+  // write/delete) collapse into a single undo step.
+  ipcMain.handle(
+    'canvas-morph-text-file',
+    (
+      _event,
+      { entityId, direction }: { entityId: string; direction: 'text-to-file' | 'file-to-text' },
+    ) => {
+      const result =
+        direction === 'text-to-file'
+          ? morphTextEntityToMarkdownFile(entityId)
+          : morphMarkdownFileToTextEntity(entityId)
+      return result
+    },
+  )
 
   ipcMain.on(
     'canvas-update-group-entity',

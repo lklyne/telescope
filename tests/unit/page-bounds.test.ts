@@ -1,0 +1,75 @@
+import { describe, expect, it } from 'vitest'
+import {
+  pageBodyCanvasBounds,
+  pageSnapBounds,
+  pageVisualBounds,
+} from '../../src/main/runtime/runtime-geometry'
+import { CHROME_HEADER_HEIGHT } from '../../src/shared/entity-chrome-slots'
+
+type PageStub = Parameters<typeof pageSnapBounds>[0]
+
+function unframedPage(overrides: Partial<PageStub> = {}): PageStub {
+  // presetIndex 0 = iPhone SE viewport 375×667 in the catalog.
+  return {
+    presetIndex: 0,
+    canvasX: 100,
+    canvasY: 200,
+    peekWidth: 375,
+    peekHeight: 667,
+    metadata: undefined,
+    ...overrides,
+  }
+}
+
+function framedPage(overrides: Partial<PageStub> = {}): PageStub {
+  // Force the custom-shell path (CUSTOM_SHELL_INSETS = 12px all around) by
+  // turning on the frame metadata without a real deviceId.
+  return unframedPage({
+    metadata: { showDeviceFrame: true },
+    ...overrides,
+  })
+}
+
+describe('page bounds (Path A semantics)', () => {
+  it('unframed page: snap rect == body rect, anchored at canvasY', () => {
+    const page = unframedPage()
+    expect(pageSnapBounds(page)).toEqual({ x: 100, y: 200, width: 375, height: 667 })
+    expect(pageBodyCanvasBounds(page)).toEqual({ x: 100, y: 200, width: 375, height: 667 })
+  })
+
+  it('framed page: snap rect grows by insets; body is offset inward', () => {
+    const page = framedPage()
+    // CUSTOM_SHELL_INSETS = { top: 12, right: 12, bottom: 12, left: 12 }
+    expect(pageSnapBounds(page)).toEqual({
+      x: 100,
+      y: 200,
+      width: 375 + 24,
+      height: 667 + 24,
+    })
+    expect(pageBodyCanvasBounds(page)).toEqual({
+      x: 100 + 12,
+      y: 200 + 12,
+      width: 375,
+      height: 667,
+    })
+  })
+
+  it('chrome lives above the snap rect (visual bounds extend upward)', () => {
+    const page = unframedPage()
+    const visual = pageVisualBounds(page)
+    expect(visual.y).toBe(200 - CHROME_HEADER_HEIGHT)
+    expect(visual.height).toBe(667 + CHROME_HEADER_HEIGHT)
+    expect(visual.x).toBe(100)
+    expect(visual.width).toBe(375)
+  })
+
+  it('toggling a frame on keeps canvasY stable and pushes body down', () => {
+    const unframed = unframedPage()
+    const framed = framedPage()
+    // Snap-rect top is anchored.
+    expect(pageSnapBounds(framed).y).toBe(pageSnapBounds(unframed).y)
+    // Body moves down to make room for the bezel.
+    expect(pageBodyCanvasBounds(framed).y).toBeGreaterThan(pageBodyCanvasBounds(unframed).y)
+    expect(pageBodyCanvasBounds(framed).y - pageBodyCanvasBounds(unframed).y).toBe(12)
+  })
+})

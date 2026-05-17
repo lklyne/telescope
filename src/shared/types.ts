@@ -10,6 +10,8 @@ import type { CursorTuningParams } from './cursor-tuning'
 import type { PresenceDebugEntry } from './presence-debug'
 import type { DrawingBrushType, Tool } from './tool'
 import type { BindingId } from './bindings'
+import type { CanvasGuidesPayload } from './canvas-guides'
+import type { ResizeHandle } from './resize-accumulator'
 
 export type { DrawingBrushType, Tool, ToolKind, ToolDuration } from './tool'
 export type { ToolDefaults, ToolDefaultPatch } from './tool-defaults'
@@ -72,7 +74,11 @@ export type ShapeKind = 'rectangle' | 'ellipse' | 'diamond'
  * Adding a tag requires both ends: a literal here + a case in
  * `src/renderer/above-view/file-popup-contributions/index.tsx`.
  */
-export type PopupContributionTag = 'wireframe-theme' | 'wireframe-json-mode'
+export type PopupContributionTag =
+  | 'wireframe-theme'
+  | 'wireframe-json-mode'
+  | 'wireframe-device-controls'
+  | 'markdown-morph-to-text'
 
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
@@ -142,12 +148,23 @@ export interface CanvasScenePageEntity {
 /** 'plain' = unbacked text, 'sticky' = text in a colored card. See ADR 0004. */
 export type TextEntityStyle = 'plain' | 'sticky'
 
+/**
+ * 'auto' = shell hugs content (no wrap; width/height reflect rendered text).
+ * 'fixed' = explicit width/height; text wraps within bounds. Plain text
+ * defaults to 'auto' on creation; the first manual resize flips to 'fixed'.
+ * Sticky is always 'fixed'.
+ */
+export type TextWidthMode = 'auto' | 'fixed'
+
 export interface CanvasSceneTextEntity {
   kind: 'text'
   id: string
   text: string
   color: string
   textStyle: TextEntityStyle
+  widthMode: TextWidthMode
+  /** Per-entity text size in px. Missing → renderer default (18). ADR 0013 §2. */
+  textSize?: number
   canvasX: number
   canvasY: number
   width: number
@@ -255,6 +272,8 @@ export interface CanvasSceneShapeEntity {
   text: string
   color?: string
   strokeWidth?: number
+  /** Per-entity text size in px for the inner label. ADR 0013 §2. */
+  textSize?: number
   theme?: string
   canvasX: number
   canvasY: number
@@ -322,6 +341,10 @@ export interface PersistedTextEntity extends CanvasEntityBase {
   height: number
   /** Optional — reader defaults to 'sticky' when absent (legacy canvases). See ADR 0004. */
   textStyle?: TextEntityStyle
+  /** Optional — reader defaults: plain → 'auto', sticky → 'fixed'. */
+  widthMode?: TextWidthMode
+  /** Optional — renderer defaults to 14 ("Small") when absent. ADR 0013 §2. */
+  textSize?: number
   label?: string
 }
 
@@ -366,6 +389,8 @@ export interface PersistedShapeEntity extends CanvasEntityBase {
   text: string
   color?: string
   strokeWidth?: number
+  /** Per-entity text size in px for the inner label. ADR 0013 §2. */
+  textSize?: number
   theme?: string
   width: number
   height: number
@@ -616,6 +641,10 @@ export interface ToolbarSelectionData {
   activeTabName: string | null
   viewMode: WorkspaceViewMode
   activeTool: Tool
+  /** Current draw-tool brush default — drives which glyph the Draw button shows. */
+  drawBrushType: DrawingBrushType
+  /** Current draw-tool color default (raw stored slot/hex) — tints the Draw glyph. */
+  drawColor: string
 }
 
 export interface ThemeData {
@@ -1252,6 +1281,8 @@ export interface ClipboardEntityPayload {
   text?: string
   color?: string
   textStyle?: TextEntityStyle
+  /** Per-entity text size in px (text + shape entities). ADR 0013 §2. */
+  textSize?: number
   width?: number
   height?: number
   // File entity-specific
@@ -1662,12 +1693,17 @@ export interface CanvasBgElectronAPI {
   setTool: (tool: Tool) => void
   setToolDefault: (patch: import('./tool-defaults').ToolDefaultPatch) => void
   startDragPage: (pageId: string, selection?: CanvasDragStartSelection) => void
-  dragPage: (pageId: string, dx: number, dy: number) => void
+  dragPage: (pageId: string, dx: number, dy: number, shiftKey?: boolean) => void
   endDragPage: () => void
   dragCopyPage: (pageId: string, canvasX: number, canvasY: number) => void
   dragCopySelection: (canvasX: number, canvasY: number) => void
   dragCopyGroup: (groupId: string, canvasX: number, canvasY: number) => void
+  dragPreview: (dx: number, dy: number, shiftKey?: boolean) => void
   setPagePreset: (pageId: string, index: number) => void
+  setDeviceOrientation: (pageId: string, orientation: string) => void
+  toggleDeviceShell: (pageId: string) => void
+  setFileDeviceOrientation: (fileId: string, orientation: string) => void
+  toggleFileDeviceShell: (fileId: string) => void
   renamePage: (pageId: string, name: string) => void
   duplicatePage: (pageId: string) => void
   toggleLinkedPage: (pageId: string) => void
@@ -1680,7 +1716,7 @@ export interface CanvasBgElectronAPI {
   deleteSelectedEntities: () => void
   tidySelectedEntities: () => void
   createTextEntity: (canvasX: number, canvasY: number, text?: string, color?: string) => void
-  updateTextEntity: (id: string, patch: { text?: string; color?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
   updateFileEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
@@ -1689,7 +1725,7 @@ export interface CanvasBgElectronAPI {
   updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }) => void
   deleteDrawingEntity: (id: string) => void
   duplicateDrawingEntity: (id: string) => void
-  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteShapeEntity: (id: string) => void
   duplicateShapeEntity: (id: string) => void
   placePendingShape: (
@@ -1723,12 +1759,12 @@ export interface CanvasBgElectronAPI {
   selectGroup: (groupId: string) => void
   enterGroup: (groupId: string) => void
   startDragGroup: (groupId: string) => void
-  dragGroup: (groupId: string, dx: number, dy: number) => void
+  dragGroup: (groupId: string, dx: number, dy: number, shiftKey?: boolean) => void
   endDragGroup: () => void
   startDragEntity: (entityId: string, selection?: CanvasDragStartSelection) => void
-  dragEntity: (entityId: string, dx: number, dy: number) => void
+  dragEntity: (entityId: string, dx: number, dy: number, shiftKey: boolean) => void
   endDragEntity: () => void
-  beginResize: (entityId: string, entityKind: CanvasEntityKind) => void
+  beginResize: (entityId: string, entityKind: CanvasEntityKind, handle: ResizeHandle) => void
   endResize: () => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
   /** Comment tool click below the drag threshold. Main resolves the page +
@@ -1809,6 +1845,7 @@ export interface CanvasBgElectronAPI {
   setTextEditing: (active: boolean) => void
   setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) => void
   onBindingFire: (callback: (id: BindingId) => void) => () => void
+  onCanvasGuides: (callback: (payload: CanvasGuidesPayload) => void) => () => void
   /** Forward a wheel event hitting the single-selected page's body to the
    *  page's webContents (aboveview-interactive-layer-poc.md). */
   forwardWheelToPage: (pageId: string, payload: ForwardWheelPayload) => void
@@ -1824,6 +1861,16 @@ export interface CanvasBgElectronAPI {
   readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
+  /**
+   * ADR 0013 §3 — morph a plain-text entity into a markdown file entity
+   * (or vice versa) at the same canvas rect. Both halves of the swap (the
+   * entity replacement and the `.md` file write/delete) collapse into a
+   * single undo step on the main-side undo stack.
+   */
+  morphTextFile: (
+    entityId: string,
+    direction: 'text-to-file' | 'file-to-text',
+  ) => Promise<{ kind: 'morphed'; newEntityId: string } | { kind: 'noop'; reason: string }>
   getInitialData: () => Promise<CanvasLayoutBootstrapData>
   /** Connect a Vite repo at the given absolute folder path. Returns the
    *  connected repo, or null if connection fails. */
@@ -1972,7 +2019,7 @@ export interface DevtoolsPanelElectronAPI {
   pickRepoForOrigin: (origin: string) => void
   removeOriginBinding: (origin: string) => void
   setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
-  updateTextEntity: (id: string, patch: { color?: string }) => void
+  updateTextEntity: (id: string, patch: { color?: string; textSize?: number }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
   updateFileEntity: (id: string, patch: { objectFit?: FileObjectFit }) => void
@@ -1983,7 +2030,7 @@ export interface DevtoolsPanelElectronAPI {
   setFileDeviceOrientation: (fileId: string, orientation: string) => void
   toggleFileDeviceShell: (fileId: string) => void
   deleteDrawingEntity: (id: string) => void
-  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
+  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteShapeEntity: (id: string) => void
   updateEdge: (id: string, patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string }) => void
   deleteEdge: (id: string) => void
@@ -2166,6 +2213,10 @@ export interface Annotation {
   status: AnnotationStatus
   replies: AnnotationReply[]
   createdAt: string
+  /** Element-anchored annotations only (ADR 0013 §6). User-curated label
+   *  like "Submit button" or "Hero CTA", displayed in the composer and thread.
+   *  Canvas-point and region anchors leave this undefined. */
+  elementName?: string
   metadata?: AnnotationMetadata
 }
 
@@ -2173,6 +2224,7 @@ export interface AnnotationCreateRequest {
   anchor: AnnotationAnchor
   author?: 'user' | 'agent'
   text: string
+  elementName?: string
   metadata?: AnnotationMetadata
 }
 

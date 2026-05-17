@@ -2,14 +2,17 @@
 // accepted per §6.
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Copy, RotateCw, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, RotateCw, Trash2 } from 'lucide-react'
 import { normalizeUserUrl } from '../../shared/url'
+import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type {
   CanvasBgElectronAPI,
   CanvasScenePageEntity,
   LayoutUpdateData,
 } from '../../shared/types'
+import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
 const URL_INPUT_MIN_WIDTH = 280
@@ -29,6 +32,10 @@ export function PagePopup({
     | 'goBackPage'
     | 'goForwardPage'
     | 'reloadPage'
+    | 'setDeviceOrientation'
+    | 'toggleDeviceShell'
+    | 'setPagePreset'
+    | 'setPageCustom'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -67,6 +74,18 @@ export function PagePopup({
 
   const entityIds = selectedPages.map((p) => p.id)
   const noun = isSingle ? 'page' : `${count} pages`
+
+  const presetLabel = single
+    ? (() => {
+        const preset = VIEWPORT_PRESETS[single.presetIndex]
+        const isCustom = !preset || single.width !== preset.width || single.height !== preset.height
+        return isCustom ? 'Custom' : preset.label
+      })()
+    : null
+
+  const sizeTriggerClass = isDark
+    ? 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-300 transition-colors hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100'
+    : 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-600 transition-colors hover:bg-[#fdf8f5] hover:text-zinc-900'
 
   return (
     <CanvasItemPopup.Root
@@ -112,6 +131,7 @@ export function PagePopup({
                 <RotateCw size={12} className={single.isLoading ? 'animate-spin' : ''} />
               </CanvasItemPopup.IconButton>
             </CanvasItemPopup.Section>
+            <CanvasItemPopup.Divider isDark={isDark} />
             <CanvasItemPopup.Section grow>
               <input
                 ref={inputRef}
@@ -140,6 +160,31 @@ export function PagePopup({
                 style={{ minWidth: URL_INPUT_MIN_WIDTH }}
               />
             </CanvasItemPopup.Section>
+            <CanvasItemPopup.Divider isDark={isDark} />
+            <CanvasItemPopup.Section>
+              <PagePresetDropdown
+                isDark={isDark}
+                onSelectPreset={(index) => api.setPagePreset(single.id, index)}
+                onSelectCustom={() => api.setPageCustom(single.id)}
+                trigger={
+                  <button type="button" className={sizeTriggerClass} title="Page size">
+                    <span className="truncate">{presetLabel}</span>
+                    <ChevronDown size={10} className="shrink-0 opacity-50" />
+                  </button>
+                }
+              />
+            </CanvasItemPopup.Section>
+            <CanvasItemPopup.Divider isDark={isDark} />
+            <DeviceViewportPopupControls
+              isDark={isDark}
+              showDeviceFrame={single.showDeviceFrame ?? false}
+              orientation={single.deviceOrientation ?? 'portrait'}
+              noun="page"
+              onToggleDeviceFrame={() => api.toggleDeviceShell(single.id)}
+              onSetOrientation={(orientation) =>
+                api.setDeviceOrientation(single.id, orientation)
+              }
+            />
           </>
         ) : null}
         <CanvasItemPopup.Section>
@@ -153,7 +198,7 @@ export function PagePopup({
           >
             <Copy size={14} />
           </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.DestructiveButton
+          <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Delete ${noun}`}
             ariaLabel={`Delete ${noun}`}
@@ -162,7 +207,7 @@ export function PagePopup({
             }}
           >
             <Trash2 size={14} />
-          </CanvasItemPopup.DestructiveButton>
+          </CanvasItemPopup.IconButton>
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

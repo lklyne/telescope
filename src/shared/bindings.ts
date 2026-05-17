@@ -44,8 +44,8 @@ export type NormalizedKey = {
 export type BindingId =
   | 'tool-select'
   | 'tool-add-page'
-  | 'tool-add-text-plain'
-  | 'tool-add-text-sticky'
+  | 'tool-add-text'
+  | 'tool-add-sticky'
   | 'tool-add-shape-rectangle'
   | 'tool-add-shape-ellipse'
   | 'tool-add-shape-diamond'
@@ -104,8 +104,8 @@ export const BINDINGS: readonly Binding[] = [
   // Tool selection (canvas-region, plain keys, suppressed while typing)
   { id: 'tool-select', defaultKey: k('v'), scope: CANVAS_REGION, target: 'main', label: 'Select' },
   { id: 'tool-add-page', defaultKey: k('p'), scope: CANVAS_REGION, target: 'main', label: 'Add page' },
-  { id: 'tool-add-text-plain', defaultKey: k('t'), scope: CANVAS_REGION, target: 'main', label: 'Add text' },
-  { id: 'tool-add-text-sticky', defaultKey: k('s'), scope: CANVAS_REGION, target: 'main', label: 'Add sticky' },
+  { id: 'tool-add-text', defaultKey: k('t'), scope: CANVAS_REGION, target: 'main', label: 'Add text' },
+  { id: 'tool-add-sticky', defaultKey: k('s'), scope: CANVAS_REGION, target: 'main', label: 'Add sticky' },
   { id: 'tool-add-shape-rectangle', defaultKey: k('r'), scope: CANVAS_REGION, target: 'main', label: 'Rectangle' },
   { id: 'tool-add-shape-ellipse', defaultKey: k('o'), scope: CANVAS_REGION, target: 'main', label: 'Ellipse' },
   { id: 'tool-add-shape-diamond', defaultKey: k('r', false, true), scope: CANVAS_REGION, target: 'main', label: 'Diamond' },

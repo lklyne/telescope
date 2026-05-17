@@ -28,24 +28,28 @@ export function PendingAnnotationComposer({
   clearDraft,
   commentInputRef,
   commentText,
+  elementNameDraft,
   layoutData,
   pendingAnnotation,
   pendingPosition,
   pendingRegionRect,
   resizeCommentInput,
   setCommentText,
+  setElementNameDraft,
   submitPendingAnnotation,
   submitRegionAnnotation,
 }: {
   clearDraft: () => void
   commentInputRef: React.RefObject<HTMLTextAreaElement | null>
   commentText: string
+  elementNameDraft: string
   layoutData: LayoutUpdateData
   pendingAnnotation: PendingAnnotation | null
   pendingPosition: { left: number; top: number; width: number } | null
   pendingRegionRect: WorkspaceBounds | null
   resizeCommentInput: () => void
   setCommentText: React.Dispatch<React.SetStateAction<string>>
+  setElementNameDraft: React.Dispatch<React.SetStateAction<string>>
   submitPendingAnnotation: () => void
   submitRegionAnnotation: () => void
 }) {
@@ -53,6 +57,7 @@ export function PendingAnnotationComposer({
     const left = pendingPosition?.left ?? pendingAnnotation.composerX
     const top = pendingPosition?.top ?? pendingAnnotation.composerY
     const width = pendingPosition?.width ?? pendingAnnotation.composerWidth
+    const isElementAnchor = pendingAnnotation.request.anchor.type === 'element'
     return (
       <ComposerBox
         clearDraft={clearDraft}
@@ -65,6 +70,8 @@ export function PendingAnnotationComposer({
         setCommentText={setCommentText}
         submit={submitPendingAnnotation}
         submitLabel="Submit comment"
+        elementNameDraft={isElementAnchor ? elementNameDraft : undefined}
+        setElementNameDraft={isElementAnchor ? setElementNameDraft : undefined}
       />
     )
   }
@@ -111,6 +118,8 @@ function ComposerBox({
   setCommentText,
   submit,
   submitLabel,
+  elementNameDraft,
+  setElementNameDraft,
 }: {
   clearDraft: () => void
   commentInputRef: React.RefObject<HTMLTextAreaElement | null>
@@ -122,26 +131,46 @@ function ComposerBox({
   setCommentText: React.Dispatch<React.SetStateAction<string>>
   submit: () => void
   submitLabel?: string
+  elementNameDraft?: string
+  setElementNameDraft?: React.Dispatch<React.SetStateAction<string>>
 }) {
+  const showElementName = elementNameDraft !== undefined && setElementNameDraft !== undefined
   return (
     <div
       className="pointer-events-auto absolute z-50"
       data-overlay-ui
       style={{ left, top, width }}
     >
-      <div className="flex items-center gap-2 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1.5 pl-3 pr-2 shadow-lg">
-        <CommentInput
-          inputRef={commentInputRef}
-          autoFocus
-          value={commentText}
-          onChange={(value) => { setCommentText(value); resizeCommentInput() }}
-          onSubmit={submit}
-          submitLabel={submitLabel}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') { event.preventDefault(); clearDraft() }
-            event.stopPropagation()
-          }}
-        />
+      <div className="flex flex-col gap-1 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] p-1.5 shadow-lg">
+        {showElementName ? (
+          <input
+            type="text"
+            value={elementNameDraft}
+            onChange={(event) => setElementNameDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') { event.preventDefault(); clearDraft() }
+              if (event.key === 'Enter') { event.preventDefault(); commentInputRef.current?.focus() }
+              event.stopPropagation()
+            }}
+            placeholder="Element name"
+            aria-label="Element name"
+            className="w-full rounded-[6px] bg-transparent px-2 py-1 text-[12px] font-medium text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+          />
+        ) : null}
+        <div className="flex items-center gap-2 px-1.5">
+          <CommentInput
+            inputRef={commentInputRef}
+            autoFocus={!showElementName}
+            value={commentText}
+            onChange={(value) => { setCommentText(value); resizeCommentInput() }}
+            onSubmit={submit}
+            submitLabel={submitLabel}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') { event.preventDefault(); clearDraft() }
+              event.stopPropagation()
+            }}
+          />
+        </div>
       </div>
     </div>
   )
@@ -312,6 +341,11 @@ export function AnnotationThreadPopover({
               </button>
             </div>
           </div>
+          {openThread.anchor.type === 'element' && openThread.elementName ? (
+            <div className="border-b border-zinc-200 px-2.5 py-1.5 text-[12px] font-medium text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
+              {openThread.elementName}
+            </div>
+          ) : null}
           <div className="max-h-[320px] space-y-2.5 overflow-auto px-2.5 py-2.5">
             <CommentBubble author={openThread.author} text={openThread.text} fallback="Drawing feedback" />
             {openThread.replies.map((reply, idx) => (

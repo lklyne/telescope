@@ -9,6 +9,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { canvasToScreenX, canvasToScreenY, snapToGrid } from '../../shared/gesture-utils'
+import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
 
 export type DragCopyPreviewBox = {
   id: string
@@ -23,10 +24,12 @@ type DragPointer = {
   screenX: number
   screenY: number
   altKey?: boolean
+  shiftKey?: boolean
 }
 
 type DragCopyCallbacks = {
-  applyDelta: (dx: number, dy: number) => void
+  applyDelta: (dx: number, dy: number, shiftKey: boolean) => void
+  previewDelta: (totalDx: number, totalDy: number, shiftKey: boolean) => void
   endDrag: () => void
   copyAt: (canvasX: number, canvasY: number) => void
   setPreview: (preview: DragCopyPreviewBox[]) => void
@@ -38,6 +41,7 @@ type DragCopySessionOptions = DragCopyCallbacks & {
   anchorEntityId: string
   startScreenX: number
   startScreenY: number
+  startShiftKey?: boolean
   isOptionHeld: () => boolean
 }
 
@@ -117,14 +121,25 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
   let totalScreenDy = 0
   let appliedScreenDx = 0
   let appliedScreenDy = 0
+  let shiftKey = Boolean(options.startShiftKey)
   let copyMode = false
   let hasMoved = false
   let finished = false
 
-  const targetCanvasPoint = () => ({
-    canvasX: snapToGrid(anchorCanvasX + totalScreenDx / options.layout.zoom),
-    canvasY: snapToGrid(anchorCanvasY + totalScreenDy / options.layout.zoom),
-  })
+  const targetCanvasPoint = () => {
+    const rawDelta = {
+      x: totalScreenDx / options.layout.zoom,
+      y: totalScreenDy / options.layout.zoom,
+    }
+    const projected = axisLockProjector(rawDelta, rawDelta, shiftKey)
+    const dominant = axisLockDominantAxis(rawDelta, shiftKey)
+    const projectedX = anchorCanvasX + projected.x
+    const projectedY = anchorCanvasY + projected.y
+    return {
+      canvasX: dominant === 'vertical' ? projectedX : snapToGrid(projectedX),
+      canvasY: dominant === 'horizontal' ? projectedY : snapToGrid(projectedY),
+    }
+  }
 
   const buildPreview = (): DragCopyPreviewBox[] => {
     const target = targetCanvasPoint()
@@ -147,11 +162,12 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
     copyMode = nextCopyMode
     if (copyMode) {
       if (appliedScreenDx !== 0 || appliedScreenDy !== 0) {
-        options.applyDelta(-appliedScreenDx, -appliedScreenDy)
+        options.applyDelta(-appliedScreenDx, -appliedScreenDy, shiftKey)
         appliedScreenDx = 0
         appliedScreenDy = 0
       }
       options.setPreview(buildPreview())
+      options.previewDelta(totalScreenDx, totalScreenDy, shiftKey)
       return
     }
 
@@ -159,7 +175,7 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
     const dx = totalScreenDx - appliedScreenDx
     const dy = totalScreenDy - appliedScreenDy
     if (dx !== 0 || dy !== 0) {
-      options.applyDelta(dx, dy)
+      options.applyDelta(dx, dy, shiftKey)
       appliedScreenDx = totalScreenDx
       appliedScreenDy = totalScreenDy
     }
@@ -170,6 +186,7 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
   return {
     move(pointer: DragPointer) {
       if (finished) return
+      shiftKey = Boolean(pointer.shiftKey)
       const dx = pointer.screenX - lastScreenX
       const dy = pointer.screenY - lastScreenY
       lastScreenX = pointer.screenX
@@ -181,6 +198,16 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
       }
       setCopyMode(Boolean(pointer.altKey) || options.isOptionHeld())
     },
+    setShiftKey(held: boolean) {
+      if (finished || shiftKey === held) return
+      shiftKey = held
+      if (copyMode) {
+        options.setPreview(buildPreview())
+        options.previewDelta(totalScreenDx, totalScreenDy, shiftKey)
+      } else {
+        options.applyDelta(0, 0, shiftKey)
+      }
+    },
     setOptionHeld(held: boolean) {
       setCopyMode(held)
     },
@@ -189,7 +216,7 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
       if (pointer) this.move(pointer)
       const shouldCopy = copyMode && hasMoved && snapshots.length > 0
       if (shouldCopy && (appliedScreenDx !== 0 || appliedScreenDy !== 0)) {
-        options.applyDelta(-appliedScreenDx, -appliedScreenDy)
+        options.applyDelta(-appliedScreenDx, -appliedScreenDy, shiftKey)
         appliedScreenDx = 0
         appliedScreenDy = 0
       }
@@ -204,7 +231,7 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
     cancel() {
       if (finished) return
       if (appliedScreenDx !== 0 || appliedScreenDy !== 0) {
-        options.applyDelta(-appliedScreenDx, -appliedScreenDy)
+        options.applyDelta(-appliedScreenDx, -appliedScreenDy, shiftKey)
       }
       finished = true
       options.setPreview([])
@@ -258,12 +285,14 @@ export function startOptionAwareEntityDrag(input: {
     anchorEntityId: input.entityId,
     startScreenX: input.event.screenX,
     startScreenY: input.event.screenY,
+    startShiftKey: input.event.shiftKey,
     isOptionHeld: input.isOptionHeld,
     setPreview: input.setPreview,
-    applyDelta: (dx, dy) => {
-      if (input.entityKind === 'page') input.api.dragPage(input.entityId, dx, dy)
-      else input.api.dragEntity(input.entityId, dx, dy)
+    applyDelta: (dx, dy, shiftKey) => {
+      if (input.entityKind === 'page') input.api.dragPage(input.entityId, dx, dy, shiftKey)
+      else input.api.dragEntity(input.entityId, dx, dy, shiftKey)
     },
+    previewDelta: (totalDx, totalDy, shiftKey) => input.api.dragPreview(totalDx, totalDy, shiftKey),
     endDrag: () => {
       release()
       if (input.entityKind === 'page') input.api.endDragPage()
@@ -313,9 +342,11 @@ export function startOptionAwareGroupDrag(input: {
     anchorEntityId: input.groupId,
     startScreenX: input.event.screenX,
     startScreenY: input.event.screenY,
+    startShiftKey: input.event.shiftKey,
     isOptionHeld: input.isOptionHeld,
     setPreview: input.setPreview,
-    applyDelta: (dx, dy) => input.api.dragGroup(input.groupId, dx, dy),
+    applyDelta: (dx, dy, shiftKey) => input.api.dragGroup(input.groupId, dx, dy, shiftKey),
+    previewDelta: (totalDx, totalDy, shiftKey) => input.api.dragPreview(totalDx, totalDy, shiftKey),
     endDrag: () => {
       release()
       input.api.endDragGroup()
@@ -364,7 +395,10 @@ function installOptionAwareDragListeners(input: {
     cleanup()
     input.session.finish(event)
   }
-  const onKeyChange = () => input.session.setOptionHeld(input.isOptionHeld())
+  const onKeyChange = (event: KeyboardEvent) => {
+    input.session.setShiftKey(event.shiftKey)
+    input.session.setOptionHeld(input.isOptionHeld())
+  }
   const onCancel = () => {
     cleanup()
     input.session.cancel()

@@ -1,18 +1,18 @@
 // ADR 0008 §1/§5, ADR 0009 — add-shape tool popup; persists via tool defaults.
 
-import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
+import {
+  paletteSlots,
+  resolveCanvasColor,
+  slotForStorage,
+} from '../../shared/canvas-colors'
 import type {
   CanvasBgElectronAPI,
   LayoutUpdateData,
   ToolDefaultPatch,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import {
-  SHAPE_VARIANT_OPTIONS,
-  STROKE_WIDTH_PRESETS,
-  nearestStrokeWidthPreset,
-} from './popupVariantOptions'
-import { StrokeWidthSwatch } from './StrokeWidthSwatch'
+import { SHAPE_VARIANT_OPTIONS } from './popupVariantOptions'
+import { TextSizeDropdown } from './TextSizeDropdown'
 
 export function ShapeToolPopup({
   api,
@@ -24,8 +24,7 @@ export function ShapeToolPopup({
   layout: LayoutUpdateData
 }) {
   const defaults = layout.toolDefaults['add-shape']
-  const currentColor = resolveCanvasColor(defaults.color)
-  const activeStrokeWidth = nearestStrokeWidthPreset(defaults.strokeWidth)
+  const activeSlot = slotForStorage(defaults.color)
   return (
     <CanvasItemPopup.ViewportAnchor layout={layout} open offset={8}>
       <CanvasItemPopup.Frame isDark={isDark}>
@@ -50,46 +49,45 @@ export function ShapeToolPopup({
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_OPTIONS.map((option) => {
-            const resolved = resolveCanvasColor(option.id)
+          <TextSizeDropdown
+            isDark={isDark}
+            value={defaults.textSize}
+            ariaLabel="Set default shape text size"
+            onPick={(size) => {
+              const patch: ToolDefaultPatch = {
+                scope: 'add-shape',
+                key: 'textSize',
+                value: size,
+              }
+              api.setToolDefault(patch)
+            }}
+          />
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <CanvasItemPopup.Section>
+          {paletteSlots('soft').map((slot) => {
+            const swatch =
+              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
             return (
               <CanvasItemPopup.ColorSwatch
-                key={option.id}
+                key={slot.id}
                 isDark={isDark}
-                active={currentColor === resolved}
-                color={resolved}
-                ariaLabel={`Set default shape color to ${option.label}`}
+                active={activeSlot === slot.id}
+                color={swatch}
+                ariaLabel={`Set default shape color to ${slot.label}`}
                 onClick={() => {
                   const patch: ToolDefaultPatch = {
                     scope: 'add-shape',
                     key: 'color',
-                    value: option.id,
+                    value: slot.storage,
                   }
                   api.setToolDefault(patch)
                 }}
               />
             )
           })}
-        </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          {STROKE_WIDTH_PRESETS.map((width) => (
-            <StrokeWidthSwatch
-              key={width}
-              isDark={isDark}
-              active={activeStrokeWidth === width}
-              width={width}
-              ariaLabel={`Set default shape stroke width to ${width}px`}
-              onClick={() => {
-                const patch: ToolDefaultPatch = {
-                  scope: 'add-shape',
-                  key: 'strokeWidth',
-                  value: width,
-                }
-                api.setToolDefault(patch)
-              }}
-            />
-          ))}
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>

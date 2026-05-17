@@ -2,7 +2,12 @@
 // drawings; legacy multi-stroke drawings accept uniform writes per stroke.
 
 import { Copy, Trash2 } from 'lucide-react'
-import { CANVAS_COLOR_OPTIONS, resolveCanvasColor } from '../../shared/canvas-colors'
+import {
+  paletteForBrushType,
+  paletteSlots,
+  resolveCanvasColor,
+  slotForStorage,
+} from '../../shared/canvas-colors'
 import type {
   AnnotationDrawingStroke,
   CanvasBgElectronAPI,
@@ -42,8 +47,13 @@ export function DrawingPopup({
 
   const allStrokes = selectedDrawings.flatMap((d) => d.strokes)
   const brush = sharedValue(allStrokes.map((s) => s.brushType ?? 'pen'))
+  const swatchPalette = paletteForBrushType(brush ?? 'pen')
   const colorRaw = sharedValue(allStrokes.map((s) => s.color))
-  const currentColor = colorRaw === null ? null : resolveCanvasColor(colorRaw)
+  const iconInk =
+    colorRaw === null
+      ? null
+      : resolveCanvasColor(colorRaw, { role: 'ink', isDark, palette: 'vivid' })
+  const activeSlot = slotForStorage(colorRaw)
   const widthRaw = sharedValue(allStrokes.map((s) => s.width))
   const widthPresets = strokeWidthPresetsFor(brush ?? undefined)
   const activeStrokeWidth =
@@ -94,37 +104,47 @@ export function DrawingPopup({
                 }))
               }}
             >
-              <Icon size={14} />
+              <Icon
+                size={14}
+                ink={iconInk ?? undefined}
+                selected={brush === kind}
+              />
             </CanvasItemPopup.IconButton>
           ))}
         </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
-          {CANVAS_COLOR_OPTIONS.map((option) => {
-            const resolved = resolveCanvasColor(option.id)
-            return (
-              <CanvasItemPopup.ColorSwatch
-                key={option.id}
-                isDark={isDark}
-                active={currentColor === resolved}
-                color={resolved}
-                ariaLabel={`Set ${noun} color to ${option.label}`}
-                onClick={() => writeStrokes((stroke) => ({ ...stroke, color: resolved }))}
-              />
-            )
-          })}
-        </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          {widthPresets.map((width) => (
+          {widthPresets.map((width, index) => (
             <StrokeWidthSwatch
               key={width}
               isDark={isDark}
               active={activeStrokeWidth === width}
-              width={width}
+              variant={index === 0 ? 'thin' : 'thick'}
               ariaLabel={`Set ${noun} stroke width to ${width}px`}
               onClick={() => writeStrokes((stroke) => ({ ...stroke, width }))}
             />
           ))}
         </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <CanvasItemPopup.Section>
+          {paletteSlots(swatchPalette).map((slot) => {
+            const swatch =
+              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'ink', isDark })
+            return (
+              <CanvasItemPopup.ColorSwatch
+                key={slot.id}
+                isDark={isDark}
+                active={activeSlot === slot.id}
+                color={swatch}
+                ariaLabel={`Set ${noun} color to ${slot.label}`}
+                onClick={() =>
+                  writeStrokes((stroke) => ({ ...stroke, color: slot.storage }))
+                }
+              />
+            )
+          })}
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton
             isDark={isDark}
@@ -136,7 +156,7 @@ export function DrawingPopup({
           >
             <Copy size={14} />
           </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.DestructiveButton
+          <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Delete ${noun}`}
             ariaLabel={`Delete ${noun}`}
@@ -145,7 +165,7 @@ export function DrawingPopup({
             }}
           >
             <Trash2 size={14} />
-          </CanvasItemPopup.DestructiveButton>
+          </CanvasItemPopup.IconButton>
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

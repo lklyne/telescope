@@ -2,34 +2,36 @@ import type { Dispatch, SetStateAction } from 'react'
 import { Select } from '@base-ui/react/select'
 import { Tabs } from '@base-ui/react/tabs'
 import {
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Frame,
   LayoutTemplate,
-  MessageCircle,
-  Moon,
-  MousePointer2,
   PanelRight,
   PanelTop,
-  PencilLine,
-  Pipette,
   RotateCw,
-  FileText,
-  Square,
-  StickyNote,
-  Sun,
-  Type,
 } from 'lucide-react'
-import { Menu } from '@base-ui/react/menu'
 import type {
   AgentPresenceCursor,
-  TextEntityStyle,
+  DrawingBrushType,
   Tool,
   ToolbarSelectionData,
 } from '../../shared/types'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
+import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { normalizeUserUrl } from '../../shared/url'
+import {
+  AddPageToolIcon,
+  AddShapeToolIcon,
+  AddStickyToolIcon,
+  AddTextToolIcon,
+  CommentToolIcon,
+  DrawHighlightToolIcon,
+  DrawPenToolIcon,
+  HandToolIcon,
+  InspectToolIcon,
+  SelectToolIcon,
+  ThemeToolIcon,
+  ZoomChevronIcon,
+} from '../shared/CustomIcons'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { ZOOM_PRESETS } from './useToolbarState'
 
@@ -39,91 +41,47 @@ function toolbarIconBtnClass(isDark: boolean): string {
     : 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-600 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-900 active:bg-[var(--surface-interactive)] disabled:pointer-events-none disabled:opacity-45'
 }
 
-function toolbarActiveIconBtnClass(isDark: boolean): string {
+// Tool buttons in the central toolbar follow the Figma toolbar spec:
+// 32×28 container, radius 6, single fill drives hover & active. Larger than
+// the popup IconButton (ADR 0013 §8, 24×24) — the toolbar is the primary
+// surface and its glyphs need to read at a glance.
+function toolbarToolBtnClass(isDark: boolean, active: boolean): string {
+  const base =
+    'flex h-7 w-8 items-center justify-center rounded-[6px] border-0 transition-colors disabled:pointer-events-none disabled:opacity-45'
+  if (active) {
+    return isDark
+      ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
+      : `${base} bg-[#fdf8f5] text-zinc-900`
+  }
   return isDark
-    ? 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-[var(--surface-interactive)] p-1.5 text-zinc-100'
-    : 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-[var(--surface-interactive)] p-1.5 text-zinc-900'
+    ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100`
+    : `${base} text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900`
 }
 
-type AddTextItem =
-  | { kind: 'text'; style: TextEntityStyle; label: string; Icon: React.ComponentType<{ size?: number }> }
-  | { kind: 'document'; label: string; Icon: React.ComponentType<{ size?: number }> }
+// Toolbar icon glyphs render at 20px wide per the Figma spec; the largest
+// natural-aspect asset (29×27 add-page) sits comfortably inside the 32×28 button.
+const TOOL_GLYPH_SIZE = 20
 
-const ADD_TEXT_ITEMS: AddTextItem[] = [
-  { kind: 'text', style: 'plain', label: 'Text', Icon: Type },
-  { kind: 'text', style: 'sticky', label: 'Sticky note', Icon: StickyNote },
-  { kind: 'document', label: 'Document', Icon: FileText },
-]
-
-function AddTextMenu({
-  isDark,
-  onAddText,
-  onAddDocument,
-  onDropdownOpenChange,
-}: {
-  isDark: boolean
-  onAddText: (style: TextEntityStyle) => void
-  onAddDocument: () => void
-  onDropdownOpenChange: (open: boolean) => void
-}) {
-  const triggerClassName = toolbarIconBtnClass(isDark)
-
-  const popupClassName = `z-50 min-w-[160px] rounded-[10px] border p-1 shadow-xl outline-none ${
-    isDark
-      ? 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-100'
-      : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900'
-  }`
-  const itemClassName = `flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-    isDark
-      ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
-      : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
-  }`
-
-  return (
-    <Menu.Root onOpenChange={onDropdownOpenChange}>
-      <Menu.Trigger
-        className={`${triggerClassName} flex items-center gap-0.5 pr-1`}
-        title="Add text"
-      >
-        <Type size={14} />
-        <ChevronDown size={10} className={isDark ? 'text-zinc-400' : 'text-zinc-500'} />
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner side="bottom" align="center" sideOffset={4}>
-          <Menu.Popup className={popupClassName}>
-            {ADD_TEXT_ITEMS.map((item) => (
-              <Menu.Item
-                key={item.kind === 'text' ? `text-${item.style}` : 'document'}
-                className={itemClassName}
-                onClick={() => {
-                  if (item.kind === 'text') {
-                    onAddText(item.style)
-                  } else {
-                    onAddDocument()
-                  }
-                }}
-              >
-                <item.Icon size={12} />
-                <span>{item.label}</span>
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
-  )
-}
+// Light and dark glyphs ship as parallel SVG assets — see `makeToolbarIcon`
+// in CustomIcons.tsx, which picks the right URL from `isDark`. CSS only
+// applies the drop-shadow on top; we no longer invert the light asset for
+// dark mode because that pushed the light-grey gradient to near-black and
+// looked muddy against the dark toolbar.
+const TOOLBAR_GLYPH_SHADOW = 'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.18))'
+const TOOLBAR_GLYPH_STYLE: React.CSSProperties = { filter: TOOLBAR_GLYPH_SHADOW }
 
 function AddPagePresetMenu({
   isDark,
+  active,
   onAddPage,
   onDropdownOpenChange,
 }: {
   isDark: boolean
+  active: boolean
   onAddPage: (presetIndex: number | 'custom') => void
   onDropdownOpenChange: (open: boolean) => void
 }) {
-  const triggerClassName = toolbarIconBtnClass(isDark)
+  const triggerClassName = toolbarToolBtnClass(isDark, active)
 
   return (
     <PagePresetDropdown
@@ -135,14 +93,13 @@ function AddPagePresetMenu({
       side="bottom"
       sideOffset={4}
       trigger={
-        <button
-        className={`${triggerClassName} flex items-center gap-0.5 pr-1`}
-        title="Add page"
-        type="button"
-      >
-        <Frame size={14} />
-        <ChevronDown size={10} className={isDark ? 'text-zinc-400' : 'text-zinc-500'} />
-      </button>
+        <button className={triggerClassName} title="Add page" type="button">
+          <AddPageToolIcon
+            size={TOOL_GLYPH_SIZE}
+            isDark={isDark}
+            style={TOOLBAR_GLYPH_STYLE}
+          />
+        </button>
       }
     />
   )
@@ -151,7 +108,7 @@ function AddPagePresetMenu({
 export function ToolbarDivider({ isDark }: { isDark: boolean }) {
   return (
     <div
-      className={`mx-1 h-3 w-px shrink-0 ${isDark ? 'bg-zinc-600' : 'bg-zinc-300'}`}
+      className={`mx-1 h-4 w-px shrink-0 ${isDark ? 'bg-white/20' : 'bg-zinc-900/20'}`}
     />
   )
 }
@@ -193,6 +150,8 @@ interface CenterActionsProps {
   isDark: boolean
   isBrowserMode: boolean
   activeTool: Tool
+  drawBrushType: DrawingBrushType
+  drawColor: string
   hasPages: boolean
   drawingEnabled: boolean
   hasSelection: boolean
@@ -208,6 +167,8 @@ export function CenterActions({
   isDark,
   isBrowserMode,
   activeTool,
+  drawBrushType,
+  drawColor,
   hasPages,
   drawingEnabled,
   hasSelection,
@@ -218,168 +179,214 @@ export function CenterActions({
   onToggleTheme,
   onZoomSet,
 }: CenterActionsProps) {
-  const defaultToolActive = activeTool.kind === 'select'
   const annotateAvailable = hasPages
   const inspectAvailable = hasPages
-  const inspectEnabled = activeTool.kind === 'inspect'
   const onAddPage = (presetIndex: number | 'custom') =>
     onSetTool({
       kind: 'add-page',
       presetIndex: typeof presetIndex === 'number' ? presetIndex : undefined,
       customSize: presetIndex === 'custom',
     })
-  const onAddText = (style: TextEntityStyle) => onSetTool({ kind: 'add-text', style })
-  const onAddDocument = () => onSetTool({ kind: 'add-document' })
-  const onAddShape = () => onSetTool({ kind: 'add-shape' })
-  const onClearToolMode = () => onSetTool({ kind: 'select' })
-  const onToggleAnnotateMode = () =>
-    onSetTool(activeTool.kind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
-  const drawActive = activeTool.kind === 'draw'
+  const onSelectTool = () => onSetTool({ kind: 'select' })
+  const onToggleHandTool = () =>
+    onSetTool(activeTool.kind === 'hand' ? { kind: 'select' } : { kind: 'hand' })
   const onToggleDrawMode = () =>
-    onSetTool(drawActive ? { kind: 'select' } : { kind: 'draw' })
+    onSetTool(activeTool.kind === 'draw' ? { kind: 'select' } : { kind: 'draw' })
+  const onAddSticky = () => onSetTool({ kind: 'add-sticky' })
+  const onAddShape = () => onSetTool({ kind: 'add-shape' })
+  const onAddText = () => onSetTool({ kind: 'add-text' })
+  const onToggleCommentMode = () =>
+    onSetTool(activeTool.kind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
   const onToggleInspectMode = () =>
     onSetTool(activeTool.kind === 'inspect' ? { kind: 'select' } : { kind: 'inspect' })
-  const iconButtonClassName = toolbarIconBtnClass(isDark)
-  const activeIconButtonClassName = toolbarActiveIconBtnClass(isDark)
+
+  const buttonClass = (active: boolean) => toolbarToolBtnClass(isDark, active)
+  const drawInk = resolveCanvasColor(drawColor, {
+    role: 'ink',
+    isDark,
+    palette: 'vivid',
+  })
   const selectTriggerClassName = isDark
-    ? 'toolbar-squircle-btn flex w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[8px] border border-transparent bg-transparent py-1 pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
-    : 'toolbar-squircle-btn flex w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[8px] border border-transparent bg-transparent py-1 pl-2 pr-1 text-xs tabular-nums text-zinc-600 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-900 active:bg-[var(--surface-interactive)]'
+    ? 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-[rgba(253,248,245,0.1)]'
+    : 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900'
   const popupClassName =
     'z-50 min-w-[140px] rounded-md border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1 shadow-xl'
   const popupItemClassName = isDark
     ? 'flex cursor-pointer items-center justify-between gap-6 px-3 py-1.5 text-xs text-zinc-300 outline-none data-[highlighted]:bg-white/10 data-[highlighted]:text-zinc-100 data-[selected]:font-semibold data-[selected]:text-zinc-100'
     : 'flex cursor-pointer items-center justify-between gap-6 px-3 py-1.5 text-xs text-zinc-700 outline-none data-[highlighted]:bg-zinc-100 data-[highlighted]:text-zinc-900 data-[selected]:font-semibold data-[selected]:text-zinc-900'
 
+  // ADR 0013 §5 grouping: nav | create | annotate | view.
+  // Browser mode hides creation tools (no canvas placement) and the hand
+  // tool (pan-on-drag is canvas-only).
   return (
     <div className="flex min-w-0 items-center justify-center overflow-hidden">
       <div className="flex w-fit items-center gap-1 [-webkit-app-region:no-drag]">
         <button
-          onClick={onClearToolMode}
-          className={`${defaultToolActive ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
+          onClick={onSelectTool}
+          className={buttonClass(activeTool.kind === 'select')}
           title="Select"
           type="button"
         >
-          <MousePointer2 size={14} />
+          <SelectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
         </button>
 
         {!isBrowserMode ? (
-          <div className="flex items-center">
-            <AddPagePresetMenu
-              isDark={isDark}
-              onAddPage={onAddPage}
-              onDropdownOpenChange={onDropdownOpenChange}
-            />
-          </div>
+          <button
+            onClick={onToggleHandTool}
+            className={buttonClass(activeTool.kind === 'hand')}
+            title="Hand"
+            type="button"
+          >
+            <HandToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+          </button>
+        ) : null}
+
+        {!isBrowserMode ? <ToolbarDivider isDark={isDark} /> : null}
+
+        {!isBrowserMode && drawingEnabled ? (
+          <button
+            onClick={onToggleDrawMode}
+            className={buttonClass(activeTool.kind === 'draw')}
+            title="Draw"
+            disabled={!annotateAvailable}
+            type="button"
+          >
+            {drawBrushType === 'pen' ? (
+              <DrawPenToolIcon
+                size={TOOL_GLYPH_SIZE}
+                isDark={isDark}
+                ink={drawInk}
+                style={TOOLBAR_GLYPH_STYLE}
+              />
+            ) : (
+              <DrawHighlightToolIcon
+                size={TOOL_GLYPH_SIZE}
+                isDark={isDark}
+                ink={drawInk}
+                style={TOOLBAR_GLYPH_STYLE}
+              />
+            )}
+          </button>
         ) : null}
 
         {!isBrowserMode ? (
-          <AddTextMenu
-            isDark={isDark}
-            onAddText={onAddText}
-            onAddDocument={onAddDocument}
-            onDropdownOpenChange={onDropdownOpenChange}
-          />
+          <button
+            onClick={onAddSticky}
+            className={buttonClass(activeTool.kind === 'add-sticky')}
+            title="Add sticky"
+            type="button"
+          >
+            <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} />
+          </button>
         ) : null}
 
         {!isBrowserMode ? (
           <button
             onClick={onAddShape}
-            className={`${activeTool.kind === 'add-shape' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
-            title="Add Shape"
+            className={buttonClass(activeTool.kind === 'add-shape')}
+            title="Add shape"
             type="button"
           >
-            <Square size={14} />
+            <AddShapeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
           </button>
         ) : null}
 
-        <div className="ml-0.5 flex items-center gap-2">
+        {!isBrowserMode ? (
+          <AddPagePresetMenu
+            isDark={isDark}
+            active={activeTool.kind === 'add-page'}
+            onAddPage={onAddPage}
+            onDropdownOpenChange={onDropdownOpenChange}
+          />
+        ) : null}
+
+        {!isBrowserMode ? <ToolbarDivider isDark={isDark} /> : null}
+
+        {!isBrowserMode ? (
           <button
-            onClick={onToggleAnnotateMode}
-            className={`${activeTool.kind === 'comment' ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
-            title="Comments"
-            disabled={!annotateAvailable}
+            onClick={onAddText}
+            className={buttonClass(activeTool.kind === 'add-text')}
+            title="Add text"
             type="button"
           >
-            <MessageCircle size={14} />
+            <AddTextToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
           </button>
+        ) : null}
 
-          {drawingEnabled ? (
-            <button
-              onClick={onToggleDrawMode}
-              className={`${drawActive ? activeIconButtonClassName : iconButtonClassName} flex items-center gap-1`}
-              title="Draw"
-              disabled={!annotateAvailable}
-              type="button"
-            >
-              <PencilLine size={14} />
-            </button>
-          ) : null}
-        </div>
+        <button
+          onClick={onToggleCommentMode}
+          className={buttonClass(activeTool.kind === 'comment')}
+          title="Comment"
+          disabled={!annotateAvailable}
+          type="button"
+        >
+          <CommentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+        </button>
 
-        <div className="ml-0.5 flex items-center gap-2">
-          <button
-            onClick={onToggleInspectMode}
-            className={inspectEnabled ? activeIconButtonClassName : iconButtonClassName}
-            title={hasSelection ? 'Inspect' : 'Inspect any page'}
-            disabled={!inspectAvailable}
-            type="button"
-          >
-            <Pipette size={14} />
-          </button>
+        <button
+          onClick={onToggleInspectMode}
+          className={buttonClass(activeTool.kind === 'inspect')}
+          title={hasSelection ? 'Inspect' : 'Inspect any page'}
+          disabled={!inspectAvailable}
+          type="button"
+        >
+          <InspectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+        </button>
 
-          <button
-            onClick={onToggleTheme}
-            className={iconButtonClassName}
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            type="button"
-          >
-            {isDark ? <Moon size={14} /> : <Sun size={14} />}
-          </button>
+        <ToolbarDivider isDark={isDark} />
 
-          <Select.Root
-            value={currentPresetValue}
-            onValueChange={(value) => {
-              if (value !== null) onZoomSet(value)
-            }}
-            onOpenChange={onDropdownOpenChange}
-          >
-            <Select.Trigger className={selectTriggerClassName} title="Zoom">
-              <Select.Value placeholder={`${zoomPercent}%`}>
-                {() => <span>{zoomPercent}%</span>}
-              </Select.Value>
-              <Select.Icon className={isDark ? 'text-zinc-400' : 'text-zinc-500'}>
-                <ChevronDown size={10} />
-              </Select.Icon>
-            </Select.Trigger>
-            <Select.Portal>
-              <Select.Positioner side="bottom" align="center" sideOffset={4}>
-                <Select.Popup className={popupClassName}>
-                  {ZOOM_PRESETS.map((level) => (
-                    <Select.Item key={level} value={level} className={popupItemClassName}>
-                      <Select.ItemText>{level}%</Select.ItemText>
-                      {level === 100 ? (
-                        <kbd
-                          className={
-                            isDark
-                              ? 'rounded-[4px] bg-zinc-700 px-1.5 py-0.5 text-xs leading-none text-zinc-200'
-                              : 'rounded-[4px] bg-zinc-100 px-1.5 py-0.5 text-xs leading-none text-zinc-600'
-                          }
-                        >
-                          <span className="inline-flex items-center gap-1">
-                            <span>⌘</span>
-                            <span>1</span>
-                          </span>
-                        </kbd>
-                      ) : (
-                        <span />
-                      )}
-                    </Select.Item>
-                  ))}
-                </Select.Popup>
-              </Select.Positioner>
-            </Select.Portal>
-          </Select.Root>
-        </div>
+        <button
+          onClick={onToggleTheme}
+          className={buttonClass(false)}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          type="button"
+        >
+          <ThemeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+        </button>
+
+        <Select.Root
+          value={currentPresetValue}
+          onValueChange={(value) => {
+            if (value !== null) onZoomSet(value)
+          }}
+          onOpenChange={onDropdownOpenChange}
+        >
+          <Select.Trigger className={selectTriggerClassName} title="Zoom">
+            <Select.Value placeholder={`${zoomPercent}%`}>
+              {() => <span>{zoomPercent}%</span>}
+            </Select.Value>
+            <Select.Icon className={isDark ? 'text-zinc-400' : 'text-zinc-500'}>
+              <ZoomChevronIcon size={10} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+            </Select.Icon>
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Positioner side="bottom" align="center" sideOffset={4}>
+              <Select.Popup className={popupClassName}>
+                {ZOOM_PRESETS.map((level) => (
+                  <Select.Item key={level} value={level} className={popupItemClassName}>
+                    <Select.ItemText>{level}%</Select.ItemText>
+                    {level === 100 ? (
+                      <kbd
+                        className={
+                          isDark
+                            ? 'rounded-[4px] bg-zinc-700 px-1.5 py-0.5 text-xs leading-none text-zinc-200'
+                            : 'rounded-[4px] bg-zinc-100 px-1.5 py-0.5 text-xs leading-none text-zinc-600'
+                        }
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <span>⌘</span>
+                          <span>1</span>
+                        </span>
+                      </kbd>
+                    ) : (
+                      <span />
+                    )}
+                  </Select.Item>
+                ))}
+              </Select.Popup>
+            </Select.Positioner>
+          </Select.Portal>
+        </Select.Root>
       </div>
     </div>
   )

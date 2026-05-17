@@ -12,8 +12,8 @@ import type {
   CanvasSceneTextEntity,
   PersistedTextEntity,
   TextEntityStyle,
+  TextWidthMode,
 } from '../../shared/types'
-import { resolveCanvasColor, COLOR_PRESETS } from '../../shared/canvas-colors'
 import { markDirty } from './layout-dirty'
 
 export interface TextEntity {
@@ -21,6 +21,9 @@ export interface TextEntity {
   text: string
   color: string
   textStyle: TextEntityStyle
+  widthMode: TextWidthMode
+  /** Per-entity text size in px. Optional — renderer defaults to 18. ADR 0013 §2. */
+  textSize?: number
   canvasX: number
   canvasY: number
   width: number
@@ -29,9 +32,13 @@ export interface TextEntity {
   label?: string
 }
 
+/** Plain text starts auto-sized; sticky is always fixed. */
+export function defaultWidthMode(textStyle: TextEntityStyle): TextWidthMode {
+  return textStyle === 'plain' ? 'auto' : 'fixed'
+}
+
 export const DEFAULT_TEXT_WIDTH = 200
 export const DEFAULT_TEXT_HEIGHT = 200
-export const DEFAULT_TEXT_COLOR = COLOR_PRESETS['3'] // yellow preset
 
 export const textEntities: TextEntity[] = []
 
@@ -41,17 +48,24 @@ export function createTextEntity(input: {
   text?: string
   color?: string
   textStyle?: TextEntityStyle
+  widthMode?: TextWidthMode
+  textSize?: number
   width?: number
   height?: number
   id?: string
   parentGroupId?: string
   label?: string
 }): TextEntity {
+  const textStyle = input.textStyle ?? 'sticky'
   const entity: TextEntity = {
     id: input.id ?? `text_${randomUUID()}`,
     text: input.text ?? '',
-    color: resolveCanvasColor(input.color ?? '3'),
-    textStyle: input.textStyle ?? 'sticky',
+    // Color is stored raw — a preset number ('1'–'7'), the 'neutral'
+    // sentinel, or a literal hex. The palette is resolved at render time.
+    color: input.color ?? '3',
+    textStyle,
+    widthMode: input.widthMode ?? defaultWidthMode(textStyle),
+    textSize: input.textSize,
     canvasX: input.canvasX,
     canvasY: input.canvasY,
     width: input.width ?? DEFAULT_TEXT_WIDTH,
@@ -68,8 +82,10 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
   const entity = textEntities.find((n) => n.id === id)
   if (!entity) return null
   if (patch.text !== undefined) entity.text = patch.text
-  if (patch.color !== undefined) entity.color = resolveCanvasColor(patch.color)
+  if (patch.color !== undefined) entity.color = patch.color
   if (patch.textStyle !== undefined) entity.textStyle = patch.textStyle
+  if (patch.widthMode !== undefined) entity.widthMode = patch.widthMode
+  if (patch.textSize !== undefined) entity.textSize = patch.textSize
   if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
   if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
   if (patch.width !== undefined) entity.width = patch.width
@@ -106,6 +122,8 @@ export function buildTextEntitySceneEntity(
     text: entity.text,
     color: entity.color,
     textStyle: entity.textStyle,
+    widthMode: entity.widthMode,
+    textSize: entity.textSize,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
     width: entity.width,
@@ -125,6 +143,8 @@ export function persistTextEntity(entity: TextEntity): PersistedTextEntity {
     text: entity.text,
     color: entity.color,
     textStyle: entity.textStyle,
+    widthMode: entity.widthMode,
+    textSize: entity.textSize,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
     width: entity.width,

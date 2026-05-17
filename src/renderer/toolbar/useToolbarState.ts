@@ -1,6 +1,11 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import type { AgentPresenceCursor, Tool, ToolbarSelectionData } from '../../shared/types'
+import type {
+  AgentPresenceCursor,
+  DrawingBrushType,
+  Tool,
+  ToolbarSelectionData,
+} from '../../shared/types'
 import { toolbarApi } from './toolbarApi'
 
 export const ZOOM_PRESETS = [10, 25, 50, 75, 100, 150, 200] as const
@@ -22,6 +27,8 @@ const EMPTY_SELECTION: ToolbarSelectionData = {
   activeTabName: null,
   viewMode: 'canvas',
   activeTool: { kind: 'select' },
+  drawBrushType: 'pen',
+  drawColor: '1',
 }
 
 export interface ToolbarState {
@@ -29,6 +36,8 @@ export interface ToolbarState {
   leftSidebarOpen: boolean
   devtoolsOpen: boolean
   activeTool: Tool
+  drawBrushType: DrawingBrushType
+  drawColor: string
   selection: ToolbarSelectionData
   addressValue: string
   setAddressValue: Dispatch<SetStateAction<string>>
@@ -94,6 +103,8 @@ export function useToolbarState(): ToolbarState {
     leftSidebarOpen,
     devtoolsOpen,
     activeTool: selection.activeTool,
+    drawBrushType: selection.drawBrushType,
+    drawColor: selection.drawColor,
     selection,
     addressValue,
     setAddressValue,

@@ -158,6 +158,7 @@ describe('json-canvas-serializer drawings', () => {
       text: 'Heading',
       color: '#FFE18E',
       textStyle: 'plain',
+      widthMode: 'fixed',
       canvasX: 10,
       canvasY: 20,
       width: 200,
@@ -187,6 +188,7 @@ describe('json-canvas-serializer drawings', () => {
       text: 'remember this',
       color: '#FFE18E',
       textStyle: 'sticky',
+      widthMode: 'fixed',
       canvasX: 0,
       canvasY: 0,
       width: 200,
@@ -230,6 +232,122 @@ describe('json-canvas-serializer drawings', () => {
       id: 't-legacy',
       textStyle: 'sticky',
     })
+  })
+
+  it('round-trips a neutral text entity via specular.colorRole', () => {
+    const text: PersistedTextEntity = {
+      kind: 'text',
+      id: 't-neutral',
+      text: 'recede',
+      color: 'neutral',
+      textStyle: 'sticky',
+      widthMode: 'fixed',
+      canvasX: 0,
+      canvasY: 0,
+      width: 200,
+      height: 200,
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['t-neutral'] = text
+    snapshot.entityOrder = ['t-neutral']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes[0]).toMatchObject({
+      type: 'text',
+      id: 't-neutral',
+      // ADR 0013 §1: cross-tool fallback is preset "1" (red) when neutral.
+      color: '1',
+      specular: { textStyle: 'sticky', colorRole: 'neutral' },
+    })
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['t-neutral']).toEqual(text)
+  })
+
+  it('round-trips a neutral shape entity via specular.colorRole', () => {
+    const shape: PersistedShapeEntity = {
+      kind: 'shape',
+      id: 'sh-neutral',
+      shapeKind: 'rectangle',
+      text: '',
+      color: 'neutral',
+      canvasX: 0,
+      canvasY: 0,
+      width: 200,
+      height: 120,
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['sh-neutral'] = shape
+    snapshot.entityOrder = ['sh-neutral']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes[0]).toMatchObject({
+      type: 'shape',
+      id: 'sh-neutral',
+      color: '1',
+      specular: { colorRole: 'neutral' },
+    })
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['sh-neutral']).toEqual(shape)
+  })
+
+  it('round-trips textSize on text entities via specular.textSize', () => {
+    const text: PersistedTextEntity = {
+      kind: 'text',
+      id: 't-sized',
+      text: 'big',
+      color: '#FFE18E',
+      textStyle: 'plain',
+      widthMode: 'fixed',
+      textSize: 56,
+      canvasX: 0,
+      canvasY: 0,
+      width: 100,
+      height: 50,
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['t-sized'] = text
+    snapshot.entityOrder = ['t-sized']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes[0]).toMatchObject({
+      type: 'text',
+      id: 't-sized',
+      specular: { textStyle: 'plain', textSize: 56 },
+    })
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['t-sized']).toEqual(text)
+  })
+
+  it('round-trips textSize on shape entities via specular.textSize', () => {
+    const shape: PersistedShapeEntity = {
+      kind: 'shape',
+      id: 'sh-sized',
+      shapeKind: 'rectangle',
+      text: 'Label',
+      color: '2',
+      strokeWidth: 2,
+      textSize: 96,
+      canvasX: 0,
+      canvasY: 0,
+      width: 200,
+      height: 120,
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['sh-sized'] = shape
+    snapshot.entityOrder = ['sh-sized']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes[0]).toMatchObject({
+      type: 'shape',
+      id: 'sh-sized',
+      specular: { textSize: 96 },
+    })
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.entities?.['sh-sized']).toEqual(shape)
   })
 
   it('preserves drawing z-order among other entities', () => {

@@ -11,15 +11,14 @@ import { selectEntities, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
 import { requestLayout } from './surface-layout'
 import { arrowNavigationLocked, setArrowNavigationLocked, pages, selectedPageId } from './runtime-context'
-import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
 import { deletePages } from '../workspace-entities'
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
-import { duplicatePageFromSource, duplicateEntity } from '../workspace-pages'
 import { selectBrowserTab } from './runtime-core'
 import { deleteSelection } from './delete-selection'
+import { duplicateSelection } from './duplicate-selection'
 
 type MainBindingId = Exclude<BindingId, 'annotation-close-thread' | 'annotation-clear-draft'>
 
@@ -30,11 +29,11 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   'tool-add-page': () => {
     setActiveTool({ kind: 'add-page' })
   },
-  'tool-add-text-plain': () => {
-    setActiveTool({ kind: 'add-text', style: 'plain' })
+  'tool-add-text': () => {
+    setActiveTool({ kind: 'add-text' })
   },
-  'tool-add-text-sticky': () => {
-    setActiveTool({ kind: 'add-text', style: 'sticky' })
+  'tool-add-sticky': () => {
+    setActiveTool({ kind: 'add-sticky' })
   },
   'tool-add-shape-rectangle': () => {
     setActiveTool({ kind: 'add-shape' })
@@ -154,16 +153,4 @@ export function selectAllEntities(): void {
   ]
   if (!entityIds.length) return
   selectEntities(entityIds)
-}
-
-function duplicateSelection(): void {
-  const targets = uiSelectedCanvasTargets()
-  if (!targets.length) return
-  const target = targets[0]
-  if (!target) return
-  if (target.kind === 'page') {
-    duplicatePageFromSource({ sourcePageId: target.id, focus: true })
-  } else {
-    duplicateEntity({ entityId: target.id, focus: true })
-  }
 }

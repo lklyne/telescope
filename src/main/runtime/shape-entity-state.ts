@@ -12,6 +12,8 @@ export interface ShapeEntity {
   text: string
   color?: string
   strokeWidth?: number
+  /** Per-entity text size in px for the inner label. ADR 0013 §2. */
+  textSize?: number
   theme?: string
   canvasX: number
   canvasY: number
@@ -46,6 +48,7 @@ export function createShapeEntity(input: {
   text?: string
   color?: string
   strokeWidth?: number
+  textSize?: number
   theme?: string
   id?: string
   parentGroupId?: string
@@ -59,6 +62,7 @@ export function createShapeEntity(input: {
     text: input.text ?? '',
     color: input.color,
     strokeWidth: input.strokeWidth,
+    textSize: input.textSize,
     theme: input.theme,
     canvasX: input.canvasX,
     canvasY: input.canvasY,
@@ -82,6 +86,7 @@ export function updateShapeEntity(
   if (patch.text !== undefined) entity.text = patch.text
   if (patch.color !== undefined) entity.color = patch.color || undefined
   if (patch.strokeWidth !== undefined) entity.strokeWidth = patch.strokeWidth
+  if (patch.textSize !== undefined) entity.textSize = patch.textSize
   if (patch.theme !== undefined) entity.theme = patch.theme || undefined
   if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
   if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
@@ -120,6 +125,7 @@ export function buildShapeEntitySceneEntity(
     text: entity.text,
     color: entity.color,
     strokeWidth: entity.strokeWidth,
+    textSize: entity.textSize,
     theme: entity.theme,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
@@ -141,6 +147,7 @@ export function persistShapeEntity(entity: ShapeEntity): PersistedShapeEntity {
     text: entity.text,
     color: entity.color,
     strokeWidth: entity.strokeWidth,
+    textSize: entity.textSize,
     theme: entity.theme,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
@@ -158,6 +165,7 @@ export function restoreShapeEntity(persisted: PersistedShapeEntity): ShapeEntity
     text: persisted.text ?? '',
     color: persisted.color,
     strokeWidth: persisted.strokeWidth,
+    textSize: persisted.textSize,
     theme: persisted.theme,
     canvasX: persisted.canvasX,
     canvasY: persisted.canvasY,

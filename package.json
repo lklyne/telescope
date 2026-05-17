@@ -1,7 +1,7 @@
 {
   "name": "specular",
   "productName": "Specular",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "description": "A spatial canvas for agent collaboration on the web",
   "homepage": "https://github.com/lklyne/specular",
   "repository": {
@@ -15,6 +15,7 @@
   "engines": {
     "node": ">=22"
   },
+  "packageManager": "pnpm@9.5.0",
   "scripts": {
     "dev": "pnpm build:mcp-helper && pnpm build:cli && electron-forge start",
     "dev:restart": "bash scripts/dev-restart.sh",

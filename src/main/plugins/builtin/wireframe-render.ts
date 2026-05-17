@@ -9,6 +9,10 @@ export const wireframeRenderPlugin: InlineRendererClaim = {
   // so claim ahead of any future plugin that matches by parent extension.
   priority: 10,
   editable: true,
-  popupContributionTags: ['wireframe-theme', 'wireframe-json-mode'],
+  popupContributionTags: [
+    'wireframe-theme',
+    'wireframe-json-mode',
+    'wireframe-device-controls',
+  ],
   claims: (entity) => WIREFRAME_EXTENSIONS.test(entity.file),
 }

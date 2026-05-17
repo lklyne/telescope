@@ -20,6 +20,8 @@
 import { GRID_SIZE, VIEWPORT_PRESETS } from '../../shared/constants'
 import type { DeviceOrientation } from '../../shared/device-catalog'
 import { deviceForPresetIndex } from '../../shared/device-catalog'
+import type { AlignmentReferenceName } from '../../shared/canvas-guides'
+import type { ResizeHandle } from '../../shared/resize-accumulator'
 import type { EdgeEnd, EdgeSide } from '../../shared/types'
 import type { WorkspaceGroup } from '../../shared/types'
 import {
@@ -65,7 +67,15 @@ import {
 } from './runtime-entities'
 import { selectEntities, selectGroup } from './selection-controller'
 import { cancelEditingEntityIfMatches } from './editing-entity-runtime'
-import { layoutAllViews, pageContentSize, requestLayout, snapToGrid, zoom } from './surface-layout'
+import {
+  canvasOrigin,
+  layoutAllViews,
+  pageContentSize,
+  pan,
+  requestLayout,
+  snapToGrid,
+  zoom,
+} from './surface-layout'
 import {
   createTextEntity as createTextEntityInState,
   updateTextEntity as updateTextEntityInState,
@@ -80,10 +90,27 @@ import {
   shapeEntities,
   type ShapeEntity,
 } from './shape-entity-state'
+import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
+import { alignmentGuideDetector } from './alignment-guide-detector'
+import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
+import { distributionGuideDetector } from './distribution-guide-detector'
+import { descendantEntityIdsForGroup } from './group-descendants'
+import { resizeGuideReferencesForHandle } from './resize-guide-adapter'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
 import { beginBatch, endBatch } from './workspace-observers'
 import { scheduleWorkspaceAutosave } from './workspace-session'
 import { markUndoBoundary } from './workspace-undo'
+import {
+  boundAvailableCanvasViewportRect,
+  pageSnapBounds,
+} from './runtime-geometry'
+import {
+  snapCandidateFromRect,
+  snapCandidateSnapshot,
+  type SnapCandidate,
+  type SnapCandidateSnapshotEntity,
+  type SnapRect,
+} from './snap-candidate-snapshot'
 
 // --- Page Commands ---
 
@@ -125,43 +152,226 @@ export function findMovableEntity(id: string): { canvasX: number; canvasY: numbe
  * When undo/redo is added, the drag-start snapshot and drag-end snapshot
  * form a single undoable operation.
  */
-const dragAccumulatorById = new Map<string, { rawX: number; rawY: number }>()
+type DragAccumulator = {
+  originX: number
+  originY: number
+  rawX: number
+  rawY: number
+  appliedX: number
+  appliedY: number
+}
+
+type DragDeltaOptions = {
+  shiftKey?: boolean
+}
+
+const dragAccumulatorById = new Map<string, DragAccumulator>()
+let activeDragCandidates: SnapCandidate[] = []
+let activeDraggedGuideIds: string[] = []
+let activeResizeGuideSession: {
+  entityId: string
+  references: AlignmentReferenceName[]
+  candidates: SnapCandidate[]
+} | null = null
+
+function currentCanvasViewportRect(): SnapRect {
+  const viewport = boundAvailableCanvasViewportRect()
+  const origin = canvasOrigin()
+  return {
+    x: (viewport.x - origin.x - pan.x) / zoom,
+    y: (viewport.y - origin.y - pan.y) / zoom,
+    width: viewport.width / zoom,
+    height: viewport.height / zoom,
+  }
+}
+
+function currentSnapSnapshotEntities(): SnapCandidateSnapshotEntity[] {
+  return [
+    ...pages.map((page) => {
+      const bounds = pageSnapBounds(page)
+      return {
+        id: page.id,
+        kind: 'page' as const,
+        canvasX: bounds.x,
+        canvasY: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+        parentGroupId: page.parentGroupId,
+      }
+    }),
+    ...textEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'text' as const,
+      canvasX: entity.canvasX,
+      canvasY: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+      parentGroupId: entity.parentGroupId,
+    })),
+    ...fileEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'file' as const,
+      canvasX: entity.canvasX,
+      canvasY: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+      parentGroupId: entity.parentGroupId,
+    })),
+    ...drawingEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'drawing' as const,
+      canvasX: entity.canvasX,
+      canvasY: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+      parentGroupId: entity.parentGroupId,
+    })),
+    ...shapeEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'shape' as const,
+      canvasX: entity.canvasX,
+      canvasY: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+      parentGroupId: entity.parentGroupId,
+    })),
+    ...workspaceGroups.map((group) => ({
+      id: group.id,
+      kind: 'group' as const,
+      canvasX: group.canvasX,
+      canvasY: group.canvasY,
+      width: group.width,
+      height: group.height,
+      parentGroupId: group.parentGroupId,
+    })),
+  ]
+}
+
+function currentSnapCandidateForEntity(id: string): SnapCandidate | null {
+  const page = pages.find((candidate) => candidate.id === id)
+  if (page) {
+    return snapCandidateFromRect(
+      { id: page.id, kind: 'page' },
+      pageSnapBounds(page),
+    )
+  }
+
+  const entity = currentSnapSnapshotEntities().find((candidate) => candidate.id === id)
+  if (!entity) return null
+  return snapCandidateFromRect(entity, {
+    x: entity.canvasX,
+    y: entity.canvasY,
+    width: entity.width,
+    height: entity.height,
+  })
+}
+
+function guideEntityIdsForDrag(entityIds: string[]): string[] {
+  const dragged = new Set(entityIds)
+  return currentSnapSnapshotEntities()
+    .filter((entity) => dragged.has(entity.id))
+    .filter((entity) => !entity.parentGroupId || !dragged.has(entity.parentGroupId))
+    .map((entity) => entity.id)
+}
 
 export function initializeDrag(entityIds: string[]): void {
   dragAccumulatorById.clear()
+  activeDraggedGuideIds = guideEntityIdsForDrag(entityIds)
+  activeDragCandidates = snapCandidateSnapshot(
+    { entities: currentSnapSnapshotEntities() },
+    currentCanvasViewportRect(),
+    entityIds,
+  )
   beginBatch()
   for (const id of entityIds) {
     const entity = findMovableEntity(id)
     if (!entity) continue
-    dragAccumulatorById.set(id, { rawX: entity.canvasX, rawY: entity.canvasY })
+    dragAccumulatorById.set(id, {
+      originX: entity.canvasX,
+      originY: entity.canvasY,
+      rawX: entity.canvasX,
+      rawY: entity.canvasY,
+      appliedX: entity.canvasX,
+      appliedY: entity.canvasY,
+    })
   }
 }
 
-export function applyDragDelta(entityIds: string[], dx: number, dy: number): void {
+function dragPositionFromAccumulator(
+  acc: DragAccumulator,
+  options: DragDeltaOptions,
+  snap: boolean,
+): { x: number; y: number } {
+  const rawDelta = {
+    x: acc.rawX - acc.originX,
+    y: acc.rawY - acc.originY,
+  }
+  const projectedDelta = axisLockProjector(rawDelta, rawDelta, Boolean(options.shiftKey))
+  const dominantAxis = axisLockDominantAxis(rawDelta, Boolean(options.shiftKey))
+  const projectedX = acc.originX + projectedDelta.x
+  const projectedY = acc.originY + projectedDelta.y
+
+  return {
+    x: !snap || dominantAxis === 'vertical' ? projectedX : snapToGrid(projectedX),
+    y: !snap || dominantAxis === 'horizontal' ? projectedY : snapToGrid(projectedY),
+  }
+}
+
+export function applyDragDelta(
+  entityIds: string[],
+  dx: number,
+  dy: number,
+  options: DragDeltaOptions = {},
+): void {
   for (const id of entityIds) {
     const entity = findMovableEntity(id)
     if (!entity) continue
     let acc = dragAccumulatorById.get(id)
     if (!acc) {
-      acc = { rawX: entity.canvasX, rawY: entity.canvasY }
+      acc = {
+        originX: entity.canvasX,
+        originY: entity.canvasY,
+        rawX: entity.canvasX,
+        rawY: entity.canvasY,
+        appliedX: entity.canvasX,
+        appliedY: entity.canvasY,
+      }
       dragAccumulatorById.set(id, acc)
     } else {
-      const driftX = Math.abs(snapToGrid(acc.rawX) - entity.canvasX)
-      const driftY = Math.abs(snapToGrid(acc.rawY) - entity.canvasY)
+      const driftX = Math.abs(acc.appliedX - entity.canvasX)
+      const driftY = Math.abs(acc.appliedY - entity.canvasY)
       if (driftX > GRID_SIZE / 2 || driftY > GRID_SIZE / 2) {
+        acc.originX = entity.canvasX
+        acc.originY = entity.canvasY
         acc.rawX = entity.canvasX
         acc.rawY = entity.canvasY
+        acc.appliedX = entity.canvasX
+        acc.appliedY = entity.canvasY
       }
     }
     acc.rawX += dx / zoom
     acc.rawY += dy / zoom
     const prevX = entity.canvasX
     const prevY = entity.canvasY
-    entity.canvasX = snapToGrid(acc.rawX)
-    entity.canvasY = snapToGrid(acc.rawY)
+    const isDrawing = drawingEntities.some((d) => d.id === id)
+    const next = dragPositionFromAccumulator(acc, options, !isDrawing)
+    entity.canvasX = next.x
+    entity.canvasY = next.y
+    acc.appliedX = next.x
+    acc.appliedY = next.y
     shiftDrawingStrokes(id, entity.canvasX - prevX, entity.canvasY - prevY)
   }
   if (entityIds.length) {
+    const draggedRects = activeDraggedGuideIds
+      .map(currentSnapCandidateForEntity)
+      .filter((candidate): candidate is SnapCandidate => candidate !== null)
+    broadcastCanvasGuides({
+      alignmentGuides: alignmentGuideDetector(draggedRects, activeDragCandidates),
+      distributionGuides: draggedRects.flatMap((dragged) => [
+        ...distributionGuideDetector(dragged, activeDragCandidates, 'horizontal'),
+        ...distributionGuideDetector(dragged, activeDragCandidates, 'vertical'),
+      ]),
+    })
     markDirty('canvas', 'sidebar')
     scheduleWorkspaceAutosave()
   }
@@ -183,10 +393,136 @@ function shiftDrawingStrokes(entityId: string, deltaX: number, deltaY: number): 
   }))
 }
 
+/**
+ * Compute alignment + distribution guides for a phantom drag position without
+ * mutating any entity. Used during option-drag copy, where the underlying
+ * entities stay in place while the user previews the copy target.
+ */
+export function previewDragGuides(
+  dx: number,
+  dy: number,
+  options: DragDeltaOptions = {},
+): void {
+  if (activeDraggedGuideIds.length === 0) return
+
+  const snapshotEntities = currentSnapSnapshotEntities()
+  const draggedRects: SnapCandidate[] = []
+  const originRects: SnapCandidate[] = []
+  for (const id of activeDraggedGuideIds) {
+    const acc = dragAccumulatorById.get(id)
+    if (!acc) continue
+    const snapshot = snapshotEntities.find((entity) => entity.id === id)
+    if (!snapshot) continue
+
+    const phantomAcc: DragAccumulator = {
+      originX: acc.originX,
+      originY: acc.originY,
+      rawX: acc.originX + dx / zoom,
+      rawY: acc.originY + dy / zoom,
+      appliedX: acc.originX,
+      appliedY: acc.originY,
+    }
+    const next = dragPositionFromAccumulator(phantomAcc, options, snapshot.kind !== 'drawing')
+    const offsetX = next.x - acc.originX
+    const offsetY = next.y - acc.originY
+
+    draggedRects.push(snapCandidateFromRect(
+      { id, kind: snapshot.kind },
+      {
+        x: snapshot.canvasX + offsetX,
+        y: snapshot.canvasY + offsetY,
+        width: snapshot.width,
+        height: snapshot.height,
+      },
+    ))
+    originRects.push(snapCandidateFromRect(
+      { id: `${id}:origin`, kind: snapshot.kind },
+      {
+        x: snapshot.canvasX,
+        y: snapshot.canvasY,
+        width: snapshot.width,
+        height: snapshot.height,
+      },
+    ))
+  }
+
+  if (draggedRects.length === 0) {
+    clearCanvasGuides()
+    return
+  }
+
+  const candidates = [...activeDragCandidates, ...originRects]
+  broadcastCanvasGuides({
+    alignmentGuides: alignmentGuideDetector(draggedRects, candidates),
+    distributionGuides: draggedRects.flatMap((dragged) => [
+      ...distributionGuideDetector(dragged, candidates, 'horizontal'),
+      ...distributionGuideDetector(dragged, candidates, 'vertical'),
+    ]),
+  })
+}
+
 export function finalizeDrag(): void {
   dragAccumulatorById.clear()
+  activeDragCandidates = []
+  activeDraggedGuideIds = []
+  clearCanvasGuides()
   endBatch()
   markUndoBoundary()
+}
+
+function resizeGuideExcludedIds(entityId: string): string[] {
+  const excluded = new Set<string>([entityId])
+  for (const selectedId of uiSelectedEntityIds()) excluded.add(selectedId)
+
+  const selectedGroup = uiSelectedGroupId()
+  if (selectedGroup) excluded.add(selectedGroup)
+
+  const groupIds = [entityId, ...excluded].filter((id) => (
+    workspaceGroups.some((group) => group.id === id)
+  ))
+  for (const groupId of groupIds) {
+    descendantEntityIdsForGroup(groupId).forEach((id) => excluded.add(id))
+  }
+
+  return [...excluded]
+}
+
+export function initializeResizeGuides(entityId: string, handle: ResizeHandle): void {
+  activeResizeGuideSession = {
+    entityId,
+    references: resizeGuideReferencesForHandle(handle),
+    candidates: snapCandidateSnapshot(
+      { entities: currentSnapSnapshotEntities() },
+      currentCanvasViewportRect(),
+      resizeGuideExcludedIds(entityId),
+    ),
+  }
+}
+
+export function updateResizeGuides(entityId: string): void {
+  if (!activeResizeGuideSession || activeResizeGuideSession.entityId !== entityId) return
+
+  const dragged = currentSnapCandidateForEntity(entityId)
+  if (!dragged) {
+    clearCanvasGuides()
+    return
+  }
+
+  broadcastCanvasGuides({
+    alignmentGuides: alignmentGuideDetector(
+      [{ ...dragged, references: activeResizeGuideSession.references }],
+      activeResizeGuideSession.candidates,
+    ),
+    distributionGuides: [
+      ...distributionGuideDetector(dragged, activeResizeGuideSession.candidates, 'horizontal'),
+      ...distributionGuideDetector(dragged, activeResizeGuideSession.candidates, 'vertical'),
+    ],
+  })
+}
+
+export function finalizeResizeGuides(): void {
+  activeResizeGuideSession = null
+  clearCanvasGuides()
 }
 
 /**
@@ -296,6 +632,8 @@ export function createTextEntity(input: {
   text?: string
   color?: string
   textStyle?: import('../../shared/types').TextEntityStyle
+  widthMode?: import('../../shared/types').TextWidthMode
+  textSize?: number
   width?: number
   height?: number
   id?: string
@@ -314,6 +652,7 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
   if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
   const entity = updateTextEntityInState(id, snapped)
   if (entity) {
+    updateResizeGuides(id)
     scheduleWorkspaceAutosave()
     requestLayout()
   }
@@ -360,6 +699,7 @@ export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id
   if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
   const entity = updateFileEntityInState(id, snapped)
   if (entity) {
+    updateResizeGuides(id)
     scheduleWorkspaceAutosave()
     requestLayout()
   }
@@ -393,6 +733,7 @@ export function updateDrawingEntity(
   if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
   const entity = updateDrawingEntityInState(id, snapped)
   if (entity) {
+    updateResizeGuides(id)
     scheduleWorkspaceAutosave()
     requestLayout()
   }
@@ -422,6 +763,7 @@ export function createShapeEntity(input: {
   text?: string
   color?: string
   strokeWidth?: number
+  textSize?: number
   id?: string
 }): ShapeEntity {
   const entity = createShapeEntityInState(input)
@@ -441,6 +783,7 @@ export function updateShapeEntity(
   if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
   const entity = updateShapeEntityInState(id, snapped)
   if (entity) {
+    updateResizeGuides(id)
     scheduleWorkspaceAutosave()
     requestLayout()
   }
@@ -474,6 +817,7 @@ export function updateGroupEntity(
   if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
   const entity = updateGroupEntityInState(id, snapped)
   if (entity) {
+    updateResizeGuides(id)
     scheduleWorkspaceAutosave()
     requestLayout()
   }

@@ -20,8 +20,7 @@ import { pages } from './runtime/page-runtime'
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
 import {
-  pageCanvasBounds,
-  pageOuterCanvasBounds,
+  pageSnapBounds,
   snapToGrid,
 } from './runtime/surface-layout'
 import { workspaceGroups } from './runtime/workspace-model'
@@ -53,9 +52,10 @@ function extendUpwardForChrome(bounds: WorkspaceBounds, headerHeight: number): W
 
 export function occupiedRegions(): WorkspaceBounds[] {
   return [
-    // Pages: use outer bounds (includes device shell) and extend up for chrome.
+    // Pages: use the snap rect (body + device-frame insets) and extend
+    // upward by the chrome strip.
     ...pages.map((page) =>
-      extendUpwardForChrome(pageOuterCanvasBounds(page), page.chromeHeight),
+      extendUpwardForChrome(pageSnapBounds(page), CHROME_HEADER_HEIGHT),
     ),
     ...textEntities.map((entity) => ({
       x: entity.canvasX,

@@ -17,7 +17,7 @@ import {
   EDGE_ANCHOR_HIT_ALONG_PX,
   EDGE_ANCHOR_HIT_GAP_PX,
   EDGE_SIDES,
-  PAGE_CHROME_HEIGHT_PX,
+  CHROME_HEADER_HEIGHT,
   MULTI_SELECTION_OUTLINE_PADDING_PX,
   RESIZE_HANDLE_HIT_PX,
   scaleEdgeAnchorHitSize,
@@ -146,10 +146,12 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   return out
 }
 
-// Plain text auto-fits to its content via a renderer-side ResizeObserver,
-// so manual resize would just be overwritten on the next layout tick.
-export function entityResizesAutomatically(entity: CanvasSceneEntity): boolean {
-  return entity.kind === 'text' && entity.textStyle === 'plain'
+// Reserved for entities whose bounds are purely content-driven and should
+// never show manual resize handles. Plain text in 'auto' widthMode used to
+// qualify, but resize is now wired to flip 'auto' → 'fixed' on drag-begin,
+// so it can be handled like any other entity.
+export function entityResizesAutomatically(_entity: CanvasSceneEntity): boolean {
+  return false
 }
 
 function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity): void {
@@ -341,9 +343,9 @@ function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
 function chromeRect(entity: CanvasSceneEntity): Rect {
   return {
     x: entity.screenX,
-    y: entity.screenY - PAGE_CHROME_HEIGHT_PX,
+    y: entity.screenY - CHROME_HEADER_HEIGHT,
     width: entity.screenWidth,
-    height: PAGE_CHROME_HEIGHT_PX,
+    height: CHROME_HEADER_HEIGHT,
   }
 }
 
@@ -382,8 +384,8 @@ function entityHasChrome(kind: CanvasEntityKind): boolean {
   return kind === 'page' || kind === 'file'
 }
 
-function entityHasAnchors(kind: CanvasEntityKind): boolean {
-  // Drawings don't get anchors today; CanvasSceneEntity has no edge variant
-  // (edges live in inputs.edges, not inputs.entities).
+export function entityHasAnchors(kind: CanvasEntityKind): boolean {
+  // Drawings don't get edge anchors — the dots crowd the selection chrome and
+  // make a selected stroke awkward to grab and drag.
   return kind !== 'drawing'
 }

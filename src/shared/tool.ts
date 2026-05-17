@@ -1,16 +1,16 @@
 // Unified Tool concept — see ADR 0005, amended by ADR 0006 (comment tool).
 // Per ADR 0009, `add-shape` and `draw` no longer carry sub-kind variants;
 // those move to tool defaults (ADR 0008 §9) and are surfaced through the
-// tool-mode popup. `add-text.style` stays as a deliberate exception
-// (ADR 0009 §Decision).
+// tool-mode popup.
 
 export type DrawingBrushType = 'pen' | 'highlight'
 
 export type Tool =
   | { kind: 'select' }
+  | { kind: 'hand' }
   | { kind: 'add-page'; presetIndex?: number; customSize?: boolean; sourcePageId?: string }
-  | { kind: 'add-text'; style: 'plain' | 'sticky' }
-  | { kind: 'add-document' }
+  | { kind: 'add-text' }
+  | { kind: 'add-sticky' }
   | { kind: 'add-shape' }
   | { kind: 'comment' }
   | { kind: 'draw' }
@@ -22,9 +22,10 @@ export type ToolDuration = 'one-shot' | 'persistent'
 
 export const toolDuration: Record<ToolKind, ToolDuration> = {
   select: 'persistent',
+  hand: 'persistent',
   'add-page': 'one-shot',
   'add-text': 'one-shot',
-  'add-document': 'one-shot',
+  'add-sticky': 'one-shot',
   'add-shape': 'one-shot',
   comment: 'persistent',
   draw: 'persistent',
@@ -43,11 +44,16 @@ export function isPersistent(kind: ToolKind): boolean {
  * Tools that own a viewport-anchored tool-mode popup (ADR 0008 §1, §2). When
  * any of these is active, selection-driven popups are suppressed (mutex rule
  * §2) so the user sees one popup at a time — the tool's, not the previous
- * selection's. `add-page`, `add-document`, `comment`, `inspect`, and `select`
+ * selection's. `add-page`, `comment`, `inspect`, and `select`
  * have no popup and don't suppress anything.
  */
 export function toolHasPopup(tool: Tool): boolean {
-  return tool.kind === 'add-text' || tool.kind === 'add-shape' || tool.kind === 'draw'
+  return (
+    tool.kind === 'add-text' ||
+    tool.kind === 'add-sticky' ||
+    tool.kind === 'add-shape' ||
+    tool.kind === 'draw'
+  )
 }
 
 export function isAnnotationTool(tool: Tool): boolean {
@@ -58,7 +64,7 @@ export function isPlacementTool(tool: Tool): boolean {
   return (
     tool.kind === 'add-page' ||
     tool.kind === 'add-text' ||
-    tool.kind === 'add-document' ||
+    tool.kind === 'add-sticky' ||
     tool.kind === 'add-shape'
   )
 }
@@ -96,12 +102,14 @@ export function toolGerund(tool: Tool): string {
   switch (tool.kind) {
     case 'select':
       return 'selecting'
+    case 'hand':
+      return 'panning'
     case 'add-page':
       return 'adding page'
     case 'add-text':
-      return tool.style === 'sticky' ? 'adding sticky note' : 'adding text'
-    case 'add-document':
-      return 'adding document'
+      return 'adding text'
+    case 'add-sticky':
+      return 'adding sticky note'
     case 'add-shape':
       return 'adding shape'
     case 'comment':

@@ -24,7 +24,7 @@ import {
 import {
   findPageById,
 } from './runtime/runtime-context'
-import { pageContentSize } from './runtime/runtime-geometry'
+import { pageBodyCanvasBounds, pageContentSize } from './runtime/runtime-geometry'
 
 // --- Re-exports from presence-session ---
 export {
@@ -162,11 +162,12 @@ export function resolveCanvasPointForPage(
     fallbackX: width / 2,
     fallbackY: height / 2,
   })
-  // `page.canvasY` is the top of the page's chrome band; the DOM point lives
-  // in content coordinates, so shift down by chromeHeight to land on the page.
+  // DOM point lives in content coordinates; shift to the body origin so
+  // the cursor lands on the page body (inside any device-frame bezel).
+  const body = pageBodyCanvasBounds(page)
   return {
-    canvasX: page.canvasX + clamp(point.x, 0, width),
-    canvasY: page.canvasY + page.chromeHeight + clamp(point.y, 0, height),
+    canvasX: body.x + clamp(point.x, 0, width),
+    canvasY: body.y + clamp(point.y, 0, height),
   }
 }
 

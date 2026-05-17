@@ -134,9 +134,16 @@ function Frame({
 }) {
   return (
     <div
-      className={`flex items-center gap-1.5 rounded-[8px] border border-[var(--surface-panel-border)] bg-[var(--surface-panel)] px-2 py-1.5 shadow-xs ${
+      className={`flex items-center gap-1 rounded-[10px] border p-1 ${
         isDark ? 'text-zinc-100' : 'text-zinc-900'
       } ${className}`.trim()}
+      style={{
+        background: isDark ? '#3a3836' : '#ece9e7',
+        borderColor: isDark ? '#414141' : '#dcdcda',
+        boxShadow: isDark
+          ? '0 10px 8px -6px rgba(0,0,0,.58), 0 4px 16px 0 rgba(0,0,0,.5)'
+          : '0 10px 8px -6px rgba(0,0,0,.18), 0 4px 16px 0 rgba(199,193,188,.5)',
+      }}
       onMouseDown={(event) => event.stopPropagation()}
     >
       {children}
@@ -146,27 +153,32 @@ function Frame({
 
 function Section({ children, grow = false }: { children: ReactNode; grow?: boolean }) {
   return (
-    <div className={`flex items-center gap-1.5${grow ? ' min-w-0 flex-1' : ''}`}>
+    <div className={`flex items-center gap-1${grow ? ' min-w-0 flex-1' : ''}`}>
       {children}
     </div>
   )
 }
 
-function popupIconButtonClass(isDark: boolean, active = false): string {
-  if (active) {
-    return isDark
-      ? 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent bg-zinc-800 text-zinc-100'
-      : 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent bg-zinc-100 text-zinc-900'
-  }
-  return isDark
-    ? 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100'
-    : 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900'
+function Divider({ isDark }: { isDark: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={`mx-1 h-4 w-px shrink-0 ${isDark ? 'bg-white/20' : 'bg-zinc-900/20'}`}
+    />
+  )
 }
 
-function popupDeleteButtonClass(isDark: boolean): string {
+function popupIconButtonClass(isDark: boolean, active = false): string {
+  const base =
+    'flex h-6 w-6 items-center justify-center rounded-[6px] border-0 transition-colors'
+  if (active) {
+    return isDark
+      ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
+      : `${base} bg-[#fdf8f5] text-zinc-900`
+  }
   return isDark
-    ? 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent text-zinc-400 transition-colors hover:bg-red-500/12 hover:text-red-400'
-    : 'flex h-7 w-7 items-center justify-center rounded-[7px] border border-transparent text-zinc-500 transition-colors hover:bg-red-50 hover:text-red-600'
+    ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100`
+    : `${base} text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900`
 }
 
 function IconButton({
@@ -198,32 +210,6 @@ function IconButton({
   )
 }
 
-function DestructiveButton({
-  isDark,
-  title,
-  ariaLabel,
-  onClick,
-  children,
-}: {
-  isDark: boolean
-  title: string
-  ariaLabel: string
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      className={popupDeleteButtonClass(isDark)}
-      onClick={onClick}
-      title={title}
-      aria-label={ariaLabel}
-    >
-      {children}
-    </button>
-  )
-}
-
 function ColorSwatch({
   isDark,
   active,
@@ -241,19 +227,14 @@ function ColorSwatch({
     <button
       type="button"
       aria-label={ariaLabel}
-      className={`flex h-5 w-5 items-center justify-center rounded-full border transition-transform hover:scale-105 ${
-        active
-          ? isDark
-            ? 'border-white/80 bg-zinc-900'
-            : 'border-zinc-900/80 bg-white'
-          : isDark
-            ? 'border-transparent hover:border-zinc-600'
-            : 'border-transparent hover:border-zinc-300'
+      className={`flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
+        isDark ? 'bg-[#3a3836]' : 'bg-[#ece9e7]'
       }`}
+      style={{ borderColor: active ? color : 'transparent' }}
       onClick={onClick}
     >
       <span
-        className="block h-3.5 w-3.5 rounded-full"
+        className="block h-3 w-3 rounded-full"
         style={{ background: color }}
       />
     </button>
@@ -265,7 +246,7 @@ export const CanvasItemPopup = {
   ViewportAnchor,
   Frame,
   Section,
+  Divider,
   IconButton,
-  DestructiveButton,
   ColorSwatch,
 }

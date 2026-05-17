@@ -19,6 +19,8 @@ import {
   currentInteractionState,
 } from '../runtime/interaction-state'
 import { tryEnter, commitActive, cancelActive } from '../runtime/interaction-controller'
+import { beginBatch, endBatch } from '../runtime/workspace-observers'
+import { markUndoBoundary } from '../runtime/workspace-undo'
 import { setHoverEntity } from '../runtime/runtime-core'
 import type { EdgeSide } from '../../shared/types'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
@@ -361,11 +363,16 @@ export function registerCanvasDragIpc(): void {
       // drag-start ordering — see runtime/CLAUDE.md.
       tryEnter({ kind: 'resizing-entity', target: { id: entityId, kind: entityKind } })
       initializeResizeGuides(entityId, handle)
+      // Coalesce the gesture's per-tick bounds mutations into one Y.Doc
+      // transaction / one undo step — mirrors drag (initializeDrag/finalizeDrag).
+      beginBatch()
     },
   )
 
   ipcMain.on('canvas-resize-end', () => {
     finalizeResizeGuides()
+    endBatch()
+    markUndoBoundary()
     commitActive()
   })
 

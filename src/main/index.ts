@@ -30,6 +30,7 @@ import {
   initDevServerManager,
   shutdownDevServerManager,
 } from './runtime/dev-server-manager'
+import { initComponentExtensions } from './runtime/component-extensions'
 import { spawn as nodeSpawn } from 'node:child_process'
 import { initializeDocObservers } from './runtime/workspace-observers'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
@@ -124,6 +125,7 @@ app.whenReady().then(async () => {
 
   identifyInstall()
   configureBundledAgentBrowser()
+  initComponentExtensions(app.getPath('userData'))
   registerBuiltInPlugins()
   initDevServerManager({
     userDataDir: app.getPath('userData'),

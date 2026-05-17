@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
@@ -13,6 +13,11 @@ import {
   initDevServerManager,
   shutdownDevServerManager,
 } from '../../src/main/runtime/dev-server-manager'
+import {
+  initComponentExtensions,
+  __resetComponentExtensionsForTests,
+  DEFAULT_COMPONENT_EXTENSIONS,
+} from '../../src/main/runtime/component-extensions'
 import type { PersistedFileEntity } from '../../src/shared/types'
 
 function fileEntity(file: string): PersistedFileEntity {
@@ -83,6 +88,7 @@ describe('componentRenderPlugin.resolveUrl', () => {
 
   beforeEach(() => {
     __resetDevServerManagerForTests()
+    __resetComponentExtensionsForTests()
     dir = mkdtempSync(join(tmpdir(), 'specular-component-render-'))
     pendingChildren = []
     initDevServerManager({
@@ -97,6 +103,7 @@ describe('componentRenderPlugin.resolveUrl', () => {
 
   afterEach(async () => {
     await shutdownDevServerManager()
+    __resetComponentExtensionsForTests()
     rmSync(dir, { recursive: true, force: true })
   })
 
@@ -120,5 +127,95 @@ describe('componentRenderPlugin.resolveUrl', () => {
     expect(url).toBe(
       'http://localhost:5173/__specular?path=src%2FButton.tsx',
     )
+  })
+
+  it('resolveUrl works for .svelte files inside a connected repo', async () => {
+    connectRepo('/Users/alice/Developer/my-app')
+    const promise = componentRenderPlugin.resolveUrl(
+      fileEntity('/Users/alice/Developer/my-app/src/Counter.svelte'),
+    )
+    await Promise.resolve()
+    pendingChildren[0].stdout.push('  Local:   http://localhost:5173/\n')
+    const url = await promise
+    expect(url).toBe('http://localhost:5173/__specular?path=src%2FCounter.svelte')
+  })
+
+  it('resolveUrl works for .vue files inside a connected repo', async () => {
+    connectRepo('/Users/alice/Developer/my-app')
+    const promise = componentRenderPlugin.resolveUrl(
+      fileEntity('/Users/alice/Developer/my-app/src/App.vue'),
+    )
+    await Promise.resolve()
+    pendingChildren[0].stdout.push('  Local:   http://localhost:5173/\n')
+    const url = await promise
+    expect(url).toBe('http://localhost:5173/__specular?path=src%2FApp.vue')
+  })
+
+  it('returns null for .svelte files outside every connected repo', async () => {
+    connectRepo('/Users/alice/Developer/my-app')
+    expect(await componentRenderPlugin.resolveUrl(fileEntity('/elsewhere/Counter.svelte'))).toBeNull()
+  })
+})
+
+describe('componentRenderPlugin.claims — manifest-driven extensions', () => {
+  let dir: string
+
+  beforeEach(() => {
+    __resetComponentExtensionsForTests()
+    dir = mkdtempSync(join(tmpdir(), 'specular-ext-manifest-'))
+  })
+
+  afterEach(() => {
+    __resetComponentExtensionsForTests()
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('claims tsx and jsx by default', () => {
+    expect(componentRenderPlugin.claims(fileEntity('/repo/Button.tsx'))).toBe(true)
+    expect(componentRenderPlugin.claims(fileEntity('/repo/Input.jsx'))).toBe(true)
+  })
+
+  it('claims svelte and vue by default', () => {
+    expect(componentRenderPlugin.claims(fileEntity('/repo/Counter.svelte'))).toBe(true)
+    expect(componentRenderPlugin.claims(fileEntity('/repo/App.vue'))).toBe(true)
+  })
+
+  it('does not claim .ts, .js, .md, or .json files', () => {
+    expect(componentRenderPlugin.claims(fileEntity('/repo/utils.ts'))).toBe(false)
+    expect(componentRenderPlugin.claims(fileEntity('/repo/index.js'))).toBe(false)
+    expect(componentRenderPlugin.claims(fileEntity('/repo/README.md'))).toBe(false)
+    expect(componentRenderPlugin.claims(fileEntity('/repo/config.json'))).toBe(false)
+  })
+
+  it('seeds a manifest file with defaults on first run', () => {
+    initComponentExtensions(dir)
+    const manifest = JSON.parse(
+      require('node:fs').readFileSync(join(dir, 'component-extensions.json'), 'utf8'),
+    )
+    expect(manifest.extensions).toEqual(DEFAULT_COMPONENT_EXTENSIONS)
+  })
+
+  it('reads custom extensions from the manifest', () => {
+    writeFileSync(
+      join(dir, 'component-extensions.json'),
+      JSON.stringify({ extensions: ['tsx', 'astro'] }),
+      'utf8',
+    )
+    initComponentExtensions(dir)
+    expect(componentRenderPlugin.claims(fileEntity('/repo/Page.astro'))).toBe(true)
+    expect(componentRenderPlugin.claims(fileEntity('/repo/Counter.svelte'))).toBe(false)
+  })
+
+  it('falls back to defaults when the manifest is corrupt', () => {
+    writeFileSync(join(dir, 'component-extensions.json'), 'not json', 'utf8')
+    initComponentExtensions(dir)
+    expect(componentRenderPlugin.claims(fileEntity('/repo/Button.tsx'))).toBe(true)
+    expect(componentRenderPlugin.claims(fileEntity('/repo/App.vue'))).toBe(true)
+  })
+
+  it('falls back to defaults when the manifest has an invalid shape', () => {
+    writeFileSync(join(dir, 'component-extensions.json'), JSON.stringify({ extensions: [] }), 'utf8')
+    initComponentExtensions(dir)
+    expect(componentRenderPlugin.claims(fileEntity('/repo/Button.tsx'))).toBe(true)
   })
 })

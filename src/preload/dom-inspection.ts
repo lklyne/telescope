@@ -25,6 +25,13 @@ let domInspectionStripEls: Record<StripKind, Record<Side, HTMLDivElement>> | nul
 const MARGIN_COLOR = 'rgba(246, 178, 107, 0.55)'
 const PADDING_COLOR = 'rgba(147, 196, 125, 0.55)'
 const MARGIN_HASH = `repeating-linear-gradient(45deg, ${MARGIN_COLOR} 0 4px, rgba(246, 178, 107, 0.25) 4px 8px)`
+const GAP_COLOR = 'rgba(147, 112, 219, 0.55)'
+const GAP_HASH = `repeating-linear-gradient(45deg, ${GAP_COLOR} 0 4px, rgba(147, 112, 219, 0.25) 4px 8px)`
+const TRACK_LINE_COLOR = 'rgba(147, 112, 219, 0.65)'
+
+// Variable-count pools for grid gap strips and track lines (created on demand)
+let domInspectionGapStripPool: HTMLDivElement[] = []
+let domInspectionTrackLinePool: HTMLDivElement[] = []
 
 export function isDomInspectionEnabled(): boolean {
   return domInspectionEnabled
@@ -112,11 +119,143 @@ export function ensureDomInspectionOverlay(): void {
   domInspectionStripEls = strips
 }
 
+// Extract resolved pixel track sizes from a computed gridTemplateRows/Columns value.
+// The browser resolves fr and auto units to px in the computed style for laid-out grids.
+function parseTrackPxList(template: string): number[] {
+  if (!template || template === 'none') return []
+  const regex = /(\d+(?:\.\d+)?)px/g
+  const sizes: number[] = []
+  let m: RegExpExecArray | null
+  while ((m = regex.exec(template)) !== null) {
+    sizes.push(parseFloat(m[1]))
+  }
+  return sizes
+}
+
+function buildTrackBounds(
+  origin: number,
+  sizes: number[],
+  gap: number,
+): Array<{ start: number; end: number }> {
+  const tracks: Array<{ start: number; end: number }> = []
+  let pos = origin
+  for (let i = 0; i < sizes.length; i++) {
+    tracks.push({ start: pos, end: pos + sizes[i] })
+    pos += sizes[i] + gap
+  }
+  return tracks
+}
+
+function hideGridOverlay(): void {
+  for (const el of domInspectionGapStripPool) el.style.display = 'none'
+  for (const el of domInspectionTrackLinePool) el.style.display = 'none'
+}
+
+function updateGridOverlay(rect: DOMRect, styles: CSSStyleDeclaration): void {
+  if (styles.display !== 'grid' && styles.display !== 'inline-grid') {
+    hideGridOverlay()
+    return
+  }
+
+  const rowGap = parsePx(styles.rowGap)
+  const colGap = parsePx(styles.columnGap)
+  const bl = parsePx(styles.borderLeftWidth)
+  const bt = parsePx(styles.borderTopWidth)
+  const br = parsePx(styles.borderRightWidth)
+  const bb = parsePx(styles.borderBottomWidth)
+  const pl = parsePx(styles.paddingLeft)
+  const pt = parsePx(styles.paddingTop)
+  const pr = parsePx(styles.paddingRight)
+  const pb = parsePx(styles.paddingBottom)
+
+  // Grid is laid out within the content area (inside border + padding)
+  const contentX = rect.left + bl + pl
+  const contentY = rect.top + bt + pt
+  const contentW = Math.max(0, rect.width - bl - br - pl - pr)
+  const contentH = Math.max(0, rect.height - bt - bb - pt - pb)
+
+  const rowSizes = parseTrackPxList(styles.gridTemplateRows)
+  const colSizes = parseTrackPxList(styles.gridTemplateColumns)
+
+  if (rowSizes.length === 0 && colSizes.length === 0) {
+    hideGridOverlay()
+    return
+  }
+
+  const rowTracks = buildTrackBounds(contentY, rowSizes, rowGap)
+  const colTracks = buildTrackBounds(contentX, colSizes, colGap)
+
+  const rowGapCount = Math.max(0, rowTracks.length - 1)
+  const colGapCount = Math.max(0, colTracks.length - 1)
+
+  // Each gap boundary gets: 1 strip (if gap > 0) + 1 or 2 track lines
+  const gapStripCount =
+    (rowGap > 0 ? rowGapCount : 0) + (colGap > 0 ? colGapCount : 0)
+  const trackLineCount =
+    rowGapCount * (rowGap > 0 ? 2 : 1) + colGapCount * (colGap > 0 ? 2 : 1)
+
+  while (domInspectionGapStripPool.length < gapStripCount) {
+    const el = document.createElement('div')
+    Object.assign(el.style, {
+      position: 'fixed',
+      zIndex: '2147483644',
+      pointerEvents: 'none',
+      display: 'none',
+      background: GAP_HASH,
+    })
+    document.documentElement.appendChild(el)
+    domInspectionGapStripPool.push(el)
+  }
+
+  while (domInspectionTrackLinePool.length < trackLineCount) {
+    const el = document.createElement('div')
+    Object.assign(el.style, {
+      position: 'fixed',
+      zIndex: '2147483644',
+      pointerEvents: 'none',
+      display: 'none',
+      background: TRACK_LINE_COLOR,
+    })
+    document.documentElement.appendChild(el)
+    domInspectionTrackLinePool.push(el)
+  }
+
+  hideGridOverlay()
+
+  let gapIdx = 0
+  let lineIdx = 0
+
+  // Row gaps and bounding track lines (horizontal strips / lines)
+  for (let i = 0; i < rowGapCount; i++) {
+    const gapY = rowTracks[i].end
+    if (rowGap > 0) {
+      setStripRect(domInspectionGapStripPool[gapIdx++], contentX, gapY, contentW, rowGap)
+      setStripRect(domInspectionTrackLinePool[lineIdx++], contentX, gapY, contentW, 1)
+      setStripRect(domInspectionTrackLinePool[lineIdx++], contentX, rowTracks[i + 1].start, contentW, 1)
+    } else {
+      setStripRect(domInspectionTrackLinePool[lineIdx++], contentX, gapY, contentW, 1)
+    }
+  }
+
+  // Column gaps and bounding track lines (vertical strips / lines)
+  for (let i = 0; i < colGapCount; i++) {
+    const gapX = colTracks[i].end
+    if (colGap > 0) {
+      setStripRect(domInspectionGapStripPool[gapIdx++], gapX, contentY, colGap, contentH)
+      setStripRect(domInspectionTrackLinePool[lineIdx++], gapX, contentY, 1, contentH)
+      setStripRect(domInspectionTrackLinePool[lineIdx++], colTracks[i + 1].start, contentY, 1, contentH)
+    } else {
+      setStripRect(domInspectionTrackLinePool[lineIdx++], gapX, contentY, 1, contentH)
+    }
+  }
+}
+
 function hideBoxModelOverlay(): void {
   if (!domInspectionStripEls) return
   for (const kind of STRIP_KINDS) {
     for (const side of SIDES) domInspectionStripEls[kind][side].style.display = 'none'
   }
+  hideGridOverlay()
 }
 
 function setStripRect(
@@ -176,6 +315,8 @@ function updateBoxModelOverlay(rect: DOMRect, styles: CSSStyleDeclaration): void
   setStripRect(paddings.bottom, padBoxX, padBoxY + padBoxH - pb, padBoxW, pb)
   setStripRect(paddings.left, padBoxX, padBoxY + pt, pl, Math.max(0, padBoxH - pt - pb))
   setStripRect(paddings.right, padBoxX + padBoxW - pr, padBoxY + pt, pr, Math.max(0, padBoxH - pt - pb))
+
+  updateGridOverlay(rect, styles)
 }
 
 function shortFontFamily(fontFamily: string): string {

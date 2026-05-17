@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { hitTest, type HitInputs } from '../../src/shared/hit-test'
 import type {
+  CanvasSceneDrawingEntity,
   CanvasSceneEntity,
   CanvasScenePageEntity,
   CanvasSceneTextEntity,
@@ -71,6 +72,22 @@ function group(id: string, screenX: number, screenY: number, w = 600, h = 500): 
     layoutMode: 'freeform',
     managedLayout: false,
     entityIds: [],
+  }
+}
+
+function drawing(id: string, screenX: number, screenY: number, w = 100, h = 60): CanvasSceneDrawingEntity {
+  return {
+    kind: 'drawing',
+    id,
+    canvasX: 0,
+    canvasY: 0,
+    width: w,
+    height: h,
+    screenX,
+    screenY,
+    screenWidth: w,
+    screenHeight: h,
+    strokes: [],
   }
 }
 
@@ -293,5 +310,58 @@ describe('hit-test — multi-selection resize handles', () => {
     const result = hitTest(inputs([t1, g], ['t1', 'g1']), { x: 100, y: 100 })
     expect(result.layer).toBe('resize-handles')
     expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 't1' })
+  })
+})
+
+describe('hit-test — selected drawing beats page chrome and page body (issue #123)', () => {
+  // Page at (200, 200), 400×300. Chrome strip occupies y ∈ [164, 200).
+  // Drawing at (220, 170), 100×80. Drawing body: x ∈ [220,320], y ∈ [170,250].
+  // This overlaps the page chrome at y ∈ [170, 200) and the page body at
+  // y ∈ [200, 250]. Drawings render in aboveView above all page elements.
+  const p = page({ id: 'p1', screenX: 200, screenY: 200 })
+  const d = drawing('d1', 220, 170, 100, 80)
+
+  it('selected drawing beats page chrome when overlapping (drag-from-chrome-area)', () => {
+    // y=185 is inside the page chrome strip and inside the drawing body.
+    const result = hitTest(inputs([p, d], ['d1']), { x: 260, y: 185 })
+    expect(result.layer).toBe('body')
+    expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 'd1', entityKind: 'drawing' })
+  })
+
+  it('selected drawing beats page body when overlapping (drag-from-body-area)', () => {
+    // y=215 is inside the page body and inside the drawing body.
+    const result = hitTest(inputs([p, d], ['d1']), { x: 260, y: 215 })
+    expect(result.layer).toBe('body')
+    expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 'd1', entityKind: 'drawing' })
+  })
+
+  it('page chrome still wins where no selected drawing overlaps', () => {
+    // x=500 is inside the page chrome but outside the drawing (x ∈ [220,320]).
+    const result = hitTest(inputs([p, d], ['d1']), { x: 500, y: 185 })
+    expect(result.layer).toBe('chrome')
+    expect(result.payload).toMatchObject({ kind: 'chrome', entityId: 'p1' })
+  })
+
+  it('unselected drawing does not get the priority boost — page chrome wins', () => {
+    // Same geometry, but drawing is NOT selected.
+    const result = hitTest(inputs([p, d], []), { x: 260, y: 185 })
+    expect(result.layer).toBe('chrome')
+    expect(result.payload).toMatchObject({ kind: 'chrome', entityId: 'p1' })
+  })
+
+  it('resize handles of the selected drawing still win over drawing body', () => {
+    // SE resize handle of drawing: x ≈ 320+2+6, y ≈ 250+2+6 (2px outline pad for drawing).
+    // Handle half = RESIZE_HANDLE_HIT_PX/2 ≈ 6. Corner at (320+2, 250+2) = (322, 252).
+    // Click at (322, 252) — the handle should win, not the drawing body.
+    const result = hitTest(inputs([p, d], ['d1']), { x: 322, y: 252 })
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 'd1' })
+  })
+
+  it('selected drawing body does not leak into areas it does not cover', () => {
+    // y=350 is inside the page body only, not the drawing. Should return page-body.
+    const result = hitTest(inputs([p, d], ['d1']), { x: 260, y: 350 })
+    expect(result.layer).toBe('body')
+    expect(result.payload).toMatchObject({ kind: 'page-body', entityId: 'p1' })
   })
 })

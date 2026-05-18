@@ -28,7 +28,7 @@ import {
 } from '../runtime/selection-controller'
 import { pageSelectionOverlayStates } from '../runtime/overlay-manager'
 import { animateCursorScan, allEntityPositions } from '../presence-manager'
-import { writeJson } from '../app-control-server'
+import { writeJson } from './http-helpers'
 
 export const workspaceRoutes: Route[] = [
   {

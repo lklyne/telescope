@@ -7,7 +7,7 @@
 
 import type { Vec2 } from './cursor-motion'
 
-export type Alpha = 0 | 0.5 | 1 | number
+type Alpha = 0 | 0.5 | 1 | number
 
 export interface SampleResult {
   position: Vec2

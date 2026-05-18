@@ -207,7 +207,7 @@ export const DEVICE_CATALOG: ReadonlyMap<string, DeviceDef> = new Map(
 )
 
 /** All devices in catalog order, for dropdown rendering. */
-export const DEVICE_LIST: readonly DeviceDef[] = entries
+const DEVICE_LIST: readonly DeviceDef[] = entries
 
 const presetToDevice = new Map<number, DeviceDef>()
 for (const d of entries) {
@@ -265,7 +265,7 @@ export function sizeForOrientation(
 }
 
 /** Safe area insets for a device, accounting for orientation. Null if none. */
-export function safeAreaInsetsForDevice(deviceId: string, orientation: DeviceOrientation): ShellInsets | null {
+function safeAreaInsetsForDevice(deviceId: string, orientation: DeviceOrientation): ShellInsets | null {
   const dev = DEVICE_CATALOG.get(deviceId)
   if (!dev?.safeAreaInsets) return null
   if (orientation === 'landscape') {

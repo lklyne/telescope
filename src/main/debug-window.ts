@@ -1,3 +1,5 @@
+// fallow-ignore-file circular-dependencies
+// Suppressed: see #141. preferences imports debug-window for UI coordination
 import { BrowserWindow } from 'electron'
 import type { WebContents } from 'electron'
 import { loadRenderer, preloadPath } from './runtime/load-renderer'

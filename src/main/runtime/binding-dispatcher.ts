@@ -1,3 +1,5 @@
+// fallow-ignore-file circular-dependencies
+// Suppressed: see #141. binding-handlers → runtime-core → page-factory/window-init import binding-dispatcher back
 import type { WebContents } from 'electron'
 import {
   BINDINGS,

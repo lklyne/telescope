@@ -207,19 +207,17 @@ A sibling pure mapper, `routePointerDoubleClick`, classifies double-clicks; the 
 
 **Click-on-solo-selected → edit (issue #49).** A click on a solo-selected text/sticky/shape body — or an editable file body — with no modifier and no active inline edit emits `begin-entity-press` rather than `begin-entity-drag`. The router defers resolution: a stationary release fires `canvas-request-entity-edit` (the same IPC the dblclick fast-path uses), and a pointermove that crosses the existing entity-press drag threshold falls through to a normal entity drag with `preserveSelection: true`. File entities qualify when the resolved renderer plugin declares `editable: true` in its registry claim — the value is broadcast as `rendererEditable` on the file scene entity and surfaced in the `entity-body` hit payload. Markdown / wireframe / video opt in; image / component placeholders fall through to drag, and dblclick on those kinds is also a clean noop rather than entering `editing-entity` state with no editor on screen. Group, drawing, and page keep their kind-specific routes; group rename remains driven by `GroupRenameLabel`'s own `onDoubleClick`. Press-pending state lives as a hook-local ref inside `useCanvasPointerRouter`'s `runEntityPress`; no new `InteractionMode` is introduced (per §5.6 — payload changes suffice).
 
-**Gate responsibilities when visible:**
-1. Capture pointer events at the WCV boundary.
-2. Hit-test against the current canvas scene (via main-process coord math).
-3. Classify the gesture (pan vs marquee vs entity drag vs resize vs edge drag).
-4. Call `interaction.tryEnter(mode)`.
-5. Forward deltas via `interaction.update(token, delta)` on every `pointermove`.
-6. Call `interaction.commit(token)` on `pointerup`.
-7. Call `interaction.cancel(token, reason)` on blur/escape.
+**Router responsibilities when canvas mode is active:**
+1. Capture pointer events at the window boundary inside `aboveView`.
+2. Hit-test against the current canvas scene via the shared pure `hitTest()` in `src/shared/hit-test.ts`, fed by the broadcast `layout-update` snapshot.
+3. Classify the gesture (pan vs marquee vs entity drag vs resize vs edge drag vs edit) into a typed `CanvasPointerAction`.
+4. Dispatch to a per-action handler that owns the gesture's pointer lifecycle (`runEntityDrag`, `runResize`, `runEdgeDrag`, etc.) and calls the typed IPC for that gesture (`api.beginDragEntity`, `api.beginResize`, …).
+5. The main-side IPC handlers (`src/main/ipc/register-canvas-drag-ipc.ts` and siblings) are the layer that calls `InteractionController.tryEnter`, `commitActive`, `cancelActive`. Invariant I3 is enforced on the main side, not by the renderer router.
 
-**Gate does not:**
+**Router does not:**
 - Render page content.
 - Own entity data.
-- Make authoritative state changes.
+- Call `tryEnter` / `commit` / `cancel` directly — those run in main, reached via typed IPC.
 - Decide focus (that's `FocusReconciler`).
 
 ### 4.3 `LAYER_STACK` and the layout pass
@@ -286,29 +284,23 @@ On app start, every WCV registers a `dragover/drop` handler that calls `preventD
 
 **Why ownership:** Electron's drag/drop delivery across overlapping WCVs is ambiguous (see #2897, #18226). Declaring ownership per drag eliminates the ambiguity rather than masking it.
 
-### 4.6 `useDragGesture` hook (renderer)
+### 4.6 Renderer gesture lifecycle (per-action handlers)
 
-Every gesture in `aboveView` uses this single primitive:
+> **Status:** The original spec proposed a single `useDragGesture(spec)` hook that every gesture in `aboveView` would attach to a ref. That shape did not survive contact with the code — only one consumer (`useCanvasViewportGestures`) was ever ported, `useAnnotationDrawingGestures` was structurally incompatible with the ref-attaching model, and the lone consumer was later removed. The hook itself was deleted in #140. What stuck is the router pattern below.
 
-```ts
-interface DragGestureSpec<T> {
-  target: RefObject<HTMLElement>
-  threshold?: number                  // px before drag "starts"
-  onBegin(ctx: GestureContext): T | null   // null = decline, event bubbles
-  onUpdate(ctx: GestureContext, token: T): void
-  onCommit(ctx: GestureContext, token: T): void
-  onCancel(token: T, reason: CancelReason): void
-}
+Canvas-mode gestures live as per-action handlers inside `useCanvasPointerRouter` — one `runX` function per `CanvasPointerAction` kind (`runEntityDrag`, `runEntityPress`, `runPageBodyPress`, `runGroupDrag`, `runResize`, `runMultiResize`, `runEdgeDrag`, `runBackgroundSelectionGesture`, `runPan`, `runForwardPointer`). Each handler runs its own pointer lifecycle inline: capture the pointer, install window-level `pointermove` / `pointerup` / `pointercancel` / `blur` listeners, run a per-gesture threshold check, dispatch IPCs into main on begin / move / commit / cancel, clean up on exit.
 
-function useDragGesture<T>(spec: DragGestureSpec<T>): void
-```
+**Why per-handler, not a single primitive:**
+- Several handlers diverge in load-bearing ways: `runForwardPointer` deliberately omits the `blur → cancel` listener (focus reconciliation blurs aboveView mid-gesture); `runEntityPress` and `runPageBodyPress` suppress pre-threshold blur for the same reason; `runResize` calls `api.beginResize` *before* the first patch dispatch to keep the focus reconciler from cancelling the gesture. A primitive that hid these would either need every nuance as a flag, or would force per-call workarounds.
+- The router's call sites are imperative (the window-level pointerdown handler dispatches synchronously), not React components holding refs. A hook-with-ref API is the wrong shape for the actual caller.
 
-**Internal conventions:**
-- Pointer events only. No `mouse*` in new code.
-- `setPointerCapture` on the target.
-- Window `blur` with `buttons === 0` → cancel.
-- `Escape` → cancel.
-- Raw event never escapes the hook; callers see canvas-space `GestureContext`.
+**Shared conventions every handler must follow:**
+- Pointer events only. No `mouse*` in new code (invariant I8).
+- `setPointerCapture` on the event target where possible (`capturePointer` helper in the router).
+- Window `blur` → cancel, *unless* the handler has a documented reason to ignore it (forward-pointer, pre-threshold press).
+- Dispatch only typed IPCs from the renderer; never reach into `InteractionController` from renderer code.
+
+**Boilerplate consolidation is an open opportunity, not a blocker.** The threshold-check + listener-install + cleanup scaffold is ~30 lines duplicated across most handlers. A non-hook helper — e.g. `withDragLifecycle(startEvent, { threshold, onMove, onCommit, onCancel })` callable from inside `runX` — could absorb that boilerplate without changing who owns gesture identity. Whether to take that refactor is a sizing question, not an architectural one.
 
 ### 4.7 Bitmap compositor (pages below the active set)
 
@@ -380,7 +372,7 @@ These are the invariants that, if broken, produce the classes of bugs this refac
 |---|---|---|
 | I1 | View-stack/visibility/bounds mutations only inside `layoutAllViews` | Event-routing breaks, spurious focus events, undo-during-drag corruption |
 | I2 | One active `InteractionController` token at a time | Concurrent drags, orphan state, impossible undo steps |
-| I3 | Every `tryEnter` pairs with `commit`, `cancel(token)`, or a blessed `cancelActive(reason)` from an external interrupter (§4.1) | Stuck gestures, orphan visuals |
+| I3 | Every `tryEnter` pairs with `commit`, `cancel(token)`, or a blessed `cancelActive(reason)` from an external interrupter (§4.1). Enforcement lives on the main side, in the IPC handlers (`src/main/ipc/register-canvas-drag-ipc.ts` and siblings) that wrap each gesture begin/end pair — not in the renderer router | Stuck gestures, orphan visuals |
 | I4 | Focus is expressed as intent, applied by `FocusReconciler` | Focus storms, keyboard shortcuts silently broken |
 | I5 | Drop ownership is declared per `dragId`, never dedup by payload hash | Duplicate drops, missed drops |
 | I6 | `setBackgroundColor('#00000000')` set on every WCV before `addChildView` | White-flash during creation |
@@ -436,7 +428,7 @@ src/shared/
 src/renderer/
   above-view/                       # merged: interaction + comment + floating + annotation
     App.tsx
-    InputGate.tsx                   # listens to pointer events via useDragGesture
+    useCanvasPointerRouter.ts       # window-level pointerdown router + per-action handlers
     MarqueeLayer.tsx
     DragPreviewLayer.tsx
     CommentsLayer.tsx
@@ -445,8 +437,6 @@ src/renderer/
   bg-view/                          # canvas-bg, extended with:
     PageBitmapLayer.tsx             # bitmap compositor for inactive pages
     (...existing canvas chrome)
-  shared/
-    useDragGesture.ts               # the single gesture primitive
 ```
 
 Retained as separate bundles: `toolbar/`, `left-sidebar/`, `devtools-*`. Retired: `interaction-overlay/`, `annotation-overlay/`, `floating-ui/` (merged into `above-view/`).

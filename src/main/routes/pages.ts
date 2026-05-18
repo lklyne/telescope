@@ -34,7 +34,7 @@ import {
   findPresenceTarget,
   resolveSession,
 } from '../presence-manager'
-import { writeJson, getServerAddress } from '../app-control-server'
+import { writeJson, getServerAddress } from './http-helpers'
 
 export const pageRoutes: Route[] = [
   {

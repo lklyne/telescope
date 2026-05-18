@@ -28,7 +28,7 @@ import {
 import { selectNone as clearSelection } from '../runtime/selection-controller'
 import { sendInteractiveState } from '../runtime/overlay-manager'
 import { setCanvasMode as setUiCanvasMode } from '../ui-state'
-import { writeJson, notifyStatusListeners } from '../app-control-server'
+import { writeJson, notifyStatusListeners } from './http-helpers'
 
 function resetSmokeTestState(): void {
   resetPresenceState()

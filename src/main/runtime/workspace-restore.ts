@@ -1,3 +1,5 @@
+// fallow-ignore-file circular-dependencies
+// Suppressed: see #141. workspace-tab-operations imports workspace-restore creating a mutual dependency
 import { markAllDirty } from './layout-dirty'
 import type {
   PersistedWorkspaceRecord,

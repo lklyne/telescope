@@ -1,6 +1,6 @@
 import type { BindingId } from '../../shared/bindings'
 
-export type AboveViewBindingId = Extract<
+type AboveViewBindingId = Extract<
   BindingId,
   'annotation-close-thread' | 'annotation-clear-draft'
 >

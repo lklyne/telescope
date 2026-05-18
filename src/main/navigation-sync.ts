@@ -1,3 +1,5 @@
+// fallow-ignore-file circular-dependencies
+// Suppressed: see #141. page-factory imports navigation-sync creating a cycle through runtime-core and page-runtime
 import type { ScrollSyncData } from '../shared/types'
 import {
   type Page,

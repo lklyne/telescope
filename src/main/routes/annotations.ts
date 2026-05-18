@@ -13,7 +13,7 @@ import {
   fixPendingAnnotationsForOrigin,
 } from '../agent-fix/fix-orchestrator'
 import { findEntityPosition, movePresenceCursorTo } from '../presence-manager'
-import { writeJson } from '../app-control-server'
+import { writeJson } from './http-helpers'
 import type { IncomingMessage } from 'http'
 
 /** Resolve an annotation's anchor to a canvas position. Returns null for

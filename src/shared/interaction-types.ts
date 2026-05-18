@@ -17,16 +17,16 @@ export type CancelReason = 'blur' | 'escape' | 'undo' | 'tab-switch' | 'external
 
 export type Token = { readonly id: string; readonly mode: InteractionMode['kind'] }
 
-export type InteractionRefused = { refused: true; reason: string }
+type InteractionRefused = { refused: true; reason: string }
 
-export type DragDelta = {
+type DragDelta = {
   dxCanvas: number
   dyCanvas: number
   point: CanvasPoint
   modifiers: { shift: boolean; meta: boolean; alt: boolean; ctrl: boolean }
 }
 
-export type GestureContext = {
+type GestureContext = {
   point: CanvasPoint
   startPoint: CanvasPoint
   delta: { dx: number; dy: number }
@@ -41,7 +41,7 @@ export type FocusTarget =
   | { kind: 'toolbar' }
   | { kind: 'sidebar' }
 
-export type DropTarget =
+type DropTarget =
   | { kind: 'canvas' }
   | { kind: 'entity'; id: string }
   | { kind: 'sidebar' }

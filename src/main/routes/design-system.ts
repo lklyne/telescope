@@ -1,7 +1,7 @@
 import type { Route } from './types'
 import type { DesignSystemManifest } from '../../shared/design-system-types'
 import { clearManifest, getManifest, loadManifest } from '../design-system-store'
-import { writeJson } from '../app-control-server'
+import { writeJson } from './http-helpers'
 
 export const designSystemRoutes: Route[] = [
   {

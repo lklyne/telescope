@@ -73,7 +73,7 @@ import {
 import { textEntities, buildTextEntitySceneEntity } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { listComponentViews, syncComponentViews } from './component-page-factory'
-import { getPresenceCursors } from '../app-control-server'
+import { getPresenceCursors } from '../presence-cursor'
 import { notifyDevtoolsPanelData } from './inspect-session'
 import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'

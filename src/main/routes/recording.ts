@@ -9,7 +9,7 @@ import { findPageById } from '../runtime/runtime-context'
 import { win } from '../runtime/window-shell'
 import { startRecording, stopRecording, getRecordingState } from '../runtime/video-recorder'
 import { trimRecording } from '../runtime/video-trimmer'
-import { writeJson } from '../app-control-server'
+import { writeJson } from './http-helpers'
 
 const execFileAsync = promisify(execFile)
 

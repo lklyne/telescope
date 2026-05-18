@@ -79,7 +79,7 @@ export function RendererSwitch({
 }
 
 /** Whether the resolved renderer is one that suppresses drag-from-content. */
-export function rendererSuppressesContentDrag(entity: CanvasSceneFileEntity): boolean {
+function rendererSuppressesContentDrag(entity: CanvasSceneFileEntity): boolean {
   const tag = resolveTag(entity)
   return tag === 'markdown' || tag === 'video' || tag === 'wireframe'
 }

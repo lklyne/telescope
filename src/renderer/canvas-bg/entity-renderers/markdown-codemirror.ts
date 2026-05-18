@@ -12,7 +12,7 @@ export const externalUpdate = Annotation.define<boolean>()
 // fontSize and lineHeight are inherited from the editor's wrapper so
 // per-entity `textSize` and its size-scaled leading (ADR 0013 §2) flow
 // through to CodeMirror; heading sizes stay relative via `em`.
-export const MARKDOWN_TOKENS = {
+const MARKDOWN_TOKENS = {
   fontFamily: 'system-ui, sans-serif',
   headingWeight: '600',
   h1Size: '1.4em',

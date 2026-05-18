@@ -1,3 +1,5 @@
+// fallow-ignore-file circular-dependencies
+// Suppressed: see #141. document-commands → surface-layout → canvas-layout-data import presence-cursor back
 import type { IncomingMessage } from 'http'
 import type {
   PresenceActivity,

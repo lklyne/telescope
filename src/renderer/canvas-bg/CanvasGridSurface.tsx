@@ -200,7 +200,7 @@ export function PlacementPreviewLayer({
   )
 }
 
-export function DragCopyPreviewLayer({
+function DragCopyPreviewLayer({
   dragCopyPreview,
   isDark,
 }: {

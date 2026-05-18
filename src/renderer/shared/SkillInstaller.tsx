@@ -10,7 +10,7 @@ import type {
   OnboardingComponentStatus,
 } from '../../shared/types'
 
-export const SKILL_INSTALLER_IDS: OnboardingComponentId[] = ['cli', 'skill', 'agentBrowser']
+const SKILL_INSTALLER_IDS: OnboardingComponentId[] = ['cli', 'skill', 'agentBrowser']
 
 export type RowProgress = 'idle' | 'installing' | 'success' | 'error'
 

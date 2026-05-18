@@ -1,3 +1,5 @@
+// fallow-ignore-file circular-dependencies
+// Suppressed: see #141. workspace-placement imports workspace-entities creating a mutual dependency
 import type {
   CanvasEntityKind,
   DeletePagesRequest,

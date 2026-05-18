@@ -25,7 +25,7 @@ export const BRUSH_VARIANT_OPTIONS: Array<{
 ]
 
 // Ordered thin → thick.
-export const STROKE_WIDTH_PRESETS = [2, 8] as const
+const STROKE_WIDTH_PRESETS = [2, 8] as const
 const HIGHLIGHT_STROKE_WIDTH_PRESETS = [8, 16] as const
 
 export function strokeWidthPresetsFor(

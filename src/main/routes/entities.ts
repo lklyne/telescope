@@ -21,7 +21,7 @@ import {
   movePresenceCursorTo,
   staggerOperation,
 } from '../presence-manager'
-import { writeJson } from '../app-control-server'
+import { writeJson } from './http-helpers'
 
 export const entityRoutes: Route[] = [
   // --- Text entities ---

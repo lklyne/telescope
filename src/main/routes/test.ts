@@ -7,7 +7,7 @@
  * Spec docs/interaction-layer.md §9 (testing strategy).
  */
 
-import { writeJson } from '../app-control-server'
+import { writeJson } from './http-helpers'
 import { app } from 'electron'
 import {
   peek as peekInteractionMode,

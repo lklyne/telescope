@@ -1,4 +1,4 @@
-import { getPresenceCursors, onPresenceCursorsChanged } from '../app-control-server'
+import { getPresenceCursors, onPresenceCursorsChanged } from '../presence-cursor'
 import { PRESENCE_THINKING_DELAY_MS } from '../../shared/presence-timing'
 
 // ---------------------------------------------------------------------------

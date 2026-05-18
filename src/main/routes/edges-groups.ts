@@ -6,7 +6,7 @@ import { ungroupSelectedGroup } from '../runtime/document-commands'
 import { selectGroup as selectSelectionGroup } from '../runtime/selection-controller'
 import { workspaceEdges, workspaceGroups } from '../runtime/workspace-model'
 import { findEntityPosition, movePresenceCursorTo } from '../presence-manager'
-import { writeJson } from '../app-control-server'
+import { writeJson } from './http-helpers'
 
 export const edgesGroupsRoutes: Route[] = [
   {

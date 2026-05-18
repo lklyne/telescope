@@ -13,8 +13,8 @@ import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
 import type { ResizeHandle } from './resize-accumulator'
 
-export type { DrawingBrushType, Tool, ToolKind, ToolDuration } from './tool'
-export type { ToolDefaults, ToolDefaultPatch } from './tool-defaults'
+export type { DrawingBrushType, Tool } from './tool'
+export type { ToolDefaultPatch } from './tool-defaults'
 
 // --- IPC Channel Types ---
 
@@ -491,7 +491,7 @@ export interface PresenceTargetRect {
   height: number
 }
 
-export interface PresenceCoordinates {
+interface PresenceCoordinates {
   canvasX?: number
   canvasY?: number
   pageX?: number
@@ -501,7 +501,7 @@ export interface PresenceCoordinates {
 
 export type PresenceTargetRefSource = 'specular' | 'agent-browser'
 
-export interface PresenceEvent {
+interface PresenceEvent {
   sessionId: string
   surface: PresenceSurface
   phase: PresenceActivity
@@ -760,7 +760,7 @@ export interface DebugElectronAPI {
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 
-export interface DebugPreviewPath {
+interface DebugPreviewPath {
   start: Vec2
   end: Vec2
   candidates: MotionCandidate[]
@@ -774,7 +774,6 @@ export type {
   CursorTuningParams,
   EasingPreset,
   EasingSpec,
-  MotionCandidate,
   PresenceDebugEntry,
   Vec2,
 }
@@ -783,12 +782,12 @@ export interface CanvasLayoutBootstrapData extends ThemeBootstrapData {
   layoutData: LayoutUpdateData
 }
 
-export interface FloatingUiUpdatePayload {
+interface FloatingUiUpdatePayload {
   layoutData: LayoutUpdateData
   surfaceOrigin: { x: number; y: number }
 }
 
-export interface FloatingUiBootstrapData extends ThemeBootstrapData, FloatingUiUpdatePayload {}
+interface FloatingUiBootstrapData extends ThemeBootstrapData, FloatingUiUpdatePayload {}
 
 // --- Panel mode (selection-driven) ---
 
@@ -1042,7 +1041,7 @@ export interface DevtoolsPanelDomTarget {
   }
 }
 
-export interface DevtoolsPanelDomInspectorState {
+interface DevtoolsPanelDomInspectorState {
   available: boolean
   inspectMode: boolean
   hoverTarget: DevtoolsPanelDomTarget | null
@@ -1921,7 +1920,7 @@ export type ForwardPointerPayload = {
   metaKey: boolean
 }
 
-export interface FloatingUiElectronAPI {
+interface FloatingUiElectronAPI {
   navigatePage: (pageId: string, url: string) => void
   goBackPage: (pageId: string) => void
   goForwardPage: (pageId: string) => void
@@ -1947,7 +1946,7 @@ export interface FloatingUiElectronAPI {
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 
-export interface AboveViewElectronAPI {
+interface AboveViewElectronAPI {
   canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
   canvasPan: (deltaX: number, deltaY: number) => void
   onSelectionOverlayChanged: (
@@ -1955,7 +1954,7 @@ export interface AboveViewElectronAPI {
   ) => () => void
 }
 
-export interface InteractionOverlayElectronAPI {
+interface InteractionOverlayElectronAPI {
   canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
   canvasPan: (deltaX: number, deltaY: number) => void
   onSelectionOverlayChanged: (

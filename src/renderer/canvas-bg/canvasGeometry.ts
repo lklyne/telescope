@@ -11,7 +11,7 @@ type DragPageSnapshot = {
   canvasY: number
 }
 
-export type ChromeDragSession = {
+type ChromeDragSession = {
   pageId: string
   pages: DragPageSnapshot[]
   totalScreenDx: number
@@ -19,7 +19,7 @@ export type ChromeDragSession = {
   copyMode: boolean
 }
 
-export type DragCopyPreview = {
+type DragCopyPreview = {
   id: string
   left: number
   top: number
@@ -27,7 +27,7 @@ export type DragCopyPreview = {
   height: number
 }
 
-export function toOverlayRect(
+function toOverlayRect(
   rect: { left: number; top: number; width: number; height: number },
   layout: LayoutUpdateData,
 ) {
@@ -63,7 +63,7 @@ export function unionScreenBounds(
   }
 }
 
-export function dragCopyAnchorPoint(
+function dragCopyAnchorPoint(
   session: ChromeDragSession,
   layout: LayoutUpdateData,
 ) {
@@ -75,7 +75,7 @@ export function dragCopyAnchorPoint(
   }
 }
 
-export function buildDragCopyPreview(
+function buildDragCopyPreview(
   session: ChromeDragSession,
   layout: LayoutUpdateData,
 ): DragCopyPreview[] {

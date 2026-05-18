@@ -21,7 +21,7 @@ export const PRESENCE_TRAVEL_MS = 250
 
 /** Extra pause after the cursor arrives but before the action fires.
  *  Gives the user a moment to see where the cursor landed. */
-export const PRESENCE_DWELL_MS = 50
+const PRESENCE_DWELL_MS = 50
 
 /** Total pre-action delay: travel + dwell. The CDP proxy sleeps for at most
  *  this long before forwarding a click, minus any time already elapsed since

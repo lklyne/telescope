@@ -1,3 +1,5 @@
+// fallow-ignore-file circular-dependencies
+// Suppressed: see #141. settings-window imports preferences creating a mutual dependency
 /**
  * User preferences — devtools panel width/tab persistence + onboarding state.
  */

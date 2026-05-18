@@ -4,12 +4,10 @@ import { GRID_SIZE } from './constants'
 export {
   canvasToScreenX,
   canvasToScreenY,
-  canvasToScreenPoint,
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
   toOverlayY,
 } from './coords'
-export type { CanvasPoint, ScreenPoint, ScreenRect } from './coords'
 
 type ViewportWheelAction =
   | {
@@ -93,7 +91,7 @@ export function isPlainShortcutKey(
   return event.key.toLowerCase() === key.toLowerCase() && hasNoModifierKeys(event)
 }
 
-export function isCommandShortcutKey(
+function isCommandShortcutKey(
   event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
   key: string,
 ): boolean {

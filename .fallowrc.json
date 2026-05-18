@@ -27,9 +27,22 @@
     "src/renderer/toolbar/main.tsx",
 
     "tests/unit/**/*.test.ts",
-    "tests/smoke/**/*.test.ts"
+    "tests/smoke/**/*.test.ts",
+
+    "tests/smoke/global-setup.ts",
+    "tests/smoke/setup.ts",
+
+    "vite.main.config.ts",
+    "vite.preload.config.ts",
+    "vite.renderer.config.ts"
   ],
   "rules": {
     "unused-dependencies": "warn"
-  }
+  },
+  "ignoreExports": [
+    { "file": "eslint-rules/index.js", "exports": ["*"] },
+    { "file": "eslint-rules/no-direct-view-mutation.js", "exports": ["*"] },
+    { "file": "eslint-rules/no-mouse-events.js", "exports": ["*"] }
+  ],
+  "ignoreDependencies": ["react", "react-dom"]
 }

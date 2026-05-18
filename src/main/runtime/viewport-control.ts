@@ -1,3 +1,5 @@
+// fallow-ignore-file circular-dependencies
+// Suppressed: see #141. workspace-autosave → workspace-observers import viewport-control back
 import { pages, pan, zoom, setPanState, setZoomState, selectedPage } from './runtime-context'
 import { win } from './view-refs'
 import { requestLayout } from './layout-engine'

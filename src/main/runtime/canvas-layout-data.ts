@@ -1,3 +1,5 @@
+// fallow-ignore-file circular-dependencies
+// Suppressed: see #141. central layout data module is in cycles with selection-controller and layout-engine
 /**
  * Canvas layout data builders — payload construction for renderer surfaces.
  *
@@ -100,7 +102,7 @@ import {
 import { buildGroupSceneEntity } from './group-entity-state'
 import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
-import { getPresenceCursors } from '../app-control-server'
+import { getPresenceCursors } from '../presence-cursor'
 import { getFixProgress } from '../agent-fix/fix-progress'
 
 // --- Exported data builders ---

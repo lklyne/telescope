@@ -1,3 +1,5 @@
+// fallow-ignore-file circular-dependencies
+// Suppressed: see #141. viewport-control → layout-engine import component-page-factory back
 /**
  * Component page factory.
  *

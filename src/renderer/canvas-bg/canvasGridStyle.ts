@@ -8,7 +8,7 @@ function devicePixelRatioOrOne(devicePixelRatio: number) {
   return Math.max(devicePixelRatio, 1)
 }
 
-export function snapToDevicePixel(value: number, devicePixelRatio: number) {
+function snapToDevicePixel(value: number, devicePixelRatio: number) {
   const dpr = devicePixelRatioOrOne(devicePixelRatio)
   return Math.round(value * dpr) / dpr
 }
@@ -30,7 +30,7 @@ function gridAlpha(spacing: number, isDark: boolean) {
   return Math.max(minAlpha, Math.min(1, alpha))
 }
 
-export function buildCanvasGridMetrics({
+function buildCanvasGridMetrics({
   canvasOrigin,
   pan,
   zoom,

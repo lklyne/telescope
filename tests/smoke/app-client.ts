@@ -128,7 +128,7 @@ export function deletePages(pageIds: string[]) {
   return post<{ deletedPageIds: string[] }>('/pages/delete', { pageIds })
 }
 
-export function updatePages(pages: Array<{ id: string; canvasX?: number; canvasY?: number; presetIndex?: number }>) {
+function updatePages(pages: Array<{ id: string; canvasX?: number; canvasY?: number; presetIndex?: number }>) {
   return post<{ updated: string[] }>('/pages/update', { pages })
 }
 
@@ -213,7 +213,7 @@ export function openMcpSession(sessionId: string, clientName?: string) {
   return post<{ ok: true }>('/mcp/session/open', { sessionId, clientName })
 }
 
-export function pingMcpSession(sessionId: string, clientName?: string) {
+function pingMcpSession(sessionId: string, clientName?: string) {
   return post<{ ok: true }>('/mcp/session/ping', { sessionId, clientName })
 }
 
@@ -337,7 +337,7 @@ export function focusCamera(targets: { pageIds?: string[]; bounds?: { x: number;
 
 // --- Test-only: interaction controller, focus, drop ---
 
-export type InteractionMode =
+type InteractionMode =
   | { kind: 'idle' }
   | { kind: 'panning' }
   | { kind: 'marquee'; origin: { x: number; y: number }; current: { x: number; y: number } }
@@ -393,7 +393,7 @@ export function resetInteraction() {
   return post<{ ok: true }>('/test/interaction/reset')
 }
 
-export type FocusKey = 'bgView' | 'aboveView' | 'toolbar' | 'sidebar' | string | null
+type FocusKey = 'bgView' | 'aboveView' | 'toolbar' | 'sidebar' | string | null
 export type FocusTarget =
   | { kind: 'bgView' }
   | { kind: 'aboveView' }
@@ -522,13 +522,13 @@ export function stopTransactionCounter() {
   return post<{ count: number }>('/test/workspace/transactions/stop')
 }
 
-export function getWorkspaceTabs() {
+function getWorkspaceTabs() {
   return get<{ activeTabId: string | null; tabs: Array<{ id: string; name: string }> }>(
     '/test/workspace/tabs',
   )
 }
 
-export function getFileEntities() {
+function getFileEntities() {
   return get<{
     fileEntities: Array<{
       id: string

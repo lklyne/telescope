@@ -51,26 +51,31 @@ import { mcpSessions } from './presence-session'
 export { getPresenceCursors, onPresenceCursorsChanged } from './presence-manager'
 export type { PresenceCursorEntry } from './presence-manager'
 
+// Re-export from http-helpers for callers that import from app-control-server
+export type { McpConnectionStatus } from './routes/http-helpers'
+export { onMcpConnectionStatusChanged } from './routes/http-helpers'
+
+import {
+  writeJson,
+  notifyStatusListeners,
+  _registerGetStatus,
+  _setServerRef,
+  type McpConnectionStatus,
+} from './routes/http-helpers'
+
+// Register the status getter so routes can call notifyStatusListeners() without
+// importing app-control-server (which would recreate the circular dependency).
+_registerGetStatus(() => getMcpConnectionStatus())
+
 interface DiscoveryPayload {
   port: number
   secret: string
   version: string
 }
 
-export interface McpConnectionStatus {
-  healthy: boolean
-  appServerRunning: boolean
-  discoveryFilePresent: boolean
-  mcpClientConnected: boolean
-  activeClientCount: number
-  lastClientSeenAt: string | null
-}
-
-
 let server: Server | null = null
 let cdpProxyServer: WebSocketServer | null = null
 let secret = ''
-const statusListeners = new Set<(status: McpConnectionStatus) => void>()
 const PROBE_TIMEOUT_MS = 1_000
 
 function discoveryFilePath(): string {
@@ -116,12 +121,6 @@ async function cleanupStaleDiscoveryFile(): Promise<void> {
   removeDiscoveryFile()
 }
 
-export function writeJson(response: ServerResponse, statusCode: number, payload: unknown): void {
-  response.statusCode = statusCode
-  response.setHeader('Content-Type', 'application/json')
-  response.end(JSON.stringify(payload))
-}
-
 async function readBody(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = []
   for await (const chunk of request) {
@@ -135,10 +134,6 @@ function authorized(request: IncomingMessage): boolean {
   return request.headers['x-specular-secret'] === secret
 }
 
-
-export function getServerAddress(): ReturnType<Server['address']> {
-  return server?.address() ?? null
-}
 
 export function getMcpConnectionStatus(): McpConnectionStatus {
   const appServerRunning = server !== null
@@ -159,23 +154,6 @@ export function getMcpConnectionStatus(): McpConnectionStatus {
     mcpClientConnected: sessions.length > 0,
     activeClientCount: sessions.length,
     lastClientSeenAt,
-  }
-}
-
-export function notifyStatusListeners(): void {
-  const status = getMcpConnectionStatus()
-  for (const listener of statusListeners) {
-    listener(status)
-  }
-}
-
-export function onMcpConnectionStatusChanged(
-  listener: (status: McpConnectionStatus) => void,
-): () => void {
-  statusListeners.add(listener)
-  listener(getMcpConnectionStatus())
-  return () => {
-    statusListeners.delete(listener)
   }
 }
 
@@ -830,6 +808,7 @@ export async function startAppControlServer(): Promise<void> {
   }
 
   server = candidateServer
+  _setServerRef(server)
   cdpProxyServer = candidateCdpProxyServer
   const payload: DiscoveryPayload = {
     port: effectivePort,
@@ -847,6 +826,7 @@ export function stopAppControlServer(): void {
   cdpProxyServer = null
   server.close()
   server = null
+  _setServerRef(null)
   for (const registration of [...cdpProxyRegistrations.values()]) {
     disposeCdpProxyRegistration(registration)
   }

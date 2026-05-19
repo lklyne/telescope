@@ -24,7 +24,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { CanvasSceneTextEntity, TextEntityStyle } from '../../shared/types'
-import { resolveCanvasColor } from '../../shared/canvas-colors'
+import { NEUTRAL_STORAGE, resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 import { remarkLineBreaks } from '../shared/remark-line-breaks'
 import { lineHeightForTextSize } from './TextSizeDropdown'
@@ -245,10 +245,17 @@ function StickyCard({
     }
   }, [isAuto, note.id, onUpdateSize])
 
-  // Stickies always sit on a light colored background; pass isDark=false so
-  // CodeMirror renders dark text matching the view-mode color below.
-  const editorIsDark = isPlain ? isDark : false
-  const textColor = isPlain ? (isDark ? '#e7e5e4' : '#1c1917') : '#1c1917'
+  // Non-plain stickies: the neutral slot is theme-aware (dark fill in dark mode);
+  // hue slots keep light pastel fills in both themes so they always use dark ink.
+  const isNeutralColor = note.color === NEUTRAL_STORAGE
+  const editorIsDark = isPlain ? isDark : isNeutralColor && isDark
+  const textColor = isPlain
+    ? isDark
+      ? '#e7e5e4'
+      : '#1c1917'
+    : isNeutralColor
+      ? resolveCanvasColor(note.color, { role: 'ink', isDark })
+      : '#1c1917'
   const placeholder = isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'
 
   const innerColumnStyle: React.CSSProperties =

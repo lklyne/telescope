@@ -624,14 +624,16 @@ export default function App({
     }
     // The top toolbar is a sibling WebContentsView, so when the cursor moves
     // up into it the above-view stops receiving pointer events without
-    // window.pointerleave firing. mouseleave on documentElement is the
-    // reliable "cursor left this webcontents" signal.
+    // pointerleave firing. mouseleave on documentElement is the reliable
+    // "cursor left this webcontents" signal in Electron's multi-view layout.
     const docEl = document.documentElement
     window.addEventListener('pointermove', handleMove)
+    // eslint-disable-next-line local/no-mouse-events
     docEl.addEventListener('mouseleave', clearHover)
     window.addEventListener('blur', clearHover)
     return () => {
       window.removeEventListener('pointermove', handleMove)
+      // eslint-disable-next-line local/no-mouse-events
       docEl.removeEventListener('mouseleave', clearHover)
       window.removeEventListener('blur', clearHover)
       clearHover()

@@ -21,8 +21,8 @@ function Root({
   isActive,
   dragEnabled = true,
   onPointerDown,
-  onMouseEnter,
-  onMouseLeave,
+  onPointerEnter,
+  onPointerLeave,
   children,
 }: {
   entityId: string
@@ -31,8 +31,8 @@ function Root({
   isActive: boolean
   dragEnabled?: boolean
   onPointerDown?: (e: React.PointerEvent) => void
-  onMouseEnter?: () => void
-  onMouseLeave?: () => void
+  onPointerEnter?: () => void
+  onPointerLeave?: () => void
   children: ReactNode
 }) {
   const headerRect = useAnchoredPosition(layout, entityId, 'header')
@@ -49,8 +49,8 @@ function Root({
       isActive={isActive}
       dragEnabled={dragEnabled}
       onPointerDown={onPointerDown}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
     >
       {children}
     </EntityChrome.Root>

@@ -89,9 +89,11 @@ export function WireframeRenderer({
   // --- Drag handlers ---
 
   const handleNodePointerDown = useCallback(
-    (nodeId: string, parentId: string, e: React.MouseEvent) => {
+    (nodeId: string, parentId: string, e: React.PointerEvent) => {
       if (!canEdit || editingNodeId) return
       e.preventDefault()
+
+      const pointerId = e.pointerId
 
       pendingRef.current = {
         nodeId,
@@ -100,7 +102,8 @@ export function WireframeRenderer({
         y: e.clientY,
       }
 
-      const handleMove = (me: MouseEvent) => {
+      const handleMove = (me: PointerEvent) => {
+        if (me.pointerId !== pointerId) return
         if (!pendingRef.current) return
         const dx = me.clientX - pendingRef.current.x
         const dy = me.clientY - pendingRef.current.y
@@ -110,9 +113,10 @@ export function WireframeRenderer({
         }
       }
 
-      const handleUp = () => {
-        window.removeEventListener('mousemove', handleMove)
-        window.removeEventListener('mouseup', handleUp)
+      const handleUp = (me: PointerEvent) => {
+        if (me.pointerId !== pointerId) return
+        window.removeEventListener('pointermove', handleMove)
+        window.removeEventListener('pointerup', handleUp)
 
         if (pendingRef.current) {
           // It was a click — trigger edit if applicable
@@ -132,8 +136,8 @@ export function WireframeRenderer({
         }
       }
 
-      window.addEventListener('mousemove', handleMove)
-      window.addEventListener('mouseup', handleUp)
+      window.addEventListener('pointermove', handleMove)
+      window.addEventListener('pointerup', handleUp)
     },
     [canEdit, editingNodeId],
   )
@@ -156,8 +160,8 @@ export function WireframeRenderer({
       setDropTarget(null)
     }
 
-    window.addEventListener('mouseup', handleUp)
-    return () => window.removeEventListener('mouseup', handleUp)
+    window.addEventListener('pointerup', handleUp)
+    return () => window.removeEventListener('pointerup', handleUp)
   }, [draggedNodeId, dropTarget, persist])
 
   // --- Edit handlers ---
@@ -253,7 +257,7 @@ export function WireframeRenderer({
           <textarea
             value={jsonText}
             onChange={(e) => handleJsonTextChange(e.target.value)}
-            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             spellCheck={false}
             style={{
               width: '100%',

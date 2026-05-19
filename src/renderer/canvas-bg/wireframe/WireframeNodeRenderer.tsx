@@ -21,7 +21,7 @@ export interface WireframeNodeRendererProps {
   draggedNodeId: string | null
   dropTarget: DropTarget | null
   editingNodeId: string | null
-  onNodePointerDown: (nodeId: string, parentId: string, e: React.MouseEvent) => void
+  onNodePointerDown: (nodeId: string, parentId: string, e: React.PointerEvent) => void
   onDropTargetChange: (target: DropTarget) => void
   onStartEdit: (nodeId: string) => void
   onCommitEdit: (nodeId: string, value: string) => void
@@ -65,7 +65,7 @@ function EditableText({
           }
           e.stopPropagation()
         }}
-        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         style={{
           ...style,
@@ -153,7 +153,7 @@ function FrameNodeRenderer({
   const indicatorDir = isVertical ? 'horizontal' : 'vertical'
 
   const lastDropRef = useRef<{ parentId: string; index: number } | null>(null)
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent) => {
     if (!props.draggedNodeId) return
     const container = containerRef.current
     if (!container) return
@@ -202,7 +202,7 @@ function FrameNodeRenderer({
   }
 
   return (
-    <div ref={containerRef} style={frameStyle} onMouseMove={handleMouseMove}>
+    <div ref={containerRef} style={frameStyle} onPointerMove={handlePointerMove}>
       {node.children.map((child, index) => {
         const isDragged = props.draggedNodeId === child.id
         const showIndicator =
@@ -230,7 +230,7 @@ function FrameNodeRenderer({
                       )
                     : {}),
               }}
-              onMouseDown={(e) => {
+              onPointerDown={(e) => {
                 if (props.canEdit && !props.editingNodeId) {
                   e.stopPropagation()
                   props.onNodePointerDown(child.id, node.id, e)

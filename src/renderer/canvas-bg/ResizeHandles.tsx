@@ -10,7 +10,7 @@ export function CornerResizeHandle({
 }: {
   corner: ResizeCorner
   isDark: boolean
-  beginResize?: (e: React.MouseEvent) => void
+  beginResize?: (e: React.PointerEvent) => void
   scaleWithZoom?: boolean
 }) {
   const half = scaleWithZoom ? `calc(${HANDLE_SIZE / 2}px / var(--canvas-zoom, 1))` : HANDLE_SIZE / 2
@@ -27,7 +27,7 @@ export function CornerResizeHandle({
     <div
       data-resize-handle
       data-overlay-ui={scaleWithZoom ? undefined : true}
-      onMouseDown={beginResize}
+      onPointerDown={beginResize}
       style={{
         position: 'absolute',
         ...pos,
@@ -51,7 +51,7 @@ export function EdgeResizeHandle({
   scaleWithZoom = false,
 }: {
   edge: ResizeEdge
-  beginResize?: (e: React.MouseEvent) => void
+  beginResize?: (e: React.PointerEvent) => void
   scaleWithZoom?: boolean
 }) {
   const half = scaleWithZoom ? `calc(${HANDLE_SIZE / 2}px / var(--canvas-zoom, 1))` : HANDLE_SIZE / 2
@@ -68,7 +68,7 @@ export function EdgeResizeHandle({
     <div
       data-resize-handle
       data-overlay-ui={scaleWithZoom ? undefined : true}
-      onMouseDown={beginResize}
+      onPointerDown={beginResize}
       style={{
         position: 'absolute',
         ...pos,

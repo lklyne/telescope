@@ -162,7 +162,7 @@ export function MarkdownEditor({
       ref={containerRef}
       className={className}
       style={style}
-      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
     />
   )
 }

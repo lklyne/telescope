@@ -87,7 +87,7 @@ export function InlineEditLabel({
         onFocus={(event) => event.target.select()}
         onClick={(event) => event.stopPropagation()}
         onDoubleClick={(event) => event.stopPropagation()}
-        onMouseDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
         placeholder={placeholder}
         spellCheck={false}
         className={inputClassName ?? defaultInputClass(variant, isDark)}

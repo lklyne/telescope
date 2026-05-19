@@ -91,9 +91,9 @@ function GroupRenameItem({
   // colour for future styling extension; today we lean on existing tokens.
   void resolveCanvasColor
 
-  const onMouseDown = isRenaming
-    ? (event: React.MouseEvent) => event.stopPropagation()
-    : (event: React.MouseEvent) => {
+  const onPointerDown = isRenaming
+    ? (event: React.PointerEvent) => event.stopPropagation()
+    : (event: React.PointerEvent) => {
         event.preventDefault()
         event.stopPropagation()
         const additive = event.shiftKey || event.metaKey || event.ctrlKey
@@ -101,10 +101,12 @@ function GroupRenameItem({
           api.selectGroup(group.id)
           return
         }
+        const pointerId = event.pointerId
         let dragging = false
         const startX = event.screenX
         const startY = event.screenY
-        const onMove = (ev: MouseEvent) => {
+        const onMove = (ev: PointerEvent) => {
+          if (ev.pointerId !== pointerId) return
           const totalDx = ev.screenX - startX
           const totalDy = ev.screenY - startY
           if (
@@ -121,7 +123,7 @@ function GroupRenameItem({
               api,
               layout: layoutData,
               groupId: group.id,
-              event,
+              event: event.nativeEvent,
               initialPointer: ev,
               isOptionHeld: () => optionHeldRef.current,
               setPreview: setDragCopyPreview,
@@ -130,11 +132,12 @@ function GroupRenameItem({
           }
         }
         const cleanup = () => {
-          window.removeEventListener('mousemove', onMove)
-          window.removeEventListener('mouseup', onUp)
+          window.removeEventListener('pointermove', onMove)
+          window.removeEventListener('pointerup', onUp)
           window.removeEventListener('blur', onCancel)
         }
-        const onUp = () => {
+        const onUp = (ev: PointerEvent) => {
+          if (ev.pointerId !== pointerId) return
           cleanup()
           if (dragging) {
             api.endDragGroup()
@@ -146,8 +149,8 @@ function GroupRenameItem({
           cleanup()
           if (dragging) api.endDragGroup()
         }
-        window.addEventListener('mousemove', onMove)
-        window.addEventListener('mouseup', onUp)
+        window.addEventListener('pointermove', onMove)
+        window.addEventListener('pointerup', onUp)
         window.addEventListener('blur', onCancel)
       }
 
@@ -162,7 +165,7 @@ function GroupRenameItem({
         whiteSpace: 'nowrap',
         cursor: isRenaming ? 'text' : 'grab',
       }}
-      onMouseDown={onMouseDown}
+      onPointerDown={onPointerDown}
       onDoubleClick={() => api.requestEntityEdit(group.id)}
     >
       <span className="inline-flex items-center gap-1 pb-1">

@@ -42,38 +42,45 @@ export function useViewportWheelAndMiddlePan(
       api.canvasPan(action.deltaX, action.deltaY)
     }
 
-    const onMouseDown = (event: MouseEvent) => {
+    let middleDragPointerId: number | null = null
+
+    const onPointerDown = (event: PointerEvent) => {
       if (isOverlayUiTarget(event.target)) return
       if (!shouldStartMouseViewportPan(event)) return
+      middleDragPointerId = event.pointerId
       middleDrag = { screenX: event.screenX, screenY: event.screenY }
       event.preventDefault()
     }
 
-    const onMouseMove = (event: MouseEvent) => {
-      if (!middleDrag) return
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== middleDragPointerId || !middleDrag) return
       const delta = middleDragDelta(middleDrag, event)
       middleDrag = { screenX: event.screenX, screenY: event.screenY }
       api.canvasPan(delta.deltaX, delta.deltaY)
     }
 
-    const onMouseUp = (event: MouseEvent) => {
-      if (event.button === 1) middleDrag = null
+    const onPointerUp = (event: PointerEvent) => {
+      if (event.pointerId === middleDragPointerId) {
+        middleDrag = null
+        middleDragPointerId = null
+      }
     }
 
     const cleanup = () => {
       middleDrag = null
+      middleDragPointerId = null
     }
 
     window.addEventListener('wheel', onWheel, { passive: false })
-    window.addEventListener('mousedown', onMouseDown)
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
     window.addEventListener('blur', cleanup)
     return () => {
       window.removeEventListener('wheel', onWheel)
-      window.removeEventListener('mousedown', onMouseDown)
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
       window.removeEventListener('blur', cleanup)
       cleanup()
     }

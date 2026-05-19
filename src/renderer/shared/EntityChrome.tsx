@@ -34,8 +34,8 @@ function Root({
   dragEnabled = true,
   isActive,
   onPointerDown,
-  onMouseEnter,
-  onMouseLeave,
+  onPointerEnter,
+  onPointerLeave,
   children,
 }: {
   screenX: number
@@ -45,8 +45,8 @@ function Root({
   dragEnabled?: boolean
   isActive: boolean
   onPointerDown?: (e: React.PointerEvent) => void
-  onMouseEnter?: () => void
-  onMouseLeave?: () => void
+  onPointerEnter?: () => void
+  onPointerLeave?: () => void
   children: ReactNode
 }) {
   const [isHovered, setIsHovered] = useState(false)
@@ -70,8 +70,8 @@ function Root({
       <div
         className="pointer-events-auto absolute"
         data-overlay-ui
-        onMouseEnter={() => { setIsHovered(true); onMouseEnter?.() }}
-        onMouseLeave={() => { setIsHovered(false); onMouseLeave?.() }}
+        onPointerEnter={() => { setIsHovered(true); onPointerEnter?.() }}
+        onPointerLeave={() => { setIsHovered(false); onPointerLeave?.() }}
         style={{
           left: screenX,
           top: screenY,

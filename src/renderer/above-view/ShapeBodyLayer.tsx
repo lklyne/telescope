@@ -96,7 +96,6 @@ function ShapeText({
         contentEditable={editing}
         suppressContentEditableWarning
         onInput={(e) => onChange((e.target as HTMLDivElement).textContent ?? '')}
-        onMouseDown={(e) => { if (editing) e.stopPropagation() }}
         onPointerDown={(e) => { if (editing) e.stopPropagation() }}
         onBlur={(e) => {
           onCommit((e.target as HTMLDivElement).textContent ?? '')

@@ -1,5 +1,4 @@
 import type {
-  MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react'
 import type {
@@ -313,20 +312,20 @@ export function startOptionAwareGroupDrag(input: {
   api: CanvasBgElectronAPI
   layout: LayoutUpdateData
   groupId: string
-  event: PointerEvent | MouseEvent | ReactPointerEvent | ReactMouseEvent
+  event: PointerEvent | ReactPointerEvent
   releasePointer?: (() => void) | null
   captureTarget?: Element | null
   initialPointer?: DragPointer
   isOptionHeld: () => boolean
   setPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
-  const pointerId = 'pointerId' in input.event ? input.event.pointerId : null
+  const pointerId = input.event.pointerId
   const entityIds = draggedEntityIdsForGroup(input.layout, input.groupId)
   input.api.startDragGroup(input.groupId)
 
   const release = () => {
     input.releasePointer?.()
-    if (pointerId === null || !input.captureTarget) return
+    if (!input.captureTarget) return
     try {
       if (input.captureTarget.hasPointerCapture(pointerId)) {
         input.captureTarget.releasePointerCapture(pointerId)
@@ -363,7 +362,7 @@ export function startOptionAwareGroupDrag(input: {
 }
 
 function installOptionAwareDragListeners(input: {
-  pointerId: number | null
+  pointerId: number
   session: ReturnType<typeof createOptionDragCopySession>
   isOptionHeld: () => boolean
 }) {
@@ -371,27 +370,16 @@ function installOptionAwareDragListeners(input: {
     window.removeEventListener('pointermove', onPointerMove)
     window.removeEventListener('pointerup', onPointerUp)
     window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('mousemove', onMouseMove)
-    window.removeEventListener('mouseup', onMouseUp)
     window.removeEventListener('keydown', onKeyChange)
     window.removeEventListener('keyup', onKeyChange)
     window.removeEventListener('blur', onCancel)
   }
   const onPointerMove = (event: PointerEvent) => {
-    if (input.pointerId !== null && event.pointerId !== input.pointerId) return
+    if (event.pointerId !== input.pointerId) return
     input.session.move(event)
   }
   const onPointerUp = (event: PointerEvent) => {
-    if (input.pointerId !== null && event.pointerId !== input.pointerId) return
-    cleanup()
-    input.session.finish(event)
-  }
-  const onMouseMove = (event: MouseEvent) => {
-    if (input.pointerId !== null) return
-    input.session.move(event)
-  }
-  const onMouseUp = (event: MouseEvent) => {
-    if (input.pointerId !== null) return
+    if (event.pointerId !== input.pointerId) return
     cleanup()
     input.session.finish(event)
   }
@@ -404,14 +392,9 @@ function installOptionAwareDragListeners(input: {
     input.session.cancel()
   }
 
-  if (input.pointerId === null) {
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
-  } else {
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
-    window.addEventListener('pointercancel', onCancel)
-  }
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', onCancel)
   window.addEventListener('keydown', onKeyChange)
   window.addEventListener('keyup', onKeyChange)
   window.addEventListener('blur', onCancel)

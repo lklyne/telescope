@@ -42,6 +42,7 @@ export { selectedPageId } from './runtime-context'
 export {
   focusCanvasBounds,
   focusSelectedPage,
+  focusSelection,
 } from './viewport-control'
 
 export {

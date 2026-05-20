@@ -3,7 +3,7 @@ import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { setActiveTool } from './tool-mode'
 import { applyToolDefaultPatch } from './tool-defaults'
 import { undo, redo } from './workspace-undo'
-import { setZoom, setPan, focusSelectedPage } from './viewport-control'
+import { setZoom, setPan, focusSelection } from './viewport-control'
 import { groupSelectedEntities, ungroupSelectedGroup } from './document-commands'
 import { selectAdjacentPage } from './selection-state'
 import { selectEntities, selectNone } from './selection-controller'
@@ -70,7 +70,7 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   },
   'reset-viewport': () => {
     setZoom(1.0)
-    if (!focusSelectedPage()) {
+    if (!focusSelection()) {
       setPan(0, 0)
       requestLayout()
     }

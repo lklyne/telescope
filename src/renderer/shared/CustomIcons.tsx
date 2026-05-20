@@ -400,11 +400,10 @@ export const AddShapeToolIcon = makeToolbarIcon(addShapeUrl, addShapeDarkUrl, 'A
 // currently selected sticky color; gradient stops derived via lighten/darken
 // so the paper-highlight + paper-shadow visual is preserved across hues.) ───
 //
-// Geometry ported from icons/toolbar/add-sticky.svg. The grayscale stops in
-// the original raster (#F4F4F4/#DCDCDC light, #65625D/#484744 dark) map to
-// lighten(tint, 0.30) / darken(tint, 0.08) in light mode and darken(tint, 0.55)
-// / darken(tint, 0.70) in dark mode — picking those amounts keeps neutral
-// (#fdf8f5 light / #dcd2c4 dark) visually identical to the original raster.
+// Geometry ported from icons/toolbar/add-sticky.svg. Light mode keeps the
+// paper pale via lighten(tint, 0.45) → lighten(tint, 0.15); dark mode lifts
+// the value range via darken(tint, 0.35) → darken(tint, 0.50) so hues stay
+// readable on the dark toolbar surface.
 
 type AddStickyIconProps = {
   size?: number
@@ -432,8 +431,8 @@ export function AddStickyToolIcon({
   const paint2 = `add-sticky-paint2-${uid}`
   const clip = `add-sticky-clip-${uid}`
 
-  const paperTop = isDark ? darkenHex(tint, 0.55) : lightenHex(tint, 0.3)
-  const paperBottom = isDark ? darkenHex(tint, 0.7) : darkenHex(tint, 0.08)
+  const paperTop = isDark ? darkenHex(tint, 0.35) : lightenHex(tint, 0.45)
+  const paperBottom = isDark ? darkenHex(tint, 0.5) : lightenHex(tint, 0.15)
   const stroke = isDark ? '#C4BEBB' : '#45403C'
   // Drop-shadow color matrix differs by theme: light uses 32% gray, dark uses
   // 40% black — preserved from the original SVG assets so the shadow stays

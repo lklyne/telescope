@@ -28,6 +28,7 @@ describe('shouldGateBeOpen — canvas mode (default-open per ADR 0002 Step 7)', 
     'marquee',
     'dragging-entities',
     'resizing-entity',
+    'resizing-multi-selection',
     'dragging-edge',
   ] as const)('open when interaction is %s', (kind) => {
     expect(shouldGateBeOpen({ ...base(), interactionKind: kind })).toBe(true)

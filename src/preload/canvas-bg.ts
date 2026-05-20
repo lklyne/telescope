@@ -208,6 +208,8 @@ const api: CanvasBgElectronAPI = {
   beginResize: (entityId, entityKind, handle) =>
     ipcRenderer.send('canvas-resize-begin', { entityId, entityKind, handle }),
   endResize: () => ipcRenderer.send('canvas-resize-end'),
+  beginMultiResize: () => ipcRenderer.send('canvas-multi-resize-begin'),
+  endMultiResize: () => ipcRenderer.send('canvas-multi-resize-end'),
   commitRegionSelect: (canvasRect) => ipcRenderer.send('canvas-commit-region-select', canvasRect),
   commitCommentClickAt: (windowX, windowY) =>
     ipcRenderer.send('canvas-comment-click-at', { windowX, windowY }),

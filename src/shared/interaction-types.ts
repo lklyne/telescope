@@ -10,6 +10,7 @@ export type InteractionMode =
   | { kind: 'marquee'; origin: CanvasPoint; current: CanvasPoint }
   | { kind: 'dragging-entities'; ids: string[]; anchor: CanvasPoint }
   | { kind: 'resizing-entity'; id: string; edge: ResizeEdge }
+  | { kind: 'resizing-multi-selection' }
   | { kind: 'dragging-edge'; from: EdgeEndpoint; target: EdgeEndpoint | null }
   | { kind: 'editing-entity'; id: string }
 

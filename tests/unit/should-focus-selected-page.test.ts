@@ -89,6 +89,7 @@ describe('shouldFocusSelectedPage — interaction modes other than idle exclude'
     'marquee',
     'dragging-entities',
     'resizing-entity',
+    'resizing-multi-selection',
     'dragging-edge',
     'editing-entity',
   ] as const) {

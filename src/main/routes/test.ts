@@ -15,6 +15,7 @@ import {
   commit as commitInteraction,
   cancel as cancelInteraction,
   cancelActive,
+  commitActive,
   __resetForTests as resetInteractionForTests,
   type TryEnterInput,
 } from '../runtime/interaction-controller'
@@ -36,7 +37,9 @@ import {
   redo as redoCanvas,
   canUndo as canUndoCanvas,
   canRedo as canRedoCanvas,
+  markUndoBoundary,
 } from '../runtime/workspace-undo'
+import { beginBatch, endBatch } from '../runtime/workspace-observers'
 import { flushWorkspaceAutosaveSync } from '../runtime/workspace-autosave'
 import {
   DEFAULT_WORKSPACE_ID,
@@ -46,7 +49,8 @@ import {
 } from '../runtime/workspace-persistence'
 import { getActiveDoc } from '../runtime/workspace-doc'
 import { workspaceTabs, activeWorkspaceTabId } from '../runtime/workspace-model'
-import { applyDragDelta, finalizeDrag, initializeDrag } from '../runtime/document-commands'
+import { applyDragDelta, finalizeDrag, initializeDrag, resizeMultiSelection } from '../runtime/document-commands'
+import type { MultiResizeEntry } from '../runtime/document-commands'
 import { currentCanvasGuides } from '../runtime/canvas-guides'
 
 // --- Y.Doc transaction counter (test-only) ---
@@ -219,6 +223,36 @@ export const testRoutes: Route[] = [
     async handler({ response }) {
       finalizeDrag()
       writeJson(response, 200, { ok: true, guides: currentCanvasGuides() })
+    },
+  },
+
+  // --- Multi-selection resize simulation ---
+  {
+    method: 'POST',
+    pattern: '/test/canvas-multi-resize/begin',
+    async handler({ response }) {
+      tryEnter({ kind: 'resizing-multi-selection' })
+      beginBatch()
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/canvas-multi-resize/apply',
+    async handler({ response, body }) {
+      const { entries } = body as { entries: MultiResizeEntry[] }
+      resizeMultiSelection(entries)
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/canvas-multi-resize/end',
+    async handler({ response }) {
+      endBatch()
+      markUndoBoundary()
+      commitActive()
+      writeJson(response, 200, { ok: true })
     },
   },
   {

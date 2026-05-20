@@ -376,6 +376,17 @@ export function registerCanvasDragIpc(): void {
     commitActive()
   })
 
+  ipcMain.on('canvas-multi-resize-begin', () => {
+    tryEnter({ kind: 'resizing-multi-selection' })
+    beginBatch()
+  })
+
+  ipcMain.on('canvas-multi-resize-end', () => {
+    endBatch()
+    markUndoBoundary()
+    commitActive()
+  })
+
   ipcMain.on(
     'canvas-edge-drag-begin',
     (

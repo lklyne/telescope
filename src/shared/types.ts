@@ -108,6 +108,7 @@ export type CanvasInteractionState =
   | { kind: 'marquee-select' }
   | { kind: 'panning-canvas' }
   | { kind: 'resizing-entity'; entity: CanvasSelectableTarget }
+  | { kind: 'resizing-multi-selection' }
   | { kind: 'editing-entity'; entityId: string }
 
 export interface CanvasScenePageEntity {
@@ -1772,6 +1773,8 @@ export interface CanvasBgElectronAPI {
   endDragEntity: () => void
   beginResize: (entityId: string, entityKind: CanvasEntityKind, handle: ResizeHandle) => void
   endResize: () => void
+  beginMultiResize: () => void
+  endMultiResize: () => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
   /** Comment tool click below the drag threshold. Main resolves the page +
    *  element under the window-coord point and either fires

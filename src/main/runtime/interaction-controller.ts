@@ -28,6 +28,7 @@ import {
   beginEntityEditing,
   beginEntityResize,
   beginMarqueeSelect,
+  beginMultiSelectionResize,
   clearInteractionState,
 } from './interaction-state'
 import type { CanvasSelectableTarget, EdgeSide } from '../../shared/types'
@@ -66,6 +67,8 @@ function snapshotMode(): InteractionMode {
       return { kind: 'dragging-entities', ids: [...s.entityIds], anchor: { x: 0, y: 0 } }
     case 'resizing-entity':
       return { kind: 'resizing-entity', id: s.entity.id, edge: 'se' }
+    case 'resizing-multi-selection':
+      return { kind: 'resizing-multi-selection' }
     case 'editing-entity':
       return { kind: 'editing-entity', id: s.entityId }
     case 'dragging-edge':
@@ -97,6 +100,7 @@ export type TryEnterInput =
   | { kind: 'marquee' }
   | { kind: 'dragging-entities'; entityIds: string[] }
   | { kind: 'resizing-entity'; target: CanvasSelectableTarget }
+  | { kind: 'resizing-multi-selection' }
   | { kind: 'editing-entity'; entityId: string }
   | { kind: 'dragging-edge'; from: CanvasSelectableTarget; fromSide: EdgeSide }
 
@@ -113,6 +117,7 @@ export function tryEnter(input: TryEnterInput): Token | InteractionRefused {
     case 'marquee': beginMarqueeSelect(); break
     case 'dragging-entities': beginDraggingEntities(input.entityIds); break
     case 'resizing-entity': beginEntityResize(input.target); break
+    case 'resizing-multi-selection': beginMultiSelectionResize(); break
     case 'editing-entity': beginEntityEditing(input.entityId); break
     case 'dragging-edge': beginEdgeDrag(input.from, input.fromSide); break
   }

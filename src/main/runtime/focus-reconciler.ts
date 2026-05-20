@@ -21,7 +21,7 @@
 import type { FocusTarget } from '../../shared/interaction-types'
 
 export type FocusState = {
-  interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'dragging-edge' | 'editing-entity'
+  interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'resizing-multi-selection' | 'dragging-edge' | 'editing-entity'
   editingEntityId: string | null
   selectedPageId: string | null
   workspaceViewMode: 'canvas' | 'browser'
@@ -54,6 +54,7 @@ export function expectedFocus(state: FocusState): FocusTarget {
     case 'marquee':
     case 'dragging-entities':
     case 'resizing-entity':
+    case 'resizing-multi-selection':
     case 'dragging-edge':
       return { kind: 'aboveView' }
     case 'editing-entity':

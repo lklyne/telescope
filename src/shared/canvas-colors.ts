@@ -206,3 +206,16 @@ export function lightenHex(color: string, amount: number): string {
   const hex = (n: number) => n.toString(16).padStart(2, '0')
   return `#${hex(lr)}${hex(lg)}${hex(lb)}`
 }
+
+/** Darken a #RRGGBB hex by interpolating toward black. amount=0 leaves it; amount=1 returns black. */
+export function darkenHex(color: string, amount: number): string {
+  if (!color.startsWith('#') || color.length !== 7) return color
+  const r = parseInt(color.slice(1, 3), 16)
+  const g = parseInt(color.slice(3, 5), 16)
+  const b = parseInt(color.slice(5, 7), 16)
+  const dr = Math.round(r * (1 - amount))
+  const dg = Math.round(g * (1 - amount))
+  const db = Math.round(b * (1 - amount))
+  const hex = (n: number) => n.toString(16).padStart(2, '0')
+  return `#${hex(dr)}${hex(dg)}${hex(db)}`
+}

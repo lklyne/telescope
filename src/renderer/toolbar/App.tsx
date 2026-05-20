@@ -23,6 +23,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     activeTool,
     drawBrushType,
     drawColor,
+    stickyColor,
     selection,
     addressValue,
     setAddressValue,
@@ -152,6 +153,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 activeTool={activeTool}
                 drawBrushType={drawBrushType}
                 drawColor={drawColor}
+                stickyColor={stickyColor}
                 hasPages={hasPages}
                 drawingEnabled={DRAWING_FEATURE_ENABLED}
                 hasSelection={hasSelection}
@@ -193,6 +195,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 activeTool={activeTool}
                 drawBrushType={drawBrushType}
                 drawColor={drawColor}
+                stickyColor={stickyColor}
                 hasPages={hasPages}
                 drawingEnabled={DRAWING_FEATURE_ENABLED}
                 hasSelection={hasSelection}

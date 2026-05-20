@@ -647,6 +647,8 @@ export interface ToolbarSelectionData {
   drawBrushType: DrawingBrushType
   /** Current draw-tool color default (raw stored slot/hex) — tints the Draw glyph. */
   drawColor: string
+  /** Current sticky-tool color default (raw stored slot/hex) — tints the sticky glyph. */
+  stickyColor: string
 }
 
 export interface ThemeData {

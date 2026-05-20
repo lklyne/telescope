@@ -511,6 +511,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       activeTool: uiActiveTool(),
       drawBrushType: getToolDefaults().draw.brushType,
       drawColor: getToolDefaults().draw.color,
+      stickyColor: getToolDefaults()['add-sticky'].color,
     }
   }
 
@@ -548,5 +549,6 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     activeTool: uiActiveTool(),
     drawBrushType: getToolDefaults().draw.brushType,
     drawColor: getToolDefaults().draw.color,
+    stickyColor: getToolDefaults()['add-sticky'].color,
   }
 }

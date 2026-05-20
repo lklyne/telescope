@@ -1,4 +1,5 @@
 import { useId, type ComponentProps } from 'react'
+import { darkenHex, lightenHex } from '../../shared/canvas-colors'
 
 // Custom-drawn icons exported from the agent-canvas Figma file
 // (file key hgwwoe0EzUrErdviULmRtb).
@@ -23,7 +24,6 @@ import { useId, type ComponentProps } from 'react'
 
 import addPageUrl from './icons/toolbar/add-page.svg'
 import addShapeUrl from './icons/toolbar/add-shape.svg'
-import addStickyUrl from './icons/toolbar/add-sticky.svg'
 import addTextUrl from './icons/toolbar/add-text.svg'
 import commentUrl from './icons/toolbar/comment.svg'
 import handUrl from './icons/toolbar/hand.svg'
@@ -33,7 +33,6 @@ import themeUrl from './icons/toolbar/theme.svg'
 import zoomChevronUrl from './icons/toolbar/zoom-chevron.svg'
 import addPageDarkUrl from './icons/toolbar/dark/add-page.svg'
 import addShapeDarkUrl from './icons/toolbar/dark/add-shape.svg'
-import addStickyDarkUrl from './icons/toolbar/dark/add-sticky.svg'
 import addTextDarkUrl from './icons/toolbar/dark/add-text.svg'
 import commentDarkUrl from './icons/toolbar/dark/comment.svg'
 import handDarkUrl from './icons/toolbar/dark/hand.svg'
@@ -395,8 +394,189 @@ export function DrawHighlightToolIcon({
     </svg>
   )
 }
-export const AddStickyToolIcon = makeToolbarIcon(addStickyUrl, addStickyDarkUrl, 'AddStickyToolIcon')
 export const AddShapeToolIcon = makeToolbarIcon(addShapeUrl, addShapeDarkUrl, 'AddShapeToolIcon')
+
+// ── AddStickyToolIcon (inline JSX — `tint` colors the paper to match the
+// currently selected sticky color; gradient stops derived via lighten/darken
+// so the paper-highlight + paper-shadow visual is preserved across hues.) ───
+//
+// Geometry ported from icons/toolbar/add-sticky.svg. The grayscale stops in
+// the original raster (#F4F4F4/#DCDCDC light, #65625D/#484744 dark) map to
+// lighten(tint, 0.30) / darken(tint, 0.08) in light mode and darken(tint, 0.55)
+// / darken(tint, 0.70) in dark mode — picking those amounts keeps neutral
+// (#fdf8f5 light / #dcd2c4 dark) visually identical to the original raster.
+
+type AddStickyIconProps = {
+  size?: number
+  isDark?: boolean
+  /** Resolved soft-palette fill of the active sticky color. */
+  tint?: string
+  style?: React.CSSProperties
+  className?: string
+}
+
+const DEFAULT_STICKY_TINT_LIGHT = '#fdf8f5'
+
+export function AddStickyToolIcon({
+  size = 20,
+  isDark = false,
+  tint = DEFAULT_STICKY_TINT_LIGHT,
+  style,
+  className,
+}: AddStickyIconProps) {
+  const uid = useId()
+  const filter0 = `add-sticky-filter0-${uid}`
+  const filter1 = `add-sticky-filter1-${uid}`
+  const paint0 = `add-sticky-paint0-${uid}`
+  const paint1 = `add-sticky-paint1-${uid}`
+  const paint2 = `add-sticky-paint2-${uid}`
+  const clip = `add-sticky-clip-${uid}`
+
+  const paperTop = isDark ? darkenHex(tint, 0.55) : lightenHex(tint, 0.3)
+  const paperBottom = isDark ? darkenHex(tint, 0.7) : darkenHex(tint, 0.08)
+  const stroke = isDark ? '#C4BEBB' : '#45403C'
+  // Drop-shadow color matrix differs by theme: light uses 32% gray, dark uses
+  // 40% black — preserved from the original SVG assets so the shadow stays
+  // alpha-correct against either toolbar surface.
+  const shadowMatrix = isDark
+    ? '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.4 0'
+    : '0 0 0 0 0.785325 0 0 0 0 0.785325 0 0 0 0 0.785325 0 0 0 0.32 0'
+  const innerShadowAlpha = isDark ? 0.3 : 0.2
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={style}
+    >
+      <g clipPath={`url(#${clip})`}>
+        <g filter={`url(#${filter0})`}>
+          <rect
+            width="15"
+            height="15"
+            rx="3"
+            transform="matrix(0.998628 0.0523679 -0.0416989 0.99913 4.40137 3.61328)"
+            fill={`url(#${paint0})`}
+          />
+          <rect
+            x="0.478464"
+            y="0.525749"
+            width="14"
+            height="14"
+            rx="2.5"
+            transform="matrix(0.998628 0.0523679 -0.0416989 0.99913 4.42395 3.58868)"
+            stroke={stroke}
+          />
+        </g>
+        <g filter={`url(#${filter1})`}>
+          <path
+            d="M1.00098 3V14C1.00098 15.1046 1.89641 16 3.00098 16H14.001C15.1055 16 16.001 15.1046 16.001 14V10.875C16.001 5 12.001 1 8.40098 1H3.00098C1.89641 1 1.00098 1.89543 1.00098 3Z"
+            fill={`url(#${paint1})`}
+          />
+          <path
+            d="M3.00098 1.5H8.40137C11.645 1.5003 15.501 5.18877 15.501 10.875V14C15.501 14.8284 14.8294 15.5 14.001 15.5H3.00098C2.17255 15.5 1.50098 14.8284 1.50098 14V3C1.50098 2.17157 2.17255 1.5 3.00098 1.5Z"
+            stroke={stroke}
+          />
+        </g>
+        <path
+          d="M8.40137 1.5C8.51643 1.5 8.6648 1.53695 8.83652 1.60729C10.9037 2.45409 10.8554 5.23078 9.81889 7.2097C9.72914 7.38106 9.87327 7.58141 10.0643 7.55079L10.6922 7.45012C12.4547 7.16758 14.379 7.70514 15.0699 9.35098C15.3914 10.1167 15.5 10.743 15.5 11"
+          stroke={stroke}
+        />
+        <path
+          d="M2 8H12C13.6569 8 15 9.34315 15 11V14C15 14.5523 14.5523 15 14 15H3C2.44772 15 2 14.5523 2 14V8Z"
+          fill={`url(#${paint2})`}
+        />
+      </g>
+      <defs>
+        <filter
+          id={filter0}
+          x="-0.101562"
+          y="1.76611"
+          width="23.3604"
+          height="23.4668"
+          filterUnits="userSpaceOnUse"
+          colorInterpolationFilters="sRGB"
+        >
+          <feFlood floodOpacity="0" result="BackgroundImageFix" />
+          <feColorMatrix
+            in="SourceAlpha"
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+            result="hardAlpha"
+          />
+          <feOffset dy="2" />
+          <feGaussianBlur stdDeviation="2" />
+          <feComposite in2="hardAlpha" operator="out" />
+          <feColorMatrix type="matrix" values={shadowMatrix} />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1" />
+          <feBlend mode="normal" in="SourceGraphic" in2="effect1" result="shape" />
+        </filter>
+        <filter
+          id={filter1}
+          x="-2.99902"
+          y="-1"
+          width="23"
+          height="23"
+          filterUnits="userSpaceOnUse"
+          colorInterpolationFilters="sRGB"
+        >
+          <feFlood floodOpacity="0" result="BackgroundImageFix" />
+          <feColorMatrix
+            in="SourceAlpha"
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+            result="hardAlpha"
+          />
+          <feOffset dy="2" />
+          <feGaussianBlur stdDeviation="2" />
+          <feComposite in2="hardAlpha" operator="out" />
+          <feColorMatrix type="matrix" values={shadowMatrix} />
+          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1" />
+          <feColorMatrix
+            in="SourceAlpha"
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+            result="hardAlpha"
+          />
+          <feOffset dx="0.5" dy="0.5" />
+          <feGaussianBlur stdDeviation="0.25" />
+          <feComposite in2="hardAlpha" operator="out" />
+          <feColorMatrix type="matrix" values={`0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ${innerShadowAlpha} 0`} />
+          <feBlend mode="normal" in2="effect1" result="effect2" />
+          <feBlend mode="normal" in="SourceGraphic" in2="effect2" result="shape" />
+        </filter>
+        <linearGradient id={paint0} x1="7.5" y1="0" x2="7.5" y2="15" gradientUnits="userSpaceOnUse">
+          <stop stopColor={paperTop} />
+          <stop offset="1" stopColor={paperBottom} />
+        </linearGradient>
+        <radialGradient
+          id={paint1}
+          cx="0"
+          cy="0"
+          r="1"
+          gradientTransform="matrix(-4.59752 3.97059 -3.97059 -5.12255 13.3307 3.20588)"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor={paperTop} />
+          <stop offset="0.0001" stopColor={paperBottom} />
+          <stop offset="1" stopColor={paperTop} />
+        </radialGradient>
+        <linearGradient id={paint2} x1="8.5" y1="8" x2="8.5" y2="15" gradientUnits="userSpaceOnUse">
+          <stop stopColor={paperTop} stopOpacity="0" />
+          <stop offset="1" stopColor={paperBottom} />
+        </linearGradient>
+        <clipPath id={clip}>
+          <rect width="20" height="20" fill="white" />
+        </clipPath>
+      </defs>
+    </svg>
+  )
+}
+
 export const AddPageToolIcon = makeToolbarIcon(addPageUrl, addPageDarkUrl, 'AddPageToolIcon')
 export const AddTextToolIcon = makeToolbarIcon(addTextUrl, addTextDarkUrl, 'AddTextToolIcon')
 export const CommentToolIcon = makeToolbarIcon(commentUrl, commentDarkUrl, 'CommentToolIcon')

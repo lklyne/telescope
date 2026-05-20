@@ -67,7 +67,9 @@ export interface ResolvedColorSlot {
 export const NEUTRAL_STORAGE = 'neutral'
 
 const NEUTRAL_FILL_LIGHT = '#fdf8f5'
-const NEUTRAL_FILL_DARK = '#3a3836'
+// Slightly muted cream for dark mode — still light enough for dark ink to read,
+// but a touch less glaring on a dark canvas. Pairs with NEUTRAL_INK_LIGHT.
+const NEUTRAL_FILL_DARK = '#dcd2c4'
 const NEUTRAL_INK_LIGHT = '#1c1917'
 const NEUTRAL_INK_DARK = '#e7e5e4'
 
@@ -203,4 +205,17 @@ export function lightenHex(color: string, amount: number): string {
   const lb = Math.round(b + (255 - b) * amount)
   const hex = (n: number) => n.toString(16).padStart(2, '0')
   return `#${hex(lr)}${hex(lg)}${hex(lb)}`
+}
+
+/** Darken a #RRGGBB hex by interpolating toward black. amount=0 leaves it; amount=1 returns black. */
+export function darkenHex(color: string, amount: number): string {
+  if (!color.startsWith('#') || color.length !== 7) return color
+  const r = parseInt(color.slice(1, 3), 16)
+  const g = parseInt(color.slice(3, 5), 16)
+  const b = parseInt(color.slice(5, 7), 16)
+  const dr = Math.round(r * (1 - amount))
+  const dg = Math.round(g * (1 - amount))
+  const db = Math.round(b * (1 - amount))
+  const hex = (n: number) => n.toString(16).padStart(2, '0')
+  return `#${hex(dr)}${hex(dg)}${hex(db)}`
 }

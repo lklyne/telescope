@@ -308,6 +308,8 @@ export interface PendingPlacement {
   presetIndex?: number
   shapeKind?: ShapeKind
   textStyle?: TextEntityStyle
+  /** Stored color of the in-flight placement (sticky fill, etc.) so the preview can match the picker. */
+  color?: string
   width: number
   height: number
 }
@@ -645,6 +647,8 @@ export interface ToolbarSelectionData {
   drawBrushType: DrawingBrushType
   /** Current draw-tool color default (raw stored slot/hex) — tints the Draw glyph. */
   drawColor: string
+  /** Current sticky-tool color default (raw stored slot/hex) — tints the sticky glyph. */
+  stickyColor: string
 }
 
 export interface ThemeData {

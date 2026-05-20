@@ -245,8 +245,8 @@ function StickyCard({
     }
   }, [isAuto, note.id, onUpdateSize])
 
-  // Stickies always sit on a light colored background; pass isDark=false so
-  // CodeMirror renders dark text matching the view-mode color below.
+  // Stickies render with a light fill in both themes (neutral is pinned light
+  // below via `isDark: false`), so non-plain text always uses dark ink.
   const editorIsDark = isPlain ? isDark : false
   const textColor = isPlain ? (isDark ? '#e7e5e4' : '#1c1917') : '#1c1917'
   const placeholder = isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'

@@ -152,6 +152,7 @@ interface CenterActionsProps {
   activeTool: Tool
   drawBrushType: DrawingBrushType
   drawColor: string
+  stickyColor: string
   hasPages: boolean
   drawingEnabled: boolean
   hasSelection: boolean
@@ -169,6 +170,7 @@ export function CenterActions({
   activeTool,
   drawBrushType,
   drawColor,
+  stickyColor,
   hasPages,
   drawingEnabled,
   hasSelection,
@@ -276,7 +278,7 @@ export function CenterActions({
             title="Add sticky"
             type="button"
           >
-            <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} />
+            <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} color={stickyColor} />
           </button>
         ) : null}
 

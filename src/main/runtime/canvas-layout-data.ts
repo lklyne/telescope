@@ -303,6 +303,8 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
       : tool.kind === 'add-text'
         ? 'plain'
         : undefined
+  const color =
+    tool.kind === 'add-sticky' ? getToolDefaults()['add-sticky'].color : undefined
   const customSize = tool.kind === 'add-page' ? tool.customSize === true : false
   const sourcePageId = tool.kind === 'add-page' ? tool.sourcePageId : undefined
   // shapeKind moved to tool defaults per ADR 0009 — preview reads the persisted
@@ -320,6 +322,7 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
     presetIndex,
     shapeKind,
     textStyle,
+    color,
     width: isText
       ? DEFAULT_TEXT_WIDTH
       : isFile
@@ -508,6 +511,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       activeTool: uiActiveTool(),
       drawBrushType: getToolDefaults().draw.brushType,
       drawColor: getToolDefaults().draw.color,
+      stickyColor: getToolDefaults()['add-sticky'].color,
     }
   }
 
@@ -545,5 +549,6 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     activeTool: uiActiveTool(),
     drawBrushType: getToolDefaults().draw.brushType,
     drawColor: getToolDefaults().draw.color,
+    stickyColor: getToolDefaults()['add-sticky'].color,
   }
 }

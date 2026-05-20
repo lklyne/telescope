@@ -1,5 +1,5 @@
 import { useId, type ComponentProps } from 'react'
-import { darkenHex, lightenHex } from '../../shared/canvas-colors'
+import { darkenHex, lightenHex, NEUTRAL_STORAGE, resolveCanvasColor } from '../../shared/canvas-colors'
 
 // Custom-drawn icons exported from the agent-canvas Figma file
 // (file key hgwwoe0EzUrErdviULmRtb).
@@ -401,28 +401,29 @@ export const AddShapeToolIcon = makeToolbarIcon(addShapeUrl, addShapeDarkUrl, 'A
 // so the paper-highlight + paper-shadow visual is preserved across hues.) ───
 //
 // Geometry ported from icons/toolbar/add-sticky.svg. Light mode keeps the
-// paper pale via lighten(tint, 0.45) → lighten(tint, 0.15); dark mode lifts
-// the value range via darken(tint, 0.35) → darken(tint, 0.50) so hues stay
-// readable on the dark toolbar surface.
+// paper pale via lighten(tint, 0.45) → lighten(tint, 0.15). Dark mode is
+// split: neutral darkens hard (0.55 → 0.70, matching the original raster)
+// so it doesn't outshine the toolbar surface and bleed past strokes; hue
+// stickies darken lightly (0.20 → 0.40) so the chroma stays readable.
 
 type AddStickyIconProps = {
   size?: number
   isDark?: boolean
-  /** Resolved soft-palette fill of the active sticky color. */
-  tint?: string
+  /** Raw stored sticky-color value (slot sentinel, preset, or hex). */
+  color?: string
   style?: React.CSSProperties
   className?: string
 }
 
-const DEFAULT_STICKY_TINT_LIGHT = '#fdf8f5'
-
 export function AddStickyToolIcon({
   size = 20,
   isDark = false,
-  tint = DEFAULT_STICKY_TINT_LIGHT,
+  color = NEUTRAL_STORAGE,
   style,
   className,
 }: AddStickyIconProps) {
+  const tint = resolveCanvasColor(color, { role: 'fill', isDark, palette: 'soft' })
+  const isNeutral = color === NEUTRAL_STORAGE
   const uid = useId()
   const filter0 = `add-sticky-filter0-${uid}`
   const filter1 = `add-sticky-filter1-${uid}`
@@ -431,8 +432,12 @@ export function AddStickyToolIcon({
   const paint2 = `add-sticky-paint2-${uid}`
   const clip = `add-sticky-clip-${uid}`
 
-  const paperTop = isDark ? darkenHex(tint, 0.35) : lightenHex(tint, 0.45)
-  const paperBottom = isDark ? darkenHex(tint, 0.5) : lightenHex(tint, 0.15)
+  const paperTop = isDark
+    ? darkenHex(tint, isNeutral ? 0.55 : 0.2)
+    : lightenHex(tint, 0.45)
+  const paperBottom = isDark
+    ? darkenHex(tint, isNeutral ? 0.7 : 0.4)
+    : lightenHex(tint, 0.15)
   const stroke = isDark ? '#C4BEBB' : '#45403C'
   // Drop-shadow color matrix differs by theme: light uses 32% gray, dark uses
   // 40% black — preserved from the original SVG assets so the shadow stays

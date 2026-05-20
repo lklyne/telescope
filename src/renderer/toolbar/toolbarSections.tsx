@@ -208,12 +208,6 @@ export function CenterActions({
     isDark,
     palette: 'vivid',
   })
-  // Sticky glyph fills tint from the soft palette to match placed stickies.
-  const stickyTint = resolveCanvasColor(stickyColor, {
-    role: 'fill',
-    isDark,
-    palette: 'soft',
-  })
   const selectTriggerClassName = isDark
     ? 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-[rgba(253,248,245,0.1)]'
     : 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900'
@@ -284,7 +278,7 @@ export function CenterActions({
             title="Add sticky"
             type="button"
           >
-            <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} tint={stickyTint} />
+            <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} color={stickyColor} />
           </button>
         ) : null}
 

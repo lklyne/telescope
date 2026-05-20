@@ -277,6 +277,53 @@ export function deleteTextEntities(ids: string[]) {
   return post<{ deleted: string[] }>('/text-entities/delete', { ids })
 }
 
+// --- Drawing entities ---
+
+export interface DrawingStroke {
+  id: string
+  color: string
+  width: number
+  points: { x: number; y: number }[]
+}
+
+export interface DrawingEntity {
+  id: string
+  canvasX: number
+  canvasY: number
+  width: number
+  height: number
+  strokes: DrawingStroke[]
+}
+
+export function getDrawingEntities() {
+  return get<{ drawingEntities: DrawingEntity[] }>('/drawing-entities')
+}
+
+export function createDrawingEntity(input: {
+  canvasX: number
+  canvasY: number
+  width: number
+  height: number
+  strokes: DrawingStroke[]
+  id?: string
+}) {
+  return post<DrawingEntity>('/drawing-entities/create', input)
+}
+
+export function updateDrawingEntity(id: string, patch: {
+  canvasX?: number
+  canvasY?: number
+  width?: number
+  height?: number
+  strokes?: DrawingStroke[]
+}) {
+  return post<DrawingEntity>('/drawing-entities/update', { id, patch })
+}
+
+export function deleteDrawingEntities(ids: string[]) {
+  return post<{ deleted: string[] }>('/drawing-entities/delete', { ids })
+}
+
 // --- Selection ---
 
 export function getSelection() {

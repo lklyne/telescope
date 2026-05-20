@@ -54,6 +54,11 @@ export function useViewportWheelAndMiddlePan(
 
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerId !== middleDragPointerId || !middleDrag) return
+      if ((event.buttons & 4) === 0) {
+        middleDrag = null
+        middleDragPointerId = null
+        return
+      }
       const delta = middleDragDelta(middleDrag, event)
       middleDrag = { screenX: event.screenX, screenY: event.screenY }
       api.canvasPan(delta.deltaX, delta.deltaY)
@@ -66,22 +71,37 @@ export function useViewportWheelAndMiddlePan(
       }
     }
 
+    const onPointerCancel = (event: PointerEvent) => {
+      if (event.pointerId === middleDragPointerId) {
+        middleDrag = null
+        middleDragPointerId = null
+      }
+    }
+
     const cleanup = () => {
       middleDrag = null
       middleDragPointerId = null
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') cleanup()
     }
 
     window.addEventListener('wheel', onWheel, { passive: false })
     window.addEventListener('pointerdown', onPointerDown)
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerCancel)
     window.addEventListener('blur', cleanup)
+    document.addEventListener('visibilitychange', onVisibilityChange)
     return () => {
       window.removeEventListener('wheel', onWheel)
       window.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerCancel)
       window.removeEventListener('blur', cleanup)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       cleanup()
     }
   }, [api, enabled])

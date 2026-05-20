@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { TextEntityStyle } from '../../shared/types'
+import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { buildCanvasGridStyle, drawCanvasGrid } from './canvasGridStyle'
 
 function previewBoxStyle(
@@ -114,6 +115,7 @@ export function PlacementPreviewLayer({
     entityKind?: string
     shapeKind?: string
     textStyle?: TextEntityStyle
+    color?: string
     left: number
     top: number
     width: number
@@ -124,6 +126,7 @@ export function PlacementPreviewLayer({
   const isTextEntity = preview.entityKind === 'text'
   const isFileEntity = preview.entityKind === 'file'
   const isShape = preview.entityKind === 'shape'
+  const isStickyPreview = isTextEntity && preview.textStyle === 'sticky'
   if (isTextEntity && preview.textStyle === 'plain') {
     return (
       <div
@@ -183,18 +186,29 @@ export function PlacementPreviewLayer({
       className={`pointer-events-none absolute border ${isTextEntity || isFileEntity ? '' : 'rounded-[8px]'}`}
       style={{
         ...previewBoxStyle(isDark, preview),
-        ...(isTextEntity
+        ...(isStickyPreview && preview.color
           ? {
-              background: 'rgba(254, 240, 138, 0.7)',
-              borderColor: 'rgba(202, 138, 4, 0.4)',
+              // Stickies always render with a light fill (neutral pinned light),
+              // so pass isDark: false to keep the preview matching placed stickies.
+              background: resolveCanvasColor(preview.color, {
+                role: 'fill',
+                isDark: false,
+                palette: 'soft',
+              }),
+              borderColor: 'rgba(87, 83, 78, 0.18)',
             }
-          : isFileEntity
+          : isTextEntity
             ? {
-                background: isDark ? 'rgba(214, 211, 209, 0.15)' : 'rgba(250, 250, 249, 0.7)',
-                borderColor: isDark ? 'rgba(168, 162, 158, 0.4)' : 'rgba(120, 113, 108, 0.4)',
-                borderRadius: 4,
+                background: 'rgba(254, 240, 138, 0.7)',
+                borderColor: 'rgba(202, 138, 4, 0.4)',
               }
-            : {}),
+            : isFileEntity
+              ? {
+                  background: isDark ? 'rgba(214, 211, 209, 0.15)' : 'rgba(250, 250, 249, 0.7)',
+                  borderColor: isDark ? 'rgba(168, 162, 158, 0.4)' : 'rgba(120, 113, 108, 0.4)',
+                  borderRadius: 4,
+                }
+              : {}),
       }}
     />
   )

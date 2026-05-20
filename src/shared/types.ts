@@ -308,6 +308,8 @@ export interface PendingPlacement {
   presetIndex?: number
   shapeKind?: ShapeKind
   textStyle?: TextEntityStyle
+  /** Stored color of the in-flight placement (sticky fill, etc.) so the preview can match the picker. */
+  color?: string
   width: number
   height: number
 }

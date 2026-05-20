@@ -188,11 +188,9 @@ export function PlacementPreviewLayer({
         ...previewBoxStyle(isDark, preview),
         ...(isStickyPreview && preview.color
           ? {
-              // Stickies always render with a light fill (neutral pinned light),
-              // so pass isDark: false to keep the preview matching placed stickies.
               background: resolveCanvasColor(preview.color, {
                 role: 'fill',
-                isDark: false,
+                isDark,
                 palette: 'soft',
               }),
               borderColor: 'rgba(87, 83, 78, 0.18)',

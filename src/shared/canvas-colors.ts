@@ -67,7 +67,9 @@ export interface ResolvedColorSlot {
 export const NEUTRAL_STORAGE = 'neutral'
 
 const NEUTRAL_FILL_LIGHT = '#fdf8f5'
-const NEUTRAL_FILL_DARK = '#3a3836'
+// Slightly muted cream for dark mode — still light enough for dark ink to read,
+// but a touch less glaring on a dark canvas. Pairs with NEUTRAL_INK_LIGHT.
+const NEUTRAL_FILL_DARK = '#dcd2c4'
 const NEUTRAL_INK_LIGHT = '#1c1917'
 const NEUTRAL_INK_DARK = '#e7e5e4'
 

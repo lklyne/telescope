@@ -297,7 +297,7 @@ function StickyCard({
       height={note.height}
       isDark={isDark}
       isSelected={isSelected}
-      background={resolveCanvasColor(note.color, { role: 'fill', isDark: false, palette: 'soft' })}
+      background={resolveCanvasColor(note.color, { role: 'fill', isDark, palette: 'soft' })}
       textStyle={textStyle}
       isAuto={isAuto}
       shellRef={shellRef}

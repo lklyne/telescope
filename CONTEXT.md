@@ -59,6 +59,32 @@ Conventions:
 - **Body sub-rect** — the part of the entity rect that holds the entity's content (the live document for a page, the image for a file, etc.). Resize handles and edge anchors attach here.
 - **Chrome slot** — the part of the entity rect reserved for canvas-anchored overlay UI. Per-kind, runtime-derived, **not persisted** in the `.canvas` schema.
 
+## Stack order
+
+The front-to-back ordering of canvas items. Topmost = frontmost. Backed by the `entityOrder` array on the workspace (a Y.Array, round-tripped through the `.canvas` JSON Canvas node order). See [ADR 0014](./docs/adr/0014-canvas-stack-order.md).
+
+- **Stack order** — user-facing term for the concept. The sidebar tree mirrors stack order top-to-bottom (topmost row = frontmost item). Pages (`WebContentsView`s) are stacked on the canvas in the same order: frontmost stack slot = topmost child view.
+- **`entityOrder`** — the persisted data-model array. Code-only term; do not surface in UI copy. One flat array regardless of how the sidebar groups things — the section partition below is purely a render-time view, not a data split.
+- **Group contiguity** — every group's descendants (recursive) plus the group's own id form a single contiguous run inside `entityOrder`. The group's id sits at the front of its run, so `entityOrder.indexOf(groupId)` *is* the group's stack position. A group occupies one stack slot — reordering the group moves the whole run as a unit. Within that run, each child group's subtree is also contiguous (the invariant nests).
+- **Stack-order mutations** — *Bring forward*, *Send backward*, *Bring to front*, *Send to back*. Shortcuts: `Cmd+]`, `Cmd+[`, `Cmd+Shift+]`, `Cmd+Shift+[` (Figma/Sketch convention). Sidebar rows can also be dragged or moved with `↑`/`↓` — moving a row up = bringing it forward.
+
+### Sidebar sections — *Notes* and *Pages*
+
+The canvas has two interactive paint surfaces, and the sidebar mirrors them as two labelled sections so the user can see why stack order behaves the way it does.
+
+- **Notes** (top section) — text, sticky, document (file), drawing, shape. These render in `aboveView` and always paint above pages by architecture.
+- **Pages** (bottom section) — live web pages. These render as `WebContentsView` children between `bgView` and `aboveView`.
+
+Stack-order mutations are scoped per section: bring-forward/backward move within Notes or within Pages, not across the divider. Cross-section drag has no drop target. *Note* is a sidebar-grouping label — it is not a kind in the data model and never appears in `.canvas` files.
+
+**Groups with mixed contents** — a group is one entity with one stack slot (its contiguous run in `entityOrder`), but its members can paint on both surfaces. The sidebar honours both facts via **split representation**: a group whose members straddle the two paint surfaces appears as **two rows**, one in each section, sharing id, name, and selection state. Expanding the Notes row reveals only note-children; expanding the Pages row reveals only page-children. Operations are unitary — sending-backward from either row moves the *whole* group run as one unit, so the notes and pages rows shift simultaneously within their respective sections. Pure-note and pure-page groups appear in only one section. Dissolve removes both rows. Render rule: walk `entityOrder`; for each group, partition members by section and emit a row in each section that has any members. Visually link the two rows (matching colour bar / chain glyph) so users read them as one group.
+
+**Edges** — edges participate in stack order (FigJam parity: send-to-back, bring-forward, etc.) by being interleaved into `entityOrder` alongside entities. They render in `EdgeLayer` (within `aboveView`) and silently default to the top of the stack when newly created. They do **not** appear as rows in the sidebar — the sidebar shows entities, not connective tissue. Stack-order mutations on edges happen on the canvas (select edge → keyboard / context menu). Sidebar drag-reorder operates on the entity subsequence only; edge indices in `entityOrder` are untouched by sidebar drags (rule (i)).
+
+Cross-surface stacking — putting a sticky behind a page, or a page in front of a drawing — is not supported today: `aboveView` always paints above all pages. The two-section sidebar surfaces that constraint directly instead of pretending one flat order can override it.
+
+JSON Canvas note: the spec emits nodes and edges into separate arrays. The interleaved `entityOrder` (including edge ids) is persisted as a Specular extension (`specular.order` or equivalent); other JSON Canvas tools round-trip the data but lose precise stack interleaving for edges. Acceptable trade-off — same pattern as `specular.textStyle`.
+
 ## Drag affordances
 
 Modifiers and visual feedback that ride on top of entity drag (and resize) gestures. The single magnetic pull on the canvas is grid-snap (`snapToGrid`, 20 px); everything below either projects the delta before the snap (axis lock) or renders informationally after it (alignment / distribution guides). See [ADR 0012](./docs/adr/0012-alignment-guides-are-visual-only.md).

@@ -130,10 +130,10 @@ describe('hit-test — resize handles vs body', () => {
   })
 
   it('clicking on the visible NE handle (offset by page outline padding) resizes', () => {
-    // Page outline pads the NE corner outward by 6px; the visible 8×8
-    // white handle is centered there, so a real user click typically lands
-    // a few pixels past the entity edge. Pre-fix this fell through to
-    // background → marquee.
+    // Page outline pads the NE corner outward by 2px; the visible handle
+    // is centered there, so a real user click typically lands a few pixels
+    // past the entity edge. Pre-fix this fell through to background → marquee.
+    // NE handle rect: x ∈ [596, 608], y ∈ [192, 204]. Click (606,194) is inside.
     const result = hitTest(inputs([f], ['f1']), { x: 606, y: 194 })
     expect(result.layer).toBe('resize-handles')
     expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'ne' })
@@ -266,6 +266,25 @@ describe('hit-test — body z-order (front-to-back)', () => {
     // layer.
     const result = hitTest(inputs([t, g]), { x: 350, y: 320 })
     expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 't1' })
+  })
+})
+
+describe('hit-test — group resize handles', () => {
+  // Group at (100,100), 600×500. SE corner at (700, 600).
+  // With 2px outline padding, SE handle rect: x ∈ [696, 708], y ∈ [596, 608].
+  const g = group('g1', 100, 100, 600, 500)
+
+  it('resize handle wins at the SE corner when group is selected', () => {
+    const result = hitTest(inputs([g], ['g1']), { x: 700, y: 600 })
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'se', entityId: 'g1' })
+  })
+
+  it('clicking 2px past the SE corner hits the handle (2px outline padding)', () => {
+    // Handle rect SE: x ∈ [696, 708], y ∈ [596, 608]. Click (702, 602) is inside.
+    const result = hitTest(inputs([g], ['g1']), { x: 702, y: 602 })
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'se' })
   })
 })
 

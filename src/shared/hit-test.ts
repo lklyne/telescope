@@ -333,12 +333,10 @@ const HANDLES: readonly ResizeHandle[] = ['nw', 'ne', 'se', 'sw', 'n', 'e', 's',
 // are centered on the outline corners/edges, not the entity itself. Match
 // the padding used by SelectionOutlineLayer so hit-test geometry tracks the
 // pixels users actually see.
-function outlinePaddingFor(kind: CanvasEntityKind): number {
-  switch (kind) {
-    case 'page': return 6
-    case 'group': return 0
-    default: return 2
-  }
+const SINGLE_SELECTION_OUTLINE_PADDING_PX = 2
+
+function outlinePaddingFor(_kind: CanvasEntityKind): number {
+  return SINGLE_SELECTION_OUTLINE_PADDING_PX
 }
 
 function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {

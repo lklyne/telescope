@@ -79,6 +79,14 @@ const BACKGROUND_TARGET: HitTarget = {
 
 export function hitTest(inputs: HitInputs, point: Point): HitTarget {
   for (const layer of HIT_LAYER_ORDER) {
+    // Drawings render in aboveView above all page elements, including the
+    // page chrome strip. Give selected drawing bodies priority over chrome so
+    // that dragging a selected drawing that overlaps a page routes to the
+    // drawing rather than the page underneath.
+    if (layer === 'chrome') {
+      const drawingHit = hitSelectedDrawingBody(inputs, point)
+      if (drawingHit) return drawingHit
+    }
     const targets = collectLayerTargets(layer, inputs)
     // First registered match wins within a layer. Selectors are responsible
     // for ordering within a layer (e.g. front-to-back z-order for entities).
@@ -87,6 +95,26 @@ export function hitTest(inputs: HitInputs, point: Point): HitTarget {
     }
   }
   return BACKGROUND_TARGET
+}
+
+// Checks whether the point falls inside any selected drawing's body,
+// iterating front-to-back so the topmost drawing wins in overlap cases.
+function hitSelectedDrawingBody(inputs: HitInputs, point: Point): HitTarget | null {
+  const selectedSet = new Set(inputs.selectedEntityIds)
+  for (let i = inputs.entities.length - 1; i >= 0; i--) {
+    const entity = inputs.entities[i]
+    if (entity.kind !== 'drawing') continue
+    if (!selectedSet.has(entity.id)) continue
+    const rect = bodyRect(entity)
+    if (regionContains({ kind: 'rect', rect }, point)) {
+      return {
+        layer: 'body',
+        region: { kind: 'rect', rect },
+        payload: { kind: 'entity-body', entityId: entity.id, entityKind: 'drawing' },
+      }
+    }
+  }
+  return null
 }
 
 // --- Layer collectors ---

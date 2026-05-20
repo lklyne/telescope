@@ -50,10 +50,10 @@ function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: Page
     <div
       className="absolute border-2"
       style={{
-        left: page.screenX - 6,
-        top: page.screenY - 6 - originY,
-        width: page.screenWidth + 12,
-        height: page.screenHeight + 12,
+        left: page.screenX - 2,
+        top: page.screenY - 2 - originY,
+        width: page.screenWidth + 4,
+        height: page.screenHeight + 4,
         borderColor: selectionColor(isDark),
         pointerEvents: 'none',
       }}
@@ -92,10 +92,10 @@ function PageHoverOutline({
     <div
       className="absolute border-2"
       style={{
-        left: page.screenX - 6,
-        top: page.screenY - 6 - originY,
-        width: page.screenWidth + 12,
-        height: page.screenHeight + 12,
+        left: page.screenX - 2,
+        top: page.screenY - 2 - originY,
+        width: page.screenWidth + 4,
+        height: page.screenHeight + 4,
         borderColor: selectionColor(isDark),
         pointerEvents: 'none',
       }}
@@ -260,10 +260,10 @@ function GroupSelectionOverlay({
       className="absolute border-2"
       data-overlay-ui
       style={{
-        left: group.screenX,
-        top: group.screenY - originY,
-        width: group.screenWidth,
-        height: group.screenHeight,
+        left: group.screenX - 2,
+        top: group.screenY - 2 - originY,
+        width: group.screenWidth + 4,
+        height: group.screenHeight + 4,
         borderColor: selectionColor(isDark),
         borderRadius: 2,
         pointerEvents: 'none',

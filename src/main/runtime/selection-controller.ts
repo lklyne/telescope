@@ -77,6 +77,7 @@ function predicateInteractionKind(
     case 'marquee-select': return 'marquee'
     case 'dragging-entities': return 'dragging-entities'
     case 'resizing-entity': return 'resizing-entity'
+    case 'resizing-multi-selection': return 'resizing-multi-selection'
     case 'dragging-edge': return 'dragging-edge'
     case 'editing-entity': return 'editing-entity'
   }

@@ -47,6 +47,14 @@ export function beginEntityResize(entity: CanvasSelectableTarget): CanvasInterac
   return next
 }
 
+export function beginMultiSelectionResize(): CanvasInteractionState {
+  const next: CanvasInteractionState = { kind: 'resizing-multi-selection' }
+  setInteractionState(next)
+  markDirty('canvas')
+  requestLayout()
+  return next
+}
+
 export function beginEntityEditing(entityId: string): CanvasInteractionState {
   const next: CanvasInteractionState = { kind: 'editing-entity', entityId }
   setInteractionState(next)
@@ -89,6 +97,7 @@ export function interactionBlocksPageHover(state: CanvasInteractionState = inter
   return (
     state.kind === 'dragging-edge' ||
     state.kind === 'resizing-entity' ||
+    state.kind === 'resizing-multi-selection' ||
     state.kind === 'dragging-entities'
   )
 }

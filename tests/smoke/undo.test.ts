@@ -16,13 +16,16 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  applyMultiResize,
+  beginMultiResize,
   createGroup,
   createTextEntities,
   deleteGroups,
   deleteTextEntities,
+  endMultiResize,
   getTextEntities,
-  getWorkspace,
   getUndoState,
+  getWorkspace,
   redoWorkspace,
   resetSmokeState,
   undoWorkspace,
@@ -186,5 +189,51 @@ describe('undo', () => {
       const after = await getTextEntities()
       expect(after.textEntities.some((t) => t.id === firstIds[0])).toBe(false)
     }
+  })
+
+  it('multi-selection resize gesture collapses to one undo step', async () => {
+    // Create two text entities to resize together.
+    const { ids: idsA } = await createTextEntities([
+      { canvasX: 0, canvasY: 0, text: 'a', width: 100, height: 50 },
+    ])
+    await wait(50)
+    const { ids: idsB } = await createTextEntities([
+      { canvasX: 200, canvasY: 0, text: 'b', width: 100, height: 50 },
+    ])
+    await wait(50)
+
+    const before = await getTextEntities()
+    const aInit = before.textEntities.find((t) => t.id === idsA[0])!
+    const bInit = before.textEntities.find((t) => t.id === idsB[0])!
+
+    // Simulate a multi-resize gesture: begin → multiple apply ticks → end.
+    await beginMultiResize()
+    await applyMultiResize([
+      { id: idsA[0], kind: 'text', width: 120, height: 60, canvasX: aInit.canvasX, canvasY: aInit.canvasY },
+      { id: idsB[0], kind: 'text', width: 120, height: 60, canvasX: bInit.canvasX, canvasY: bInit.canvasY },
+    ])
+    await applyMultiResize([
+      { id: idsA[0], kind: 'text', width: 140, height: 70, canvasX: aInit.canvasX, canvasY: aInit.canvasY },
+      { id: idsB[0], kind: 'text', width: 140, height: 70, canvasX: bInit.canvasX, canvasY: bInit.canvasY },
+    ])
+    await endMultiResize()
+    await wait(50)
+
+    // Both entities should be resized.
+    const afterResize = await getTextEntities()
+    const aResized = afterResize.textEntities.find((t) => t.id === idsA[0])!
+    const bResized = afterResize.textEntities.find((t) => t.id === idsB[0])!
+    expect(aResized.width).toBe(140)
+    expect(bResized.width).toBe(140)
+
+    // One undo should restore both entities to their pre-resize bounds.
+    await undoWorkspace()
+    await wait(50)
+
+    const afterUndo = await getTextEntities()
+    const aUndone = afterUndo.textEntities.find((t) => t.id === idsA[0])!
+    const bUndone = afterUndo.textEntities.find((t) => t.id === idsB[0])!
+    expect(aUndone.width).toBe(aInit.width)
+    expect(bUndone.width).toBe(bInit.width)
   })
 })

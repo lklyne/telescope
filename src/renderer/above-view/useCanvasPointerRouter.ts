@@ -720,6 +720,12 @@ function runMultiResize(
   const acc = startMultiResize(seed)
   const zoom = layout.zoom ?? 1
 
+  // Enter multi-resize interaction state in main BEFORE the first
+  // resizeMultiSelection dispatch — same ordering requirement as single-entity
+  // resize (see runResize comment above). Also opens a batch so all per-tick
+  // mutations coalesce into one Y.Doc transaction / one undo step.
+  api.beginMultiResize()
+
   let lastX = event.screenX
   let lastY = event.screenY
   const cleanup = () => {
@@ -728,6 +734,7 @@ function runMultiResize(
     window.removeEventListener('pointerup', onUp)
     window.removeEventListener('pointercancel', onCancel)
     window.removeEventListener('blur', onCancel)
+    api.endMultiResize()
   }
   const onMove = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return

@@ -343,6 +343,7 @@ type InteractionMode =
   | { kind: 'marquee'; origin: { x: number; y: number }; current: { x: number; y: number } }
   | { kind: 'dragging-entities'; ids: string[]; anchor: { x: number; y: number } }
   | { kind: 'resizing-entity'; id: string; edge: string }
+  | { kind: 'resizing-multi-selection' }
   | { kind: 'dragging-edge'; from: unknown; target: unknown }
   | { kind: 'editing-entity'; id: string }
 
@@ -354,6 +355,7 @@ export type TryEnterInput =
   | { kind: 'marquee' }
   | { kind: 'dragging-entities'; entityIds: string[] }
   | { kind: 'resizing-entity'; target: { kind: string; id: string } }
+  | { kind: 'resizing-multi-selection' }
   | { kind: 'editing-entity'; entityId: string }
   | { kind: 'dragging-edge'; from: { kind: string; id: string }; fromSide: 'top' | 'right' | 'bottom' | 'left' }
 
@@ -436,6 +438,27 @@ export function endCanvasDrag() {
 
 export function getCanvasGuides() {
   return get<CanvasGuidesPayload>('/test/canvas-guides/current')
+}
+
+export type MultiResizeEntry = {
+  id: string
+  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'
+  width: number
+  height: number
+  canvasX: number
+  canvasY: number
+}
+
+export function beginMultiResize() {
+  return post<{ ok: true }>('/test/canvas-multi-resize/begin')
+}
+
+export function applyMultiResize(entries: MultiResizeEntry[]) {
+  return post<{ ok: true }>('/test/canvas-multi-resize/apply', { entries })
+}
+
+export function endMultiResize() {
+  return post<{ ok: true }>('/test/canvas-multi-resize/end')
 }
 
 // --- Tool state ---

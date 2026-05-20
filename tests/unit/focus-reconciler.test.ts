@@ -29,7 +29,7 @@ describe('expectedFocus', () => {
       .toEqual({ kind: 'aboveView' })
   })
 
-  for (const mode of ['panning', 'marquee', 'dragging-entities', 'resizing-entity', 'dragging-edge'] as const) {
+  for (const mode of ['panning', 'marquee', 'dragging-entities', 'resizing-entity', 'resizing-multi-selection', 'dragging-edge'] as const) {
     it(`routes ${mode} to aboveView`, () => {
       expect(expectedFocus(state({ interactionMode: mode }))).toEqual({ kind: 'aboveView' })
     })

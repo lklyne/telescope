@@ -402,9 +402,9 @@ export const AddShapeToolIcon = makeToolbarIcon(addShapeUrl, addShapeDarkUrl, 'A
 //
 // Geometry ported from icons/toolbar/add-sticky.svg. Light mode keeps the
 // paper pale via lighten(tint, 0.45) → lighten(tint, 0.15). Dark mode is
-// split: neutral darkens hard (0.55 → 0.70, matching the original raster)
-// so it doesn't outshine the toolbar surface and bleed past strokes; hue
-// stickies darken lightly (0.20 → 0.40) so the chroma stays readable.
+// split: neutral darkens hard (0.55 → 0.70, matching the original raster);
+// hues darken to 0.40 → 0.55 so the fill sits below the #C4BEBB stroke in
+// value and the outline reads clearly. Less darkening washed the stroke out.
 
 type AddStickyIconProps = {
   size?: number
@@ -433,10 +433,10 @@ export function AddStickyToolIcon({
   const clip = `add-sticky-clip-${uid}`
 
   const paperTop = isDark
-    ? darkenHex(tint, isNeutral ? 0.55 : 0.2)
+    ? darkenHex(tint, isNeutral ? 0.55 : 0.4)
     : lightenHex(tint, 0.45)
   const paperBottom = isDark
-    ? darkenHex(tint, isNeutral ? 0.7 : 0.4)
+    ? darkenHex(tint, isNeutral ? 0.7 : 0.55)
     : lightenHex(tint, 0.15)
   const stroke = isDark ? '#C4BEBB' : '#45403C'
   // Drop-shadow color matrix differs by theme: light uses 32% gray, dark uses

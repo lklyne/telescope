@@ -232,6 +232,45 @@ Keep entries terse: one-line description, observed behavior, expected behavior. 
 
 When a limitation is fixed (confirmed by testing, not just by a closed issue), **remove it from the "Known CLI limitations" list above** and close or note it on the GitHub issue. A stale warning is worse than no warning.
 
+## Component rendering (React / Svelte / Vue)
+
+Specular can render live component files (`.tsx`, `.jsx`, `.svelte`, `.vue`)
+from a connected Vite dev server directly on the canvas. The extension set is
+controlled by a JSON manifest in the app's userData directory
+(`component-extensions.json`); edit it to add or remove extensions without
+rebuilding the app.
+
+### Setting up a project
+
+The canvas talks to the user's own Vite dev server via a `/__specular?path=`
+route. That route is not built into Vite — you add it by stamping a host-route
+plugin into the project.
+
+A self-contained template is bundled with the app at
+`resources/specular-host.ts`. To locate it at runtime:
+
+```bash
+# Find the bundled template (macOS packaged app)
+ls "$(dirname "$(which specular)")/../Resources/specular-host.ts" 2>/dev/null \
+  || ls "$(dirname "$(which specular)")/../../Resources/specular-host.ts" 2>/dev/null
+```
+
+To set up a project, copy the template into the repo and wire it into `vite.config`:
+
+```bash
+cp /path/to/specular-host.ts ./specular-host.ts
+```
+
+```ts
+// vite.config.ts
+import specularHost from './specular-host'
+export default defineConfig({ plugins: [specularHost(), yourOtherPlugins()] })
+```
+
+The project must already have the framework's Vite plugin (`@vitejs/plugin-react`,
+`@sveltejs/vite-plugin-svelte`, or `@vitejs/plugin-vue`). No separate `npm install`
+is required for the template itself.
+
 ## See also
 
 - `agent-browser` skill — deeper browser-automation reference (invoked via

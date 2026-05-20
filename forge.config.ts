@@ -17,6 +17,7 @@ const config: ForgeConfig = {
       'resources/specular-cli.sh',
       'resources/skills',
       'resources/bin',
+      'resources/specular-host.ts',
     ],
     ignore: [],
     ...(isSigning && {

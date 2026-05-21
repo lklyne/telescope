@@ -98,15 +98,31 @@ export function getWorkspace() {
 }
 
 export function getSidebar() {
+  type SidebarItem = {
+    kind: 'page' | 'text' | 'file' | 'group' | 'drawing' | 'shape'
+    id: string
+    label: string
+    children?: SidebarItem[]
+    entityCount?: number
+  }
   return get<{
-    items: Array<{
-      kind: 'page' | 'text' | 'file' | 'group'
-      id: string
-      label: string
-      children?: unknown[]
-      entityCount?: number
-    }>
+    sections: { notes: SidebarItem[]; pages: SidebarItem[] }
+    items: SidebarItem[]
   }>('/sidebar')
+}
+
+export function getEntityOrder() {
+  return get<{ entityOrder: string[] }>('/test/workspace/entity-order')
+}
+
+export function reorderSidebarItem(input: {
+  section: 'notes' | 'pages'
+  draggedId: string
+  anchorId?: string | null
+  position?: 'before' | 'after'
+  parentId?: string | null
+}) {
+  return post<{ ok: boolean; entityOrder: string[] }>('/test/sidebar/reorder', input)
 }
 
 // --- Pages ---

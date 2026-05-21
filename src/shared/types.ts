@@ -616,6 +616,13 @@ export type SidebarCanvasItem =
   | SidebarShapeItem
   | SidebarGroupItem
 
+export type SidebarSectionKey = 'notes' | 'pages'
+
+export interface LeftSidebarSections {
+  notes: SidebarCanvasItem[]
+  pages: SidebarCanvasItem[]
+}
+
 export interface LeftSidebarData {
   width: number
   selectedEntityIds: string[]
@@ -624,6 +631,7 @@ export interface LeftSidebarData {
   activeTabId: string | null
   viewMode: WorkspaceViewMode
   hasPages: boolean
+  sections: LeftSidebarSections
   items: SidebarCanvasItem[]
 }
 
@@ -1994,6 +2002,13 @@ export interface LeftSidebarElectronAPI {
   duplicateTab: (tabId: string) => void
   deleteTab: (tabId: string) => void
   reorderTab: (tabId: string, toIndex: number) => void
+  reorderSidebarItem: (
+    section: SidebarSectionKey,
+    draggedId: string,
+    anchorId: string | null,
+    position: 'before' | 'after',
+    parentId: string | null,
+  ) => void
   deletePage: (pageId: string) => void
   setTabExpanded: (tabId: string, expanded: boolean) => void
   setTextEditing: (active: boolean) => void

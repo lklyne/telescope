@@ -1730,6 +1730,10 @@ export interface CanvasBgElectronAPI {
   pasteSelection: (canvasX: number, canvasY: number) => void
   deleteSelectedEntities: () => void
   tidySelectedEntities: () => void
+  reorderStack: (
+    action: 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back',
+    targetId?: string,
+  ) => void
   createTextEntity: (canvasX: number, canvasY: number, text?: string, color?: string) => void
   updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }) => void
   duplicateTextEntity: (id: string) => void

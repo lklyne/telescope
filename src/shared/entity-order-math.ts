@@ -84,6 +84,47 @@ export function appendAtTop(order: readonly string[], id: string): string[] {
   return [...order.filter((candidate) => candidate !== id), id]
 }
 
+export function bringToFront(order: readonly string[], ids: readonly string[]): string[] {
+  const block = uniqueExisting(order, ids)
+  if (!block.length) return [...order]
+  const blockIds = new Set(block)
+  const withoutBlock = order.filter((candidate) => !blockIds.has(candidate))
+  return [...withoutBlock, ...block]
+}
+
+export function sendToBack(order: readonly string[], ids: readonly string[]): string[] {
+  const block = uniqueExisting(order, ids)
+  if (!block.length) return [...order]
+  const blockIds = new Set(block)
+  const withoutBlock = order.filter((candidate) => !blockIds.has(candidate))
+  return [...block, ...withoutBlock]
+}
+
+export function moveForward(order: readonly string[], ids: readonly string[]): string[] {
+  const block = uniqueExisting(order, ids)
+  if (!block.length) return [...order]
+  const blockIds = new Set(block)
+  const lastBlockIndex = Math.max(...block.map((id) => order.indexOf(id)))
+  const anchorId = order
+    .slice(lastBlockIndex + 1)
+    .find((candidate) => !blockIds.has(candidate))
+  if (!anchorId) return [...order]
+  return moveBlockBefore(order, block, anchorId, 'after')
+}
+
+export function moveBackward(order: readonly string[], ids: readonly string[]): string[] {
+  const block = uniqueExisting(order, ids)
+  if (!block.length) return [...order]
+  const blockIds = new Set(block)
+  const firstBlockIndex = Math.min(...block.map((id) => order.indexOf(id)))
+  const anchorId = order
+    .slice(0, firstBlockIndex)
+    .reverse()
+    .find((candidate) => !blockIds.has(candidate))
+  if (!anchorId) return [...order]
+  return moveBlockBefore(order, block, anchorId, 'before')
+}
+
 export function enforceGroupContiguity(
   order: readonly string[],
   groups: readonly EntityOrderGroup[],

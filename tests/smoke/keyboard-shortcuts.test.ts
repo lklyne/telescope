@@ -9,6 +9,7 @@ import {
   deselectSelection,
   getInteractionMode,
   getSelection,
+  getEntityOrder,
   getTextEntities,
   getWorkspace,
   pasteClipboardText,
@@ -314,5 +315,55 @@ describe('keyboard shortcuts (binding dispatcher)', () => {
     // so dispatchKey returns null and the keystroke is forwarded to the page.
     await sendKey('z', { cmd: true, target: 'page', pageId })
     await wait(50)
+  })
+
+  it('Cmd+[ sends a selected page backward in stack order', async () => {
+    const first = await createPage('https://example.com/stack-shortcut-a')
+    const second = await createPage('https://example.com/stack-shortcut-b')
+    await selectPage(second)
+
+    await sendKey('[', { cmd: true })
+
+    await waitFor(
+      () => getEntityOrder(),
+      ({ entityOrder }) => {
+        const ids = entityOrder.filter((id) => id === first || id === second)
+        return ids[0] === second && ids[1] === first
+      },
+      'Timed out waiting for page stack shortcut reorder',
+    )
+  })
+
+  it('Cmd+[ sends a selected sticky backward in stack order', async () => {
+    const firstResult = await createTextEntities([
+      { canvasX: 120, canvasY: 120, text: 'Stack shortcut A' },
+    ])
+    const secondResult = await createTextEntities([
+      { canvasX: 160, canvasY: 160, text: 'Stack shortcut B' },
+    ])
+    const ids = [firstResult.ids[0], secondResult.ids[0]]
+    createdTextIds.push(...ids)
+    const [first, second] = ids
+    await waitFor(
+      () => getTextEntities(),
+      ({ textEntities }) => ids.every((id) => textEntities.some((entity) => entity.id === id)),
+      'Timed out waiting for stack shortcut stickies',
+    )
+    const before = await getEntityOrder()
+    const beforePair = before.entityOrder.filter((id) => id === first || id === second)
+    expect(beforePair).toHaveLength(2)
+    const [backmost, frontmost] = beforePair
+    await selectEntity(frontmost, 'text')
+
+    await sendKey('[', { cmd: true })
+
+    await waitFor(
+      () => getEntityOrder(),
+      ({ entityOrder }) => {
+        const ordered = entityOrder.filter((id) => id === first || id === second)
+        return ordered[0] === frontmost && ordered[1] === backmost
+      },
+      'Timed out waiting for sticky stack shortcut reorder',
+    )
   })
 })

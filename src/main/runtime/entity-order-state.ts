@@ -1,8 +1,12 @@
 import type { SidebarSectionKey } from '../../shared/types'
 import {
+  bringToFront,
   enforceGroupContiguity,
   moveBlockBefore,
+  moveBackward,
+  moveForward,
   replaceSubsequence,
+  sendToBack,
   type MovePosition,
 } from '../../shared/entity-order-math'
 import { drawingEntities } from './drawing-entity-state'
@@ -18,6 +22,7 @@ import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import { workspaceGroups } from './workspace-model'
 
 type EntityKindForOrder = 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group' | 'edge'
+export type StackOrderAction = 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back'
 
 function defaultEntityOrder(): string[] {
   return [
@@ -155,6 +160,54 @@ function groupsForContiguity() {
     parentGroupId: group.parentGroupId ?? null,
     childIds: directChildIds(group.id),
   }))
+}
+
+function selectedBlockForStackOrder(targetId?: string): string[] {
+  const selectedIds = uiSelectedEntityIds()
+  const groupId = uiSelectedGroupId()
+  if (targetId) {
+    if (groupId === targetId) return [targetId]
+    if (selectedIds.includes(targetId)) return selectedIds
+    return [targetId]
+  }
+  if (groupId) return [groupId]
+  return selectedIds
+}
+
+function applyStackOrderAction(
+  order: readonly string[],
+  ids: readonly string[],
+  action: StackOrderAction,
+): string[] {
+  switch (action) {
+    case 'bring-forward':
+      return moveForward(order, ids)
+    case 'send-backward':
+      return moveBackward(order, ids)
+    case 'bring-to-front':
+      return bringToFront(order, ids)
+    case 'send-to-back':
+      return sendToBack(order, ids)
+  }
+}
+
+export function reorderStackOrder(action: StackOrderAction, targetId?: string): boolean {
+  const order = currentEntityOrder()
+  const currentIds = currentEntityIds()
+  const block = selectedBlockForStackOrder(targetId).filter((id) => currentIds.has(id))
+  if (!block.length) return false
+
+  const nextOrder = enforceGroupContiguity(
+    applyStackOrderAction(order, block, action),
+    groupsForContiguity(),
+  )
+  if (JSON.stringify(order) === JSON.stringify(nextOrder)) return false
+
+  writeEntityOrder(nextOrder)
+  markDirty('canvas', 'sidebar')
+  scheduleWorkspaceAutosave()
+  requestLayout()
+  return true
 }
 
 export function reorderSidebarStackOrder(input: {

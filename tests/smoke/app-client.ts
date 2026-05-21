@@ -130,6 +130,19 @@ export function reorderSidebarItem(input: {
   return post<{ ok: boolean; entityOrder: string[] }>('/test/sidebar/reorder', input)
 }
 
+export type StackOrderAction =
+  | 'bring-forward'
+  | 'send-backward'
+  | 'bring-to-front'
+  | 'send-to-back'
+
+export function reorderStackOrder(
+  action: StackOrderAction,
+  input: { id: string } | { ids: string[] },
+) {
+  return post<{ ok: boolean; entityOrder: string[] }>(`/stack-order/${action}`, input)
+}
+
 // --- Pages ---
 
 export function createPages(pages: { url: string; presetIndex?: number; canvasX?: number; canvasY?: number }[]) {

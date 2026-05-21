@@ -214,6 +214,25 @@ export function reorderStackOrder(action: StackOrderAction, targetId?: string): 
   return true
 }
 
+export function reorderStackOrderIds(action: StackOrderAction, ids: readonly string[]): boolean {
+  const order = currentEntityOrder()
+  const currentIds = currentEntityIds()
+  const block = ids.filter((id) => currentIds.has(id))
+  if (!block.length) return false
+
+  const nextOrder = enforceGroupContiguity(
+    applyStackOrderAction(order, block, action),
+    groupsForContiguity(),
+  )
+  if (JSON.stringify(order) === JSON.stringify(nextOrder)) return false
+
+  writeEntityOrder(nextOrder)
+  markDirty('canvas', 'sidebar')
+  scheduleWorkspaceAutosave()
+  requestLayout()
+  return true
+}
+
 export function appendStackOrderIdsAtTop(ids: readonly string[]): boolean {
   if (!ids.length) return false
   let nextOrder = currentEntityOrder()

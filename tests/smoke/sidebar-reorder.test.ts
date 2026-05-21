@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   createPages,
+  createEdges,
   createTextEntities,
+  deleteEdges,
   deletePages,
   deleteTextEntities,
   getEntityOrder,
@@ -13,6 +15,7 @@ import {
 
 const createdPageIds: string[] = []
 const createdTextIds: string[] = []
+const createdEdgeIds: string[] = []
 
 async function createPage(url: string, x: number) {
   const result = await createPages([{ url, canvasX: x, canvasY: 120 }])
@@ -33,6 +36,7 @@ function idsInOrder(order: string[], ids: string[]) {
 
 describe('left sidebar stack-order drag', () => {
   afterEach(async () => {
+    if (createdEdgeIds.length) await deleteEdges(createdEdgeIds.splice(0))
     if (createdTextIds.length) await deleteTextEntities(createdTextIds.splice(0))
     if (createdPageIds.length) await deletePages(createdPageIds.splice(0))
   })
@@ -109,5 +113,29 @@ describe('left sidebar stack-order drag', () => {
     const afterOrder = (await getEntityOrder()).entityOrder
     expect(idsInOrder(afterOrder, [first, second, third])).toEqual([third, first, second])
     expect(afterOrder.indexOf(page)).toBe(pageIndex)
+  })
+
+  it('reorders note rows without moving edge stack slots', async () => {
+    const first = await createText('Alpha', 120)
+    const second = await createText('Beta', 360)
+    const edgeResult = await createEdges([
+      { fromEntityId: first, toEntityId: second, kind: 'connection' },
+    ])
+    const edge = edgeResult.edgeIds[0]
+    createdEdgeIds.push(edge)
+    const beforeOrder = (await getEntityOrder()).entityOrder
+    const edgeIndex = beforeOrder.indexOf(edge)
+
+    await reorderSidebarItem({
+      section: 'notes',
+      draggedId: second,
+      anchorId: first,
+      position: 'before',
+      parentId: null,
+    })
+
+    const afterOrder = (await getEntityOrder()).entityOrder
+    expect(idsInOrder(afterOrder, [first, second])).toEqual([second, first])
+    expect(afterOrder.indexOf(edge)).toBe(edgeIndex)
   })
 })

@@ -135,7 +135,10 @@ export function workspaceSnapshot(): WorkspaceSnapshot {
     snapshot.entityOrder.push(entity.id)
   }
   if (snapshot.entities) {
-    const currentIds = new Set(Object.keys(snapshot.entities))
+    const currentIds = new Set([
+      ...Object.keys(snapshot.entities),
+      ...workspaceEdges.map((edge) => edge.id),
+    ])
     const seen = new Set<string>()
     const ordered: string[] = []
     for (const id of getActiveDoc().getArray<string>(DOC_ARRAY_ENTITY_ORDER).toArray()) {
@@ -147,6 +150,11 @@ export function workspaceSnapshot(): WorkspaceSnapshot {
       if (seen.has(id)) continue
       seen.add(id)
       ordered.push(id)
+    }
+    for (const edge of workspaceEdges) {
+      if (seen.has(edge.id)) continue
+      seen.add(edge.id)
+      ordered.push(edge.id)
     }
     snapshot.entityOrder = ordered
   }

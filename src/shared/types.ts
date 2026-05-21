@@ -433,6 +433,8 @@ export interface LayoutUpdateData {
    * that mode.
    */
   toolbarCenterX: number
+  /** Back-to-front stack order across canvas nodes and edges. */
+  entityOrder: string[]
   entities: CanvasSceneEntity[]
   browserTabs: WorkspaceTabPageSummary[]
   browserFillViewport: {

@@ -293,6 +293,21 @@ export function deleteTextEntities(ids: string[]) {
   return post<{ deleted: string[] }>('/text-entities/delete', { ids })
 }
 
+// --- Edges ---
+
+export function createEdges(edges: Array<{
+  id?: string
+  fromEntityId: string
+  toEntityId: string
+  kind: 'breakpoint_variant' | 'connection'
+}>) {
+  return post<{ edgeIds: string[] }>('/edges/create', { edges })
+}
+
+export function deleteEdges(edgeIds: string[]) {
+  return post<{ deletedEdgeIds: string[] }>('/edges/delete', { edgeIds })
+}
+
 // --- Selection ---
 
 export function getSelection() {

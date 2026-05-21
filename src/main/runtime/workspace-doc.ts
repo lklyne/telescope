@@ -305,6 +305,7 @@ function syncEntityOrder(
     drawingEntities: ReadonlyArray<{ id: string }>
     shapeEntities: ReadonlyArray<{ id: string }>
     workspaceGroups: ReadonlyArray<{ id: string }>
+    workspaceEdges: ReadonlyArray<{ id: string }>
   },
 ): void {
   const order = doc.getArray<string>(DOC_ARRAY_ENTITY_ORDER)
@@ -315,6 +316,7 @@ function syncEntityOrder(
     ...runtime.drawingEntities.map((e) => e.id),
     ...runtime.shapeEntities.map((e) => e.id),
     ...runtime.workspaceGroups.map((g) => g.id),
+    ...runtime.workspaceEdges.map((e) => e.id),
   ]
   const currentIds = new Set(defaultOrder)
   const currentOrder = order.toArray()

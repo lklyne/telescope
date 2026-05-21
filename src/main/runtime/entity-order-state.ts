@@ -1,5 +1,6 @@
 import type { SidebarSectionKey } from '../../shared/types'
 import {
+  appendAtTop,
   bringToFront,
   enforceGroupContiguity,
   moveBlockBefore,
@@ -19,7 +20,7 @@ import { shapeEntities } from './shape-entity-state'
 import { textEntities } from './text-entity-state'
 import { selectedEntityIds as uiSelectedEntityIds, selectedGroupId as uiSelectedGroupId } from '../ui-state'
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
-import { workspaceGroups } from './workspace-model'
+import { workspaceEdges, workspaceGroups } from './workspace-model'
 
 type EntityKindForOrder = 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group' | 'edge'
 export type StackOrderAction = 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back'
@@ -32,6 +33,7 @@ function defaultEntityOrder(): string[] {
     ...drawingEntities.map((entity) => entity.id),
     ...shapeEntities.map((entity) => entity.id),
     ...workspaceGroups.map((group) => group.id),
+    ...workspaceEdges.map((edge) => edge.id),
   ]
 }
 
@@ -90,6 +92,7 @@ function entityKindById(id: string): EntityKindForOrder | null {
   if (drawingEntities.some((entity) => entity.id === id)) return 'drawing'
   if (shapeEntities.some((entity) => entity.id === id)) return 'shape'
   if (workspaceGroups.some((group) => group.id === id)) return 'group'
+  if (workspaceEdges.some((edge) => edge.id === id)) return 'edge'
   return null
 }
 
@@ -136,6 +139,7 @@ function groupHasSection(groupId: string, section: SidebarSectionKey): boolean {
 export function isInSidebarSection(id: string, section: SidebarSectionKey): boolean {
   const kind = entityKindById(id)
   if (!kind) return false
+  if (kind === 'edge') return false
   if (kind === 'group') return groupHasSection(id, section)
   if (section === 'pages') return kind === 'page'
   return kind === 'text' || kind === 'file' || kind === 'drawing' || kind === 'shape'
@@ -207,6 +211,16 @@ export function reorderStackOrder(action: StackOrderAction, targetId?: string): 
   markDirty('canvas', 'sidebar')
   scheduleWorkspaceAutosave()
   requestLayout()
+  return true
+}
+
+export function appendStackOrderIdsAtTop(ids: readonly string[]): boolean {
+  if (!ids.length) return false
+  let nextOrder = currentEntityOrder()
+  for (const id of ids) {
+    nextOrder = appendAtTop(nextOrder, id)
+  }
+  writeEntityOrder(nextOrder)
   return true
 }
 

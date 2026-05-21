@@ -2,6 +2,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import type { CanvasGuidesPayload } from '../../src/shared/canvas-guides'
+import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
 
 function loadEnv(): { port: number; secret: string } {
   const raw = readFileSync(join(tmpdir(), 'specular-smoke-env.json'), 'utf8')
@@ -113,6 +114,10 @@ export function getSidebar() {
 
 export function getEntityOrder() {
   return get<{ entityOrder: string[] }>('/test/workspace/entity-order')
+}
+
+export function loadCanvasFixture(input: { name?: string; doc: JsonCanvasDocument }) {
+  return post<{ ok: true; entityOrder: string[] }>('/test/workspace/load-canvas-fixture', input)
 }
 
 export function reorderSidebarItem(input: {
